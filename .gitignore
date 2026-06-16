@@ -1,6 +1,10 @@
 # 의존성 (npm install로 복원)
 node_modules/
 
+# 대용량 음원 — git에는 넣지 않음(앱 폴더를 통째로 복사/zip해서 옮기세요).
+# git/GitHub로 음원까지 옮기려면 Git LFS 설정 필요.
+sound/
+
 # OMC 오케스트레이션 상태
 .omc/
 

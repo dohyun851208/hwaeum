@@ -7,17 +7,22 @@ Song Maker(음계·박자 자동 보정) + Paint with Music(드로잉→소리, 
 
 ## 실행
 
-음원을 불러오려면 프로젝트 상위 폴더에서 로컬 서버로 여는 것을 권장합니다(브라우저 보안 정책상 `file://`에서는 음원 fetch가 막혀 합성음으로 대체됩니다).
+이 폴더는 **자족형**입니다. 음원(`sound/`)·이미지·코드가 모두 안에 있어, 폴더를 통째로 복사/zip해서 어느 컴퓨터로 옮겨도 그대로 동작합니다. 단, `file://`(파일 더블클릭)에서는 브라우저 보안상 음원 fetch가 막혀 합성음만 나오므로 **로컬 서버로** 여세요.
 
-```powershell
-python -m http.server 4173 --directory C:\Users\com\Desktop\baeum\song
-```
-
-브라우저에서 아래 주소를 엽니다(데스크탑·마우스 환경 기준).
+가장 쉬운 방법: 이 폴더의 **`웹으로 열기.bat`** 더블클릭 (서버 + 브라우저 자동 실행). 또는 직접:
 
 ```text
-http://127.0.0.1:4173/sound-drawing-tool/
+python -m http.server 4173      # 이 폴더(sound-drawing-tool)에서 실행
 ```
+
+브라우저에서(데스크탑·마우스 환경 기준):
+
+```text
+http://localhost:4173/index.html
+```
+
+> 끄려면 서버 창에서 Ctrl+C. 음원이 정상 로드되면 하단에 "실제 음원을 우선 사용…", 실패하면 ⚠ 경고가 표시됩니다.
+> git/GitHub에는 대용량 음원(`sound/`)을 넣지 않습니다 — 다른 컴퓨터로는 **폴더를 복사**해 옮기세요.
 
 ## 제작 흐름 (5단계)
 
@@ -53,7 +58,7 @@ js/studio.js       위저드 흐름·업로드·무드 틴팅·재생·내보내
 
 `js/manifest.js`에서 수정합니다.
 
-- **배경 음원(분위기)**: `backgrounds.<id>`에 `label`과 `src`(예: `../sound/배경(freesound)/고요한.wav`)를 넣고, `atmospheres`에 같은 `id`로 항목을 추가하면 분위기 카드와 1:1로 매칭됩니다. 카드 클릭 시 그 `src`가 미리듣기로 재생됩니다. (선생님이 화면에서 직접 올린 음원은 그 세션에만 유지됩니다.)
+- **배경 음원(분위기)**: `backgrounds.<id>`에 `label`과 `src`(예: `sound/배경(freesound)/고요한.wav`)를 넣고, `atmospheres`에 같은 `id`로 항목을 추가하면 분위기 카드와 1:1로 매칭됩니다. 카드 클릭 시 그 `src`가 미리듣기로 재생됩니다. (선생님이 화면에서 직접 올린 음원은 그 세션에만 유지됩니다.)
 - **선율 악기**: `melodies.<악기>`에 `src`와 기준음 `baseMidi`를 지정합니다(단일음 샘플은 피치 시프트, 긴 구절은 `sampleMode: "phrase"`).
 - **효과음**: `effects`에 추가하고 장면의 `effectIds`에 연결합니다.
 

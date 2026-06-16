@@ -49,9 +49,18 @@ test("instrument image entries point to existing project files", () => {
   assert.deepEqual(missing, [])
 })
 
-test("serve script exposes the sibling sound directory used by audio src paths", () => {
+test("자족형 구조: 음원 폴더가 앱 폴더 안에 있고 serve는 앱 폴더를 그대로 띄운다", () => {
+  // 음원을 상대경로(sound/...)로 앱 폴더 안에 두어, 폴더 하나만 복사하면 어디서든 동작.
+  assert.ok(fs.existsSync(path.join(projectDir, "sound")), "앱 폴더 안에 sound/ 가 없다")
   const pkg = JSON.parse(fs.readFileSync(path.join(projectDir, "package.json"), "utf8"))
-  assert.match(pkg.scripts.serve, /--directory\s+\.\./)
+  assert.match(pkg.scripts.serve, /http\.server/)
+  assert.doesNotMatch(pkg.scripts.serve, /--directory/, "serve가 더 이상 상위 폴더를 띄우면 안 된다")
+})
+
+test("음원 src 경로는 상대경로(sound/...)여야 한다 — 상위(../) 참조 금지", () => {
+  const data = loadManifest()
+  const offenders = collectAssets(data).filter((a) => /^\.\.\//.test(a.src))
+  assert.deepEqual(offenders, [], "src에 ../ 상위 참조가 남아있다")
 })
 
 test("detected sample maps provide playable note segments for gugak melody assets", () => {

@@ -6,7 +6,7 @@
   "description": "그림에 어울리는 30초 BGM을 학생이 직접 만드는 교실용 사운드 드로잉 창작 도구",
   "scripts": {
     "test": "node --test",
-    "serve": "python -m http.server 4173 --directory .."
+    "serve": "python -m http.server 4173"
   },
   "dependencies": {
     "@tonaljs/tonal": "^4.10.0",

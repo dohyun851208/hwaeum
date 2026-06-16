@@ -11,12 +11,12 @@
 
   // 배경음악 (sound/배경(freesound)) — 분위기(atmosphere)와 id로 1:1 매칭되는 배경 음원
   const backgrounds = {
-    calm: { label: "고요한", src: "../sound/배경(freesound)/고요한.wav", duration: 155 },
-    tension: { label: "긴장되는", src: "../sound/배경(freesound)/긴장되는.mp3", duration: 15 },
-    bright: { label: "밝은", src: "../sound/배경(freesound)/밝은.wav", duration: 44 },
-    exotic: { label: "이국적인", src: "../sound/배경(freesound)/이국적인.wav", duration: 32 },
-    peaceful: { label: "평화로운", src: "../sound/배경(freesound)/평화로운.mp3", duration: 269 },
-    energetic: { label: "활기찬", src: "../sound/배경(freesound)/활기찬.wav", duration: 19 },
+    calm: { label: "고요한", src: "sound/배경(freesound)/고요한.wav", duration: 155 },
+    tension: { label: "긴장되는", src: "sound/배경(freesound)/긴장되는.mp3", duration: 15 },
+    bright: { label: "밝은", src: "sound/배경(freesound)/밝은.wav", duration: 44 },
+    exotic: { label: "이국적인", src: "sound/배경(freesound)/이국적인.wav", duration: 32 },
+    peaceful: { label: "평화로운", src: "sound/배경(freesound)/평화로운.mp3", duration: 269 },
+    energetic: { label: "활기찬", src: "sound/배경(freesound)/활기찬.wav", duration: 19 },
   }
 
   // 패드 종류 — 선생님이 ambient/string/drone/choir/synth pad 음원을 추가하면 src를 채웁니다.
@@ -31,39 +31,39 @@
 
   // 선율 악기 (sound/선율-서양, sound/선율-국악) — 단일음/구절 샘플
   const melodies = {
-    violin: { label: "바이올린", group: "서양", src: "../sound/선율-서양(필하모니아)/현/violin_A3_1_forte_arco-normal.mp3", baseMidi: 57, lowMidi: 55, highMidi: 72, minRate: 0.72, maxRate: 1.9, waveform: "sawtooth" },
-    viola: { label: "비올라", group: "서양", src: "../sound/선율-서양(필하모니아)/현/viola_A3_15_forte_arco-normal.mp3", baseMidi: 57, lowMidi: 48, highMidi: 69, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth" },
-    cello: { label: "첼로", group: "서양", src: "../sound/선율-서양(필하모니아)/현/cello_A2_1_forte_arco-normal.mp3", baseMidi: 45, lowMidi: 36, highMidi: 60, minRate: 0.62, maxRate: 1.9, waveform: "triangle" },
-    doubleBass: { label: "더블베이스", group: "서양", src: "../sound/선율-서양(필하모니아)/현/double-bass_A1_1_forte_arco-normal.mp3", baseMidi: 33, lowMidi: 28, highMidi: 48, minRate: 0.72, maxRate: 1.9, waveform: "triangle" },
-    flute: { label: "플루트", group: "서양", src: "../sound/선율-서양(필하모니아)/관/flute_A4_1_forte_normal.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sine" },
-    oboe: { label: "오보에", group: "서양", src: "../sound/선율-서양(필하모니아)/관/oboe_A4_1_forte_normal.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth" },
-    frenchHorn: { label: "프렌치 호른", group: "서양", src: "../sound/선율-서양(필하모니아)/관/french-horn_A3_very-long_cresc-decresc_normal.mp3", baseMidi: 57, lowMidi: 45, highMidi: 69, minRate: 0.55, maxRate: 1.72, waveform: "triangle" },
-    daegeum: { label: "대금", group: "국악", src: "../sound/선율-국악(국립국악원)/관/정악대금.wav", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
-    danso: { label: "단소", group: "국악", src: "../sound/선율-국악(국립국악원)/관/단소.wav", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
-    sogeum: { label: "소금", group: "국악", src: "../sound/선율-국악(국립국악원)/관/소금.wav", baseMidi: 72, lowMidi: 64, highMidi: 84, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
-    nagak: { label: "나각", group: "국악", src: "../sound/선율-국악(국립국악원)/관/나각.wav", baseMidi: 57, lowMidi: 50, highMidi: 67, minRate: 0.66, maxRate: 1.62, waveform: "triangle", sampleMode: "phrase" },
-    gayageum: { label: "가야금", group: "국악", src: "../sound/선율-국악(국립국악원)/현/가야금.wav", baseMidi: 60, lowMidi: 48, highMidi: 72, minRate: 0.55, maxRate: 1.72, waveform: "triangle", sampleMode: "phrase" },
-    ajaeng: { label: "산조아쟁", group: "국악", src: "../sound/선율-국악(국립국악원)/현/산조아쟁.wav", baseMidi: 48, lowMidi: 40, highMidi: 60, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
-    haegeum: { label: "해금", group: "국악", src: "../sound/선율-국악(국립국악원)/현/해금.wav", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
+    violin: { label: "바이올린", group: "서양", src: "sound/선율-서양(필하모니아)/현/violin_A3_1_forte_arco-normal.mp3", baseMidi: 57, lowMidi: 55, highMidi: 72, minRate: 0.72, maxRate: 1.9, waveform: "sawtooth" },
+    viola: { label: "비올라", group: "서양", src: "sound/선율-서양(필하모니아)/현/viola_A3_15_forte_arco-normal.mp3", baseMidi: 57, lowMidi: 48, highMidi: 69, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth" },
+    cello: { label: "첼로", group: "서양", src: "sound/선율-서양(필하모니아)/현/cello_A2_1_forte_arco-normal.mp3", baseMidi: 45, lowMidi: 36, highMidi: 60, minRate: 0.62, maxRate: 1.9, waveform: "triangle" },
+    doubleBass: { label: "더블베이스", group: "서양", src: "sound/선율-서양(필하모니아)/현/double-bass_A1_1_forte_arco-normal.mp3", baseMidi: 33, lowMidi: 28, highMidi: 48, minRate: 0.72, maxRate: 1.9, waveform: "triangle" },
+    flute: { label: "플루트", group: "서양", src: "sound/선율-서양(필하모니아)/관/flute_A4_1_forte_normal.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sine" },
+    oboe: { label: "오보에", group: "서양", src: "sound/선율-서양(필하모니아)/관/oboe_A4_1_forte_normal.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth" },
+    frenchHorn: { label: "프렌치 호른", group: "서양", src: "sound/선율-서양(필하모니아)/관/french-horn_A3_very-long_cresc-decresc_normal.mp3", baseMidi: 57, lowMidi: 45, highMidi: 69, minRate: 0.55, maxRate: 1.72, waveform: "triangle" },
+    daegeum: { label: "대금", group: "국악", src: "sound/선율-국악(국립국악원)/관/정악대금.wav", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
+    danso: { label: "단소", group: "국악", src: "sound/선율-국악(국립국악원)/관/단소.wav", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
+    sogeum: { label: "소금", group: "국악", src: "sound/선율-국악(국립국악원)/관/소금.wav", baseMidi: 72, lowMidi: 64, highMidi: 84, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
+    nagak: { label: "나각", group: "국악", src: "sound/선율-국악(국립국악원)/관/나각.wav", baseMidi: 57, lowMidi: 50, highMidi: 67, minRate: 0.66, maxRate: 1.62, waveform: "triangle", sampleMode: "phrase" },
+    gayageum: { label: "가야금", group: "국악", src: "sound/선율-국악(국립국악원)/현/가야금.wav", baseMidi: 60, lowMidi: 48, highMidi: 72, minRate: 0.55, maxRate: 1.72, waveform: "triangle", sampleMode: "phrase" },
+    ajaeng: { label: "산조아쟁", group: "국악", src: "sound/선율-국악(국립국악원)/현/산조아쟁.wav", baseMidi: 48, lowMidi: 40, highMidi: 60, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
+    haegeum: { label: "해금", group: "국악", src: "sound/선율-국악(국립국악원)/현/해금.wav", baseMidi: 69, lowMidi: 60, highMidi: 81, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
     synth: { label: "신디", group: "전자", src: null, baseMidi: 60, waveform: "square" },
   }
 
   // 자연 효과음 (sound/효과-자연음(유자레코즈))
   const effects = {
-    wind1: { label: "바람 1", src: "../sound/효과-자연음(유자레코즈)/바람1.wav" },
-    wind2: { label: "바람 2", src: "../sound/효과-자연음(유자레코즈)/바람2.wav" },
-    wind3: { label: "바람 3", src: "../sound/효과-자연음(유자레코즈)/바람3.wav" },
-    rain1: { label: "비 1", src: "../sound/효과-자연음(유자레코즈)/비1.wav" },
-    rain2: { label: "비 2", src: "../sound/효과-자연음(유자레코즈)/비2.mp3" },
-    rain3: { label: "비 3", src: "../sound/효과-자연음(유자레코즈)/비3.wav" },
-    rain4: { label: "비 4", src: "../sound/효과-자연음(유자레코즈)/비4.wav" },
-    forest1: { label: "숲 1", src: "../sound/효과-자연음(유자레코즈)/숲1.mp3" },
-    forest2: { label: "숲 2", src: "../sound/효과-자연음(유자레코즈)/숲2.wav" },
-    forest3: { label: "숲 3", src: "../sound/효과-자연음(유자레코즈)/숲3.wav" },
-    thunder1: { label: "천둥 1", src: "../sound/효과-자연음(유자레코즈)/천둥1.mp3" },
-    thunder2: { label: "천둥 2", src: "../sound/효과-자연음(유자레코즈)/천둥2.wav" },
-    thunder3: { label: "천둥 3", src: "../sound/효과-자연음(유자레코즈)/천둥3.wav" },
-    thunder4: { label: "천둥 4", src: "../sound/효과-자연음(유자레코즈)/천둥4.wav" },
+    wind1: { label: "바람 1", src: "sound/효과-자연음(유자레코즈)/바람1.wav" },
+    wind2: { label: "바람 2", src: "sound/효과-자연음(유자레코즈)/바람2.wav" },
+    wind3: { label: "바람 3", src: "sound/효과-자연음(유자레코즈)/바람3.wav" },
+    rain1: { label: "비 1", src: "sound/효과-자연음(유자레코즈)/비1.wav" },
+    rain2: { label: "비 2", src: "sound/효과-자연음(유자레코즈)/비2.mp3" },
+    rain3: { label: "비 3", src: "sound/효과-자연음(유자레코즈)/비3.wav" },
+    rain4: { label: "비 4", src: "sound/효과-자연음(유자레코즈)/비4.wav" },
+    forest1: { label: "숲 1", src: "sound/효과-자연음(유자레코즈)/숲1.mp3" },
+    forest2: { label: "숲 2", src: "sound/효과-자연음(유자레코즈)/숲2.wav" },
+    forest3: { label: "숲 3", src: "sound/효과-자연음(유자레코즈)/숲3.wav" },
+    thunder1: { label: "천둥 1", src: "sound/효과-자연음(유자레코즈)/천둥1.mp3" },
+    thunder2: { label: "천둥 2", src: "sound/효과-자연음(유자레코즈)/천둥2.wav" },
+    thunder3: { label: "천둥 3", src: "sound/효과-자연음(유자레코즈)/천둥3.wav" },
+    thunder4: { label: "천둥 4", src: "sound/효과-자연음(유자레코즈)/천둥4.wav" },
   }
 
   // 분위기 — 배경(freesound) 음원과 1:1로 직접 매칭. id가 곧 backgroundId.
