@@ -179,20 +179,6 @@
     this.onPreview({ x: point.x, y: point.y })
   }
 
-  // 그린 게 없으면 부드러운 기본 곡선을 채워 자동완성 버튼이 항상 동작하게
-  DrawingCanvas.prototype.fillDefaultIfEmpty = function () {
-    if (this.getPath().length >= 2) return
-    this.strokes = [
-      [
-        { x: 0.04, y: 0.62 },
-        { x: 0.24, y: 0.4 },
-        { x: 0.44, y: 0.48 },
-        { x: 0.66, y: 0.26 },
-        { x: 0.86, y: 0.52 },
-      ],
-    ]
-  }
-
   DrawingCanvas.prototype.compute = function () {
     const st = this.getState()
     const path = this.getPath()

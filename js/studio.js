@@ -85,7 +85,6 @@
     playhead: $("playhead"),
     clearBtn: $("clearBtn"),
     resetComposeBtn: $("resetComposeBtn"),
-    autoBtn: $("autoBtn"),
     scaleReadout: $("scaleReadout"),
     rhythmReadout: $("rhythmReadout"),
     noteReadout: $("noteReadout"),
@@ -1022,14 +1021,6 @@
         : "그리기 모드로 돌아왔어요."
     })
     el.resetComposeBtn.addEventListener("click", resetCompose)
-    el.autoBtn.addEventListener("click", () => {
-      engine.stop()
-      setEraser(false)
-      draw.fillDefaultIfEmpty()
-      draw.compute()
-      draw.render()
-      updateReadouts()
-    })
 
     el.playBtn.addEventListener("click", play)
     el.framePlay.addEventListener("click", play)
