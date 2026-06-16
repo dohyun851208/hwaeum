@@ -1,0 +1,10 @@
+# 의존성 (npm install로 복원)
+node_modules/
+
+# OMC 오케스트레이션 상태
+.omc/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+*.log

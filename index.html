@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>그림 BGM 만들기</title>
+    <link rel="icon" type="image/png" href="./assets/default-cover.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-step="0">
+    <div class="atelier">
+      <!-- 상단 바 -->
+      <header class="topbar">
+        <div class="brand">
+          <h1>그림으로 음악을 그리다</h1>
+        </div>
+        <div class="topbar-right">
+          <figure class="pic-chip" id="picChip" hidden>
+            <img id="picThumb" alt="올린 그림" />
+          </figure>
+          <div class="transport" aria-label="재생 제어">
+            <span class="status-pill" id="statusText" aria-live="polite">대기 중</span>
+            <button class="round-btn" id="playBtn" type="button" aria-label="재생"><span aria-hidden="true">▶</span></button>
+            <button class="round-btn ghost" id="stopBtn" type="button" aria-label="정지"><span aria-hidden="true">■</span></button>
+          </div>
+        </div>
+      </header>
+
+      <!-- 단계 표시 -->
+      <nav class="steps" aria-label="제작 단계">
+        <button class="step active" type="button" data-step-jump="0"><span>1</span><strong>그림·길이</strong></button>
+        <button class="step" type="button" data-step-jump="1"><span>2</span><strong>분위기</strong></button>
+        <button class="step" type="button" data-step-jump="2"><span>3</span><strong>악기</strong></button>
+        <button class="step" type="button" data-step-jump="3"><span>4</span><strong>선율</strong></button>
+        <button class="step" type="button" data-step-jump="4"><span>5</span><strong>드로잉·완성</strong></button>
+      </nav>
+
+      <main class="stage">
+        <!-- 1단계: 그림 · 길이 -->
+        <section class="screen active" data-screen="0" aria-label="1단계 그림과 길이">
+          <div class="screen-head">
+            <p class="eyebrow">Step 1</p>
+            <h2>그림을 올리고, 곡 길이를 정합니다</h2>
+            <p class="lead">이 그림을 보면서 분위기·악기·선율을 고르게 됩니다. 그림은 위쪽에 계속 표시됩니다.</p>
+          </div>
+          <div class="setup-grid">
+            <label class="dropframe" id="dropframe" for="picInput">
+              <img id="dropPreview" alt="" hidden />
+              <div class="dropframe-empty" id="dropEmpty">
+                <span class="dropframe-icon" aria-hidden="true">🖼</span>
+                <strong>그림 올리기</strong>
+                <span class="muted">클릭해서 이미지 선택 (jpg, png 등)</span>
+              </div>
+              <input id="picInput" type="file" accept="image/*" />
+            </label>
+            <div class="setup-side">
+              <h3>곡 길이</h3>
+              <div class="segmented" data-group="duration">
+                <button class="seg" type="button" data-duration="15">15초</button>
+                <button class="seg active" type="button" data-duration="30">30초</button>
+                <button class="seg" type="button" data-duration="45">45초</button>
+              </div>
+              <p class="muted" id="paletteHint">30초 = 10초짜리 팔레트 3칸으로 그립니다.</p>
+              <p class="upload-status" id="picStatus">그림을 올리면 표지로 사용됩니다.</p>
+            </div>
+          </div>
+          <div class="screen-actions">
+            <span class="muted">그림과 길이를 정한 뒤 다음으로</span>
+            <button class="btn primary" type="button" data-step-next>다음 · 분위기</button>
+          </div>
+        </section>
+
+        <!-- 2단계: 분위기 -->
+        <section class="screen" data-screen="1" aria-label="2단계 분위기">
+          <div class="screen-head">
+            <p class="eyebrow">Step 2</p>
+            <h2>음악의 분위기를 고릅니다</h2>
+            <p class="lead">분위기 카드를 누르면 배경 음악을 미리 들어볼 수 있어요. 고른 분위기가 곡 전체의 배경이 되고, 화면 색도 함께 바뀝니다.</p>
+          </div>
+          <div class="card-grid" id="atmosphereGrid"></div>
+          <input id="bgUploadInput" type="file" accept="audio/*" hidden />
+          <p class="upload-status" id="bgUploadStatus" aria-live="polite"></p>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>이전</button>
+            <button class="btn primary" type="button" data-step-next>다음 · 악기</button>
+          </div>
+        </section>
+
+        <!-- 3단계: 악기 -->
+        <section class="screen" data-screen="2" aria-label="3단계 악기">
+          <div class="screen-head">
+            <p class="eyebrow">Step 3</p>
+            <h2>선율을 연주할 악기를 고릅니다</h2>
+            <p class="lead">서양 악기, 국악기, 전자음 중에서 고르면 드로잉 선율이 그 음색으로 연주됩니다.</p>
+          </div>
+          <div class="group-tabs" id="instrumentGroups"></div>
+          <div class="card-grid" id="instrumentGrid"></div>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>이전</button>
+            <button class="btn primary" type="button" data-step-next>다음 · 선율</button>
+          </div>
+        </section>
+
+        <!-- 4단계: 선율 -->
+        <section class="screen" data-screen="3" aria-label="4단계 선율">
+          <div class="screen-head">
+            <p class="eyebrow">Step 4</p>
+            <h2>어울리는 선율 규칙을 고릅니다</h2>
+            <p class="lead">그린 음높이는 고른 음계로 자동 보정되어 지나친 불협화음을 줄입니다.</p>
+          </div>
+          <div class="card-grid" id="styleGrid"></div>
+          <div class="mode-row">
+            <span class="mode-label">연주 형태</span>
+            <div class="segmented" data-group="mode">
+              <button class="seg active" type="button" data-mode="melody">선율형</button>
+              <button class="seg" type="button" data-mode="rhythm">리듬형</button>
+            </div>
+            <span class="muted" id="modeHint">선율형: 그린 선이 음높이가 됩니다.</span>
+          </div>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>이전</button>
+            <button class="btn primary" type="button" data-step-next>드로잉으로 이동</button>
+          </div>
+        </section>
+
+        <!-- 5단계: 드로잉 · 완성 -->
+        <section class="screen compose" data-screen="4" aria-label="5단계 드로잉과 완성">
+          <div class="compose-grid">
+            <!-- 드로잉 -->
+            <section class="panel draw-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Draw the melody</p>
+                  <h2>가로는 시간, 세로는 음높이</h2>
+                </div>
+                <div class="panel-tools">
+                  <button class="btn small" id="clearBtn" type="button" aria-pressed="false">지우개</button>
+                  <button class="btn small" id="resetComposeBtn" type="button">초기화</button>
+                  <button class="btn small primary" id="autoBtn" type="button">예시선</button>
+                </div>
+              </div>
+              <div class="canvas-wrap">
+                <canvas id="drawingCanvas" width="1440" height="540" aria-label="선율을 그리는 캔버스"></canvas>
+                <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
+                <div class="playhead" id="playhead" aria-hidden="true" hidden></div>
+              </div>
+              <div class="readouts">
+                <div><span class="k">음계</span><strong id="scaleReadout">C Major</strong></div>
+                <div><span class="k">연주</span><strong id="rhythmReadout">선율형 · 4/4</strong></div>
+                <div><span class="k">음 수</span><strong id="noteReadout">0</strong></div>
+                <div><span class="k">길이</span><strong id="durReadout">30초</strong></div>
+              </div>
+              <div class="version-row">
+                <div class="compose-control-strip">
+                  <span class="mode-label">믹스</span>
+                  <div class="version-list" id="versionList"></div>
+                </div>
+                <div class="compose-control-strip instrument-strip">
+                  <span class="mode-label">악기</span>
+                  <div class="compose-instrument-list" id="composeInstrumentList"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 완성 갤러리 -->
+            <aside class="panel gallery-panel">
+              <div class="frame" id="frame">
+                <img id="frameImg" alt="완성 표지" />
+                <canvas id="frameCanvas" width="640" height="640" aria-hidden="true"></canvas>
+                <button class="frame-play" id="framePlay" type="button" aria-label="표지에서 재생"><span aria-hidden="true">▶</span></button>
+              </div>
+              <div class="placard">
+                <input id="titleInput" class="placard-title" type="text" value="무제" aria-label="작품 제목" maxlength="24" />
+                <p class="placard-meta" id="placardMeta">분위기 · 음계 · 악기</p>
+              </div>
+
+              <div class="actions-row">
+                <button class="btn small primary" id="saveTakeBtn" type="button">이 시도 저장</button>
+                <button class="btn small" id="exportWavBtn" type="button">오디오 내보내기(WAV)</button>
+                <button class="btn small" id="exportCoverBtn" type="button">커버 이미지(PNG)</button>
+                <button class="btn small" id="shareBtn" type="button">공유 링크 복사</button>
+              </div>
+              <p class="upload-status" id="exportStatus" aria-live="polite"></p>
+
+              <div class="takes">
+                <div class="takes-head">
+                  <h3>내 시도</h3>
+                  <span class="muted" id="takesCount"></span>
+                </div>
+                <div class="takes-list" id="takesList"></div>
+                <p class="muted takes-empty" id="takesEmpty">드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요.</p>
+              </div>
+            </aside>
+          </div>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>이전</button>
+            <button class="btn primary" id="composePlay" type="button">▶ 전체 재생</button>
+          </div>
+        </section>
+      </main>
+
+      <footer class="foot">
+        <span class="muted" id="audioModeNote">실제 음원을 우선 사용하고, 없으면 합성음으로 대체합니다.</span>
+      </footer>
+    </div>
+
+    <script src="./js/music-core.js"></script>
+    <script src="./js/manifest.js"></script>
+    <script src="./js/sample-maps.js"></script>
+    <script src="./js/audio-engine.js"></script>
+    <script src="./js/drawing.js"></script>
+    <script src="./js/takes.js"></script>
+    <script src="./js/studio.js" defer></script>
+  </body>
+</html>
