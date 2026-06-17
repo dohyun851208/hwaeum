@@ -1,0 +1,27 @@
+# 화음(畵音) 배포 — 정적 파일만 업로드.
+# .vercelignore가 있으면 Vercel은 .gitignore 대신 이 파일을 기준으로 업로드한다.
+# 여기 적힌 패턴'만' 제외되고, 나머지(index.html, styles.css, js/, assets/, sound/*.mp3)는 모두 올라간다.
+
+# 의존성 / 런타임 미사용 자산
+node_modules
+vendor
+
+# git / 도구 / 상태
+.git
+.gitignore
+.omc
+.vercel
+.DS_Store
+Thumbs.db
+
+# 개발 전용 (배포 불필요)
+docs
+test
+tools
+*.md
+package.json
+package-lock.json
+*.bat
+
+# 원본 WAV는 제외 — 압축한 MP3만 배포 (292MB 절약)
+sound/**/*.wav
