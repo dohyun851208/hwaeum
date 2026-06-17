@@ -32,6 +32,18 @@
     this.pixelRatio = 1
     this.lastPreviewAt = 0
     this.lastPreviewY = null
+    // 가장자리 자동 스크롤 — 긴 타임라인에서 끝까지 이어 그리기
+    this.scrollContainer =
+      opts.scrollContainer ||
+      (canvas.closest ? canvas.closest(".canvas-wrap") : null) ||
+      canvas.parentElement ||
+      null
+    this._edgeZone = 64 // 좌/우 가장자리 감지 폭(px)
+    this._edgeDir = 0 // -1 왼쪽 / +1 오른쪽 / 0 멈춤
+    this._edgeDepth = 0 // 가장자리에 얼마나 깊이 들어왔나(0..1) → 스크롤 속도
+    this._autoScrollRAF = null
+    this._lastClientX = 0
+    this._lastClientY = 0
     this._bind()
     this.render()
   }
@@ -116,6 +128,8 @@
     const self = this
     this.canvas.addEventListener("pointerdown", function (e) {
       const p = self._point(e)
+      self._lastClientX = e.clientX
+      self._lastClientY = e.clientY
       self.isDrawing = true
       try {
         self.canvas.setPointerCapture(e.pointerId)
@@ -133,23 +147,15 @@
     })
     this.canvas.addEventListener("pointermove", function (e) {
       if (!self.isDrawing) return
-      const p = self._point(e)
-      if (self.eraseMode) {
-        self._eraseAt(p)
-        self.render()
-        return
-      }
-      const stroke = self.currentStroke
-      const last = stroke[stroke.length - 1]
-      // 한 획 안에서는 시간(x)이 거꾸로 가지 않게 단조 증가
-      if (!last || p.x >= last.x) stroke.push(p)
-      else stroke.push({ x: last.x, y: p.y })
-      self._preview(p, false)
-      self.renderStrokeOnly()
+      self._lastClientX = e.clientX
+      self._lastClientY = e.clientY
+      self._applyPointer(self._point(e))
+      self._maybeAutoScroll(e.clientX)
     })
     const finish = function () {
       if (!self.isDrawing) return
       self.isDrawing = false
+      self._stopAutoScroll()
       if (!self.eraseMode) self.onPreviewEnd()
       self.currentStroke = null
       self.compute()
@@ -161,6 +167,81 @@
     this.canvas.addEventListener("pointerleave", function () {
       if (self.isDrawing) finish()
     })
+  }
+
+  // 포인터 위치(p: 0..1)를 현재 모드대로 반영 — pointermove와 자동 스크롤 루프가 공유
+  DrawingCanvas.prototype._applyPointer = function (p) {
+    if (this.eraseMode) {
+      this._eraseAt(p)
+      this.render()
+      return
+    }
+    const stroke = this.currentStroke
+    if (!stroke) return
+    const last = stroke[stroke.length - 1]
+    // 한 획 안에서는 시간(x)이 거꾸로 가지 않게 단조 증가
+    if (!last || p.x >= last.x) stroke.push(p)
+    else stroke.push({ x: last.x, y: p.y })
+    this._preview(p, false)
+    this.renderStrokeOnly()
+  }
+
+  // 그리는 중 포인터가 좌/우 가장자리에 닿으면 타임라인을 따라 스크롤(끝까지 이어 그리기)
+  DrawingCanvas.prototype._maybeAutoScroll = function (clientX) {
+    const sc = this.scrollContainer
+    if (!sc || typeof sc.getBoundingClientRect !== "function") return
+    const rect = sc.getBoundingClientRect()
+    const zone = this._edgeZone
+    const maxScroll = sc.scrollWidth - sc.clientWidth
+    let dir = 0
+    let depth = 0
+    if (maxScroll > 1 && clientX > rect.right - zone && sc.scrollLeft < maxScroll - 1) {
+      dir = 1
+      depth = clamp((clientX - (rect.right - zone)) / zone, 0, 1)
+    } else if (clientX < rect.left + zone && sc.scrollLeft > 0) {
+      dir = -1
+      depth = clamp((rect.left + zone - clientX) / zone, 0, 1)
+    }
+    this._edgeDir = dir
+    this._edgeDepth = depth
+    if (dir !== 0) this._startAutoScroll()
+    else this._stopAutoScroll()
+  }
+
+  DrawingCanvas.prototype._startAutoScroll = function () {
+    if (this._autoScrollRAF != null) return
+    if (typeof root.requestAnimationFrame !== "function") return
+    const self = this
+    const tick = function () {
+      self._autoScrollRAF = null
+      const sc = self.scrollContainer
+      if (!self.isDrawing || self._edgeDir === 0 || !sc) return
+      const maxScroll = sc.scrollWidth - sc.clientWidth
+      const step = (4 + self._edgeDepth * 14) * self._edgeDir // px/frame, 가장자리에 깊을수록 빠름
+      const before = sc.scrollLeft
+      sc.scrollLeft = clamp(before + step, 0, maxScroll)
+      if (sc.scrollLeft !== before) {
+        // 스크롤로 캔버스가 이동 → 같은 화면 위치가 더 끝쪽 시간(x)으로 매핑됨 → 선이 이어짐
+        self._applyPointer(self._point({ clientX: self._lastClientX, clientY: self._lastClientY }))
+      }
+      const atEnd =
+        (self._edgeDir > 0 && sc.scrollLeft >= maxScroll) ||
+        (self._edgeDir < 0 && sc.scrollLeft <= 0)
+      if (atEnd) {
+        self._edgeDir = 0
+        return
+      }
+      self._autoScrollRAF = root.requestAnimationFrame(tick)
+    }
+    this._autoScrollRAF = root.requestAnimationFrame(tick)
+  }
+
+  DrawingCanvas.prototype._stopAutoScroll = function () {
+    if (this._autoScrollRAF != null && typeof root.cancelAnimationFrame === "function") {
+      root.cancelAnimationFrame(this._autoScrollRAF)
+    }
+    this._autoScrollRAF = null
+    this._edgeDir = 0
   }
 
   DrawingCanvas.prototype._previewStart = function (point) {
