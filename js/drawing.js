@@ -149,8 +149,10 @@
       if (!self.isDrawing) return
       self._lastClientX = e.clientX
       self._lastClientY = e.clientY
-      self._applyPointer(self._point(e))
       self._maybeAutoScroll(e.clientX)
+      // 가장자리 자동 스크롤 중에는 rAF 루프가 점을 찍는다(x·y를 함께 전진 → 계단현상 방지).
+      // 그 외에는 평소처럼 포인터 위치를 그대로 반영.
+      if (self._edgeDir === 0) self._applyPointer(self._point(e))
     })
     const finish = function () {
       if (!self.isDrawing) return
