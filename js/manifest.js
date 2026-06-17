@@ -147,12 +147,15 @@
   // 음계(선율 스타일). gugak: true 인 항목은 시김새를 적용.
   // 으뜸음을 도(C, 60)로 통일해 "음계의 성격(장/단/온음/펜타)"이 실제로 다르게 들리도록 한다.
   // (예전엔 C장조·A단조·D도리안이 모두 흰건반 같은 집합이라 동일하게 들렸음)
+  // 음역(lowMidi..highMidi)을 으뜸음(root)부터 2옥타브(24반음)로 제한 → 위아래 점프 폭이 작아지고
+  // 음 간격이 넓어져, 자유롭게 그려도 "연결된" 선율로 들린다(캔버스 맨 아래=낮은 으뜸음).
+  // 기본값(맨 앞)은 펜타토닉 — 반음이 없어 어떤 순서로 그려도 어울려 "틀린 음"이 안 난다(칸딘스키 뮤직랩 방식).
   const styles = [
-    { id: "bright", label: "밝음", scaleName: "C Major", root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], detail: "장음계 — 밝고 안정적", gugak: false },
-    { id: "calm", label: "차분함", scaleName: "C Minor", root: 60, intervals: [0, 2, 3, 5, 7, 8, 10], detail: "단음계 — 어둡고 차분", gugak: false },
-    { id: "mystic", label: "신비로움", scaleName: "C Whole Tone", root: 60, intervals: [0, 2, 4, 6, 8, 10], detail: "온음음계 — 몽환적·붕 뜬 느낌", gugak: false },
-    { id: "natural", label: "자연스러움", scaleName: "C Pentatonic", root: 60, intervals: [0, 2, 4, 7, 9], detail: "5음 음계 — 막힘 없는 울림", gugak: false },
-    { id: "gugak", label: "국악풍", scaleName: "G Pentatonic + 시김새", root: 55, intervals: [0, 3, 5, 7, 10], detail: "꺾음·흘러내림·떠는음", gugak: true },
+    { id: "natural", label: "자연스러움", scaleName: "C Pentatonic", root: 60, intervals: [0, 2, 4, 7, 9], lowMidi: 60, highMidi: 84, detail: "5음 음계 — 막힘 없는 울림", gugak: false },
+    { id: "bright", label: "밝음", scaleName: "C Major", root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 60, highMidi: 84, detail: "장음계 — 밝고 안정적", gugak: false },
+    { id: "calm", label: "차분함", scaleName: "C Minor", root: 60, intervals: [0, 2, 3, 5, 7, 8, 10], lowMidi: 60, highMidi: 84, detail: "단음계 — 어둡고 차분", gugak: false },
+    { id: "mystic", label: "신비로움", scaleName: "C Whole Tone", root: 60, intervals: [0, 2, 4, 6, 8, 10], lowMidi: 60, highMidi: 84, detail: "온음음계 — 몽환적·붕 뜬 느낌", gugak: false },
+    { id: "gugak", label: "국악풍", scaleName: "G Pentatonic + 시김새", root: 55, intervals: [0, 3, 5, 7, 10], lowMidi: 55, highMidi: 79, detail: "꺾음·흘러내림·떠는음", gugak: true },
   ]
 
   // 믹스 변형 — 한 시도(테이크)를 다른 균형으로 들어보는 옵션
