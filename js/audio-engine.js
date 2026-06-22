@@ -518,7 +518,7 @@
     const env = ctx.createGain()
     const filter = ctx.createBiquadFilter()
     const isGugak = plan.instrument.group === "국악"
-    const targetGain = isGugak ? 0.24 : 0.2
+    const targetGain = isGugak ? 0.34 : 0.3 // 그리는 중 선율을 배경 위로 더 또렷하게
     const midi = this._liveMidi(plan, normY)
     const segment = nearestSampleSegment(plan.melodyAsset, midi)
     const offset = segment ? segment.offset : Math.min(0.05, Math.max(0, buffer.duration * 0.08))
@@ -571,7 +571,7 @@
     const lfoGain = ctx.createGain()
     const isGugak = plan.instrument.group === "국악"
     const isElectronic = plan.instrument.group === "전자"
-    const targetGain = isElectronic ? 0.14 : isGugak ? 0.18 : 0.16
+    const targetGain = isElectronic ? 0.2 : isGugak ? 0.26 : 0.24 // 그리는 중 선율을 배경 위로 더 또렷하게
     const voice = synthVoiceFor(plan.instrument)
 
     osc.type = voice.waveform

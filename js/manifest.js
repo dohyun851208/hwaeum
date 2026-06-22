@@ -159,13 +159,13 @@
   ]
 
   // 믹스 변형 — 한 시도(테이크)를 다른 균형으로 들어보는 옵션
-  // 선율이 배경에 묻혀 작게 들린다는 피드백 반영 → 선율 비중을 전반적으로 키움.
+  // 선율이 배경에 묻힌다는 피드백을 거듭 반영 → 선율 비중을 더 키움(배경 padGain 은 그대로 유지).
   // (배경 대비 균형 한계는 test/audio-balance.test.js 가 지켜 줌)
   const versions = [
-    { id: "balanced", label: "균형", detail: "배경과 선율을 같은 비중으로", melodyGain: 0.3, padGain: 0.17, ornament: false },
-    { id: "drawing", label: "선율 강조", detail: "그린 선의 윤곽을 더 또렷하게", melodyGain: 0.42, padGain: 0.12, ornament: false },
-    { id: "scene", label: "공간 강조", detail: "분위기 음원을 더 넓게", melodyGain: 0.22, padGain: 0.22, ornament: false },
-    { id: "ornament", label: "시김새 강조", detail: "흘러내림과 떠는음을 더하게", melodyGain: 0.3, padGain: 0.15, ornament: true },
+    { id: "balanced", label: "균형", detail: "배경과 선율을 같은 비중으로", melodyGain: 0.42, padGain: 0.17, ornament: false },
+    { id: "drawing", label: "선율 강조", detail: "그린 선의 윤곽을 더 또렷하게", melodyGain: 0.56, padGain: 0.12, ornament: false },
+    { id: "scene", label: "공간 강조", detail: "분위기 음원을 더 넓게", melodyGain: 0.3, padGain: 0.22, ornament: false },
+    { id: "ornament", label: "시김새 강조", detail: "흘러내림과 떠는음을 더하게", melodyGain: 0.42, padGain: 0.15, ornament: true },
   ]
 
   root.SDStudioData = { backgrounds, pads, melodies, effects, atmospheres, instruments, styles, versions }
