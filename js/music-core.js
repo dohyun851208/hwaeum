@@ -100,7 +100,28 @@
   function autocompleteMelody(path, opts) {
     const durationSec = opts.durationSec
     const style = opts.style
-    const steps = Math.max(1, Math.round(durationSec * 2))
+    const SAMPLE_RATE = 16 // 초당 샘플 수 — 빠른 음(≈8음/초)·짧은 음을 살림(예전 2/초는 0.5초로 뭉갰다)
+    const TAP_SEC = 0.16 // 점 찍기/아주 짧은 획을 표현할 최소 음 길이
+    if (!path || path.length === 0) return []
+    let minX = path[0].x
+    let maxX = path[0].x
+    for (const p of path) {
+      if (p.x < minX) minX = p.x
+      if (p.x > maxX) maxX = p.x
+    }
+    // 점 찍기(가로 폭 ≈ 0) → 짧은 음 하나
+    if ((maxX - minX) * durationSec < TAP_SEC) {
+      const time = Math.max(0, Math.min(1, minX)) * durationSec
+      return [
+        {
+          time: time,
+          duration: Math.min(TAP_SEC, Math.max(0.05, durationSec - time)),
+          midi: quantizePitch(path[0].y, style),
+          velocity: 0.7,
+        },
+      ]
+    }
+    const steps = Math.max(1, Math.round(durationSec * SAMPLE_RATE))
     const stepSec = durationSec / steps
     const samples = sampleDrawnTimeline(path, steps)
     const raw = []

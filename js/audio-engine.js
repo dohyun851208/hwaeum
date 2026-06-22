@@ -17,17 +17,9 @@
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v))
   }
-  function rangedStyle(style, asset) {
-    if (!asset) return style
-    return Object.assign({}, style, {
-      lowMidi: asset.lowMidi,
-      highMidi: asset.highMidi,
-    })
-  }
   function samplePlaybackRate(asset, midi) {
-    const lo = asset && asset.minRate != null ? asset.minRate : 0.45
-    const hi = asset && asset.maxRate != null ? asset.maxRate : 2.4
-    return clamp(Math.pow(2, (midi - asset.baseMidi) / 12), lo, hi)
+    const baseMidi = asset && asset.baseMidi != null ? asset.baseMidi : midi
+    return Math.pow(2, (midi - baseMidi) / 12)
   }
   function sampleMapFor(asset) {
     return asset && Array.isArray(asset.sampleMap) && asset.sampleMap.length ? asset.sampleMap : null
@@ -43,9 +35,7 @@
   }
   function segmentPlaybackRate(asset, midi, segment) {
     if (!segment) return samplePlaybackRate(asset, midi)
-    const lo = asset && asset.minRate != null ? asset.minRate : 0.45
-    const hi = asset && asset.maxRate != null ? asset.maxRate : 2.4
-    return clamp(Math.pow(2, (midi - segment.midi) / 12), lo, hi)
+    return Math.pow(2, (midi - segment.midi) / 12)
   }
 
   // 합성 폴백 음색 — 실제 샘플이 없을 때도 악기가 구분되어 들리도록
@@ -82,18 +72,34 @@
     return !!next && Math.abs(note.time + note.duration - next.time) < 1e-3
   }
 
-  // 레가토 엔벨로프 — 음 길이 동안 소리를 '지속'하고 끝에서만 짧게 릴리즈.
-  // (예전엔 음마다 0까지 지수 감쇠해서 음 사이가 비어 스타카토처럼 들렸음)
-  function applyLegatoEnv(env, peak, noteStart, noteDuration, contiguous) {
-    const attack = Math.min(0.018, noteDuration * 0.4)
-    const release = contiguous ? 0.05 : 0.1
-    const noteEnd = noteStart + noteDuration
-    const holdEnd = Math.max(noteStart + attack + 0.005, noteEnd - release)
-    env.gain.setValueAtTime(0.0001, noteStart)
-    env.gain.linearRampToValueAtTime(peak, noteStart + attack)
+  function phraseEnd(notes) {
+    const last = notes[notes.length - 1]
+    return last.time + last.duration
+  }
+
+  function contiguousPhrases(notes) {
+    const phrases = []
+    let current = []
+    for (let i = 0; i < notes.length; i++) {
+      current.push(notes[i])
+      if (!isContiguous(notes[i], notes[i + 1])) {
+        phrases.push(current)
+        current = []
+      }
+    }
+    return phrases
+  }
+
+  // 연속으로 그린 음들은 하나의 프레이즈 엔벨로프로 감싸, 경계마다 다시 타격되지 않게 한다.
+  function applyPhraseEnv(env, peak, phraseStart, phraseDuration) {
+    const attack = Math.min(0.035, phraseDuration * 0.25)
+    const release = Math.min(0.18, Math.max(0.08, phraseDuration * 0.2))
+    const phraseEndTime = phraseStart + phraseDuration
+    const holdEnd = Math.max(phraseStart + attack + 0.005, phraseEndTime - release)
+    env.gain.setValueAtTime(0.0001, phraseStart)
+    env.gain.linearRampToValueAtTime(peak, phraseStart + attack)
     env.gain.setValueAtTime(peak, holdEnd)
-    // 다음 음과 살짝 겹치게 끝내(crossfade) 경계의 빈틈을 없앤다.
-    env.gain.linearRampToValueAtTime(0.0001, noteEnd + (contiguous ? 0.03 : 0))
+    env.gain.linearRampToValueAtTime(0.0001, phraseEndTime + 0.04)
   }
 
   function AudioEngine() {
@@ -107,6 +113,8 @@
     this.onState = null // (isPlaying) 콜백
     this.livePreview = null
     this.livePreviewToken = 0
+    this.ambience = null // 드로잉 화면에서 깔리는 배경음(패드)
+    this.ambienceToken = 0
   }
 
   AudioEngine.prototype.ensureContext = function () {
@@ -133,6 +141,21 @@
     return this.bufferCache.get(url)
   }
 
+  AudioEngine.prototype.loadAssetBuffer = function (ctx, asset) {
+    if (!asset || !asset.src) return Promise.resolve(null)
+    if (!asset.file || typeof asset.file.arrayBuffer !== "function") {
+      return this.loadBuffer(ctx, asset.src)
+    }
+    if (!this.bufferCache.has(asset.src)) {
+      const p = asset.file
+        .arrayBuffer()
+        .then((ab) => ctx.decodeAudioData(ab.slice ? ab.slice(0) : ab))
+        .catch(() => null)
+      this.bufferCache.set(asset.src, p)
+    }
+    return this.bufferCache.get(asset.src)
+  }
+
   // recipe(ids) → 실제 데이터 객체로 해석
   AudioEngine.prototype.resolvePlan = function (recipe, notes) {
     const atmosphere = Data.atmospheres.find((a) => a.id === recipe.atmosphere) || Data.atmospheres[0]
@@ -154,7 +177,7 @@
       atmosphere: atmosphere,
       instrument: instrument,
       style: style,
-      pitchStyle: rangedStyle(style, melodyAsset),
+      pitchStyle: style,
       version: version,
       padAsset: padAsset,
       backgroundAsset: backgroundAsset,
@@ -169,13 +192,13 @@
   AudioEngine.prototype.preload = async function (ctx, plan) {
     const jobs = []
     const out = { pad: null, melody: null, effects: [] }
-    const padSrc = (plan.padAsset && plan.padAsset.src) || (plan.backgroundAsset && plan.backgroundAsset.src)
-    jobs.push(this.loadBuffer(ctx, padSrc).then((b) => (out.pad = b)))
+    const padAsset = plan.padAsset && plan.padAsset.src ? plan.padAsset : plan.backgroundAsset
+    jobs.push(this.loadAssetBuffer(ctx, padAsset).then((b) => (out.pad = b)))
     if (plan.melodyAsset && plan.melodyAsset.src) {
-      jobs.push(this.loadBuffer(ctx, plan.melodyAsset.src).then((b) => (out.melody = b)))
+      jobs.push(this.loadAssetBuffer(ctx, plan.melodyAsset).then((b) => (out.melody = b)))
     }
     plan.effects.forEach((fx, idx) => {
-      jobs.push(this.loadBuffer(ctx, fx.src).then((b) => (out.effects[idx] = { asset: fx, buffer: b })))
+      jobs.push(this.loadAssetBuffer(ctx, fx).then((b) => (out.effects[idx] = { asset: fx, buffer: b })))
     })
     await Promise.all(jobs)
     out.effects = out.effects.filter(Boolean)
@@ -187,7 +210,7 @@
     const plan = this.resolvePlan(recipe, [])
     const src = plan.melodyAsset && plan.melodyAsset.src
     if (!src) return Promise.resolve(null)
-    return this.loadBuffer(ctx, src)
+    return this.loadAssetBuffer(ctx, plan.melodyAsset)
   }
 
   // 핵심: 주어진 컨텍스트/목적지에 전체 합주를 스케줄 (라이브/오프라인 공용)
@@ -262,70 +285,83 @@
 
   AudioEngine.prototype.scheduleSampleMelody = function (ctx, dest, plan, buffer, start, register) {
     const asset = plan.melodyAsset
-    const phrase = asset.sampleMode === "phrase"
-    const notes = plan.notes
-    const plucked = plan.instrument.id === "gayageum" // 뜯는음은 루프 없이 한 번만
-    for (let k = 0; k < notes.length; k++) {
-      const note = notes[k]
-      const contiguous = isContiguous(note, notes[k + 1])
-      const noteStart = start + note.time
-      const release = contiguous ? 0.05 : 0.1
-      const noteEnd = noteStart + note.duration
+    const samplePhrase = asset.sampleMode === "phrase"
+    const phrases = contiguousPhrases(plan.notes)
+    for (const notes of phrases) {
+      const first = notes[0]
+      const last = notes[notes.length - 1]
+      const phraseStart = start + first.time
+      const phraseDuration = phraseEnd(notes) - first.time
+      const phraseStop = start + last.time + last.duration
       const src = ctx.createBufferSource()
       const env = ctx.createGain()
-      const segment = nearestSampleSegment(asset, note.midi)
-      const baseRate = segmentPlaybackRate(asset, note.midi, segment)
+      const segment = nearestSampleSegment(asset, first.midi)
+      const baseRate = segmentPlaybackRate(asset, first.midi, segment)
       src.buffer = buffer
-      src.playbackRate.setValueAtTime(baseRate, noteStart)
-      this.applySigimsae(src, null, baseRate, note, plan, noteStart)
-      const offset = segment ? segment.offset : phrase ? this.phraseOffset(buffer, note) : 0
+      src.playbackRate.setValueAtTime(baseRate, phraseStart)
+      for (let k = 1; k < notes.length; k++) {
+        const note = notes[k]
+        const noteStart = start + note.time
+        const nextRate = segmentPlaybackRate(asset, note.midi, segment)
+        src.playbackRate.setTargetAtTime(nextRate, noteStart, 0.035)
+      }
+      for (const note of notes) {
+        this.applySigimsae(src, null, segmentPlaybackRate(asset, note.midi, segment), note, plan, start + note.time)
+      }
+      const offset = segment ? segment.offset : samplePhrase ? this.phraseOffset(buffer, first) : 0
       const usableSourceDur = segment ? segment.duration : buffer.duration - offset
-      // 음이 샘플 한 번보다 길면 루프해서 지속 → 길게 그린 음이 끊기지 않음
-      const needSustain = note.duration * baseRate > usableSourceDur * 0.9
-      if (needSustain && !plucked && usableSourceDur > 0.35) {
+      const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
+      if (needSustain && usableSourceDur > 0.25) {
         src.loop = true
         src.loopStart = offset + Math.min(0.12, usableSourceDur * 0.2)
         src.loopEnd = offset + Math.max(usableSourceDur - Math.min(0.08, usableSourceDur * 0.1), src.loopStart - offset + 0.15)
       }
-      applyLegatoEnv(env, note.velocity * 0.85, noteStart, note.duration, contiguous)
+      applyPhraseEnv(env, first.velocity * 0.85, phraseStart, phraseDuration)
       src.connect(env)
       env.connect(dest)
       register(src)
       if (src.loop) {
-        src.start(noteStart, offset)
+        src.start(phraseStart, offset)
       } else {
-        const srcDur = Math.max(0.05, Math.min(usableSourceDur, note.duration * baseRate + release + 0.1))
-        src.start(noteStart, offset, srcDur)
+        const srcDur = Math.max(0.05, Math.min(usableSourceDur, phraseDuration * baseRate + 0.18))
+        src.start(phraseStart, offset, srcDur)
       }
-      src.stop(noteEnd + release + 0.08)
+      src.stop(phraseStop + 0.18)
     }
   }
 
   AudioEngine.prototype.scheduleSynthMelody = function (ctx, dest, plan, start, register) {
     const voice = synthVoiceFor(plan.instrument)
-    const notes = plan.notes
-    for (let k = 0; k < notes.length; k++) {
-      const note = notes[k]
-      const contiguous = isContiguous(note, notes[k + 1])
-      const noteStart = start + note.time
-      const release = contiguous ? 0.05 : 0.1
-      const noteEnd = noteStart + note.duration
+    const phrases = contiguousPhrases(plan.notes)
+    for (const notes of phrases) {
+      const first = notes[0]
+      const last = notes[notes.length - 1]
+      const phraseStart = start + first.time
+      const phraseDuration = phraseEnd(notes) - first.time
+      const phraseStop = start + last.time + last.duration
       const osc = ctx.createOscillator()
       const env = ctx.createGain()
       const filter = ctx.createBiquadFilter()
       osc.type = voice.waveform
-      osc.frequency.setValueAtTime(midiToFreq(note.midi), noteStart)
-      this.applySigimsae(null, osc, midiToFreq(note.midi), note, plan, noteStart)
+      osc.frequency.setValueAtTime(midiToFreq(first.midi), phraseStart)
+      for (let k = 1; k < notes.length; k++) {
+        const note = notes[k]
+        osc.frequency.setTargetAtTime(midiToFreq(note.midi), start + note.time, 0.035)
+      }
+      for (const note of notes) {
+        this.applySigimsae(null, osc, midiToFreq(note.midi), note, plan, start + note.time)
+      }
       filter.type = "lowpass"
-      filter.frequency.setValueAtTime(voice.cutoff, noteStart)
-      filter.Q.setValueAtTime(voice.Q, noteStart)
-      applyLegatoEnv(env, note.velocity * 0.5, noteStart, note.duration, contiguous)
+      filter.frequency.setValueAtTime(voice.cutoff, phraseStart)
+      filter.Q.setValueAtTime(voice.Q, phraseStart)
+      // 합성 선율은 실제 샘플(0.85)보다 작게 들려 묻히므로 피크를 끌어올림.
+      applyPhraseEnv(env, first.velocity * 0.78, phraseStart, phraseDuration)
       osc.connect(filter)
       filter.connect(env)
       env.connect(dest)
       register(osc)
-      osc.start(noteStart)
-      osc.stop(noteEnd + release + 0.08)
+      osc.start(phraseStart)
+      osc.stop(phraseStop + 0.18)
     }
   }
 
@@ -663,6 +699,102 @@
     } catch (e) {}
   }
 
+  // --- 드로잉 화면 배경음(분위기 패드 루프) ---
+  // 라이브 선율 프리뷰와 독립적으로 깔린다. stop() 은 배경음을 끄지 않는다.
+
+  AudioEngine.prototype._ambienceSignature = function (plan) {
+    return plan.atmosphere.id + "|" + plan.version.id
+  }
+
+  AudioEngine.prototype._startAmbienceBuffer = function (ctx, plan, buffer, sig) {
+    const now = ctx.currentTime + 0.02
+    const src = ctx.createBufferSource()
+    const g = ctx.createGain()
+    src.buffer = buffer
+    src.loop = true
+    g.gain.setValueAtTime(0.0001, now)
+    g.gain.linearRampToValueAtTime(plan.version.padGain, now + 1.2)
+    src.connect(g)
+    g.connect(ctx.destination)
+    src.start(now)
+    this.ambience = { signature: sig, gain: g, nodes: [src] }
+  }
+
+  AudioEngine.prototype._startAmbienceSynth = function (ctx, plan, sig) {
+    const now = ctx.currentTime + 0.02
+    const padGain = ctx.createGain()
+    padGain.gain.setValueAtTime(0.0001, now)
+    padGain.gain.linearRampToValueAtTime(plan.version.padGain, now + 1.6)
+    padGain.connect(ctx.destination)
+    const base = plan.style.root - 12
+    const iv = plan.style.intervals
+    const chord = [base, base + (iv[2] || 4), base + (iv[4] || 7)]
+    const wave = (plan.padAsset && plan.padAsset.fallbackWave) || "sine"
+    const nodes = []
+    chord.forEach(function (midi, index) {
+      const osc = ctx.createOscillator()
+      const filter = ctx.createBiquadFilter()
+      osc.type = index === 0 ? "triangle" : wave
+      osc.frequency.setValueAtTime(midiToFreq(midi), now)
+      osc.detune.setValueAtTime((index - 1) * 7, now)
+      filter.type = "lowpass"
+      filter.frequency.setValueAtTime(plan.atmosphere.id === "rain" ? 560 : 950, now)
+      osc.connect(filter)
+      filter.connect(padGain)
+      osc.start(now)
+      nodes.push(osc)
+    })
+    this.ambience = { signature: sig, gain: padGain, nodes: nodes }
+  }
+
+  AudioEngine.prototype.startAmbience = function (recipe) {
+    const ctx = this.ensureContext()
+    const self = this
+    const run = function () {
+      const plan = self.resolvePlan(recipe, [])
+      const sig = self._ambienceSignature(plan)
+      // 같은 분위기·믹스로 이미 깔려 있으면 끊지 않는다(악기만 바꿔도 배경음 유지).
+      if (self.ambience && self.ambience.signature === sig) return Promise.resolve()
+      self.stopAmbience(true)
+      const token = ++self.ambienceToken
+      const padAsset = plan.padAsset && plan.padAsset.src ? plan.padAsset : plan.backgroundAsset
+      if (padAsset && padAsset.src) {
+        return self.loadAssetBuffer(ctx, padAsset).then(function (buffer) {
+          if (token !== self.ambienceToken) return
+          if (buffer) self._startAmbienceBuffer(ctx, plan, buffer, sig)
+          else self._startAmbienceSynth(ctx, plan, sig)
+        })
+      }
+      self._startAmbienceSynth(ctx, plan, sig)
+      return Promise.resolve()
+    }
+    if (ctx.state === "suspended") return ctx.resume().then(run)
+    return run()
+  }
+
+  AudioEngine.prototype.stopAmbience = function (immediate) {
+    this.ambienceToken += 1 // 진행 중인 startAmbience 로드를 무효화
+    const amb = this.ambience
+    this.ambience = null
+    if (!amb || !this.ctx) return
+    const now = this.ctx.currentTime
+    const stopAt = immediate ? now : now + 0.5
+    try {
+      amb.gain.gain.cancelScheduledValues(now)
+      amb.gain.gain.setTargetAtTime(0.0001, now, immediate ? 0.01 : 0.2)
+    } catch (e) {}
+    amb.nodes.forEach(function (node) {
+      try {
+        node.stop(stopAt)
+      } catch (e) {}
+      if (immediate) {
+        try {
+          node.disconnect()
+        } catch (e) {}
+      }
+    })
+  }
+
   AudioEngine.prototype._registerPreviewNode = function (node) {
     const self = this
     this.active.push(node)
@@ -742,6 +874,7 @@
 
   AudioEngine.prototype.play = async function (recipe, notes) {
     this.stop()
+    this.stopAmbience(true) // 완성곡 재생 중엔 드로잉 배경음을 끈다(중복 방지)
     const ctx = this.ensureContext()
     if (ctx.state === "suspended") await ctx.resume()
     const plan = this.resolvePlan(recipe, notes)

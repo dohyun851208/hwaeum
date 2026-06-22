@@ -265,16 +265,13 @@
   DrawingCanvas.prototype.compute = function () {
     const st = this.getState()
     const path = this.getPath()
-    if (path.length < 2) {
-      this.notes = []
-      this.hits = []
-      return
-    }
     if (st.mode === "rhythm") {
-      this.hits = Core.autocompleteRhythm(path, { durationSec: st.duration, bpm: 100 })
+      // 리듬형은 타임라인 샘플이 필요 → 점 2개 이상일 때만
+      this.hits = path.length >= 2 ? Core.autocompleteRhythm(path, { durationSec: st.duration, bpm: 100 }) : []
       this.notes = []
     } else {
-      this.notes = Core.autocompleteMelody(path, { durationSec: st.duration, style: st.style })
+      // 선율형은 점 하나(점 찍기)도 짧은 음으로 표현
+      this.notes = path.length >= 1 ? Core.autocompleteMelody(path, { durationSec: st.duration, style: st.style }) : []
       this.hits = []
     }
   }

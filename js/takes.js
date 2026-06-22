@@ -51,6 +51,17 @@
     this._save()
   }
 
+  TakesStore.prototype.rename = function (id, name) {
+    const nextName = (name || "").trim()
+    for (let i = 0; i < this.items.length; i += 1) {
+      if (this.items[i].id !== id) continue
+      this.items[i].name = nextName
+      this._save()
+      return true
+    }
+    return false
+  }
+
   TakesStore.prototype.get = function (id) {
     return this.items.find((t) => t.id === id) || null
   }

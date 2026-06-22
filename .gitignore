@@ -14,3 +14,6 @@ Thumbs.db
 *.log
 
 .vercel
+
+# 로컬 서버 실행 흔적
+.server.pid

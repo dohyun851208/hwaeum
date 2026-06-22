@@ -977,12 +977,27 @@ p {
 /* 시도 목록 */
 .takes-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 8px;
+}
+.takes-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 .takes-head h3 {
   font-size: 1rem;
+}
+.admin-mode-btn {
+  flex: 0 0 auto;
+}
+.admin-mode-btn.active {
+  border-color: #2b2924;
+  background: #2b2924;
+  color: #fffaf0;
 }
 .takes-list {
   display: grid;
@@ -1004,11 +1019,56 @@ p {
   border-radius: 8px;
   border: 1px solid var(--line);
 }
-.take-meta strong {
-  display: block;
+.take-name-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin-bottom: 3px;
+}
+.take-number {
+  flex: 0 0 auto;
+  min-width: 36px;
+  padding: 3px 7px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-align: center;
+}
+.take-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.92rem;
 }
-.take-meta span {
+.take-name-input {
+  min-width: 0;
+  flex: 1 1 100px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.take-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.take-name-save {
+  white-space: nowrap;
+}
+.take-meta span,
+.take-detail {
+  display: block;
   color: var(--muted);
   font-size: 0.78rem;
 }

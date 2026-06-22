@@ -11,34 +11,21 @@
   const takes = new window.TakesStore("sda.takes")
   const SEGMENT_SECONDS = 10
   const DEFAULT_COVER_SRC = "./assets/default-cover.png"
-  const MAX_PITCH_SPAN = 24 // 화면/오디오 음역을 2옥타브로 제한
+  const ADMIN_STORAGE_KEY = "sda.adminMode"
+  const TAKE_NAME_MAX = 24
 
-  // 악기 음역을 2옥타브 이내로 정규화 + 음역 정보가 없는 악기에 기본 2옥타브 부여.
-  // 이렇게 하면 화면 격자와 실제 연주 음역이 일치(보는 음=듣는 음)하고 3옥타브 → 2옥타브로 좁아진다.
-  function normalizeInstrumentRanges() {
-    Object.keys(D.melodies).forEach((id) => {
-      const m = D.melodies[id]
-      let lo = m.lowMidi
-      let hi = m.highMidi
-      if (lo == null || hi == null) {
-        const center = m.baseMidi != null ? m.baseMidi : 60
-        lo = center - 12
-        hi = center + 12
-      } else if (hi - lo > MAX_PITCH_SPAN) {
-        const center = Math.round((lo + hi) / 2)
-        lo = center - MAX_PITCH_SPAN / 2
-        hi = center + MAX_PITCH_SPAN / 2
-      }
-      m.lowMidi = lo
-      m.highMidi = hi
-    })
+  function loadAdminMode() {
+    try {
+      return window.localStorage ? window.localStorage.getItem(ADMIN_STORAGE_KEY) === "1" : false
+    } catch (e) {
+      return false
+    }
   }
-  normalizeInstrumentRanges()
 
-  // 선택한 음계에 현재 악기의 음역(정규화된 2옥타브)을 입혀, 격자·선율 생성·오디오가 같은 음역을 쓰게 한다.
-  function rangedStyleFor(style, instrument) {
-    const m = (instrument && D.melodies[instrument.id]) || {}
-    return Object.assign({}, style, { lowMidi: m.lowMidi, highMidi: m.highMidi })
+  function saveAdminMode(on) {
+    try {
+      if (window.localStorage) window.localStorage.setItem(ADMIN_STORAGE_KEY, on ? "1" : "0")
+    } catch (e) {}
   }
 
   const state = {
@@ -53,6 +40,7 @@
     step: 0,
     group: "서양",
     bgPreviewId: null, // 현재 미리듣기 중인 분위기 id
+    adminMode: loadAdminMode(),
   }
 
   // 분위기(배경) 미리듣기 — Web Audio 합주 엔진과 독립된 단순 재생기
@@ -72,7 +60,6 @@
     picChip: $("picChip"),
     picThumb: $("picThumb"),
     picStatus: $("picStatus"),
-    paletteHint: $("paletteHint"),
     atmosphereGrid: $("atmosphereGrid"),
     bgUploadInput: $("bgUploadInput"),
     bgUploadStatus: $("bgUploadStatus"),
@@ -98,6 +85,7 @@
     titleInput: $("titleInput"),
     placardMeta: $("placardMeta"),
     saveTakeBtn: $("saveTakeBtn"),
+    adminModeBtn: $("adminModeBtn"),
     exportWavBtn: $("exportWavBtn"),
     exportCoverBtn: $("exportCoverBtn"),
     shareBtn: $("shareBtn"),
@@ -110,7 +98,7 @@
   }
 
   const draw = new window.DrawingCanvas(el.canvas, {
-    getState: () => ({ duration: state.duration, style: rangedStyleFor(state.style, state.instrument), mode: state.mode }),
+    getState: () => ({ duration: state.duration, style: state.style, mode: state.mode }),
     onChange: () => {
       updateReadouts()
     },
@@ -227,12 +215,7 @@
     if (recipe.mode === "rhythm") return []
     if (!recipe.path || recipe.path.length < 2) return []
     const style = D.styles.find((s) => s.id === recipe.style) || D.styles[0]
-    const melody = D.melodies[recipe.instrument] || {}
-    const rangedStyle = Object.assign({}, style, {
-      lowMidi: melody.lowMidi,
-      highMidi: melody.highMidi,
-    })
-    return Core.autocompleteMelody(recipe.path, { durationSec: recipe.duration, style: rangedStyle })
+    return Core.autocompleteMelody(recipe.path, { durationSec: recipe.duration, style: style })
   }
 
   function warmSelectedInstrument() {
@@ -373,7 +356,7 @@
     const url = URL.createObjectURL(file)
     const id = "custom-" + ++customBgSeq
     const label = (file.name || "내 배경").replace(/\.[^.]+$/, "") || "내 배경"
-    D.backgrounds[id] = { label: label, src: url, duration: 0, custom: true }
+    D.backgrounds[id] = { label: label, src: url, duration: 0, custom: true, file: file }
     const atmosphere = {
       id: id,
       label: label,
@@ -418,7 +401,6 @@
     renderInstrumentGroups()
     renderInstruments()
     renderComposeInstruments()
-    // 악기마다 음역(격자)이 다르므로 캔버스를 다시 그려 보는 음=듣는 음을 맞춘다
     draw.compute()
     draw.render()
     updateReadouts()
@@ -469,6 +451,7 @@
         state.version = v
         engine.stop()
         renderVersions()
+        startDrawingAmbience() // 믹스(볼륨)가 바뀌면 깔려 있는 배경음도 갱신
         el.exportStatus.textContent = v.label + " 믹스로 바꿨습니다."
       })
       el.versionList.appendChild(b)
@@ -632,6 +615,16 @@
     el.body.dataset.playback = playing ? "playing" : "idle"
     if (playing) startPlayhead()
     else stopPlayhead()
+    // 완성곡 재생이 끝나면 드로잉 화면에선 배경음을 다시 깐다
+    if (!playing) startDrawingAmbience()
+  }
+
+  // 드로잉(5단계) 화면에서만 분위기 배경음을 깐다. 완성곡 재생 중엔 engine 이 끈다.
+  function startDrawingAmbience() {
+    if (state.step !== 4) return
+    engine.startAmbience(buildRecipe()).catch(function (e) {
+      console.warn("드로잉 배경음 시작 실패", e)
+    })
   }
 
   // --- 재생 헤드(재생바) ---
@@ -709,12 +702,67 @@
 
   // --- 시도(테이크) ---
 
+  function syncAdminModeUI() {
+    el.body.dataset.adminMode = state.adminMode ? "on" : "off"
+    el.adminModeBtn.classList.toggle("active", state.adminMode)
+    el.adminModeBtn.setAttribute("aria-pressed", state.adminMode ? "true" : "false")
+    el.adminModeBtn.textContent = state.adminMode ? "관리자 모드 켜짐" : "관리자 모드"
+  }
+
+  function setAdminMode(on) {
+    state.adminMode = !!on
+    saveAdminMode(state.adminMode)
+    syncAdminModeUI()
+    renderTakes()
+  }
+
+  function renderTakeName(meta, take, index) {
+    const row = document.createElement("div")
+    row.className = "take-name-line"
+    const num = document.createElement("span")
+    num.className = "take-number"
+    num.textContent = index + "번"
+    row.appendChild(num)
+
+    if (state.adminMode) {
+      const input = document.createElement("input")
+      input.type = "text"
+      input.className = "take-name-input"
+      input.value = take.name || ""
+      input.maxLength = TAKE_NAME_MAX
+      input.placeholder = "이름 입력"
+      input.setAttribute("aria-label", index + "번 이름")
+      const saveB = document.createElement("button")
+      saveB.type = "button"
+      saveB.className = "btn tiny take-name-save"
+      saveB.textContent = "저장"
+      saveB.title = "이름 저장"
+      const saveName = function () {
+        takes.rename(take.id, input.value)
+        renderTakes()
+        el.exportStatus.textContent = index + "번 이름을 저장했어요."
+      }
+      saveB.addEventListener("click", saveName)
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") saveName()
+      })
+      row.appendChild(input)
+      row.appendChild(saveB)
+    } else {
+      const name = document.createElement("strong")
+      name.className = "take-name"
+      name.textContent = take.name || "이름 없음"
+      row.appendChild(name)
+    }
+    meta.appendChild(row)
+  }
+
   function renderTakes() {
     const items = takes.list()
     el.takesList.innerHTML = ""
     el.takesEmpty.style.display = items.length ? "none" : "block"
     el.takesCount.textContent = items.length ? items.length + "개" : ""
-    items.forEach((t) => {
+    items.forEach((t, idx) => {
       const atmos = D.atmospheres.find((a) => a.id === t.recipe.atmosphere) || D.atmospheres[0]
       const wrap = document.createElement("div")
       wrap.className = "take"
@@ -727,8 +775,11 @@
       meta.className = "take-meta"
       const styleObj = D.styles.find((s) => s.id === t.recipe.style) || D.styles[0]
       const instObj = D.instruments.find((i) => i.id === t.recipe.instrument) || D.instruments[0]
-      meta.innerHTML =
-        "<strong>" + atmos.label + "</strong><span>" + styleObj.label + " · " + instObj.label + " · " + t.recipe.duration + "초</span>"
+      renderTakeName(meta, t, idx + 1)
+      const detail = document.createElement("span")
+      detail.className = "take-detail"
+      detail.textContent = atmos.label + " · " + styleObj.label + " · " + instObj.label + " · " + t.recipe.duration + "초"
+      meta.appendChild(detail)
       const tools = document.createElement("div")
       tools.className = "take-tools"
       const playB = document.createElement("button")
@@ -768,17 +819,13 @@
   // --- 레시피 불러오기 ---
 
   function loadRecipe(recipe) {
-    state.duration = recipe.duration || 30
+    state.duration = 30 // 길이는 30초로 고정(옛 레시피도 정규화)
     state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || D.atmospheres[0]
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
     state.style = D.styles.find((s) => s.id === recipe.style) || D.styles[0]
     state.version = D.versions.find((v) => v.id === recipe.version) || D.versions[0]
     state.mode = recipe.mode || "melody"
     state.group = state.instrument.group
-    // 길이 버튼 동기화
-    document.querySelectorAll("[data-duration]").forEach((b) => {
-      b.classList.toggle("active", Number(b.dataset.duration) === state.duration)
-    })
     document.querySelectorAll("[data-mode]").forEach((b) => {
       b.classList.toggle("active", b.dataset.mode === state.mode)
     })
@@ -948,6 +995,9 @@
       renderComposeInstruments()
       renderTakes()
       warmSelectedInstrument()
+      startDrawingAmbience()
+    } else {
+      engine.stopAmbience(false)
     }
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -955,16 +1005,6 @@
   // --- 이벤트 ---
 
   function bind() {
-    document.querySelectorAll("[data-duration]").forEach((b) => {
-      b.addEventListener("click", () => {
-        state.duration = Number(b.dataset.duration)
-        document.querySelectorAll("[data-duration]").forEach((x) => x.classList.toggle("active", x === b))
-        const count = paletteCount()
-        el.paletteHint.textContent = state.duration + "초 = 10초짜리 팔레트 " + count + "칸으로 그립니다."
-        refreshTimeline(true)
-      })
-    })
-
     document.querySelectorAll("[data-mode]").forEach((b) => {
       b.addEventListener("click", () => {
         state.mode = b.dataset.mode
@@ -1028,6 +1068,9 @@
     el.stopBtn.addEventListener("click", stop)
 
     el.saveTakeBtn.addEventListener("click", saveTake)
+    el.adminModeBtn.addEventListener("click", function () {
+      setAdminMode(!state.adminMode)
+    })
     el.exportWavBtn.addEventListener("click", exportWav)
     el.exportCoverBtn.addEventListener("click", exportCover)
     el.shareBtn.addEventListener("click", shareLink)
@@ -1053,6 +1096,7 @@
     renderComposeInstruments()
     refreshTimeline(true)
     bind()
+    syncAdminModeUI()
     updateReadouts()
     restoreFromHash()
     setStep(0)
@@ -1073,6 +1117,7 @@
         noteCount: state.mode === "rhythm" ? draw.hits.length : draw.notes.length,
         hasPicture: !!state.pic,
         takes: takes.list().length,
+        adminMode: state.adminMode,
         isPlaying: engine.isPlaying,
         lastMode: engine.lastMode,
       }
@@ -1083,6 +1128,7 @@
     loadRecipe: loadRecipe,
     buildRecipe: buildRecipe,
     setStep: setStep,
+    setAdminMode: setAdminMode,
     engine: engine,
     draw: draw,
     takes: takes,

@@ -29,7 +29,7 @@
 
       <!-- 단계 표시 -->
       <nav class="steps" aria-label="제작 단계">
-        <button class="step active" type="button" data-step-jump="0"><span>1</span><strong>그림·길이</strong></button>
+        <button class="step active" type="button" data-step-jump="0"><span>1</span><strong>그림</strong></button>
         <button class="step" type="button" data-step-jump="1"><span>2</span><strong>분위기</strong></button>
         <button class="step" type="button" data-step-jump="2"><span>3</span><strong>악기</strong></button>
         <button class="step" type="button" data-step-jump="3"><span>4</span><strong>선율</strong></button>
@@ -37,11 +37,11 @@
       </nav>
 
       <main class="stage">
-        <!-- 1단계: 그림 · 길이 -->
-        <section class="screen active" data-screen="0" aria-label="1단계 그림과 길이">
+        <!-- 1단계: 그림 -->
+        <section class="screen active" data-screen="0" aria-label="1단계 그림">
           <div class="screen-head">
             <p class="eyebrow">Step 1</p>
-            <h2>그림을 올리고, 곡 길이를 정합니다</h2>
+            <h2>그림을 올립니다</h2>
             <p class="lead">이 그림을 보면서 분위기·악기·선율을 고르게 됩니다. 그림은 위쪽에 계속 표시됩니다.</p>
           </div>
           <div class="setup-grid">
@@ -55,18 +55,13 @@
               <input id="picInput" type="file" accept="image/*" />
             </label>
             <div class="setup-side">
-              <h3>곡 길이</h3>
-              <div class="segmented" data-group="duration">
-                <button class="seg" type="button" data-duration="15">15초</button>
-                <button class="seg active" type="button" data-duration="30">30초</button>
-                <button class="seg" type="button" data-duration="45">45초</button>
-              </div>
-              <p class="muted" id="paletteHint">30초 = 10초짜리 팔레트 3칸으로 그립니다.</p>
+              <h3>30초 BGM</h3>
+              <p class="muted">10초짜리 팔레트 3칸으로 그려서 30초 음악을 만듭니다.</p>
               <p class="upload-status" id="picStatus">그림을 올리면 표지로 사용됩니다.</p>
             </div>
           </div>
           <div class="screen-actions">
-            <span class="muted">그림과 길이를 정한 뒤 다음으로</span>
+            <span class="muted">그림을 올린 뒤 다음으로</span>
             <button class="btn primary" type="button" data-step-next>다음 · 분위기</button>
           </div>
         </section>
@@ -184,8 +179,11 @@
 
               <div class="takes">
                 <div class="takes-head">
-                  <h3>내 시도</h3>
-                  <span class="muted" id="takesCount"></span>
+                  <div class="takes-title">
+                    <h3>내 시도</h3>
+                    <span class="muted" id="takesCount"></span>
+                  </div>
+                  <button class="btn tiny admin-mode-btn" id="adminModeBtn" type="button" aria-pressed="false">관리자 모드</button>
                 </div>
                 <div class="takes-list" id="takesList"></div>
                 <p class="muted takes-empty" id="takesEmpty">드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요.</p>
