@@ -702,6 +702,15 @@
   // --- 드로잉 화면 배경음(분위기 패드 루프) ---
   // 라이브 선율 프리뷰와 독립적으로 깔린다. stop() 은 배경음을 끄지 않는다.
 
+  // 배경 음원(특히 큰 배경 mp3)을 미리 디코드해 두어, 드로잉 진입 시 즉시 깔리게 한다.
+  AudioEngine.prototype.warmAmbience = function (recipe) {
+    const ctx = this.ensureContext()
+    const plan = this.resolvePlan(recipe, [])
+    const padAsset = plan.padAsset && plan.padAsset.src ? plan.padAsset : plan.backgroundAsset
+    if (!padAsset || !padAsset.src) return Promise.resolve(null)
+    return this.loadAssetBuffer(ctx, padAsset)
+  }
+
   AudioEngine.prototype._ambienceSignature = function (plan) {
     return plan.atmosphere.id + "|" + plan.version.id
   }
@@ -713,7 +722,7 @@
     src.buffer = buffer
     src.loop = true
     g.gain.setValueAtTime(0.0001, now)
-    g.gain.linearRampToValueAtTime(plan.version.padGain, now + 1.2)
+    g.gain.linearRampToValueAtTime(plan.version.padGain, now + 0.4) // 빠른 페이드인 → 바로 들리게
     src.connect(g)
     g.connect(ctx.destination)
     src.start(now)
@@ -724,7 +733,7 @@
     const now = ctx.currentTime + 0.02
     const padGain = ctx.createGain()
     padGain.gain.setValueAtTime(0.0001, now)
-    padGain.gain.linearRampToValueAtTime(plan.version.padGain, now + 1.6)
+    padGain.gain.linearRampToValueAtTime(plan.version.padGain, now + 0.5) // 빠른 페이드인 → 바로 들리게
     padGain.connect(ctx.destination)
     const base = plan.style.root - 12
     const iv = plan.style.intervals

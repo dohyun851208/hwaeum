@@ -328,6 +328,7 @@
         toggleBackgroundPreview(a)
         renderAtmospheres()
         updateReadouts()
+        engine.warmAmbience(buildRecipe()).catch(function () {}) // 고른 분위기 배경음 미리 로드
       })
       el.atmosphereGrid.appendChild(b)
     })
@@ -372,6 +373,7 @@
     applyMoodTint()
     startBackgroundPreview(atmosphere)
     renderAtmospheres()
+    engine.warmAmbience(buildRecipe()).catch(function () {}) // 업로드한 배경음 미리 로드
     updateReadouts()
     el.bgUploadStatus.classList.remove("error")
     el.bgUploadStatus.textContent = "‘" + label + "’ 배경을 추가했어요. 카드를 눌러 들어보세요."
@@ -1101,6 +1103,7 @@
     restoreFromHash()
     setStep(0)
     warmSelectedInstrument() // 기본 악기 미리 준비 + 음원 로드 상태(실제/합성)를 하단에 표시
+    engine.warmAmbience(buildRecipe()).catch(function () {}) // 기본 분위기 배경음 미리 로드(드로잉 진입 시 즉시)
   }
 
   // 테스트/QA용 API
