@@ -1,0 +1,186 @@
+# -*- coding: utf-8 -*-
+"""
+curate-western-samples.py — 필하모니아 서양 선율 음원 멀티샘플 큐레이션 도구
+
+원본(`선율-서양(philharmonia)/`)은 한 음마다 길이·세기·주법별로 수백 개 변형을 담고 있다.
+이 도구는 악기마다 **음(피치)별로 깨끗한 지속음 1개씩**만 골라
+`sound/선율-서양(필하모니아)/<현|관>/<악기>/<악기>_<음이름>.mp3` 구조로 복사하고,
+오디오 엔진이 "가장 가까운 실제 녹음"을 골라 미세 피치시프트만 하도록
+멀티샘플 맵(`js/sample-maps-western.js`)을 생성한다.
+
+선택 우선순위
+  - 주법(articulation): normal / arco-normal  (피치카토·트레몰로·트릴 등 제외)
+  - 길이(duration)    : 15 > 1 > 05 > 025 > very-long  (phrase / long 제외)
+  - 세기(dynamic)     : mezzo-forte > forte > mezzo-piano > piano > fortissimo > pianissimo
+                        (cresc-decresc / molto-pianissimo 등 제외)
+
+실행:  python tools/curate-western-samples.py
+"""
+
+import os
+import re
+import shutil
+import sys
+
+# UTF-8 출력 (Windows 콘솔)
+sys.stdout.reconfigure(encoding="utf-8")
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(HERE)                       # sound-drawing-tool/
+SONG_DIR = os.path.dirname(PROJECT_DIR)                   # baeum/song/
+RAW_BASE = os.path.join(SONG_DIR, "선율-서양(philharmonia)")
+DEST_REL = os.path.join("sound", "선율-서양(필하모니아)")
+DEST_BASE = os.path.join(PROJECT_DIR, DEST_REL)
+GENERATED_JS = os.path.join(PROJECT_DIR, "js", "sample-maps-western.js")
+
+# (원본 하위경로, 대상 그룹폴더, 악기 id) — id는 manifest.js melodies 키와 일치
+INSTRUMENTS = [
+    ("현/violin", "현", "violin"),
+    ("현/viola", "현", "viola"),
+    ("현/cello", "현", "cello"),
+    ("현/double bass", "현", "doubleBass"),
+    ("현/mandolin", "현", "mandolin"),
+    ("관/clarinet", "관", "clarinet"),
+    ("관/oboe", "관", "oboe"),
+    ("관/flute", "관", "flute"),
+    ("관/french horn", "관", "frenchHorn"),
+]
+
+ARTIC_RANK = {"normal": 0, "arco-normal": 0}              # 그 외 주법은 제외
+DUR_RANK = {"15": 0, "1": 1, "05": 2, "025": 3, "very-long": 4}  # phrase/long 제외
+DYN_RANK = {
+    "mezzo-forte": 0,
+    "forte": 1,
+    "mezzo-piano": 2,
+    "piano": 3,
+    "fortissimo": 4,
+    "pianissimo": 5,
+}
+
+SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+NOTE_RE = re.compile(r"^([A-Ga-g])(s?)(\d)$")
+
+
+def parse_note(token):
+    """'As3' -> (midi, 'A#3', 'As3'). 매칭 안 되면 None."""
+    m = NOTE_RE.match(token)
+    if not m:
+        return None
+    letter = m.group(1).upper()
+    sharp = m.group(2) == "s"
+    octave = int(m.group(3))
+    midi = (octave + 1) * 12 + SEMITONE[letter] + (1 if sharp else 0)
+    pretty = letter + ("#" if sharp else "") + str(octave)
+    token_norm = letter + ("s" if sharp else "") + str(octave)
+    return midi, pretty, token_norm
+
+
+def select_for_instrument(raw_dir):
+    """음(midi)마다 우선순위로 최적 파일 1개 선택. {midi: (pretty, token_norm, src_path)}"""
+    best = {}  # midi -> (score_tuple, pretty, token_norm, path)
+    if not os.path.isdir(raw_dir):
+        print("  ! 원본 폴더 없음:", raw_dir)
+        return {}
+    for fname in os.listdir(raw_dir):
+        if not fname.lower().endswith(".mp3"):
+            continue
+        stem = fname[:-4]
+        parts = stem.split("_")
+        if len(parts) < 5:
+            continue
+        note_tok, dur, dyn, artic = parts[1], parts[2], parts[3], parts[4]
+        if artic not in ARTIC_RANK or dur not in DUR_RANK or dyn not in DYN_RANK:
+            continue
+        parsed = parse_note(note_tok)
+        if not parsed:
+            continue
+        midi, pretty, token_norm = parsed
+        score = (ARTIC_RANK[artic], DUR_RANK[dur], DYN_RANK[dyn])
+        cur = best.get(midi)
+        if cur is None or score < cur[0]:
+            best[midi] = (score, pretty, token_norm, os.path.join(raw_dir, fname))
+    return best
+
+
+def js_str(path_parts):
+    return "/".join(path_parts)
+
+
+def main():
+    os.makedirs(os.path.dirname(GENERATED_JS), exist_ok=True)
+    maps = {}        # id -> list of {midi, note, src}
+    summary = []
+
+    for raw_sub, group_kr, inst_id in INSTRUMENTS:
+        raw_dir = os.path.join(RAW_BASE, *raw_sub.split("/"))
+        print(f"[{inst_id}] {raw_dir}")
+        best = select_for_instrument(raw_dir)
+        if not best:
+            print("  (선택된 음 없음)")
+            continue
+
+        dest_dir = os.path.join(DEST_BASE, group_kr, inst_id)
+        if os.path.isdir(dest_dir):
+            shutil.rmtree(dest_dir)
+        os.makedirs(dest_dir, exist_ok=True)
+
+        entries = []
+        for midi in sorted(best):
+            _score, pretty, token_norm, src_path = best[midi]
+            dest_name = f"{inst_id}_{token_norm}.mp3"
+            shutil.copy2(src_path, os.path.join(dest_dir, dest_name))
+            rel = js_str(["sound", "선율-서양(필하모니아)", group_kr, inst_id, dest_name])
+            entries.append({"midi": midi, "note": pretty, "src": rel})
+
+        maps[inst_id] = entries
+        base = entries[len(entries) // 2]
+        summary.append((inst_id, len(entries), entries[0]["note"], entries[-1]["note"], base["midi"], base["note"], base["src"]))
+        print(f"  -> {len(entries)} notes  ({entries[0]['note']}…{entries[-1]['note']})  base={base['note']}({base['midi']})")
+
+    # --- js/sample-maps-western.js 생성 ---
+    lines = []
+    lines.append("/*")
+    lines.append(" * sample-maps-western.js — AUTO-GENERATED by tools/curate-western-samples.py")
+    lines.append(" * 서양 선율 악기 멀티샘플 맵: 음(midi)마다 실제 녹음 파일(src)을 가리킨다.")
+    lines.append(" * 손으로 고치지 말고 도구를 다시 실행하세요. (원본: 선율-서양(philharmonia)/)")
+    lines.append(" */")
+    lines.append(';(function (root) {')
+    lines.append('  "use strict"')
+    lines.append("  const data = root.SDStudioData")
+    lines.append("  if (!data || !data.melodies) return")
+    lines.append("")
+    lines.append("  const westernMaps = {")
+    for inst_id, _n, _lo, _hi, _bm, _bn, _bs in summary:
+        lines.append(f"    {inst_id}: [")
+        for e in maps[inst_id]:
+            lines.append(
+                f'      {{ midi: {e["midi"]}, note: "{e["note"]}", src: "{e["src"]}" }},'
+            )
+        lines.append("    ],")
+    lines.append("  }")
+    lines.append("")
+    lines.append("  Object.keys(westernMaps).forEach(function (id) {")
+    lines.append("    const asset = data.melodies[id]")
+    lines.append("    const map = westernMaps[id]")
+    lines.append("    if (!asset || !map || !map.length) return")
+    lines.append("    asset.sampleMap = map")
+    lines.append('    asset.sampleMode = "multi"')
+    lines.append("    asset.lowMidi = map[0].midi")
+    lines.append("    asset.highMidi = map[map.length - 1].midi")
+    lines.append("    asset.baseMidi = map[Math.floor(map.length / 2)].midi")
+    lines.append("  })")
+    lines.append('})(typeof self !== "undefined" ? self : this)')
+    lines.append("")
+
+    with open(GENERATED_JS, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    print("\n=== 생성 요약 ===")
+    print(f"generated: {os.path.relpath(GENERATED_JS, PROJECT_DIR)}")
+    for inst_id, n, lo, hi, bm, bn, bs in summary:
+        print(f"  {inst_id:12s} notes={n:3d}  range={lo}…{hi}  base={bn}({bm})  src={bs}")
+    print("\nmanifest.js 의 각 melodies[id].src 를 위 src 로 맞추세요.")
+
+
+if __name__ == "__main__":
+    main()

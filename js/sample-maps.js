@@ -5,6 +5,9 @@
  * - midi/note: 감지된 중심 음높이
  * - offset/duration: 원본 긴 음원에서 잘라 쓸 구간(초)
  * - detectedHz/confidence/cents: 분석 검증용 메타데이터
+ *
+ * 새 음원의 맵 생성: `python tools/analyze-sample-map.py "<음계 녹음 wav>"`
+ * (RMS 구간 검출 + 자기상관 피치, numpy 불필요. 예: piri 맵이 이 도구로 생성됨)
  */
 ;(function (root) {
   "use strict"
@@ -27,11 +30,16 @@
       { midi: 83, note: "B5", offset: 170.284, duration: 2.4, detectedHz: 961.45, confidence: 0.999, cents: -47 },
     ],
     danso: [
-      { midi: 68, note: "G#4", offset: 0.193, duration: 2.4, detectedHz: 414.87, confidence: 0.997, cents: -2 },
-      { midi: 70, note: "A#4", offset: 6.615, duration: 2.4, detectedHz: 464.83, confidence: 0.998, cents: -5 },
-      { midi: 73, note: "C#5", offset: 12.972, duration: 2.4, detectedHz: 554.64, confidence: 0.998, cents: 1 },
-      { midi: 75, note: "D#5", offset: 19.372, duration: 2.4, detectedHz: 622.98, confidence: 0.997, cents: 2 },
-      { midi: 77, note: "F5", offset: 25.772, duration: 2.4, detectedHz: 700.35, confidence: 0.998, cents: 5 },
+      { midi: 68, note: "G#4", offset: 0.56, duration: 1.2, detectedHz: 416.93, confidence: 0.982, cents: 7 },
+      { midi: 70, note: "A#4", offset: 6.26, duration: 2.4, detectedHz: 472.72, confidence: 0.982, cents: 24 },
+      { midi: 73, note: "C#5", offset: 12.01, duration: 2.4, detectedHz: 559.57, confidence: 0.984, cents: 16 },
+      { midi: 75, note: "D#5", offset: 17.76, duration: 2.4, detectedHz: 632.44, confidence: 0.983, cents: 28 },
+      { midi: 77, note: "F5", offset: 22.77, duration: 2.4, detectedHz: 694.44, confidence: 0.987, cents: -10 },
+      { midi: 80, note: "G#5", offset: 28.48, duration: 2.4, detectedHz: 828.16, confidence: 0.986, cents: -5 },
+      { midi: 82, note: "A#5", offset: 34.98, duration: 2.4, detectedHz: 930.8, confidence: 0.99, cents: -3 },
+      { midi: 84, note: "C6", offset: 41.81, duration: 2.4, detectedHz: 1075.6, confidence: 0.99, cents: 47 },
+      { midi: 87, note: "D#6", offset: 48.28, duration: 2.4, detectedHz: 1236.46, confidence: 0.991, cents: -11 },
+      { midi: 89, note: "F6", offset: 54.57, duration: 2.4, detectedHz: 1377.66, confidence: 0.995, cents: -24 },
     ],
     sogeum: [
       { midi: 67, note: "G4", offset: 13.996, duration: 2.4, detectedHz: 387.82, confidence: 0.996, cents: -19 },
@@ -47,7 +55,20 @@
       { midi: 82, note: "A#5", offset: 65.985, duration: 2.4, detectedHz: 951.42, confidence: 0.999, cents: 35 },
       { midi: 83, note: "B5", offset: 54.039, duration: 2.4, detectedHz: 975.18, confidence: 0.998, cents: -22 },
     ],
-    nagak: [{ midi: 59, note: "B3", offset: 0.5, duration: 5.8, detectedHz: 246.15, confidence: 0.998, cents: -6 }],
+    piri: [
+      { midi: 59, note: "B3", offset: 0.05, duration: 2.4, detectedHz: 247.42, confidence: 0.972, cents: 3 },
+      { midi: 61, note: "C#4", offset: 9.21, duration: 2.4, detectedHz: 277.2, confidence: 0.978, cents: 0 },
+      { midi: 62, note: "D4", offset: 17.36, duration: 2.4, detectedHz: 300.77, confidence: 0.962, cents: 41 },
+      { midi: 64, note: "E4", offset: 26.52, duration: 2.4, detectedHz: 334.77, confidence: 0.966, cents: 27 },
+      { midi: 66, note: "F#4", offset: 35.68, duration: 2.4, detectedHz: 373.45, confidence: 0.982, cents: 16 },
+      { midi: 68, note: "G#4", offset: 46.83, duration: 2.4, detectedHz: 411.78, confidence: 0.982, cents: -15 },
+      { midi: 70, note: "A#4", offset: 56.99, duration: 2.4, detectedHz: 462.84, confidence: 0.971, cents: -12 },
+      { midi: 71, note: "B4", offset: 66.14, duration: 2.4, detectedHz: 506.9, confidence: 0.957, cents: 45 },
+      { midi: 74, note: "D5", offset: 76.95, duration: 2.4, detectedHz: 585.58, confidence: 0.958, cents: -5 },
+      { midi: 75, note: "D#5", offset: 86.61, duration: 2.4, detectedHz: 619.2, confidence: 0.976, cents: -9 },
+      { midi: 77, note: "F5", offset: 96.79, duration: 2.4, detectedHz: 693.58, confidence: 0.936, cents: -12 },
+      { midi: 79, note: "G5", offset: 106.94, duration: 2.4, detectedHz: 766.44, confidence: 0.956, cents: -39 },
+    ],
     gayageum: [
       { midi: 46, note: "A#2", offset: 39.788, duration: 1.043, detectedHz: 118.11, confidence: 0.993, cents: 23 },
       { midi: 48, note: "C3", offset: 50.476, duration: 1.021, detectedHz: 131.9, confidence: 0.99, cents: 14 },

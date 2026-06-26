@@ -17,3 +17,7 @@ Thumbs.db
 
 # 로컬 서버 실행 흔적
 .server.pid
+
+# 테스트/QA 산출물
+test-results/
+output/

@@ -8,7 +8,7 @@ const projectDir = path.resolve(__dirname, "..")
 
 function loadManifest() {
   const sandbox = {}
-  const files = ["manifest.js", "sample-maps.js"]
+  const files = ["manifest.js", "sample-maps.js", "sample-maps-western.js"]
   sandbox.self = sandbox
   for (const file of files) {
     const code = fs.readFileSync(path.join(projectDir, "js", file), "utf8")
@@ -31,6 +31,10 @@ function collectInstrumentImages(data) {
   return Array.from(data.instruments).filter((instrument) => instrument.image)
 }
 
+function collectEffectImages(data) {
+  return Object.entries(data.effects).filter(([, effect]) => effect.image)
+}
+
 test("manifest audio src entries point to existing project files", () => {
   const data = loadManifest()
   const missing = collectAssets(data)
@@ -47,6 +51,37 @@ test("instrument image entries point to existing project files", () => {
     .filter((instrument) => !fs.existsSync(instrument.filePath))
 
   assert.deepEqual(missing, [])
+})
+
+test("effect image entries point to existing project files", () => {
+  const data = loadManifest()
+  const missing = collectEffectImages(data)
+    .map(([id, effect]) => ({ id, image: effect.image, filePath: path.resolve(projectDir, effect.image) }))
+    .filter((effect) => !fs.existsSync(effect.filePath))
+
+  assert.deepEqual(missing, [])
+})
+
+test("새 도장 효과음은 정리된 폴더의 음원과 이미지를 사용한다", () => {
+  const data = loadManifest()
+  const expected = {
+    animalCricket: ["귀뚜라미", "sound/효과음-도장/동물/귀뚜라미.mp3", "./assets/effects/stamps/animal-cricket.svg"],
+    animalCuckoo: ["뻐꾸기", "sound/효과음-도장/동물/뻐꾸기.mp3", "./assets/effects/stamps/animal-cuckoo.svg"],
+    animalBird: ["새", "sound/효과음-도장/동물/새.mp3", "./assets/effects/stamps/animal-bird.svg"],
+    animalWhale: ["흑동고래", "sound/효과음-도장/동물/흑동고래.mp3", "./assets/effects/stamps/animal-whale.svg"],
+    sfxBubblePop: ["방울pop", "sound/효과음-도장/효과/방울pop.mp3", "./assets/effects/stamps/sfx-bubble-pop.svg"],
+    sfxBell: ["벨", "sound/효과음-도장/효과/벨.mp3", "./assets/effects/stamps/sfx-bell.svg"],
+    sfxTambourine: ["탬버린", "sound/효과음-도장/효과/탬버린.mp3", "./assets/effects/stamps/sfx-tambourine.svg"],
+    sfxHarp: ["하프", "sound/효과음-도장/효과/하프.mp3", "./assets/effects/stamps/sfx-harp.svg"],
+  }
+
+  for (const [id, [label, src, image]] of Object.entries(expected)) {
+    assert.equal(data.effects[id].label, label)
+    assert.equal(data.effects[id].src, src)
+    assert.equal(data.effects[id].image, image)
+    assert.ok(fs.existsSync(path.resolve(projectDir, src)), id + " audio")
+    assert.ok(fs.existsSync(path.resolve(projectDir, image)), id + " image")
+  }
 })
 
 test("자족형 구조: 음원 폴더가 앱 폴더 안에 있고 serve는 앱 폴더를 그대로 띄운다", () => {
@@ -91,5 +126,69 @@ test("detected sample maps provide playable note segments for gugak melody asset
 test("index loads detected sample maps before the audio engine", () => {
   const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
   assert.ok(html.indexOf("./js/manifest.js") < html.indexOf("./js/sample-maps.js"))
-  assert.ok(html.indexOf("./js/sample-maps.js") < html.indexOf("./js/audio-engine.js"))
+  assert.ok(html.indexOf("./js/sample-maps.js") < html.indexOf("./js/sample-maps-western.js"))
+  assert.ok(html.indexOf("./js/sample-maps-western.js") < html.indexOf("./js/audio-engine.js"))
+})
+
+test("서양 선율은 음마다 실제 녹음 멀티샘플 맵을 가지고, 그 파일들이 모두 존재한다", () => {
+  const data = loadManifest()
+  const western = Object.entries(data.melodies).filter(([, asset]) => asset.group === "서양")
+  // 모든 서양 선율 악기는 멀티샘플(음마다 별도 파일)이어야 한다.
+  const notMulti = western.filter(([, asset]) => asset.sampleMode !== "multi" || !Array.isArray(asset.sampleMap) || asset.sampleMap.length === 0)
+  assert.deepEqual(
+    notMulti.map(([id]) => id),
+    [],
+    "멀티샘플 맵이 비어있는 서양 악기",
+  )
+
+  const missing = []
+  for (const [id, asset] of western) {
+    let prevMidi = -Infinity
+    for (const item of asset.sampleMap) {
+      assert.equal(typeof item.midi, "number", id + " midi")
+      assert.equal(typeof item.src, "string", id + " src")
+      assert.ok(item.midi >= prevMidi, id + " sorted midi")
+      prevMidi = item.midi
+      if (/^\.\.\//.test(item.src)) missing.push(id + " ../ 참조: " + item.src)
+      else if (!fs.existsSync(path.resolve(projectDir, item.src))) missing.push(id + " 없음: " + item.src)
+    }
+    // baseMidi 는 맵 범위 안에 있어야 폴백이 정상 음높이로 들린다.
+    assert.ok(asset.baseMidi >= asset.sampleMap[0].midi && asset.baseMidi <= asset.sampleMap[asset.sampleMap.length - 1].midi, id + " baseMidi 범위")
+  }
+  assert.deepEqual(missing, [])
+})
+
+// 국악 음원은 한 곡(프레이즈)을 잘라 쓰므로, 검출된 구간이 목표 음에서 cents 만큼 어긋나 있다.
+// audio-engine 의 segmentPlaybackRate 는 그 cents 를 보정해 정확한 음높이로 재생해야 한다.
+// (보정 전엔 소금 삑사리·대금 윗옥타브·해금 전체 피치가 최대 ±50센트까지 어긋났다.)
+test("국악 샘플맵은 cents 보정 후 연주 음을 정확한 음높이로 낸다", () => {
+  const data = loadManifest()
+  const freq = (m) => 440 * Math.pow(2, (m - 69) / 12)
+  const nearest = (map, midi) => map.reduce((b, it) => (Math.abs(it.midi - midi) < Math.abs(b.midi - midi) ? it : b), map[0])
+  // 프로덕션(segmentPlaybackRate)과 동일한 보정식.
+  const compensatedRate = (seg, midi) => Math.pow(2, (midi - (seg.midi + (seg.cents || 0) / 100)) / 12)
+  const centsOff = (a, b) => 1200 * Math.log2(a / b)
+
+  // 각 악기의 실제 연주 가능 음(playableMidi 없으면 G3~G5 전 음역)을 cents 보정해 음정 오차를 잰다.
+  const targets = {
+    sogeum: data.melodies.sogeum.playableMidi,
+    daegeum: data.melodies.daegeum.playableMidi,
+    haegeum: data.melodies.haegeum.playableMidi,
+    ajaeng: data.melodies.ajaeng.playableMidi,
+    gayageum: Array.from({ length: 79 - 55 + 1 }, (_, i) => 55 + i), // G3~G5 전체
+  }
+  for (const [id, midis] of Object.entries(targets)) {
+    const asset = data.melodies[id]
+    for (const midi of midis) {
+      const seg = nearest(asset.sampleMap, midi)
+      const soundingHz = seg.detectedHz * compensatedRate(seg, midi)
+      const off = Math.abs(centsOff(soundingHz, freq(midi)))
+      assert.ok(off < 5, id + " draw " + midi + " 음정 오차 " + off.toFixed(1) + "c (보정 후 5센트 미만이어야 함)")
+    }
+  }
+})
+
+test("25현 가야금은 팔레트 전 음역을 연주한다(playableMidi 제한 없음)", () => {
+  const data = loadManifest()
+  assert.equal(data.melodies.gayageum.playableMidi, undefined)
 })

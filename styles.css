@@ -41,7 +41,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
   color: inherit;
 }
@@ -137,6 +138,11 @@ p {
   border-color: transparent;
   color: #fff;
 }
+.status-pill.paused {
+  background: var(--canvas);
+  border-color: var(--accent-line);
+  color: var(--ink);
+}
 .round-btn {
   display: inline-grid;
   place-items: center;
@@ -152,16 +158,26 @@ p {
 .round-btn:hover {
   transform: translateY(-1px);
 }
+.round-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
 .round-btn.ghost {
   background: var(--canvas);
   color: var(--ink);
   border-color: var(--line-strong);
 }
+.round-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
 
 /* 단계 표시 */
 .steps {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   margin: 16px 0;
 }
@@ -273,6 +289,14 @@ p {
 .btn:hover {
   transform: translateY(-1px);
   border-color: var(--accent);
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+}
+.btn:disabled:hover {
+  border-color: var(--line-strong);
 }
 .btn.primary {
   background: var(--ink);
@@ -391,6 +415,18 @@ p {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 12px;
 }
+/* 2단계 분위기 카드 그룹 소제목 (분위기 / 환경 소리 / 리듬 반주 / 테마 루프) */
+.atmosphere-group-label {
+  grid-column: 1 / -1;
+  margin: 10px 0 -2px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.atmosphere-group-label:first-child {
+  margin-top: 0;
+}
 .card {
   position: relative;
   display: grid;
@@ -420,24 +456,30 @@ p {
 }
 .card.with-image {
   min-height: 244px;
-  padding: 10px;
+  padding: 14px 14px 18px;
   align-content: start;
+  justify-items: center;
+  text-align: center;
   background: rgba(251, 246, 236, 0.72);
 }
+.card.with-image .card-copy {
+  justify-items: center;
+  text-align: center;
+  width: 100%;
+}
 .card-art {
-  display: block;
+  display: grid;
+  place-items: center;
+  width: 100%;
   height: 150px;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  background: #e6dcc9;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  overflow: visible;
 }
 .card-art img {
   display: block;
-  width: 100%;
+  width: min(100%, 152px);
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   transition: transform 180ms ease;
 }
 .card:hover {
@@ -446,7 +488,7 @@ p {
   box-shadow: var(--shadow-sm);
 }
 .card.with-image:hover .card-art img {
-  transform: scale(1.035);
+  transform: none;
 }
 .card.active {
   border-color: transparent;
@@ -457,8 +499,48 @@ p {
 .card.active .card-copy > span {
   color: rgba(251, 246, 236, 0.75);
 }
-.card.active .card-art {
-  border-color: rgba(251, 246, 236, 0.25);
+.card.with-image.active {
+  border-color: var(--accent);
+  background: rgba(251, 246, 236, 0.86);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--accent-line), var(--shadow-sm);
+}
+.card.with-image.active .card-copy > span {
+  color: var(--muted);
+}
+.card.instrument-card {
+  --instrument-color: var(--accent);
+  --instrument-soft: var(--accent-soft);
+  --instrument-strong: var(--accent-line);
+  border-color: var(--instrument-strong);
+  background:
+    linear-gradient(135deg, var(--instrument-soft), rgba(251, 246, 236, 0.82) 62%),
+    var(--canvas);
+}
+.card.instrument-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 14px 12px 14px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--instrument-color);
+  opacity: 0.78;
+}
+.card.instrument-card:hover {
+  border-color: var(--instrument-color);
+}
+.card.instrument-card.active,
+.card.instrument-card.with-image.active {
+  border-color: var(--instrument-color);
+  background:
+    linear-gradient(135deg, var(--instrument-strong), var(--instrument-soft) 48%, rgba(251, 246, 236, 0.9)),
+    var(--canvas);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--instrument-strong), var(--shadow-sm);
+}
+.card.instrument-card.active .card-copy > span,
+.card.instrument-card.with-image.active .card-copy > span {
+  color: var(--muted);
 }
 .card.with-swatch::before {
   content: "";
@@ -516,14 +598,50 @@ p {
   }
 }
 
+/* 악기 카드 — 연주곡 감상 ▶ (국악기 일부) */
+.example-play {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  letter-spacing: -1px;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25);
+  opacity: 0.92;
+  cursor: pointer;
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+.card:hover .example-play {
+  opacity: 1;
+}
+.example-play:hover {
+  transform: scale(1.08);
+}
+.card.active .example-play {
+  color: var(--ink);
+  background: var(--canvas);
+}
+.card.playing .example-play {
+  opacity: 1;
+  animation: moodPulse 1.2s ease-in-out infinite;
+}
+
 /* 내 배경 음원 추가(업로드) 카드 */
 .card.upload-card {
   display: grid;
-  gap: 4px;
+  gap: 7px;
   align-content: center;
   justify-items: center;
   text-align: center;
-  min-height: 96px;
+  min-height: 132px;
   border-style: dashed;
   border-color: var(--line);
   background: rgba(251, 246, 236, 0.35);
@@ -547,15 +665,67 @@ p {
   color: var(--muted);
   line-height: 1.35;
 }
+.upload-card .upload-sub span {
+  display: block;
+}
+.upload-card .upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 3px;
+}
+.upload-card .upload-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+.upload-card .upload-action:hover,
+.upload-card .upload-action:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  outline: none;
+}
+.upload-card .upload-action-primary {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.upload-card .upload-action-secondary {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.62);
+}
 
 /* 그룹 탭 */
+.instrument-toolbar {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
 .group-tabs {
   display: inline-flex;
   gap: 6px;
-  margin-bottom: 14px;
   padding: 5px;
   border-radius: 12px;
   background: rgba(32, 41, 42, 0.05);
+}
+.instrument-preview-stop {
+  min-height: 40px;
 }
 .group-tab {
   min-height: 40px;
@@ -585,12 +755,46 @@ p {
   font-size: 1rem;
 }
 
-/* 5단계: 컴포즈 레이아웃 */
+/* 2단계: 분위기·악기 통합 선택 */
+.sound-palette-screen .screen-head {
+  max-width: 920px;
+}
+.sound-choice-flow {
+  display: grid;
+  gap: 30px;
+}
+.choice-section {
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+.choice-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.choice-section-head {
+  display: grid;
+  gap: 6px;
+  max-width: 860px;
+  margin-bottom: 16px;
+}
+.choice-section-head h3 {
+  font-family: var(--serif);
+  font-size: clamp(1.25rem, 1.8vw, 1.65rem);
+  line-height: 1.25;
+}
+.choice-section-head .muted {
+  line-height: 1.55;
+}
+
+/* 3단계: 드로잉 레이아웃 */
 .compose-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+}
+.compose-grid.drawing-only {
+  grid-template-columns: minmax(0, 1fr);
 }
 .screen.compose {
   padding: clamp(16px, 1.8vw, 26px);
@@ -635,6 +839,8 @@ p {
   scrollbar-gutter: stable;
 }
 #drawingCanvas {
+  position: relative;
+  z-index: 1;
   display: block;
   width: var(--timeline-width);
   min-width: 100%;
@@ -647,6 +853,44 @@ p {
   touch-action: none;
   cursor: crosshair;
 }
+#drawingCanvas.stamp-mode {
+  cursor: copy;
+}
+.effect-stamp-layer {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  width: var(--timeline-width);
+  min-width: calc(100% - 32px);
+  height: min(62vh, 660px);
+  min-height: 420px;
+  pointer-events: none;
+  z-index: 5;
+}
+.effect-stamp {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  padding: 4px;
+  border-radius: 14px;
+  border: 1px solid rgba(31, 38, 38, 0.18);
+  color: var(--ink);
+  background: rgba(251, 246, 236, 0.82);
+  box-shadow: 0 6px 16px rgba(31, 38, 38, 0.16);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  transform: translate(-50%, -50%) rotate(-4deg);
+}
+.effect-stamp img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 .palette-labels {
   position: absolute;
   top: 14px;
@@ -655,6 +899,7 @@ p {
   width: var(--timeline-width);
   min-width: calc(100% - 32px);
   pointer-events: none;
+  z-index: 4;
 }
 .palette-label {
   position: absolute;
@@ -662,20 +907,20 @@ p {
   height: calc(100% - 16px);
   border-left: 1px dashed var(--accent-line);
 }
-.palette-label:first-child {
-  border-left: 0;
-}
 .palette-label span {
   position: absolute;
-  left: 8px;
-  bottom: 8px;
-  padding: 3px 8px;
+  top: 0;
+  left: -6px;
+  transform: translateX(-100%);
+  padding: 4px 9px;
   border-radius: 999px;
-  background: rgba(251, 246, 236, 0.85);
-  border: 1px solid var(--line);
+  background: rgba(251, 246, 236, 0.92);
+  border: 1px solid rgba(31, 38, 38, 0.14);
+  box-shadow: 0 4px 12px rgba(31, 38, 38, 0.08);
   font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--muted);
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
 /* 재생 헤드(재생바) — 재생 중 위치 표시 */
@@ -702,7 +947,7 @@ p {
   border-top: 8px solid var(--accent);
 }
 
-/* 지우개 모드 켜짐 표시 */
+#penBtn.active,
 #clearBtn.active {
   background: var(--ink);
   color: var(--canvas);
@@ -735,6 +980,151 @@ p {
   margin-top: 5px;
   font-size: 1.05rem;
 }
+.bg-player {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+}
+.bg-player.disabled {
+  opacity: 0.45;
+}
+.bg-play-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: var(--ink);
+  color: var(--canvas);
+  box-shadow: var(--shadow-sm);
+  transition: background 140ms ease, transform 140ms ease;
+}
+.bg-play-btn:hover {
+  transform: translateY(-1px);
+}
+.bg-play-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.bg-player-label {
+  font-weight: 800;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.bg-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 340px;
+  min-width: 220px;
+}
+.bg-range[hidden] {
+  display: none;
+}
+.bg-range-dash {
+  color: var(--muted);
+  font-weight: 900;
+}
+.bg-seek {
+  flex: 1 1 auto;
+  min-width: 80px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.bg-end-seek {
+  accent-color: var(--ink);
+}
+.bg-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.flow-btn {
+  min-height: 38px;
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 900;
+  white-space: nowrap;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.flow-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+.flow-btn.active {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+}
+body[data-flow="on"] #drawingCanvas {
+  cursor: ns-resize;
+}
+/* 오케스트라 범례 — 지금 곡에 쓰인 악기(색·줄 수) + 다음에 그릴 악기 */
+.orchestra-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px 0;
+  font-size: 0.92rem;
+}
+.orchestra-legend-label {
+  font-weight: 800;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.orchestra-empty {
+  color: var(--muted);
+}
+.orchestra-chip {
+  --instrument-color: var(--accent);
+  --instrument-soft: var(--accent-soft);
+  --instrument-strong: var(--accent-line);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 7px;
+  border-radius: 999px;
+  background: var(--instrument-soft);
+  border: 1px solid var(--instrument-strong);
+  font-weight: 700;
+}
+.orchestra-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(32, 41, 42, 0.12) inset;
+}
+.orchestra-current {
+  --instrument-color: var(--accent);
+  --instrument-soft: var(--accent-soft);
+  --instrument-strong: var(--accent-line);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 3px 10px 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--instrument-strong);
+  background: var(--instrument-soft);
+  color: var(--muted);
+}
+.orchestra-current strong {
+  color: var(--ink);
+}
+
 .version-row {
   margin: 0;
   padding: 14px 18px 18px;
@@ -755,6 +1145,11 @@ p {
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }
+.effect-strip {
+  align-items: start;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
 .compose-control-strip .mode-label {
   white-space: nowrap;
 }
@@ -767,11 +1162,70 @@ p {
   padding-bottom: 2px;
   scrollbar-gutter: stable;
 }
+.effect-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  max-height: 160px;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 1px 2px 4px 0;
+  scrollbar-gutter: stable;
+}
+.effect-btn {
+  flex: 0 0 auto;
+  width: 72px;
+  min-height: 72px;
+  padding: 6px 6px 7px;
+  border-radius: 11px;
+  border: 1px solid var(--line-strong);
+  background: var(--canvas);
+  color: var(--ink);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1.15;
+  text-align: center;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.effect-btn img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.effect-btn-label {
+  display: block;
+  max-width: 100%;
+  word-break: keep-all;
+}
+.effect-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+.effect-btn.active {
+  border-color: transparent;
+  background: var(--ink);
+  color: var(--canvas);
+}
 .compose-instrument-list {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1.08fr) minmax(150px, 0.45fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "western western"
+    "gugak gugak";
   gap: 10px;
+  align-items: start;
   min-width: 0;
+}
+.compose-instrument-group[data-group="서양"] {
+  grid-area: western;
+}
+.compose-instrument-group[data-group="국악"] {
+  grid-area: gugak;
 }
 .compose-instrument-group {
   min-width: 0;
@@ -802,17 +1256,14 @@ p {
   font-weight: 800;
 }
 .compose-instrument-group-list {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(122px, 1fr));
   gap: 8px;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 2px;
-  scrollbar-gutter: stable;
+  overflow: visible;
 }
 .compose-instrument-group.compact .compose-instrument-group-list {
-  overflow-x: visible;
-  scrollbar-gutter: auto;
+  grid-template-columns: minmax(112px, 1fr);
 }
 .version {
   flex: 0 0 auto;
@@ -831,13 +1282,18 @@ p {
   color: #fff;
 }
 .compose-instrument {
-  flex: 0 0 auto;
-  width: 158px;
+  --instrument-color: var(--accent);
+  --instrument-soft: var(--accent-soft);
+  --instrument-strong: var(--accent-line);
+  width: 100%;
+  min-width: 0;
   min-height: 62px;
   padding: 7px 14px 7px 8px;
   border-radius: 10px;
-  border: 1px solid var(--line-strong);
-  background: var(--canvas);
+  border: 1px solid var(--instrument-strong);
+  background:
+    linear-gradient(135deg, var(--instrument-soft), rgba(251, 246, 236, 0.74) 70%),
+    var(--canvas);
   color: var(--ink);
   display: flex;
   align-items: center;
@@ -847,16 +1303,19 @@ p {
 }
 .compose-instrument-group.compact .compose-instrument {
   width: 100%;
-  max-width: 148px;
+  max-width: none;
 }
 .compose-instrument:hover {
   transform: translateY(-1px);
-  border-color: var(--accent);
+  border-color: var(--instrument-color);
 }
 .compose-instrument.active {
-  border-color: transparent;
-  background: var(--accent);
-  color: #fff;
+  border-color: var(--instrument-color);
+  background:
+    linear-gradient(135deg, var(--instrument-strong), var(--instrument-soft) 52%, rgba(251, 246, 236, 0.9)),
+    var(--canvas);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--instrument-strong);
 }
 .compose-instrument img {
   width: 48px;
@@ -966,6 +1425,53 @@ p {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 600;
+}
+.reflection-fields {
+  display: grid;
+  gap: 12px;
+}
+.reflection-field,
+.hashtag-field {
+  display: grid;
+  gap: 6px;
+}
+.reflection-field span,
+.hashtag-field span {
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+.reflection-field textarea,
+.hashtag-field input {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.45;
+  box-shadow: none;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.reflection-field textarea {
+  min-height: 86px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.hashtag-field input {
+  min-height: 44px;
+  padding: 0 12px;
+}
+.reflection-field textarea:focus,
+.hashtag-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(251, 246, 236, 0.82);
+}
+.hashtag-field small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .actions-row {
@@ -1103,10 +1609,10 @@ p {
   .card-grid {
     grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   }
-  body[data-step="4"] {
+  body[data-step="2"] {
     overflow: auto;
   }
-  body[data-step="4"] .atelier {
+  body[data-step="2"] .atelier {
     min-height: 100vh;
     height: auto;
     display: grid;
@@ -1114,23 +1620,23 @@ p {
     overflow: visible;
     padding: clamp(10px, 1.1vw, 18px) clamp(8px, 1vw, 18px) 12px;
   }
-  body[data-step="4"] .topbar {
+  body[data-step="2"] .topbar {
     padding: 13px 20px;
   }
-  body[data-step="4"] .brand h1 {
+  body[data-step="2"] .brand h1 {
     font-size: clamp(2rem, 2.35vw, 2.55rem);
   }
-  body[data-step="4"] .steps {
+  body[data-step="2"] .steps {
     gap: 10px;
     margin: 12px 0;
   }
-  body[data-step="4"] .step {
+  body[data-step="2"] .step {
     min-height: 52px;
   }
-  body[data-step="4"] .stage {
+  body[data-step="2"] .stage {
     min-height: 0;
   }
-  body[data-step="4"] .screen.compose.active {
+  body[data-step="2"] .screen.compose.active {
     display: grid;
     grid-template-rows: auto auto;
     gap: 10px;
@@ -1138,16 +1644,16 @@ p {
     min-height: 0;
     overflow: visible;
   }
-  body[data-step="4"] .compose-grid {
+  body[data-step="2"] .compose-grid {
     height: auto;
     max-height: none;
     min-height: 0;
-    grid-template-columns: minmax(0, 1fr) clamp(270px, 20vw, 340px);
+    grid-template-columns: minmax(0, 1fr);
     gap: clamp(14px, 1.4vw, 22px);
     align-items: start;
     overflow: visible;
   }
-  body[data-step="4"] .draw-panel {
+  body[data-step="2"] .draw-panel {
     height: auto;
     max-height: none;
     min-height: 0;
@@ -1155,66 +1661,80 @@ p {
     grid-template-rows: auto auto auto auto;
     overflow: hidden;
   }
-  body[data-step="4"] .panel-head {
+  body[data-step="2"] .panel-head {
     padding: 14px 18px;
   }
-  body[data-step="4"] .panel-head h2 {
+  body[data-step="2"] .panel-head h2 {
     font-size: clamp(1.35rem, 1.8vw, 1.8rem);
   }
-  body[data-step="4"] .canvas-wrap {
+  body[data-step="2"] .canvas-wrap {
     min-height: 0;
     padding: 12px 14px 14px;
   }
-  body[data-step="4"] #drawingCanvas {
+  body[data-step="2"] #drawingCanvas {
     height: clamp(360px, 48vh, 560px);
     min-height: 360px;
   }
-  body[data-step="4"] .palette-labels {
+  body[data-step="2"] .effect-stamp-layer {
+    top: 12px;
+    left: 14px;
+    height: clamp(360px, 48vh, 560px);
+    min-height: 360px;
+  }
+  body[data-step="2"] .palette-labels {
     top: 12px;
     left: 14px;
     bottom: 14px;
   }
-  body[data-step="4"] .readouts {
+  body[data-step="2"] .readouts {
     margin-top: 0;
   }
-  body[data-step="4"] .readouts > div {
+  body[data-step="2"] .readouts > div {
     padding: 10px 16px;
   }
-  body[data-step="4"] .readouts .k {
+  body[data-step="2"] .readouts .k {
     font-size: 0.8rem;
   }
-  body[data-step="4"] .readouts strong {
+  body[data-step="2"] .readouts strong {
     font-size: 1.08rem;
   }
-  body[data-step="4"] .version-row {
+  body[data-step="2"] .version-row {
     padding: 10px 16px 12px;
     gap: 8px;
   }
-  body[data-step="4"] .compose-control-strip {
+  body[data-step="2"] .compose-control-strip {
     display: grid;
     grid-template-columns: 50px minmax(0, 1fr);
     gap: 12px;
   }
-  body[data-step="4"] .compose-instrument-list {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(145px, 0.46fr);
+  body[data-step="2"] .compose-instrument-list {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "western western"
+      "gugak gugak";
     gap: 9px;
   }
-  body[data-step="4"] .compose-instrument-group {
+  body[data-step="2"] .compose-instrument-group-list {
+    grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+    overflow: visible;
+  }
+  body[data-step="2"] .compose-instrument-group {
     padding: 7px;
   }
-  body[data-step="4"] .version {
+  body[data-step="2"] .version {
     min-height: 38px;
     font-size: 0.92rem;
   }
-  body[data-step="4"] .compose-instrument {
-    width: 148px;
+  body[data-step="2"] .compose-instrument {
+    width: 100%;
+    min-width: 0;
     min-height: 56px;
     padding: 6px 13px 6px 7px;
   }
-  body[data-step="4"] .compose-instrument-group.compact .compose-instrument {
-    max-width: 138px;
+  body[data-step="2"] .compose-instrument-group.compact .compose-instrument {
+    max-width: none;
   }
-  body[data-step="4"] .compose-instrument img {
+  body[data-step="2"] .compose-instrument img {
     width: 42px;
     height: 42px;
   }
@@ -1222,7 +1742,7 @@ p {
     grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
     align-items: start;
   }
-  body[data-step="4"] .gallery-panel {
+  body[data-step="2"] .gallery-panel {
     height: auto;
     max-height: 100%;
     min-height: 0;
@@ -1235,7 +1755,7 @@ p {
   .gallery-panel .frame {
     grid-row: 1 / span 4;
   }
-  body[data-step="4"] .gallery-panel .frame {
+  body[data-step="2"] .gallery-panel .frame {
     grid-row: auto;
     width: clamp(190px, 15vw, 240px);
     height: clamp(190px, 15vw, 240px);
@@ -1244,144 +1764,196 @@ p {
     border-width: 7px;
   }
   .gallery-panel .placard,
+  .gallery-panel .reflection-fields,
   .gallery-panel .actions-row,
   .gallery-panel .upload-status,
   .gallery-panel .takes {
     grid-column: 2;
   }
-  body[data-step="4"] .gallery-panel .placard,
-  body[data-step="4"] .gallery-panel .actions-row,
-  body[data-step="4"] .gallery-panel .upload-status,
-  body[data-step="4"] .gallery-panel .takes {
+  body[data-step="2"] .gallery-panel .placard,
+  body[data-step="2"] .gallery-panel .reflection-fields,
+  body[data-step="2"] .gallery-panel .actions-row,
+  body[data-step="2"] .gallery-panel .upload-status,
+  body[data-step="2"] .gallery-panel .takes {
     grid-column: auto;
   }
-  body[data-step="4"] .placard {
+  body[data-step="2"] .placard {
     padding: 12px 14px;
   }
-  body[data-step="4"] .placard-title {
+  body[data-step="2"] .placard-title {
     font-size: 1.45rem;
   }
-  body[data-step="4"] .placard-meta {
+  body[data-step="2"] .placard-meta {
     font-size: 0.95rem;
   }
-  body[data-step="4"] .actions-row {
+  body[data-step="2"] .actions-row {
     gap: 9px;
   }
-  body[data-step="4"] .actions-row .btn {
+  body[data-step="2"] .actions-row .btn {
     flex: 1 1 140px;
   }
-  body[data-step="4"] .takes {
+  body[data-step="2"] .takes {
     min-height: 0;
   }
-  body[data-step="4"] .takes-empty {
+  body[data-step="2"] .takes-empty {
     font-size: 0.92rem;
   }
-  body[data-step="4"] .screen-actions {
+  body[data-step="2"] .screen-actions {
     margin-top: 0;
   }
-  body[data-step="4"] .foot {
+  body[data-step="2"] .foot {
     margin-top: 8px;
   }
 }
 @media (min-width: 1081px) and (max-height: 820px) {
-  body[data-step="4"] .pic-chip {
+  body[data-step="2"] .pic-chip {
     width: 48px;
     height: 48px;
   }
-  body[data-step="4"] .round-btn {
+  body[data-step="2"] .round-btn {
     width: 46px;
     height: 46px;
   }
-  body[data-step="4"] .status-pill {
+  body[data-step="2"] .status-pill {
     min-height: 34px;
   }
-  body[data-step="4"] .topbar {
+  body[data-step="2"] .topbar {
     padding: 10px 18px;
   }
-  body[data-step="4"] .brand h1 {
+  body[data-step="2"] .brand h1 {
     font-size: clamp(1.8rem, 2.2vw, 2.25rem);
   }
-  body[data-step="4"] .eyebrow {
+  body[data-step="2"] .eyebrow {
     margin-bottom: 3px;
   }
-  body[data-step="4"] .steps {
+  body[data-step="2"] .steps {
     margin: 9px 0;
   }
-  body[data-step="4"] .step {
+  body[data-step="2"] .step {
     min-height: 46px;
     padding: 8px 14px;
   }
-  body[data-step="4"] .step span {
+  body[data-step="2"] .step span {
     width: 27px;
     height: 27px;
   }
-  body[data-step="4"] .screen.compose {
+  body[data-step="2"] .screen.compose {
     padding: 14px;
   }
-  body[data-step="4"] .panel-head {
+  body[data-step="2"] .panel-head {
     padding: 11px 16px;
   }
-  body[data-step="4"] .panel-head h2 {
+  body[data-step="2"] .panel-head h2 {
     font-size: 1.35rem;
   }
-  body[data-step="4"] .btn.small {
+  body[data-step="2"] .btn.small {
     min-height: 38px;
   }
-  body[data-step="4"] .readouts > div {
+  body[data-step="2"] .readouts > div {
     padding: 8px 14px;
   }
-  body[data-step="4"] .version-row {
+  body[data-step="2"] .version-row {
     padding: 8px 14px 10px;
     gap: 6px;
   }
-  body[data-step="4"] .compose-control-strip {
+  body[data-step="2"] .compose-control-strip {
     grid-template-columns: 48px minmax(0, 1fr);
     gap: 10px;
   }
-  body[data-step="4"] .instrument-strip {
+  body[data-step="2"] .instrument-strip {
     padding-top: 7px;
   }
-  body[data-step="4"] .compose-instrument-list {
-    grid-template-columns: minmax(0, 1.08fr) minmax(0, 1.08fr) minmax(132px, 0.42fr);
+  body[data-step="2"] .effect-strip {
+    padding-top: 7px;
+  }
+  body[data-step="2"] .effect-list {
+    max-height: 142px;
     gap: 7px;
   }
-  body[data-step="4"] .compose-instrument-group {
+  body[data-step="2"] .effect-btn {
+    width: 66px;
+    min-height: 66px;
+    padding: 5px 5px 6px;
+    font-size: 0.64rem;
+  }
+  body[data-step="2"] .effect-btn img {
+    width: 36px;
+    height: 36px;
+  }
+  body[data-step="2"] .compose-instrument-list {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "western western"
+      "gugak gugak";
+    gap: 7px;
+  }
+  body[data-step="2"] .compose-instrument-group-list {
+    grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+    overflow: visible;
+  }
+  body[data-step="2"] .compose-instrument-group {
     padding: 6px;
   }
-  body[data-step="4"] .compose-instrument-group-head {
+  body[data-step="2"] .compose-instrument-group-head {
     margin-bottom: 5px;
   }
-  body[data-step="4"] .compose-instrument {
-    width: 134px;
+  body[data-step="2"] .compose-instrument {
+    width: 100%;
+    min-width: 0;
     min-height: 50px;
     padding: 5px 11px 5px 6px;
   }
-  body[data-step="4"] .compose-instrument img {
+  body[data-step="2"] .compose-instrument img {
     width: 38px;
     height: 38px;
   }
-  body[data-step="4"] .compose-instrument-text strong {
+  body[data-step="2"] .compose-instrument-text strong {
     font-size: 0.92rem;
   }
-  body[data-step="4"] .compose-instrument-text small {
+  body[data-step="2"] .compose-instrument-text small {
     font-size: 0.68rem;
   }
-  body[data-step="4"] .compose-instrument-group.compact .compose-instrument {
-    max-width: 126px;
+  body[data-step="2"] .compose-instrument-group.compact .compose-instrument {
+    max-width: none;
   }
-  body[data-step="4"] .gallery-panel {
+  body[data-step="2"] .gallery-panel {
     padding: 14px;
   }
-  body[data-step="4"] .gallery-panel .frame {
+  body[data-step="2"] .gallery-panel .frame {
     width: min(100%, 210px);
   }
-  body[data-step="4"] .actions-row .btn.small {
+  body[data-step="2"] .actions-row .btn.small {
     min-height: 38px;
     font-size: 0.9rem;
   }
-  body[data-step="4"] .takes-head {
+  body[data-step="2"] .takes-head {
     margin-bottom: 4px;
   }
+}
+body[data-step="2"] .instrument-strip .compose-instrument {
+  min-height: 48px;
+  padding: 5px 9px 5px 7px;
+  gap: 6px;
+}
+body[data-step="2"] .instrument-strip .compose-instrument img {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  object-fit: contain;
+}
+body[data-step="2"] .instrument-strip .compose-instrument-text {
+  line-height: 1.12;
+}
+body[data-step="2"] .instrument-strip .compose-instrument-text strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: keep-all;
+  font-size: 0.9rem;
+}
+body[data-step="2"] .instrument-strip .compose-instrument-text small {
+  display: none;
 }
 @media (max-width: 720px) {
   body {
@@ -1393,8 +1965,15 @@ p {
   .screen.compose {
     padding: 14px;
   }
+  .bg-range,
+  .bg-time {
+    flex-basis: 100%;
+  }
+  .bg-range {
+    min-width: 0;
+  }
   .steps {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
   }
   .step strong {
@@ -1417,5 +1996,27 @@ p {
   }
   #drawingCanvas {
     min-height: 360px;
+  }
+  body[data-step="2"] .version-list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    scrollbar-gutter: auto;
+  }
+  body[data-step="2"] .compose-instrument-list {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  body[data-step="2"] .compose-instrument-group-list {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
+  }
+  body[data-step="2"] .compose-instrument {
+    width: 154px;
+    min-width: 154px;
+  }
+  body[data-step="2"] .compose-instrument-group.compact .compose-instrument {
+    width: 154px;
+    max-width: none;
   }
 }

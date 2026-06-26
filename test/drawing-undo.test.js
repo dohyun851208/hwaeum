@@ -1,0 +1,133 @@
+const assert = require("node:assert/strict")
+const fs = require("node:fs")
+const path = require("node:path")
+const test = require("node:test")
+const vm = require("node:vm")
+
+const projectDir = path.resolve(__dirname, "..")
+
+function loadDrawing() {
+  const sandbox = {
+    MusicCore: {
+      buildScale() {
+        return [60, 62, 64, 65, 67, 69, 71, 72]
+      },
+      autocompleteMelodyStrokes() {
+        return []
+      },
+      autocompleteRhythm() {
+        return []
+      },
+    },
+    performance: { now: () => 0 },
+    devicePixelRatio: 1,
+  }
+  sandbox.self = sandbox
+  const code = fs.readFileSync(path.join(projectDir, "js", "drawing.js"), "utf8")
+  vm.runInNewContext(code, sandbox, { filename: "drawing.js" })
+  return sandbox.DrawingCanvas
+}
+
+function makeContext() {
+  const noop = () => {}
+  return new Proxy(
+    {},
+    {
+      get(target, key) {
+        if (!(key in target)) target[key] = noop
+        return target[key]
+      },
+      set(target, key, value) {
+        target[key] = value
+        return true
+      },
+    },
+  )
+}
+
+function makeCanvas() {
+  const handlers = {}
+  return {
+    width: 100,
+    height: 100,
+    clientWidth: 100,
+    style: {},
+    parentElement: null,
+    closest() {
+      return null
+    },
+    getContext() {
+      return makeContext()
+    },
+    getBoundingClientRect() {
+      return { left: 0, top: 0, width: 100, height: 100 }
+    },
+    addEventListener(type, handler) {
+      handlers[type] = handler
+    },
+    setPointerCapture() {},
+    dispatch(type, event) {
+      handlers[type](Object.assign({ pointerId: 1, clientX: 0, clientY: 0 }, event))
+    },
+  }
+}
+
+function plain(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
+test("undo removes the last drawn stroke with its instrument", () => {
+  const DrawingCanvas = loadDrawing()
+  const canvas = makeCanvas()
+  let changes = 0
+  const draw = new DrawingCanvas(canvas, {
+    activeInstrument: "violin",
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+    onChange: () => {
+      changes += 1
+    },
+  })
+
+  canvas.dispatch("pointerdown", { clientX: 10, clientY: 20 })
+  canvas.dispatch("pointermove", { clientX: 40, clientY: 30 })
+  canvas.dispatch("pointerup", {})
+
+  assert.equal(draw.getStrokes().length, 1)
+  assert.deepEqual(plain(draw.getStrokeInstruments()), ["violin"])
+  assert.equal(draw.canUndo(), true)
+
+  assert.equal(draw.undo(), true)
+  assert.deepEqual(plain(draw.getStrokes()), [])
+  assert.deepEqual(plain(draw.getStrokeInstruments()), [])
+  assert.equal(draw.canUndo(), false)
+  assert.equal(changes, 2)
+})
+
+test("undo restores a stroke split by the eraser", () => {
+  const DrawingCanvas = loadDrawing()
+  const canvas = makeCanvas()
+  const draw = new DrawingCanvas(canvas, {
+    activeInstrument: "flute",
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+  })
+  const original = [
+    [
+      { x: 0.1, y: 0.1 },
+      { x: 0.2, y: 0.1 },
+      { x: 0.3, y: 0.1 },
+    ],
+  ]
+
+  draw.setStrokes(original, ["flute"])
+  draw.clearUndoHistory()
+  draw.setEraseMode(true)
+  canvas.dispatch("pointerdown", { clientX: 20, clientY: 10 })
+  canvas.dispatch("pointerup", {})
+
+  assert.notDeepEqual(plain(draw.getStrokes()), original)
+  assert.equal(draw.canUndo(), true)
+
+  assert.equal(draw.undo(), true)
+  assert.deepEqual(plain(draw.getStrokes()), original)
+  assert.deepEqual(plain(draw.getStrokeInstruments()), ["flute"])
+})

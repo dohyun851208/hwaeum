@@ -17,11 +17,20 @@ Thumbs.db
 # 개발 전용 (배포 불필요)
 docs
 test
+test-results
+output
 tools
 *.md
 package.json
 package-lock.json
 *.bat
+.server.pid
+project.json
+README.txt
 
-# 원본 WAV는 제외 — 압축한 MP3만 배포 (292MB 절약)
+# 원본 WAV/FLAC은 제외 — 압축한 MP3만 배포 (대용량 원본은 로컬 보관)
+# 비앵커 패턴(*.wav)이 모든 깊이에서 확실히 매칭됨. 앵커형(sound/**/...)은 보강용으로 함께 둔다.
+*.wav
+*.flac
 sound/**/*.wav
+sound/**/*.flac

@@ -10,6 +10,7 @@
 
   const Core = root.MusicCore
   const Data = root.SDStudioData
+  const EFFECT_GAIN = 0.15
 
   function midiToFreq(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12)
@@ -35,7 +36,68 @@
   }
   function segmentPlaybackRate(asset, midi, segment) {
     if (!segment) return samplePlaybackRate(asset, midi)
-    return Math.pow(2, (midi - segment.midi) / 12)
+    // 검출된 샘플 구간은 segment.midi 에서 segment.cents 만큼 어긋나 있다(Hz 분석 메타).
+    // 그 오차를 보정해 실제로 목표 음(midi)으로 정확히 재생되게 한다.
+    // → 국악기 "삑사리"·"피치 안 맞음"(소금 E·대금 윗옥타브·해금 전체)의 근본 원인 해결.
+    const detectedSemitone = segment.midi + (segment.cents || 0) / 100
+    return Math.pow(2, (midi - detectedSemitone) / 12)
+  }
+  // 멀티샘플: 음(피치)마다 별도 녹음 파일을 가진 악기(서양 선율). phrase(국악 한 파일 분할)와 구분.
+  function isMultiSample(asset) {
+    return !!(asset && asset.sampleMode === "multi")
+  }
+  function playableMidiList(instrument, asset) {
+    if (asset && Array.isArray(asset.playableMidi)) return asset.playableMidi
+    if (instrument && Array.isArray(instrument.playableMidi)) return instrument.playableMidi
+    return null
+  }
+  function playbackTranspose(instrument, asset) {
+    const value =
+      asset && asset.playbackTranspose != null
+        ? asset.playbackTranspose
+        : instrument && instrument.playbackTranspose != null
+          ? instrument.playbackTranspose
+          : 0
+    return Number.isFinite(value) ? value : 0
+  }
+  function playbackMidiForInstrument(uiMidi, instrument, asset) {
+    if (uiMidi == null) return null
+    const midi = uiMidi + playbackTranspose(instrument, asset)
+    const allowed = playableMidiList(instrument, asset)
+    if (allowed && allowed.indexOf(midi) === -1) return null
+    return midi
+  }
+  function playbackNoteForInstrument(note, instrument, asset) {
+    const uiMidi = note.uiMidi != null ? note.uiMidi : note.midi
+    const midi = playbackMidiForInstrument(uiMidi, instrument, asset)
+    if (midi == null) return null
+    return Object.assign({}, note, { uiMidi: uiMidi, midi: midi })
+  }
+  function playbackNotesForPlan(notes, instrument, melodyAsset, voiceAssets) {
+    const out = []
+    ;(notes || []).forEach(function (note) {
+      const voiceAsset = note.voice != null && voiceAssets ? voiceAssets[note.voice] : null
+      const inst = voiceAsset ? voiceAsset.instrument : instrument
+      const asset = voiceAsset ? voiceAsset.melodyAsset : melodyAsset
+      const next = playbackNoteForInstrument(note, inst, asset)
+      if (next) out.push(next)
+    })
+    return out
+  }
+  // 멀티샘플에서 해당 음의 실제 녹음 버퍼를 고른다. 없으면 대표(폴백) 버퍼.
+  function sampleBufferFor(sampleBuffers, segment, fallback) {
+    if (sampleBuffers && segment && sampleBuffers[segment.midi]) return sampleBuffers[segment.midi]
+    return fallback
+  }
+
+  function backgroundRange(plan, buffer) {
+    const total = buffer && isFinite(buffer.duration) ? Math.max(0, buffer.duration) : 0
+    if (!total) return { start: 0, end: 0, length: 0 }
+    const start = clamp(plan.bgOffset || 0, 0, Math.max(0, total - 0.05))
+    let end = Number(plan.bgEndOffset || 0)
+    if (!isFinite(end) || end <= start + 0.05) end = Math.min(total, start + (plan.duration || 30))
+    end = clamp(end, Math.min(total, start + 0.05), total)
+    return { start: start, end: end, length: Math.max(0.05, end - start) }
   }
 
   // 합성 폴백 음색 — 실제 샘플이 없을 때도 악기가 구분되어 들리도록
@@ -50,13 +112,13 @@
     viola: { cutoff: 2100, vibratoDepth: 9 },
     cello: { cutoff: 1200, attack: 0.06, vibratoDepth: 7 }, // 낮고 따뜻
     doubleBass: { cutoff: 600, attack: 0.07, vibratoRate: 4, vibratoDepth: 5 }, // 묵직
+    mandolin: { cutoff: 2600, Q: 0.8, attack: 0.004, vibratoRate: 0, vibratoDepth: 0 }, // 발현(트레몰로 없이 또렷)
+    clarinet: { cutoff: 1700, Q: 1.2, attack: 0.05, vibratoDepth: 6 }, // 둥글고 부드러운 목관
     flute: { cutoff: 3600, Q: 0.5, attack: 0.05, vibratoDepth: 5 }, // 맑은 숨결
     oboe: { cutoff: 2300, Q: 1.6, vibratoDepth: 9 }, // 코맹맹이 공명
     frenchHorn: { cutoff: 1250, attack: 0.1, vibratoRate: 4.2, vibratoDepth: 5 }, // 둥글고 긴 호흡
     daegeum: { cutoff: 2200, vibratoDepth: 22 }, // 큰 시김새
-    danso: { cutoff: 3100, vibratoDepth: 13 },
     sogeum: { cutoff: 3500, vibratoDepth: 13 },
-    nagak: { cutoff: 850, attack: 0.07, vibratoDepth: 6 }, // 낮은 의식음
     gayageum: { cutoff: 2000, Q: 0.9, attack: 0.004, vibratoRate: 0, vibratoDepth: 0 }, // 뜯는음(비브라토 없음)
     ajaeng: { cutoff: 1050, Q: 1.3, vibratoDepth: 18 }, // 거친 저음
     haegeum: { cutoff: 2500, Q: 1.6, vibratoDepth: 24 }, // 강한 흔들림
@@ -69,7 +131,11 @@
 
   // 두 음이 시간상 맞붙어 있으면(연속) 레가토로 이어 들리게 한다.
   function isContiguous(note, next) {
-    return !!next && Math.abs(note.time + note.duration - next.time) < 1e-3
+    if (!next) return false
+    if (note.voice != null || next.voice != null) {
+      if (note.voice !== next.voice) return false
+    }
+    return Math.abs(note.time + note.duration - next.time) < 1e-3
   }
 
   function phraseEnd(notes) {
@@ -79,14 +145,28 @@
 
   function contiguousPhrases(notes) {
     const phrases = []
-    let current = []
-    for (let i = 0; i < notes.length; i++) {
-      current.push(notes[i])
-      if (!isContiguous(notes[i], notes[i + 1])) {
-        phrases.push(current)
-        current = []
-      }
+    const byVoice = new Map()
+    for (const note of notes) {
+      const key = note.voice == null ? "_" : String(note.voice)
+      if (!byVoice.has(key)) byVoice.set(key, [])
+      byVoice.get(key).push(note)
     }
+    byVoice.forEach(function (voiceNotes) {
+      voiceNotes.sort(function (a, b) {
+        return a.time - b.time
+      })
+      let current = []
+      for (let i = 0; i < voiceNotes.length; i++) {
+        current.push(voiceNotes[i])
+        if (!isContiguous(voiceNotes[i], voiceNotes[i + 1])) {
+          phrases.push(current)
+          current = []
+        }
+      }
+    })
+    phrases.sort(function (a, b) {
+      return a[0].time - b[0].time
+    })
     return phrases
   }
 
@@ -105,6 +185,7 @@
   function AudioEngine() {
     this.ctx = null
     this.bufferCache = new Map() // url -> Promise<AudioBuffer|null>
+    this.decodedCache = new Map() // url -> AudioBuffer|null
     this.active = [] // 현재 재생 중 노드
     this.master = null
     this.stopTimer = null
@@ -115,6 +196,10 @@
     this.livePreviewToken = 0
     this.ambience = null // 드로잉 화면에서 깔리는 배경음(패드)
     this.ambienceToken = 0
+    this.isPaused = false // 일시정지 상태(ctx.suspend)
+    this.playGen = 0 // 재생 세대 토큰 — 비동기 play() 도중 stop/재요청 시 무효화용
+    this.playEndsAtMs = 0 // 자동 정지 예정 시각(일시정지 잔여시간 계산용)
+    this.pauseRemainingMs = 0 // 일시정지 시점의 남은 재생 시간(ms)
   }
 
   AudioEngine.prototype.ensureContext = function () {
@@ -125,17 +210,32 @@
     return this.ctx
   }
 
+  AudioEngine.prototype.emitState = function () {
+    if (this.onState) this.onState(this.isPlaying, this.isPaused)
+  }
+
   // 디코드된 AudioBuffer는 컨텍스트 간 공유 가능(같은 sampleRate면 안전).
   AudioEngine.prototype.loadBuffer = function (ctx, url) {
     if (!url) return Promise.resolve(null)
+    if (this.decodedCache.has(url)) return Promise.resolve(this.decodedCache.get(url))
+    const fetchFn = root.fetch || (typeof fetch !== "undefined" ? fetch : null)
+    if (!fetchFn) return Promise.resolve(null)
+    const self = this
     if (!this.bufferCache.has(url)) {
-      const p = fetch(url)
+      const p = fetchFn(url)
         .then((r) => {
           if (!r.ok) throw new Error(r.status + " " + r.statusText)
           return r.arrayBuffer()
         })
         .then((ab) => ctx.decodeAudioData(ab))
-        .catch(() => null)
+        .then((buffer) => {
+          self.decodedCache.set(url, buffer)
+          return buffer
+        })
+        .catch(() => {
+          self.decodedCache.set(url, null)
+          return null
+        })
       this.bufferCache.set(url, p)
     }
     return this.bufferCache.get(url)
@@ -143,17 +243,32 @@
 
   AudioEngine.prototype.loadAssetBuffer = function (ctx, asset) {
     if (!asset || !asset.src) return Promise.resolve(null)
+    if (this.decodedCache.has(asset.src)) return Promise.resolve(this.decodedCache.get(asset.src))
     if (!asset.file || typeof asset.file.arrayBuffer !== "function") {
       return this.loadBuffer(ctx, asset.src)
     }
+    const self = this
     if (!this.bufferCache.has(asset.src)) {
       const p = asset.file
         .arrayBuffer()
         .then((ab) => ctx.decodeAudioData(ab.slice ? ab.slice(0) : ab))
-        .catch(() => null)
+        .then((buffer) => {
+          self.decodedCache.set(asset.src, buffer)
+          return buffer
+        })
+        .catch(() => {
+          self.decodedCache.set(asset.src, null)
+          return null
+        })
       this.bufferCache.set(asset.src, p)
     }
     return this.bufferCache.get(asset.src)
+  }
+
+  AudioEngine.prototype.warmEffect = function (effect) {
+    if (!effect || !effect.src) return Promise.resolve(null)
+    const ctx = this.ensureContext()
+    return this.loadAssetBuffer(ctx, effect)
   }
 
   // recipe(ids) → 실제 데이터 객체로 해석
@@ -165,14 +280,42 @@
     const padAsset = Data.pads[atmosphere.padType] || null
     const backgroundAsset = Data.backgrounds[atmosphere.backgroundId] || null
     const melodyAsset = Data.melodies[instrument.id] || null
-    const effects = (atmosphere.effectIds || []).map((id) => Data.effects[id]).filter(Boolean)
+    // 오케스트라: 획(voice)마다 다른 악기. recipe.strokeInstruments[voice] → 악기/asset/gugak.
+    // 비어 있으면(옛 레시피) 전 voice가 기본 instrument 하나로 재생.
+    const voiceAssets = {}
+    ;(recipe.strokeInstruments || []).forEach(function (instId, voice) {
+      const inst = Data.instruments.find((i) => i.id === instId) || instrument
+      voiceAssets[voice] = {
+        instrument: inst,
+        melodyAsset: Data.melodies[inst.id] || null,
+        gugak: !!style.gugak || inst.group === "국악" || !!version.ornament,
+      }
+    })
+    const duration = recipe.duration || 30
+    const effectIds = []
+    ;(atmosphere.effectIds || []).concat(recipe.effectIds || []).forEach(function (id) {
+      if (Data.effects[id] && effectIds.indexOf(id) === -1) effectIds.push(id)
+    })
+    const effectStamps = (recipe.effectStamps || [])
+      .filter(function (stamp) {
+        return stamp && Data.effects[stamp.id]
+      })
+      .map(function (stamp) {
+        const x = clamp(stamp.x == null ? 0 : stamp.x, 0, 1)
+        const y = clamp(stamp.y == null ? 0.5 : stamp.y, 0, 1)
+        const time = stamp.time == null ? x * duration : clamp(stamp.time, 0, duration)
+        if (effectIds.indexOf(stamp.id) === -1) effectIds.push(stamp.id)
+        return { id: stamp.id, x: x, y: y, time: time }
+      })
+    const effects = effectIds.map((id) => Object.assign({ id: id }, Data.effects[id]))
     const gugak = !!style.gugak || instrument.group === "국악" || !!version.ornament
     const mode = recipe.mode || "melody"
-    const duration = recipe.duration || 30
     const rhythmHits =
       mode === "rhythm" ? Core.autocompleteRhythm(recipe.path || [], { durationSec: duration, bpm: 100 }) : []
     return {
       duration: duration,
+      bgOffset: Math.max(0, recipe.bgOffset || 0), // 배경음악을 이 지점(초)부터 깐다(스케줄에서 버퍼 길이로 클램프)
+      bgEndOffset: Math.max(0, recipe.bgEndOffset || 0),
       mode: mode,
       atmosphere: atmosphere,
       instrument: instrument,
@@ -182,35 +325,77 @@
       padAsset: padAsset,
       backgroundAsset: backgroundAsset,
       melodyAsset: melodyAsset,
+      voiceAssets: voiceAssets,
       effects: effects,
+      effectStamps: effectStamps,
       gugak: gugak,
-      notes: notes || [],
+      notes: playbackNotesForPlan(notes || [], instrument, melodyAsset, voiceAssets),
+      uiNotes: notes || [],
       rhythmHits: rhythmHits,
     }
   }
 
   AudioEngine.prototype.preload = async function (ctx, plan) {
+    const self = this
     const jobs = []
-    const out = { pad: null, melody: null, effects: [] }
+    const out = { pad: null, melody: null, melodySamples: null, effects: [], byInstrument: {} }
     const padAsset = plan.padAsset && plan.padAsset.src ? plan.padAsset : plan.backgroundAsset
     jobs.push(this.loadAssetBuffer(ctx, padAsset).then((b) => (out.pad = b)))
-    if (plan.melodyAsset && plan.melodyAsset.src) {
-      jobs.push(this.loadAssetBuffer(ctx, plan.melodyAsset).then((b) => (out.melody = b)))
+
+    // 오케스트라: 쓰이는 악기(기본 + voice별)별로 버퍼/멀티샘플을 모두 디코드해 둔다.
+    const wanted = []
+    const seen = {}
+    function want(inst, asset) {
+      if (!inst || seen[inst.id]) return
+      seen[inst.id] = true
+      wanted.push({ id: inst.id, asset: asset })
     }
+    want(plan.instrument, plan.melodyAsset)
+    Object.keys(plan.voiceAssets || {}).forEach((v) => want(plan.voiceAssets[v].instrument, plan.voiceAssets[v].melodyAsset))
+    wanted.forEach((entry) => {
+      const slot = (out.byInstrument[entry.id] = { melody: null, melodySamples: null })
+      const asset = entry.asset
+      if (asset && asset.src) jobs.push(self.loadAssetBuffer(ctx, asset).then((b) => (slot.melody = b)))
+      // 멀티샘플(서양 선율): 음마다의 실제 녹음을 모두 디코드(가장 가까운 음을 골라 재생).
+      const multiMap = isMultiSample(asset) ? sampleMapFor(asset) : null
+      if (multiMap) {
+        slot.melodySamples = {}
+        multiMap.forEach((seg) => {
+          if (!seg.src) return
+          jobs.push(self.loadBuffer(ctx, seg.src).then((b) => { if (b) slot.melodySamples[seg.midi] = b }))
+        })
+      }
+    })
+
     plan.effects.forEach((fx, idx) => {
       jobs.push(this.loadAssetBuffer(ctx, fx).then((b) => (out.effects[idx] = { asset: fx, buffer: b })))
     })
     await Promise.all(jobs)
     out.effects = out.effects.filter(Boolean)
+    // 기본 악기 버퍼를 out.melody/out.melodySamples 로도 노출(하위 호환 경로).
+    const def = out.byInstrument[plan.instrument.id]
+    if (def) {
+      out.melody = def.melody
+      out.melodySamples = def.melodySamples
+    }
     return out
   }
 
   AudioEngine.prototype.warmInstrument = function (recipe) {
     const ctx = this.ensureContext()
     const plan = this.resolvePlan(recipe, [])
-    const src = plan.melodyAsset && plan.melodyAsset.src
+    const asset = plan.melodyAsset
+    const src = asset && asset.src
     if (!src) return Promise.resolve(null)
-    return this.loadAssetBuffer(ctx, plan.melodyAsset)
+    // 멀티샘플이면 음마다의 파일을 미리 디코드(그리는 중 음 전환 시 끊김 방지)
+    const multiMap = isMultiSample(asset) ? sampleMapFor(asset) : null
+    if (multiMap) {
+      const self = this
+      multiMap.forEach((seg) => {
+        if (seg.src) self.loadBuffer(ctx, seg.src)
+      })
+    }
+    return this.loadAssetBuffer(ctx, asset)
   }
 
   // 핵심: 주어진 컨텍스트/목적지에 전체 합주를 스케줄 (라이브/오프라인 공용)
@@ -219,20 +404,23 @@
     const v = plan.version
     let usedReal = false
 
-    // 1) 배경 패드
+    // 1) 배경 패드 — bgOffset(사용자가 캔버스 아래 플레이어로 고른 지점)부터 깐다
     if (buffers.pad) {
       const src = ctx.createBufferSource()
       const g = ctx.createGain()
       src.buffer = buffers.pad
-      src.loop = buffers.pad.duration < dur
-      g.gain.setValueAtTime(0, start)
-      g.gain.linearRampToValueAtTime(v.padGain, start + 1.2)
+      const bgRange = backgroundRange(plan, buffers.pad)
+      src.loopStart = bgRange.start
+      src.loopEnd = bgRange.end
+      src.loop = bgRange.length < dur || buffers.pad.duration < bgRange.start + dur
+      g.gain.setValueAtTime(v.padGain * 0.35, start)
+      g.gain.linearRampToValueAtTime(v.padGain, start + 0.35)
       g.gain.setValueAtTime(v.padGain, start + Math.max(1.2, dur - 1.5))
       g.gain.linearRampToValueAtTime(0, start + dur)
       src.connect(g)
       g.connect(dest)
       register(src)
-      src.start(start, 0)
+      src.start(start, bgRange.start)
       src.stop(start + dur + 0.05)
       usedReal = true
     } else {
@@ -240,15 +428,22 @@
     }
 
     // 2) 자연 효과음
+    const stampsByEffect = new Map()
+    ;(plan.effectStamps || []).forEach(function (stamp) {
+      if (!stampsByEffect.has(stamp.id)) stampsByEffect.set(stamp.id, [])
+      stampsByEffect.get(stamp.id).push(stamp)
+    })
     buffers.effects.forEach((item, index) => {
       const buffer = item.buffer
       const asset = item.asset
       if (!buffer) return
-      const isThunder = asset.label.indexOf("천둥") === 0
+      const stamps = stampsByEffect.get(asset.id) || []
       const interval = clamp(buffer.duration * 0.85, 3.2, 10)
-      const offsets = isThunder
-        ? [dur * (0.45 + index * 0.08)]
-        : Array.from({ length: Math.ceil(dur / interval) }, (_, k) => k * interval + index * 1.7)
+      const offsets = stamps.length
+        ? stamps.map((stamp) => stamp.time)
+        : /^thunder/.test(asset.id || "") || asset.label.indexOf("천둥") >= 0
+          ? [dur * (0.45 + index * 0.08)]
+          : Array.from({ length: Math.ceil(dur / interval) }, (_, k) => k * interval + index * 1.7)
       offsets
         .filter((o) => o >= 0 && o < dur - 0.2)
         .forEach((o) => {
@@ -257,7 +452,7 @@
           const at = start + o
           const outDur = Math.min(buffer.duration, dur - o)
           src.buffer = buffer
-          g.gain.setValueAtTime(isThunder ? 0.1 : 0.05, at)
+          g.gain.setValueAtTime(EFFECT_GAIN, at)
           g.gain.linearRampToValueAtTime(0, at + outDur)
           src.connect(g)
           g.connect(dest)
@@ -267,26 +462,112 @@
       usedReal = true
     })
 
-    // 3) 선율 또는 리듬
+    // 3) 선율 또는 리듬 — 오케스트라: voice(획)마다 그 악기로 따로 스케줄해 동시에 울린다
     const melodyGain = ctx.createGain()
     melodyGain.gain.setValueAtTime(v.melodyGain, start)
     melodyGain.connect(dest)
     if (plan.mode === "rhythm") {
       this.scheduleRhythm(ctx, melodyGain, plan, buffers, start, register)
-    } else if (buffers.melody) {
-      this.scheduleSampleMelody(ctx, melodyGain, plan, buffers.melody, start, register)
-      usedReal = true
     } else {
-      this.scheduleSynthMelody(ctx, melodyGain, plan, start, register)
+      const self = this
+      const byVoice = new Map()
+      ;(plan.notes || []).forEach(function (note) {
+        const key = note.voice == null ? "_" : String(note.voice)
+        if (!byVoice.has(key)) byVoice.set(key, [])
+        byVoice.get(key).push(note)
+      })
+      byVoice.forEach(function (voiceNotes, key) {
+        const va = key !== "_" && plan.voiceAssets ? plan.voiceAssets[key] : null
+        const inst = va ? va.instrument : plan.instrument
+        const asset = va ? va.melodyAsset : plan.melodyAsset
+        const instBuffers = (buffers.byInstrument && buffers.byInstrument[inst.id]) || {
+          melody: buffers.melody,
+          melodySamples: buffers.melodySamples,
+        }
+        // voice별로 악기/asset/gugak 을 덮어쓴 plan 으로 기존 스케줄러를 그대로 재사용
+        const voicePlan = Object.assign({}, plan, {
+          instrument: inst,
+          melodyAsset: asset,
+          gugak: va ? va.gugak : plan.gugak,
+        })
+        if (instBuffers.melody) {
+          self.scheduleSampleMelody(ctx, melodyGain, voicePlan, voiceNotes, instBuffers, start, register)
+          usedReal = true
+        } else {
+          self.scheduleSynthMelody(ctx, melodyGain, voicePlan, voiceNotes, start, register)
+        }
+      })
     }
 
     return usedReal
   }
 
-  AudioEngine.prototype.scheduleSampleMelody = function (ctx, dest, plan, buffer, start, register) {
+  AudioEngine.prototype.scheduleSampleTremolo = function (ctx, dest, note, srcBuffer, baseRate, start, register) {
+    const step = 0.12
+    const end = start + note.time + note.duration
+    let at = start + note.time
+    while (at < end - 0.025) {
+      const sliceDur = Math.min(step * 0.88, end - at)
+      const src = ctx.createBufferSource()
+      const env = ctx.createGain()
+      src.buffer = srcBuffer
+      src.playbackRate.setValueAtTime(baseRate, at)
+      env.gain.setValueAtTime(0.0001, at)
+      env.gain.linearRampToValueAtTime(note.velocity * 0.62, at + 0.008)
+      env.gain.exponentialRampToValueAtTime(0.001, at + Math.max(0.035, sliceDur))
+      src.connect(env)
+      env.connect(dest)
+      register(src)
+      src.start(at, 0, Math.min(srcBuffer.duration, sliceDur * baseRate + 0.04))
+      src.stop(at + sliceDur + 0.04)
+      at += step
+    }
+  }
+
+  AudioEngine.prototype.scheduleSampleMelody = function (ctx, dest, plan, notes, instBuffers, start, register) {
     const asset = plan.melodyAsset
+    const buffer = instBuffers.melody
+    const sampleBuffers = instBuffers.melodySamples
+    const multi = isMultiSample(asset)
     const samplePhrase = asset.sampleMode === "phrase"
-    const phrases = contiguousPhrases(plan.notes)
+    if (multi) {
+      for (const note of notes) {
+        const noteStart = start + note.time
+        const segment = nearestSampleSegment(asset, note.midi)
+        const srcBuffer = sampleBufferFor(sampleBuffers, segment, buffer)
+        if (!srcBuffer) continue
+        const baseRate = segmentPlaybackRate(asset, note.midi, segment)
+        if (asset.tremoloAfter != null && note.duration >= asset.tremoloAfter) {
+          this.scheduleSampleTremolo(ctx, dest, note, srcBuffer, baseRate, start, register)
+          continue
+        }
+        const src = ctx.createBufferSource()
+        const env = ctx.createGain()
+        const usableSourceDur = srcBuffer.duration
+        const needSustain = note.duration * baseRate > usableSourceDur * 0.85
+        src.buffer = srcBuffer
+        src.playbackRate.setValueAtTime(baseRate, noteStart)
+        this.applySigimsae(src, null, baseRate, note, plan, noteStart)
+        if (needSustain && usableSourceDur > 0.25) {
+          src.loop = true
+          src.loopStart = Math.min(0.12, usableSourceDur * 0.2)
+          src.loopEnd = Math.max(usableSourceDur - Math.min(0.08, usableSourceDur * 0.1), src.loopStart + 0.15)
+        }
+        applyPhraseEnv(env, note.velocity * 0.85, noteStart, note.duration)
+        src.connect(env)
+        env.connect(dest)
+        register(src)
+        if (src.loop) {
+          src.start(noteStart, 0)
+        } else {
+          const srcDur = Math.max(0.05, Math.min(usableSourceDur, note.duration * baseRate + 0.18))
+          src.start(noteStart, 0, srcDur)
+        }
+        src.stop(noteStart + note.duration + 0.18)
+      }
+      return
+    }
+    const phrases = contiguousPhrases(notes)
     for (const notes of phrases) {
       const first = notes[0]
       const last = notes[notes.length - 1]
@@ -296,8 +577,10 @@
       const src = ctx.createBufferSource()
       const env = ctx.createGain()
       const segment = nearestSampleSegment(asset, first.midi)
+      // 멀티샘플이면 프레이즈 첫 음에 가장 가까운 실제 녹음을 쓰고, 나머지는 거기서 미세 피치시프트.
+      const srcBuffer = multi ? sampleBufferFor(sampleBuffers, segment, buffer) : buffer
       const baseRate = segmentPlaybackRate(asset, first.midi, segment)
-      src.buffer = buffer
+      src.buffer = srcBuffer
       src.playbackRate.setValueAtTime(baseRate, phraseStart)
       for (let k = 1; k < notes.length; k++) {
         const note = notes[k]
@@ -308,10 +591,13 @@
       for (const note of notes) {
         this.applySigimsae(src, null, segmentPlaybackRate(asset, note.midi, segment), note, plan, start + note.time)
       }
-      const offset = segment ? segment.offset : samplePhrase ? this.phraseOffset(buffer, first) : 0
-      const usableSourceDur = segment ? segment.duration : buffer.duration - offset
+      const offset = multi ? 0 : segment ? segment.offset : samplePhrase ? this.phraseOffset(srcBuffer, first) : 0
+      const usableSourceDur = multi ? srcBuffer.duration : segment ? segment.duration : srcBuffer.duration - offset
       const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
-      if (needSustain && usableSourceDur > 0.25) {
+      // 발현(뜯는) 악기인 가야금은 길게 끌어도 한 번 뜯고 자연 감쇠해야 한다.
+      // 구간을 루프하면 "띵~띵~띵" 다시 뜯는 소리가 되므로 지속음 루프에서 제외한다.
+      const plucked = plan.instrument && plan.instrument.id === "gayageum"
+      if (needSustain && usableSourceDur > 0.25 && !plucked) {
         src.loop = true
         src.loopStart = offset + Math.min(0.12, usableSourceDur * 0.2)
         src.loopEnd = offset + Math.max(usableSourceDur - Math.min(0.08, usableSourceDur * 0.1), src.loopStart - offset + 0.15)
@@ -330,9 +616,9 @@
     }
   }
 
-  AudioEngine.prototype.scheduleSynthMelody = function (ctx, dest, plan, start, register) {
+  AudioEngine.prototype.scheduleSynthMelody = function (ctx, dest, plan, notes, start, register) {
     const voice = synthVoiceFor(plan.instrument)
-    const phrases = contiguousPhrases(plan.notes)
+    const phrases = contiguousPhrases(notes)
     for (const notes of phrases) {
       const first = notes[0]
       const last = notes[notes.length - 1]
@@ -442,8 +728,8 @@
   AudioEngine.prototype.scheduleSynthPad = function (ctx, dest, plan, start, register) {
     const dur = plan.duration
     const padGain = ctx.createGain()
-    padGain.gain.setValueAtTime(0, start)
-    padGain.gain.linearRampToValueAtTime(plan.version.padGain, start + 1.6)
+    padGain.gain.setValueAtTime(plan.version.padGain * 0.35, start)
+    padGain.gain.linearRampToValueAtTime(plan.version.padGain, start + 0.45)
     padGain.gain.setValueAtTime(plan.version.padGain, start + Math.max(1.6, dur - 1.5))
     padGain.gain.linearRampToValueAtTime(0, start + dur)
     padGain.connect(dest)
@@ -469,8 +755,15 @@
 
   // --- 라이브 재생 ---
 
-  AudioEngine.prototype.stop = function () {
+  AudioEngine.prototype.stop = function (options) {
+    const emitState = !options || options.emitState !== false
+    const hadPlayback = this.isPlaying || this.isPaused || !!this.master || !!this.stopTimer || !!this.ambience
+    this.playGen++ // 진행 중인 비동기 play() 를 무효화(로딩 중 정지가 확실히 먹히도록)
+    this.isPaused = false
+    this.pauseRemainingMs = 0
+    this.playEndsAtMs = 0
     this.stopLivePreview(true)
+    this.stopAmbience(true)
     if (this.stopTimer) {
       clearTimeout(this.stopTimer)
       this.stopTimer = null
@@ -492,7 +785,52 @@
     this.active = []
     this.master = null
     this.isPlaying = false
-    if (this.onState) this.onState(false)
+    // 일시정지(suspend) 상태로 멈췄다면 컨텍스트를 다시 깨워 다음 재생에 대비
+    if (this.ctx && this.ctx.state === "suspended") {
+      try {
+        this.ctx.resume()
+      } catch (e) {}
+    }
+    if (emitState && hadPlayback) this.emitState()
+  }
+
+  // 일시정지 — 컨텍스트를 suspend 해 스케줄된 소리를 그 자리에서 멈춘다(자동 정지 타이머도 보류).
+  AudioEngine.prototype.pause = function () {
+    const hasAudio = this.isPlaying || !!this.master || !!this.stopTimer || !!this.ambience
+    if (!hasAudio || this.isPaused || !this.ctx || this.ctx.state !== "running") return false
+    this.isPaused = true
+    if (this.stopTimer) {
+      clearTimeout(this.stopTimer)
+      this.stopTimer = null
+    }
+    this.pauseRemainingMs = this.isPlaying ? Math.max(0, this.playEndsAtMs - Date.now()) : 0
+    try {
+      this.ctx.suspend()
+    } catch (e) {}
+    this.emitState()
+    return true
+  }
+
+  // 이어재생 — 멈춘 지점에서 다시 진행하고 남은 시간만큼 자동 정지 타이머를 다시 건다.
+  AudioEngine.prototype.resume = function () {
+    if (!this.isPaused || !this.ctx) return false
+    const resumePlayback = this.isPlaying
+    this.isPaused = false
+    try {
+      this.ctx.resume()
+    } catch (e) {}
+    if (resumePlayback) {
+      this.playEndsAtMs = Date.now() + this.pauseRemainingMs
+      const self = this
+      if (this.stopTimer) clearTimeout(this.stopTimer)
+      this.stopTimer = setTimeout(function () {
+        self.stop()
+      }, this.pauseRemainingMs)
+    } else {
+      this.pauseRemainingMs = 0
+    }
+    this.emitState()
+    return true
   }
 
   AudioEngine.prototype._liveSignature = function (plan) {
@@ -500,29 +838,34 @@
   }
 
   AudioEngine.prototype._liveMidi = function (plan, normY) {
-    return Core.quantizePitch(normY, plan.pitchStyle || plan.style)
+    const uiMidi = Core.quantizePitch(normY, plan.pitchStyle || plan.style)
+    return playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
   }
 
   AudioEngine.prototype._liveFrequency = function (plan, normY) {
-    return midiToFreq(this._liveMidi(plan, normY))
+    const midi = this._liveMidi(plan, normY)
+    return midi == null ? null : midiToFreq(midi)
   }
 
   AudioEngine.prototype._livePlaybackRate = function (plan, normY) {
     const midi = this._liveMidi(plan, normY)
+    if (midi == null) return null
     return segmentPlaybackRate(plan.melodyAsset, midi, nearestSampleSegment(plan.melodyAsset, midi))
   }
 
   AudioEngine.prototype._createSampleLivePreview = function (ctx, plan, buffer, normY) {
+    const midi = this._liveMidi(plan, normY)
+    if (midi == null) return null
     const start = ctx.currentTime + 0.005
     const source = ctx.createBufferSource()
     const env = ctx.createGain()
     const filter = ctx.createBiquadFilter()
     const isGugak = plan.instrument.group === "국악"
     const targetGain = isGugak ? 0.34 : 0.3 // 그리는 중 선율을 배경 위로 더 또렷하게
-    const midi = this._liveMidi(plan, normY)
+    const multi = isMultiSample(plan.melodyAsset)
     const segment = nearestSampleSegment(plan.melodyAsset, midi)
-    const offset = segment ? segment.offset : Math.min(0.05, Math.max(0, buffer.duration * 0.08))
-    const segmentDur = segment ? segment.duration : buffer.duration - offset
+    const offset = multi ? 0 : segment ? segment.offset : Math.min(0.05, Math.max(0, buffer.duration * 0.08))
+    const segmentDur = multi ? buffer.duration : segment ? segment.duration : buffer.duration - offset
 
     source.buffer = buffer
     source.playbackRate.setValueAtTime(segmentPlaybackRate(plan.melodyAsset, midi, segment), start)
@@ -563,6 +906,8 @@
   }
 
   AudioEngine.prototype._createSynthLivePreview = function (ctx, plan, normY) {
+    const frequency = this._liveFrequency(plan, normY)
+    if (frequency == null) return null
     const start = ctx.currentTime + 0.005
     const osc = ctx.createOscillator()
     const env = ctx.createGain()
@@ -575,7 +920,7 @@
     const voice = synthVoiceFor(plan.instrument)
 
     osc.type = voice.waveform
-    osc.frequency.setValueAtTime(this._liveFrequency(plan, normY), start)
+    osc.frequency.setValueAtTime(frequency, start)
     filter.type = "lowpass"
     filter.frequency.setValueAtTime(voice.cutoff, start)
     filter.Q.setValueAtTime(voice.Q, start)
@@ -614,6 +959,7 @@
   }
 
   AudioEngine.prototype._createLivePreview = function (ctx, plan, normY, buffer) {
+    if (this._liveMidi(plan, normY) == null) return null
     if (buffer && plan.melodyAsset && plan.melodyAsset.src) {
       return this._createSampleLivePreview(ctx, plan, buffer, normY)
     }
@@ -628,7 +974,15 @@
       else self.stopLivePreview(true)
       const token = ++self.livePreviewToken
       const plan = self.resolvePlan(recipe, [])
-      const src = plan.melodyAsset && plan.melodyAsset.src
+      const midi = self._liveMidi(plan, normY)
+      if (midi == null) return Promise.resolve()
+      const asset = plan.melodyAsset
+      // 멀티샘플이면 현재 음높이에 가장 가까운 실제 녹음 파일을 불러온다(음 바뀌면 liveDrawingMove가 다시 호출).
+      let src = asset && asset.src
+      if (isMultiSample(asset)) {
+        const seg = nearestSampleSegment(asset, midi)
+        if (seg && seg.src) src = seg.src
+      }
       if (src) {
         return self.loadBuffer(ctx, src).then(function (buffer) {
           if (token !== self.livePreviewToken) return
@@ -647,25 +1001,43 @@
     const self = this
     const run = function () {
       const plan = self.resolvePlan(recipe, [])
+      const midi = self._liveMidi(plan, normY)
+      if (midi == null) {
+        self.stopLivePreview(true)
+        return
+      }
       if (!self.livePreview || self.livePreview.signature !== self._liveSignature(plan)) {
         self.liveDrawingStart(recipe, normY)
         return
       }
       const now = ctx.currentTime
       if (self.livePreview.kind === "sample") {
-        const midi = self._liveMidi(plan, normY)
-        const nextSegment = nearestSampleSegment(plan.melodyAsset, midi)
-        const nextSampleMidi = nextSegment ? nextSegment.midi : null
-        if (nextSampleMidi !== self.livePreview.sampleMidi) {
-          self.stopLivePreview(true)
-          self.liveDrawingStart(recipe, normY)
-          return
+        if (isMultiSample(plan.melodyAsset)) {
+          // 멀티샘플(서양 선율): 드로잉 중엔 시작 시 불러온 한 음을 기준으로 피치만 매끄럽게 글라이드.
+          // (음마다 파일을 비동기로 다시 불러오면 빠른 드로잉에서 매번 무효화돼 소리가 안 남)
+          const baseMidi =
+            self.livePreview.sampleMidi != null
+              ? self.livePreview.sampleMidi
+              : plan.melodyAsset.baseMidi != null
+                ? plan.melodyAsset.baseMidi
+                : midi
+          const nextRate = Math.pow(2, (midi - baseMidi) / 12)
+          self.livePreview.rateParam.cancelScheduledValues(now)
+          self.livePreview.rateParam.setTargetAtTime(nextRate, now, 0.025)
+        } else {
+          const nextSegment = nearestSampleSegment(plan.melodyAsset, midi)
+          const nextSampleMidi = nextSegment ? nextSegment.midi : null
+          if (nextSampleMidi !== self.livePreview.sampleMidi) {
+            self.stopLivePreview(true)
+            self.liveDrawingStart(recipe, normY)
+            return
+          }
+          const nextRate = segmentPlaybackRate(plan.melodyAsset, midi, nextSegment)
+          self.livePreview.rateParam.cancelScheduledValues(now)
+          self.livePreview.rateParam.setTargetAtTime(nextRate, now, 0.025)
         }
-        const nextRate = segmentPlaybackRate(plan.melodyAsset, midi, nextSegment)
-        self.livePreview.rateParam.cancelScheduledValues(now)
-        self.livePreview.rateParam.setTargetAtTime(nextRate, now, 0.025)
       } else {
-        const nextFreq = self._liveFrequency(plan, normY)
+        const nextFreq = midiToFreq(midi)
         self.livePreview.osc.frequency.cancelScheduledValues(now)
         self.livePreview.osc.frequency.setTargetAtTime(nextFreq, now, 0.025)
       }
@@ -700,7 +1072,7 @@
   }
 
   // --- 드로잉 화면 배경음(분위기 패드 루프) ---
-  // 라이브 선율 프리뷰와 독립적으로 깔린다. stop() 은 배경음을 끄지 않는다.
+  // 라이브 선율 프리뷰와 독립적으로 깔리지만, 사용자가 누르는 정지/일시정지에는 같이 반응한다.
 
   // 배경 음원(특히 큰 배경 mp3)을 미리 디코드해 두어, 드로잉 진입 시 즉시 깔리게 한다.
   AudioEngine.prototype.warmAmbience = function (recipe) {
@@ -712,7 +1084,7 @@
   }
 
   AudioEngine.prototype._ambienceSignature = function (plan) {
-    return plan.atmosphere.id + "|" + plan.version.id
+    return plan.atmosphere.id + "|" + plan.version.id + "|" + plan.bgOffset + "|" + plan.bgEndOffset
   }
 
   AudioEngine.prototype._startAmbienceBuffer = function (ctx, plan, buffer, sig) {
@@ -720,12 +1092,15 @@
     const src = ctx.createBufferSource()
     const g = ctx.createGain()
     src.buffer = buffer
+    const bgRange = backgroundRange(plan, buffer)
     src.loop = true
+    src.loopStart = bgRange.start
+    src.loopEnd = bgRange.end
     g.gain.setValueAtTime(0.0001, now)
     g.gain.linearRampToValueAtTime(plan.version.padGain, now + 0.4) // 빠른 페이드인 → 바로 들리게
     src.connect(g)
     g.connect(ctx.destination)
-    src.start(now)
+    src.start(now, bgRange.start)
     this.ambience = { signature: sig, gain: g, nodes: [src] }
   }
 
@@ -758,6 +1133,7 @@
 
   AudioEngine.prototype.startAmbience = function (recipe) {
     const ctx = this.ensureContext()
+    if (this.isPaused && ctx.state === "suspended") return Promise.resolve()
     const self = this
     const run = function () {
       const plan = self.resolvePlan(recipe, [])
@@ -835,12 +1211,13 @@
 
   AudioEngine.prototype._previewSample = function (ctx, plan, buffer, note, start) {
     const asset = plan.melodyAsset
+    const multi = isMultiSample(asset)
     const src = ctx.createBufferSource()
     const env = ctx.createGain()
     const segment = nearestSampleSegment(asset, note.midi)
     const baseRate = segmentPlaybackRate(asset, note.midi, segment)
-    const offset = segment ? segment.offset : asset.sampleMode === "phrase" ? this.phraseOffset(buffer, note) : 0
-    const usableSourceDur = segment ? segment.duration : buffer.duration - offset
+    const offset = multi ? 0 : segment ? segment.offset : asset.sampleMode === "phrase" ? this.phraseOffset(buffer, note) : 0
+    const usableSourceDur = multi ? buffer.duration : segment ? segment.duration : buffer.duration - offset
     src.buffer = buffer
     src.playbackRate.setValueAtTime(baseRate, start)
     env.gain.setValueAtTime(0, start)
@@ -853,19 +1230,102 @@
     src.stop(start + note.duration + 0.03)
   }
 
+  AudioEngine.prototype._playEffectBufferPreview = function (ctx, buffer, start) {
+    const src = ctx.createBufferSource()
+    const env = ctx.createGain()
+    const duration = Math.min(buffer.duration || 0.8, 1.2)
+    src.buffer = buffer
+    env.gain.setValueAtTime(0, start)
+    env.gain.linearRampToValueAtTime(EFFECT_GAIN * 1.6, start + 0.015)
+    env.gain.setTargetAtTime(0.001, start + Math.max(0.05, duration * 0.72), 0.06)
+    src.connect(env)
+    env.connect(ctx.destination)
+    this._registerPreviewNode(src)
+    src.start(start, 0, duration)
+    src.stop(start + duration + 0.04)
+  }
+
+  AudioEngine.prototype._previewEffectFallback = function (ctx, effect, start) {
+    const osc = ctx.createOscillator()
+    const env = ctx.createGain()
+    const filter = typeof ctx.createBiquadFilter === "function" ? ctx.createBiquadFilter() : null
+    const id = (effect && effect.id) || ""
+    const isThunder = /^thunder/.test(id)
+    const isAnimal = /^animal/.test(id)
+    const isPercussive = /^sfx(Bell|Tambourine|BubblePop)/.test(id)
+    let fallbackFreq = 460
+    if (isThunder) fallbackFreq = 120
+    else if (/^animalWhale/.test(id)) fallbackFreq = 180
+    else if (isAnimal) fallbackFreq = 760
+    else if (/^sfxHarp/.test(id)) fallbackFreq = 880
+    else if (isPercussive) fallbackFreq = 980
+    else if (/^forest/.test(id)) fallbackFreq = 620
+    else if (/^rain/.test(id)) fallbackFreq = 360
+    osc.type = isThunder ? "triangle" : "sine"
+    osc.frequency.setValueAtTime(fallbackFreq, start)
+    env.gain.setValueAtTime(0, start)
+    env.gain.linearRampToValueAtTime(EFFECT_GAIN * 0.9, start + 0.01)
+    env.gain.exponentialRampToValueAtTime(0.001, start + 0.24)
+    if (filter) {
+      filter.type = isThunder || /^animalWhale/.test(id) ? "lowpass" : "bandpass"
+      filter.frequency.setValueAtTime(isThunder ? 240 : /^animalWhale/.test(id) ? 320 : isPercussive ? 1800 : 900, start)
+      filter.Q.setValueAtTime(isPercussive ? 1.4 : 0.8, start)
+      osc.connect(filter)
+      filter.connect(env)
+    } else {
+      osc.connect(env)
+    }
+    env.connect(ctx.destination)
+    this._registerPreviewNode(osc)
+    osc.start(start)
+    osc.stop(start + 0.27)
+  }
+
+  AudioEngine.prototype.previewEffect = function (effect) {
+    if (!effect || !effect.src) return Promise.resolve(false)
+    const ctx = this.ensureContext()
+    const self = this
+    const run = function () {
+      const start = ctx.currentTime + 0.01
+      const readyBuffer = effect.src ? self.decodedCache.get(effect.src) : null
+      if (readyBuffer) {
+        self._playEffectBufferPreview(ctx, readyBuffer, start)
+        return Promise.resolve(true)
+      }
+      self._previewEffectFallback(ctx, effect, start)
+      const requestedAt = ctx.currentTime
+      return self.loadAssetBuffer(ctx, effect).then(function (buffer) {
+        if (buffer && ctx.currentTime - requestedAt < 0.7) {
+          self._playEffectBufferPreview(ctx, buffer, ctx.currentTime + 0.03)
+        }
+        return !!buffer
+      })
+    }
+    if (ctx.state === "suspended") return ctx.resume().then(run)
+    return run()
+  }
+
   AudioEngine.prototype.previewNote = function (recipe, normY) {
     const ctx = this.ensureContext()
     const self = this
     const run = function () {
       const plan = self.resolvePlan(recipe, [])
+      const midi = self._liveMidi(plan, normY)
+      if (midi == null) return
       const note = {
         time: 0,
         duration: 0.24,
-        midi: Core.quantizePitch(normY, plan.pitchStyle || plan.style),
+        midi: midi,
         velocity: 0.7,
       }
       const start = ctx.currentTime + 0.01
-      const src = plan.melodyAsset && plan.melodyAsset.src
+      const asset = plan.melodyAsset
+      // 멀티샘플이면 이 음에 가장 가까운 실제 녹음 파일을 미리듣기 한다.
+      let src = asset && asset.src
+      if (isMultiSample(asset)) {
+        const seg = nearestSampleSegment(asset, note.midi)
+        if (seg && seg.src) src = seg.src
+      }
       if (src && self.bufferCache.has(src)) {
         self.bufferCache.get(src).then((buffer) => {
           if (buffer) self._previewSample(ctx, plan, buffer, note, start)
@@ -882,12 +1342,17 @@
   }
 
   AudioEngine.prototype.play = async function (recipe, notes) {
-    this.stop()
+    this.stop({ emitState: false })
     this.stopAmbience(true) // 완성곡 재생 중엔 드로잉 배경음을 끈다(중복 방지)
+    const gen = ++this.playGen // 이 재생의 세대 토큰 (this.stop() 이 playGen 을 올린 뒤 새로 받음)
+    this.isPaused = false
+    this.pauseRemainingMs = 0
     const ctx = this.ensureContext()
     if (ctx.state === "suspended") await ctx.resume()
+    if (gen !== this.playGen) return this.lastMode // 깨우는 사이 정지/재요청됨 → 중단
     const plan = this.resolvePlan(recipe, notes)
     const buffers = await this.preload(ctx, plan)
+    if (gen !== this.playGen) return this.lastMode // 음원 디코드 사이 정지됨 → 소리 내지 않음
     const self = this
     const register = function (node) {
       self.active.push(node)
@@ -903,8 +1368,9 @@
     const usedReal = this.schedule(ctx, master, plan, buffers, start, register)
     this.lastMode = usedReal ? "real" : "synth"
     this.isPlaying = true
-    if (this.onState) this.onState(true)
+    this.emitState()
     const self2 = this
+    this.playEndsAtMs = Date.now() + plan.duration * 1000 + 200
     this.stopTimer = setTimeout(function () {
       self2.stop()
     }, plan.duration * 1000 + 200)

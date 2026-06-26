@@ -4,6 +4,7 @@ const core = require("../js/music-core.js")
 
 const C_MAJOR = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11] }
 const C_MAJOR_LIMITED = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 60, highMidi: 72 }
+const G3_G5_WITH_SILENT_EDGES = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 55, highMidi: 79, silentEdgeRows: 1 }
 
 // --- Task 1: scale / pitch / time resampling ---
 
@@ -26,6 +27,13 @@ test("buildScale: 악기별 권장 음역을 적용", () => {
   assert.ok(scale.every((m) => m >= 60 && m <= 72))
   assert.strictEqual(core.quantizePitch(0, C_MAJOR_LIMITED), 72)
   assert.strictEqual(core.quantizePitch(1, C_MAJOR_LIMITED), 60)
+})
+
+test("quantizePitch: 무음 여백 줄은 음을 만들지 않는다", () => {
+  assert.strictEqual(core.quantizePitch(0.01, G3_G5_WITH_SILENT_EDGES), null)
+  assert.strictEqual(core.quantizePitch(0.99, G3_G5_WITH_SILENT_EDGES), null)
+  assert.strictEqual(core.quantizePitch(1 / 16, G3_G5_WITH_SILENT_EDGES), 79)
+  assert.strictEqual(core.quantizePitch(15 / 16, G3_G5_WITH_SILENT_EDGES), 55)
 })
 
 test("resampleByTime: 그리는 속도와 무관 — 점 밀도가 달라도 같은 결과", () => {
@@ -55,11 +63,40 @@ test("autocompleteMelody: 제한 음역 밖으로 음을 만들지 않음", () =
   assert.ok(notes.every((n) => n.midi >= 60 && n.midi <= 72))
 })
 
+test("autocompleteMelody: 위아래 무음 여백은 쉼표로 둔다", () => {
+  const path = [{ x: 0, y: 0.01 }, { x: 1, y: 0.01 }]
+  const notes = core.autocompleteMelody(path, { durationSec: 12, style: G3_G5_WITH_SILENT_EDGES })
+
+  assert.deepStrictEqual(notes, [])
+})
+
 test("autocompleteMelody keeps un-drawn timeline sections empty", () => {
   const path = [{ x: 0, y: 0.6 }, { x: 0.25, y: 0.3 }]
   const notes = core.autocompleteMelody(path, { durationSec: 20, style: C_MAJOR })
   assert.ok(notes.length > 0)
   assert.ok(notes.every((n) => n.time >= 0 && n.time + n.duration <= 5.5))
+})
+
+test("autocompleteMelodyStrokes keeps gaps between separate strokes as rests", () => {
+  const strokes = [
+    [{ x: 0, y: 0.6 }, { x: 0.25, y: 0.6 }],
+    [{ x: 0.75, y: 0.3 }, { x: 1, y: 0.3 }],
+  ]
+  const notes = core.autocompleteMelodyStrokes(strokes, { durationSec: 20, style: C_MAJOR })
+  assert.ok(notes.some((n) => n.time < 6), "첫 획 음이 없다")
+  assert.ok(notes.some((n) => n.time >= 14), "두 번째 획 음이 없다")
+  assert.ok(notes.every((n) => n.time + n.duration <= 6 || n.time >= 14), "획 사이 빈 구간에 음이 생겼다")
+})
+
+test("autocompleteMelodyStrokes can play two drawn lines at the same time", () => {
+  const strokes = [
+    [{ x: 0, y: 0.2 }, { x: 0.4, y: 0.2 }],
+    [{ x: 0, y: 0.8 }, { x: 0.4, y: 0.8 }],
+  ]
+  const notes = core.autocompleteMelodyStrokes(strokes, { durationSec: 10, style: C_MAJOR })
+  const simultaneous = notes.filter((n) => Math.abs(n.time) < 1e-6)
+  assert.ok(simultaneous.length >= 2, "같은 시간에 시작하는 두 음이 만들어지지 않았다")
+  assert.ok(new Set(simultaneous.map((n) => n.midi)).size >= 2, "두 선이 서로 다른 음높이로 연주되지 않는다")
 })
 
 test("autocompleteMelody preserves the drawn x position as time", () => {
@@ -82,6 +119,14 @@ test("sigimsaeFor: 국악풍은 장식, 그 외는 빈 배열", () => {
   const orn = core.sigimsaeFor({ gugak: true, durationBeats: 1 })
   assert.ok(orn.length > 0)
   assert.deepStrictEqual(core.sigimsaeFor({ gugak: false, durationBeats: 1 }), [])
+})
+
+test("sigimsaeFor: 긴 국악 지속음은 더 짙은 농현을 쓴다", () => {
+  const shortVibrato = core.sigimsaeFor({ gugak: true, durationBeats: 1 }).find((seg) => seg.type === "vibrato")
+  const longVibrato = core.sigimsaeFor({ gugak: true, durationBeats: 2.5 }).find((seg) => seg.type === "vibrato")
+
+  assert.ok(longVibrato.cents > shortVibrato.cents)
+  assert.ok(longVibrato.rateHz > shortVibrato.rateHz)
 })
 
 // --- Task 3: recipe codec / wav encoder ---

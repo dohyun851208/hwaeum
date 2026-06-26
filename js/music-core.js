@@ -16,10 +16,40 @@
 
   // --- 음계 ---
 
+  const NATURAL_NOTE_CLASSES = [0, 2, 4, 5, 7, 9, 11]
+
+  function pitchBounds(style) {
+    return {
+      lo: style.lowMidi == null ? 48 : style.lowMidi,
+      hi: style.highMidi == null ? 84 : style.highMidi,
+    }
+  }
+
+  function isNaturalNote(midi) {
+    return NATURAL_NOTE_CLASSES.indexOf(((midi % 12) + 12) % 12) !== -1
+  }
+
+  function naturalPitchRowCount(lo, hi) {
+    let count = 0
+    for (let midi = lo; midi <= hi; midi++) {
+      if (isNaturalNote(midi)) count++
+    }
+    return Math.max(1, count)
+  }
+
+  function silentEdgeRatio(style) {
+    const silentRows = style.silentEdgeRows || 0
+    if (!silentRows) return 0
+    const bounds = pitchBounds(style)
+    const labelRows = naturalPitchRowCount(bounds.lo, bounds.hi)
+    return silentRows / Math.max(1, labelRows + silentRows * 2 - 1)
+  }
+
   // style = { root: <midi>, intervals: [반음 오프셋...] }
   function buildScale(style, lo, hi) {
-    lo = lo == null ? (style.lowMidi == null ? 48 : style.lowMidi) : lo
-    hi = hi == null ? (style.highMidi == null ? 84 : style.highMidi) : hi
+    const bounds = pitchBounds(style)
+    lo = lo == null ? bounds.lo : lo
+    hi = hi == null ? bounds.hi : hi
     const out = []
     for (let oct = -2; oct <= 3; oct++) {
       for (const iv of style.intervals) out.push(style.root + iv + oct * 12)
@@ -40,7 +70,10 @@
   function quantizePitch(normY, style) {
     const scale = buildScale(style)
     const clamped = Math.max(0, Math.min(1, normY))
-    const idx = Math.round((1 - clamped) * (scale.length - 1))
+    const edge = silentEdgeRatio(style)
+    if (edge > 0 && (clamped < edge || clamped > 1 - edge)) return null
+    const playableY = edge > 0 ? (clamped - edge) / (1 - edge * 2) : clamped
+    const idx = Math.round((1 - playableY) * (scale.length - 1))
     return scale[Math.max(0, Math.min(scale.length - 1, idx))]
   }
 
@@ -112,11 +145,13 @@
     // 점 찍기(가로 폭 ≈ 0) → 짧은 음 하나
     if ((maxX - minX) * durationSec < TAP_SEC) {
       const time = Math.max(0, Math.min(1, minX)) * durationSec
+      const midi = quantizePitch(path[0].y, style)
+      if (midi == null) return []
       return [
         {
           time: time,
           duration: Math.min(TAP_SEC, Math.max(0.05, durationSec - time)),
-          midi: quantizePitch(path[0].y, style),
+          midi: midi,
           velocity: 0.7,
         },
       ]
@@ -134,6 +169,11 @@
         continue
       }
       let midi = quantizePitch(sample.y, style)
+      if (midi == null) {
+        raw.push(null)
+        prev = null
+        continue
+      }
       // 큰 도약(>장6도) 완화
       if (prev != null && Math.abs(midi - prev) > 9) {
         midi = nearestScaleNote(midi > prev ? prev + 7 : prev - 7, style)
@@ -162,6 +202,25 @@
     return notes
   }
 
+  function autocompleteMelodyStrokes(strokes, opts) {
+    const notes = []
+    ;(strokes || []).forEach(function (stroke, voice) {
+      autocompleteMelody(stroke, opts).forEach(function (note) {
+        notes.push(
+          Object.assign({}, note, {
+            voice: voice,
+          }),
+        )
+      })
+    })
+    notes.sort(function (a, b) {
+      if (a.time !== b.time) return a.time - b.time
+      if (a.voice !== b.voice) return (a.voice || 0) - (b.voice || 0)
+      return a.midi - b.midi
+    })
+    return notes
+  }
+
   // path → 4/4 8분음표 격자의 타격 온셋. y가 임계 초과인 격자에서 타격.
   function autocompleteRhythm(path, opts) {
     const durationSec = opts.durationSec
@@ -187,9 +246,19 @@
   function sigimsaeFor(opts) {
     if (!opts || !opts.gugak) return []
     const beats = opts.durationBeats || 0
+    const longTone = beats >= 2
+    const veryLong = beats >= 4 // 아주 길게 끈 음 — 짙은 농현(깊게 떠는 지속음)
     const segs = [{ type: "grace", at: 0, semitones: 1, dur: 0.08 }] // 꺾음(앞꾸밈)
-    if (beats >= 1) segs.push({ type: "vibrato", at: 0.2, cents: 18, rateHz: 5.5 }) // 떠는음
-    segs.push({ type: "slide", at: 0.7, semitones: -1, dur: 0.2 }) // 흘러내림
+    if (beats >= 1) {
+      segs.push({
+        type: "vibrato",
+        at: veryLong ? 0.1 : longTone ? 0.13 : 0.2, // 길수록 일찍 떨기 시작해 오래 농현
+        cents: veryLong ? 55 : longTone ? 42 : 18, // 길수록 떠는 폭이 짙어짐(농현)
+        rateHz: veryLong ? 6.6 : longTone ? 6.2 : 5.5,
+      }) // 떠는음/농현
+    }
+    // 흘러내림: 길게 끈 음은 끝부분에서만 살짝 — 지속음을 더 오래 유지한 뒤 흘린다
+    segs.push({ type: "slide", at: veryLong ? 0.9 : longTone ? 0.82 : 0.7, semitones: longTone ? -0.5 : -1, dur: 0.2 })
     return segs
   }
 
@@ -271,6 +340,7 @@
     interpY,
     resampleByTime,
     autocompleteMelody,
+    autocompleteMelodyStrokes,
     autocompleteRhythm,
     sigimsaeFor,
     encodeRecipe,

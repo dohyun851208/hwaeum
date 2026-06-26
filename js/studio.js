@@ -13,6 +13,17 @@
   const DEFAULT_COVER_SRC = "./assets/default-cover.png"
   const ADMIN_STORAGE_KEY = "sda.adminMode"
   const TAKE_NAME_MAX = 24
+  const DRAWING_STEP = 2
+  const COMPLETE_STEP = 3
+  const DEFAULT_STYLE_ID = "bright"
+  const CUSTOM_BG_MAX_BYTES = 50 * 1024 * 1024
+  const PIXABAY_MUSIC_URL = "https://pixabay.com/music/"
+  const CUSTOM_BG_COPYRIGHT_NOTICE =
+    "저작권 안내: 다른 사람이 만든 음악은 허락 없이 사용할 수 없어요. 직접 만든 음원이나 사용 허락을 받은 음원만 올려 주세요."
+
+  function defaultStyle() {
+    return D.styles.find((s) => s.id === DEFAULT_STYLE_ID) || D.styles[0]
+  }
 
   function loadAdminMode() {
     try {
@@ -32,14 +43,23 @@
     duration: 30,
     atmosphere: D.atmospheres[0],
     instrument: D.instruments[0],
-    style: D.styles[0],
+    style: defaultStyle(),
     version: D.versions[0],
     mode: "melody",
     pic: null,
     title: "무제",
     step: 0,
     group: "서양",
+    effectIds: [], // 옛 레시피 호환용: 자동 배치 효과
+    effectStamps: [], // 새 방식: 캔버스에 찍은 효과음 도장 [{ id, x, y }]
+    effectStampId: null,
     bgPreviewId: null, // 현재 미리듣기 중인 분위기 id
+    examplePreviewId: null, // 현재 감상 재생 중인 악기 id
+    bgOffset: 0, // 배경음악을 이 지점(초)부터 — 캔버스 가로축이 [bgOffset, bgOffset+길이]에 대응, 최종 곡에도 반영
+    bgEndOffset: 0,
+    backgroundReason: "",
+    melodyIntent: "",
+    hashtags: "",
     adminMode: loadAdminMode(),
   }
 
@@ -48,11 +68,30 @@
   bgPreview.preload = "none"
   let customBgSeq = 0
 
+  // 드로잉(3단계) 배경음악 — 전용 <audio>로 재생/일시정지. 업로드 배경만 슬라이더로 구간을 고른다.
+  // 업로드 배경 재생 시 [bgOffset, bgEndOffset] 구간을 반복하고, 그 구간이 최종 곡에도 반영된다.
+  const bgPlayer = new Audio()
+  bgPlayer.preload = "auto"
+  bgPlayer.volume = 0.55
+  let bgRAF = null
+
+  // 악기 연주곡 감상 — 분위기 미리듣기와 동일한 독립 재생기(한 번에 하나만)
+  const examplePreview = new Audio()
+  examplePreview.preload = "none"
+  examplePreview.addEventListener("ended", () => {
+    state.examplePreviewId = null
+    renderInstruments()
+    syncExamplePreviewStop()
+  })
+
+  const AUDIO_MODE_READY = "실제 음원을 우선 사용하고, 없으면 합성음으로 대체합니다. 국악 음원 출처: 국립국악원."
+
   const $ = (id) => document.getElementById(id)
   const el = {
     body: document.body,
     statusText: $("statusText"),
     playBtn: $("playBtn"),
+    pauseBtn: $("pauseBtn"),
     stopBtn: $("stopBtn"),
     picInput: $("picInput"),
     dropPreview: $("dropPreview"),
@@ -65,28 +104,44 @@
     bgUploadStatus: $("bgUploadStatus"),
     instrumentGroups: $("instrumentGroups"),
     instrumentGrid: $("instrumentGrid"),
-    styleGrid: $("styleGrid"),
-    modeHint: $("modeHint"),
+    instrumentPreviewStopBtn: $("instrumentPreviewStopBtn"),
     canvas: $("drawingCanvas"),
+    effectStampLayer: $("effectStampLayer"),
     paletteLabels: $("paletteLabels"),
     playhead: $("playhead"),
+    bgPlayer: $("bgPlayer"),
+    bgPlayBtn: $("bgPlayBtn"),
+    bgSeek: $("bgSeek"),
+    bgEndSeek: $("bgEndSeek"),
+    bgTime: $("bgTime"),
+    penBtn: $("penBtn"),
     clearBtn: $("clearBtn"),
+    undoBtn: $("undoBtn"),
     resetComposeBtn: $("resetComposeBtn"),
+    flowBtn: $("flowBtn"),
     scaleReadout: $("scaleReadout"),
     rhythmReadout: $("rhythmReadout"),
     noteReadout: $("noteReadout"),
     durReadout: $("durReadout"),
     versionList: $("versionList"),
     composeInstrumentList: $("composeInstrumentList"),
+    orchestraLegend: $("orchestraLegend"),
+    effectList: $("effectList"),
     frame: $("frame"),
     frameImg: $("frameImg"),
     frameCanvas: $("frameCanvas"),
     framePlay: $("framePlay"),
     titleInput: $("titleInput"),
     placardMeta: $("placardMeta"),
+    bgReasonInput: $("bgReasonInput"),
+    melodyIntentInput: $("melodyIntentInput"),
+    hashtagsInput: $("hashtagsInput"),
     saveTakeBtn: $("saveTakeBtn"),
     adminModeBtn: $("adminModeBtn"),
     exportWavBtn: $("exportWavBtn"),
+    completeStopBtn: $("completeStopBtn"),
+    exportDrawingImageBtn: $("exportDrawingImageBtn"),
+    exportDrawingVideoBtn: $("exportDrawingVideoBtn"),
     exportCoverBtn: $("exportCoverBtn"),
     shareBtn: $("shareBtn"),
     exportStatus: $("exportStatus"),
@@ -97,10 +152,36 @@
     audioModeNote: $("audioModeNote"),
   }
 
+  // 악기별 줄 색 — 오케스트라에서 어떤 줄이 어떤 악기인지 색으로 구분
+  const INSTRUMENT_COLORS = {
+    violin: "#c0504d", viola: "#d18a4e", cello: "#9b5a3c", doubleBass: "#5b4a3a", mandolin: "#b07d4e",
+    clarinet: "#4f6fae", oboe: "#5f8d4e", flute: "#4f9bb8", frenchHorn: "#c08a3c",
+    daegeum: "#2f8f86", danso: "#6aa39a", sogeum: "#3f93ad", piri: "#b5614b",
+    gayageum: "#9a6a3a", ajaeng: "#7a4a5a", haegeum: "#9c5b76",
+  }
+  function colorForInstrument(id) {
+    return INSTRUMENT_COLORS[id] || (state.atmosphere && state.atmosphere.color) || "#5f8f63"
+  }
+
+  function applyInstrumentTone(node, id) {
+    const color = colorForInstrument(id)
+    node.style.setProperty("--instrument-color", color)
+    node.style.setProperty("--instrument-soft", hexToRgba(color, 0.16))
+    node.style.setProperty("--instrument-strong", hexToRgba(color, 0.36))
+  }
+
   const draw = new window.DrawingCanvas(el.canvas, {
+    activeInstrument: state.instrument.id,
+    instrumentColor: colorForInstrument,
+    maxInstruments: 4,
+    onInstrumentLimit: (max) => {
+      el.exportStatus.textContent = "악기는 한 곡에 최대 " + max + "개까지예요. 줄을 지우면 다른 악기를 더할 수 있어요."
+    },
     getState: () => ({ duration: state.duration, style: state.style, mode: state.mode }),
     onChange: () => {
       updateReadouts()
+      renderOrchestraLegend()
+      syncUndoButton()
     },
     onPreviewStart: (point) => {
       el.statusText.textContent = state.instrument.label + " 드로잉 중"
@@ -123,6 +204,8 @@
         el.body.dataset.livePreview = "idle"
       }
     },
+    onFlowStart: () => startFlowClock(), // 따라 그리기: 펜 누름 → 음악/시계 시작
+    onFlowEnd: () => stopFlowClock(), // 펜 뗌 → 음악/시계 정지
     accent: state.atmosphere.color,
   })
 
@@ -145,6 +228,41 @@
 
   function round3(v) {
     return Math.round(v * 1000) / 1000
+  }
+
+  function clampNumber(value, min, max) {
+    const n = parseFloat(value)
+    if (!isFinite(n)) return min
+    return Math.max(min, Math.min(max, n))
+  }
+
+  function cleanText(value, max) {
+    return String(value || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, max)
+  }
+
+  function normalizeHashtags(value) {
+    const raw = Array.isArray(value) ? value.join(" ") : String(value || "")
+    const seen = {}
+    return raw
+      .split(/[\s,]+/)
+      .map((tag) => tag.replace(/^#+/, "").replace(/[^\w가-힣-]/g, "").trim())
+      .filter(Boolean)
+      .filter((tag) => {
+        const key = tag.toLowerCase()
+        if (seen[key]) return false
+        seen[key] = true
+        return true
+      })
+      .slice(0, 3)
+  }
+
+  function hashtagText(value) {
+    return normalizeHashtags(value)
+      .map((tag) => "#" + tag)
+      .join(" ")
   }
 
   function paletteCount() {
@@ -198,23 +316,82 @@
     return (strokes || []).map((s) => simplifyPoints(s, 70)).filter((s) => s.length > 0)
   }
 
+  function simplifyEffectStamps(stamps) {
+    return (stamps || [])
+      .filter((stamp) => stamp && D.effects[stamp.id])
+      .map((stamp) => ({
+        id: stamp.id,
+        x: round3(Math.max(0, Math.min(1, stamp.x || 0))),
+        y: round3(Math.max(0, Math.min(1, stamp.y == null ? 0.5 : stamp.y))),
+      }))
+  }
+
+  function stampedEffectIds() {
+    const ids = state.effectIds.slice()
+    state.effectStamps.forEach((stamp) => {
+      if (D.effects[stamp.id] && ids.indexOf(stamp.id) === -1) ids.push(stamp.id)
+    })
+    return ids
+  }
+
+  function effectCount() {
+    return state.effectIds.length + state.effectStamps.length
+  }
+
+  // 획과 그 악기를 같은 필터링으로 묶어 1:1 정렬 보장(빈 획 제거 시에도 어긋나지 않게)
+  function buildStrokesAndInstruments() {
+    const rawStrokes = draw.getStrokes()
+    const rawInsts = draw.getStrokeInstruments()
+    const strokes = []
+    const instruments = []
+    rawStrokes.forEach((s, i) => {
+      const simplified = simplifyPoints(s, 70)
+      if (simplified.length > 0) {
+        strokes.push(simplified)
+        instruments.push(rawInsts[i] != null ? rawInsts[i] : state.instrument.id)
+      }
+    })
+    return { strokes: strokes, instruments: instruments }
+  }
+
+  function recipeBgOffset() {
+    return canSelectBgRange() ? state.bgOffset : 0
+  }
+
+  function recipeBgEndOffset() {
+    return canSelectBgRange() ? state.bgEndOffset : 0
+  }
+
   function buildRecipe() {
+    const built = buildStrokesAndInstruments()
     return {
       duration: state.duration,
+      bgOffset: recipeBgOffset(),
+      bgEndOffset: recipeBgEndOffset(),
+      backgroundReason: cleanText(state.backgroundReason, 180),
+      melodyIntent: cleanText(state.melodyIntent, 180),
+      hashtags: normalizeHashtags(state.hashtags),
       atmosphere: state.atmosphere.id,
       instrument: state.instrument.id,
       style: state.style.id,
       version: state.version.id,
-      mode: state.mode,
-      path: simplifyPath(draw.getPath()), // 선율/썸네일용(시간순 평탄 경로)
-      strokes: simplifyStrokes(draw.getStrokes()), // 그린 그대로의 다중 획(시각 복원용)
+      mode: "melody",
+      effectIds: stampedEffectIds(),
+      effectStamps: simplifyEffectStamps(state.effectStamps),
+      path: simplifyPath(draw.getPath()), // 썸네일/재생용 시간순 평탄 경로
+      strokes: built.strokes, // 그린 그대로의 다중 획(시각 복원용)
+      strokeInstruments: built.instruments, // 획별 악기(오케스트라) — voice 인덱스와 1:1
     }
   }
 
   function notesFor(recipe) {
     if (recipe.mode === "rhythm") return []
-    if (!recipe.path || recipe.path.length < 2) return []
-    const style = D.styles.find((s) => s.id === recipe.style) || D.styles[0]
+    if (recipe.strokes && recipe.strokes.length) {
+      const style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
+      return Core.autocompleteMelodyStrokes(recipe.strokes, { durationSec: recipe.duration, style: style })
+    }
+    if (!recipe.path || recipe.path.length < 1) return []
+    const style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
     return Core.autocompleteMelody(recipe.path, { durationSec: recipe.duration, style: style })
   }
 
@@ -224,12 +401,12 @@
     engine
       .warmInstrument(buildRecipe())
       .then(function (buffer) {
-        if (!asset || !asset.src) return // 원래 합성 전용 악기(예: 신디)
+        if (!asset || !asset.src) return
         if (buffer) {
-          el.audioModeNote.textContent = "실제 음원을 우선 사용하고, 없으면 합성음으로 대체합니다."
+          el.audioModeNote.textContent = AUDIO_MODE_READY
         } else {
           el.audioModeNote.textContent =
-            "⚠ 실제 악기 음원을 불러오지 못해 합성음으로 들려요. 파일을 더블클릭(file://)하지 말고 서버(VS Code Live Server 또는 npm run serve)로 열면 실제 악기 소리가 납니다."
+            "⚠ 실제 악기 음원을 불러오지 못해 합성음으로 들려요. 파일을 더블클릭(file://)하지 말고 서버(VS Code Live Server 또는 npm run serve)로 열면 실제 악기 소리가 납니다. 국악 음원 출처: 국립국악원."
         }
       })
       .catch(function (e) {
@@ -273,8 +450,17 @@
   }
 
   function bgSrcFor(atmosphere) {
-    const bg = D.backgrounds[atmosphere.backgroundId]
+    const bg = backgroundFor(atmosphere)
     return bg ? bg.src : null
+  }
+
+  function backgroundFor(atmosphere) {
+    return atmosphere && atmosphere.backgroundId ? D.backgrounds[atmosphere.backgroundId] : null
+  }
+
+  function canSelectBgRange() {
+    const bg = backgroundFor(state.atmosphere)
+    return !!(bg && bg.custom)
   }
 
   function stopBackgroundPreview() {
@@ -292,6 +478,7 @@
       return
     }
     engine.stop() // 전체 재생과 미리듣기가 겹치지 않도록
+    stopExamplePreview() // 악기 감상과 겹치지 않도록
     try {
       if (bgPreview.src !== src) bgPreview.src = src
       bgPreview.currentTime = 0
@@ -309,48 +496,131 @@
     else startBackgroundPreview(atmosphere)
   }
 
+  // 악기 연주곡 감상 미리듣기 (국악기 카드의 ▶ 버튼)
+  function syncExamplePreviewStop() {
+    if (!el.instrumentPreviewStopBtn) return
+    el.instrumentPreviewStopBtn.hidden = !state.examplePreviewId
+  }
+
+  function stopExamplePreview(announce) {
+    const wasPlaying = !!state.examplePreviewId
+    state.examplePreviewId = null
+    try {
+      examplePreview.pause()
+      examplePreview.currentTime = 0
+    } catch (e) {}
+    syncExamplePreviewStop()
+    if (announce && wasPlaying) el.exportStatus.textContent = "악기 소리를 멈췄습니다."
+  }
+
+  function toggleExamplePreview(instrument) {
+    if (state.examplePreviewId === instrument.id) {
+      stopExamplePreview(true)
+      renderInstruments()
+      return
+    }
+    const src = instrument.example
+    if (!src) return
+    stopBackgroundPreview()
+    renderAtmospheres()
+    engine.stop() // 전체 재생/배경 미리듣기와 겹치지 않도록
+    try {
+      if (examplePreview.src !== src) examplePreview.src = src
+      examplePreview.currentTime = 0
+      const p = examplePreview.play()
+      if (p && p.catch) p.catch((e) => console.warn("연주곡 감상 실패", e))
+      state.examplePreviewId = instrument.id
+      el.exportStatus.textContent = instrument.label + " 소리를 듣는 중입니다. 정지하려면 ■ 또는 ‘악기 소리 정지’를 누르세요."
+    } catch (e) {
+      console.warn("연주곡 감상 실패", e)
+      state.examplePreviewId = null
+    }
+    renderInstruments()
+  }
+
+  // 카드 그룹 표시 순서. manifest 의 atmosphere.group 과 맞춘다. 새 group 은 이 뒤에 자동으로 붙는다.
+  const ATMOSPHERE_GROUP_ORDER = ["분위기", "환경 소리", "리듬 반주", "테마 루프"]
+
+  function appendAtmosphereCard(a) {
+    const b = card(a, a.id === state.atmosphere.id, a.detail)
+    b.style.setProperty("--swatch", a.color)
+    b.classList.add("with-swatch", "mood-card")
+    if (state.bgPreviewId === a.id) b.classList.add("playing")
+    const play = document.createElement("span")
+    play.className = "mood-play"
+    play.setAttribute("aria-hidden", "true")
+    play.textContent = state.bgPreviewId === a.id ? "❚❚" : "▶"
+    b.appendChild(play)
+    b.title = a.label + " 배경 미리듣기"
+    b.addEventListener("click", () => {
+      state.atmosphere = a
+      state.bgOffset = 0 // 새 분위기는 처음(0초)부터
+      state.bgEndOffset = 0
+      applyMoodTint()
+      syncBgPlayerUI()
+      toggleBackgroundPreview(a)
+      renderAtmospheres()
+      updateReadouts()
+      engine.warmAmbience(buildRecipe()).catch(function () {}) // 고른 분위기 배경음 미리 로드
+    })
+    el.atmosphereGrid.appendChild(b)
+  }
+
   function renderAtmospheres() {
     el.atmosphereGrid.innerHTML = ""
+    // group 별로 묶고(미지정·업로드분은 "분위기"), 정해진 순서대로 소제목과 함께 그린다.
+    const groups = {}
     D.atmospheres.forEach((a) => {
-      const b = card(a, a.id === state.atmosphere.id, a.detail)
-      b.style.setProperty("--swatch", a.color)
-      b.classList.add("with-swatch", "mood-card")
-      if (state.bgPreviewId === a.id) b.classList.add("playing")
-      const play = document.createElement("span")
-      play.className = "mood-play"
-      play.setAttribute("aria-hidden", "true")
-      play.textContent = state.bgPreviewId === a.id ? "❚❚" : "▶"
-      b.appendChild(play)
-      b.title = a.label + " 배경 미리듣기"
-      b.addEventListener("click", () => {
-        state.atmosphere = a
-        applyMoodTint()
-        toggleBackgroundPreview(a)
-        renderAtmospheres()
-        updateReadouts()
-        engine.warmAmbience(buildRecipe()).catch(function () {}) // 고른 분위기 배경음 미리 로드
-      })
-      el.atmosphereGrid.appendChild(b)
+      const g = a.group || "분위기"
+      ;(groups[g] || (groups[g] = [])).push(a)
+    })
+    const order = ATMOSPHERE_GROUP_ORDER.slice()
+    Object.keys(groups).forEach((g) => {
+      if (order.indexOf(g) === -1) order.push(g)
+    })
+    const visibleGroups = order.filter((g) => groups[g] && groups[g].length)
+    visibleGroups.forEach((g) => {
+      if (visibleGroups.length > 1) {
+        const label = document.createElement("p")
+        label.className = "atmosphere-group-label"
+        label.textContent = g
+        el.atmosphereGrid.appendChild(label)
+      }
+      groups[g].forEach(appendAtmosphereCard)
     })
     el.atmosphereGrid.appendChild(buildUploadCard())
   }
 
   function buildUploadCard() {
-    const b = document.createElement("button")
-    b.type = "button"
-    b.className = "card upload-card"
-    b.innerHTML =
+    const card = document.createElement("div")
+    card.className = "card upload-card"
+    card.innerHTML =
       '<span class="upload-plus" aria-hidden="true">＋</span>' +
-      "<strong>내 배경 음원 추가</strong>" +
-      '<span class="upload-sub">mp3 · wav 파일을 올려서 분위기로 쓸 수 있어요</span>'
-    b.addEventListener("click", () => el.bgUploadInput.click())
-    return b
+      "<strong>학생들이 찾은 음악</strong>" +
+      '<span class="upload-sub"><span>Pixabay에서 음악 찾기</span><span>mp3 · wav 올리기</span><span>50MB 이하</span></span>' +
+      '<span class="upload-actions">' +
+      '<a class="upload-action upload-action-secondary" href="' +
+      PIXABAY_MUSIC_URL +
+      '" target="_blank" rel="noopener noreferrer">여기서 찾아보기</a>' +
+      '<button class="upload-action upload-action-primary" type="button">내 배경 음원 추가</button>' +
+      "</span>"
+    const uploadButton = card.querySelector("button")
+    uploadButton.addEventListener("click", () => {
+      window.alert(CUSTOM_BG_COPYRIGHT_NOTICE)
+      el.bgUploadInput.click()
+    })
+    return card
   }
 
   function addCustomBackground(file) {
     if (!file) return
     if (!file.type || file.type.indexOf("audio/") !== 0) {
       el.bgUploadStatus.textContent = "오디오 파일(mp3, wav 등)만 올릴 수 있어요."
+      el.bgUploadStatus.classList.add("error")
+      return
+    }
+    if (file.size > CUSTOM_BG_MAX_BYTES) {
+      el.bgUploadStatus.textContent = "무료 저장 한도에 맞춰 50MB 이하 오디오 파일만 올릴 수 있어요."
       el.bgUploadStatus.classList.add("error")
       return
     }
@@ -370,7 +640,10 @@
     }
     D.atmospheres.push(atmosphere)
     state.atmosphere = atmosphere
+    state.bgOffset = 0
+    state.bgEndOffset = 0
     applyMoodTint()
+    syncBgPlayerUI()
     startBackgroundPreview(atmosphere)
     renderAtmospheres()
     engine.warmAmbience(buildRecipe()).catch(function () {}) // 업로드한 배경음 미리 로드
@@ -380,7 +653,7 @@
   }
 
   function renderInstrumentGroups() {
-    const groups = ["서양", "국악", "전자"]
+    const groups = ["서양", "국악"].filter((group) => D.instruments.some((instrument) => instrument.group === group))
     el.instrumentGroups.innerHTML = ""
     groups.forEach((g) => {
       const b = document.createElement("button")
@@ -399,16 +672,24 @@
   function selectInstrument(instrument, announce) {
     state.instrument = instrument
     state.group = instrument.group
+    setEraser(false)
+    if (state.effectStampId) {
+      state.effectStampId = null
+      renderEffects()
+      renderEffectStamps()
+    }
+    draw.setActiveInstrument(instrument.id) // 이제부터 그리는 줄의 악기(기존 줄은 그대로)
     engine.stop()
     renderInstrumentGroups()
     renderInstruments()
     renderComposeInstruments()
+    renderOrchestraLegend()
     draw.compute()
     draw.render()
     updateReadouts()
     warmSelectedInstrument()
     if (announce) {
-      el.exportStatus.textContent = instrumentParticle(instrument.label) + " 바꿨습니다. 선율은 그대로 유지됩니다."
+      el.exportStatus.textContent = "이제부터 그리는 줄은 " + instrument.label + "로 연주됩니다. (이미 그린 줄은 그대로)"
     }
   }
 
@@ -418,26 +699,40 @@
       .filter((i) => i.group === state.group)
       .forEach((i) => {
         const b = card(i, i.id === state.instrument.id, i.detail)
+        b.classList.add("instrument-card")
+        applyInstrumentTone(b, i.id)
         b.addEventListener("click", () => {
           selectInstrument(i, false)
         })
+        if (i.example) {
+          const playing = state.examplePreviewId === i.id
+          if (playing) b.classList.add("playing")
+          const ex = document.createElement("span")
+          ex.className = "example-play"
+          ex.setAttribute("role", "button")
+          ex.setAttribute("tabindex", "0")
+          ex.title = playing ? "연주곡 정지" : (i.exampleLabel ? i.exampleLabel + " — " : "") + "연주곡 감상"
+          ex.setAttribute(
+            "aria-label",
+            playing ? i.label + " 연주곡 정지" : i.label + " 연주곡 감상" + (i.exampleLabel ? " (" + i.exampleLabel + ")" : ""),
+          )
+          ex.textContent = playing ? "■" : "▶"
+          const onPreview = (ev) => {
+            ev.stopPropagation()
+            toggleExamplePreview(i)
+          }
+          ex.addEventListener("click", onPreview)
+          ex.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault()
+              onPreview(ev)
+            }
+          })
+          b.appendChild(ex)
+        }
         el.instrumentGrid.appendChild(b)
       })
-  }
-
-  function renderStyles() {
-    el.styleGrid.innerHTML = ""
-    D.styles.forEach((s) => {
-      const b = card(s, s.id === state.style.id, s.scaleName + " · " + s.detail)
-      b.addEventListener("click", () => {
-        state.style = s
-        renderStyles()
-        draw.compute()
-        draw.render()
-        updateReadouts()
-      })
-      el.styleGrid.appendChild(b)
-    })
+    syncExamplePreviewStop()
   }
 
   function renderVersions() {
@@ -453,7 +748,6 @@
         state.version = v
         engine.stop()
         renderVersions()
-        startDrawingAmbience() // 믹스(볼륨)가 바뀌면 깔려 있는 배경음도 갱신
         el.exportStatus.textContent = v.label + " 믹스로 바꿨습니다."
       })
       el.versionList.appendChild(b)
@@ -462,16 +756,9 @@
 
   function renderComposeInstruments() {
     el.composeInstrumentList.innerHTML = ""
-    ;["서양", "국악", "전자"].forEach((group) => {
-      const groupItems = D.instruments
-        .filter((instrument) => instrument.group === group)
-        .map((instrument, index) => ({ instrument: instrument, index: index }))
-        .sort((a, b) => {
-          if (a.instrument.id === state.instrument.id) return -1
-          if (b.instrument.id === state.instrument.id) return 1
-          return a.index - b.index
-        })
-        .map((item) => item.instrument)
+    ;["서양", "국악"].forEach((group) => {
+      const groupItems = D.instruments.filter((instrument) => instrument.group === group)
+      if (!groupItems.length) return
 
       const section = document.createElement("section")
       section.className = "compose-instrument-group" + (group === state.group ? " active" : "")
@@ -491,6 +778,7 @@
         const b = document.createElement("button")
         b.type = "button"
         b.className = "compose-instrument" + (i.id === state.instrument.id ? " active" : "")
+        applyInstrumentTone(b, i.id)
         b.setAttribute("aria-pressed", i.id === state.instrument.id ? "true" : "false")
         b.title = i.group + " · " + i.detail
         if (i.image) {
@@ -513,19 +801,225 @@
     })
   }
 
+  // 오케스트라 범례 — 지금 곡에 쓰인 악기(색·줄 수)와 다음에 그릴 악기를 보여 준다
+  function renderOrchestraLegend() {
+    if (!el.orchestraLegend) return
+    const insts = typeof draw.getStrokeInstruments === "function" ? draw.getStrokeInstruments() : []
+    const order = []
+    const counts = {}
+    insts.forEach((id) => {
+      if (id == null) return
+      if (counts[id] == null) {
+        counts[id] = 0
+        order.push(id)
+      }
+      counts[id]++
+    })
+    el.orchestraLegend.innerHTML = ""
+    const tag = document.createElement("span")
+    tag.className = "orchestra-legend-label"
+    tag.textContent = "악기 줄"
+    el.orchestraLegend.appendChild(tag)
+    if (!order.length) {
+      const hint = document.createElement("span")
+      hint.className = "orchestra-empty"
+      hint.textContent = "줄을 그리면 여기에 쌓여요 (최대 4개)"
+      el.orchestraLegend.appendChild(hint)
+    } else {
+      order.forEach((id) => {
+        const inst = D.instruments.find((i) => i.id === id)
+        const chip = document.createElement("span")
+        chip.className = "orchestra-chip"
+        applyInstrumentTone(chip, id)
+        const dot = document.createElement("span")
+        dot.className = "orchestra-dot"
+        dot.style.background = colorForInstrument(id)
+        chip.appendChild(dot)
+        const text = document.createElement("span")
+        text.textContent = (inst ? inst.label : id) + (counts[id] > 1 ? " ×" + counts[id] : "")
+        chip.appendChild(text)
+        el.orchestraLegend.appendChild(chip)
+      })
+    }
+    const current = document.createElement("span")
+    current.className = "orchestra-current"
+    applyInstrumentTone(current, state.instrument.id)
+    const cdot = document.createElement("span")
+    cdot.className = "orchestra-dot"
+    cdot.style.background = colorForInstrument(state.instrument.id)
+    current.appendChild(cdot)
+    const ctext = document.createElement("span")
+    ctext.innerHTML = "그릴 악기 <strong>" + state.instrument.label + "</strong>"
+    current.appendChild(ctext)
+    el.orchestraLegend.appendChild(current)
+  }
+
+  function renderEffects() {
+    el.effectList.innerHTML = ""
+    Object.keys(D.effects).forEach((id) => {
+      const effect = D.effects[id]
+      const active = state.effectStampId === id
+      const b = document.createElement("button")
+      b.type = "button"
+      b.className = "effect-btn" + (active ? " active" : "")
+      b.setAttribute("aria-pressed", active ? "true" : "false")
+      b.title = active ? effect.label + " 도장 선택됨" : effect.label + " 도장 선택"
+      if (effect.image) {
+        const img = document.createElement("img")
+        img.src = effect.image
+        img.alt = ""
+        img.loading = "lazy"
+        b.appendChild(img)
+      }
+      const label = document.createElement("span")
+      label.className = "effect-btn-label"
+      label.textContent = effect.label
+      b.appendChild(label)
+      b.addEventListener("click", () => {
+        state.effectStampId = state.effectStampId === id ? null : id
+        if (state.effectStampId) setEraser(false)
+        if (state.effectStampId && engine.warmEffect) {
+          engine.warmEffect(Object.assign({ id: id }, effect)).catch(function (err) {
+            console.warn("효과음 도장 준비 실패", err)
+          })
+        }
+        renderEffects()
+        renderEffectStamps()
+        updateReadouts()
+        el.exportStatus.textContent = state.effectStampId
+          ? effect.label + " 도장을 캔버스에 찍을 수 있습니다."
+          : "효과음 도장 선택을 해제했습니다."
+      })
+      el.effectList.appendChild(b)
+    })
+  }
+
+  function renderEffectStamps() {
+    if (!el.effectStampLayer) return
+    el.effectStampLayer.innerHTML = ""
+    el.canvas.classList.toggle("stamp-mode", !!state.effectStampId)
+    state.effectStamps.forEach((stamp) => {
+      const effect = D.effects[stamp.id]
+      if (!effect) return
+      const mark = document.createElement("span")
+      mark.className = "effect-stamp"
+      mark.style.left = Math.max(0, Math.min(1, stamp.x || 0)) * 100 + "%"
+      mark.style.top = Math.max(0.04, Math.min(0.96, stamp.y == null ? 0.5 : stamp.y)) * 100 + "%"
+      mark.title = effect.label
+      if (effect.image) {
+        const img = document.createElement("img")
+        img.src = effect.image
+        img.alt = ""
+        mark.appendChild(img)
+      } else {
+        mark.textContent = effect.label
+      }
+      el.effectStampLayer.appendChild(mark)
+    })
+  }
+
+  function canvasPointFromEvent(e) {
+    const r = el.canvas.getBoundingClientRect()
+    if (!r.width || !r.height) return null
+    return {
+      x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+      y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)),
+      rect: r,
+    }
+  }
+
+  function stampEffectAtPointer(e) {
+    const effect = D.effects[state.effectStampId]
+    if (!state.effectStampId || !effect) return false
+    const point = canvasPointFromEvent(e)
+    if (!point) return false
+    state.effectStamps.push({ id: state.effectStampId, x: round3(point.x), y: round3(point.y) })
+    renderEffectStamps()
+    updateReadouts()
+    if (engine.previewEffect) {
+      engine.previewEffect(Object.assign({ id: state.effectStampId }, effect)).catch(function (err) {
+        console.warn("효과음 도장 미리듣기 실패", err)
+      })
+    }
+    el.exportStatus.textContent = effect.label + " 도장을 찍었습니다."
+    return true
+  }
+
+  function eraseEffectStampAtPointer(e) {
+    if (!draw.eraseMode || !state.effectStamps.length) return false
+    const point = canvasPointFromEvent(e)
+    if (!point) return false
+    const radiusPx = 42
+    const radius2 = radiusPx * radiusPx
+    let bestIndex = -1
+    let bestDist = Infinity
+    state.effectStamps.forEach((stamp, index) => {
+      const dx = (Math.max(0, Math.min(1, stamp.x || 0)) - point.x) * point.rect.width
+      const dy = (Math.max(0, Math.min(1, stamp.y == null ? 0.5 : stamp.y)) - point.y) * point.rect.height
+      const dist = dx * dx + dy * dy
+      if (dist < bestDist) {
+        bestDist = dist
+        bestIndex = index
+      }
+    })
+    if (bestIndex < 0 || bestDist > radius2) return false
+    const removed = state.effectStamps.splice(bestIndex, 1)[0]
+    renderEffectStamps()
+    updateReadouts()
+    const effect = D.effects[removed.id]
+    el.exportStatus.textContent = (effect ? effect.label : "효과음") + " 도장을 지웠습니다."
+    return true
+  }
+
+  function bindEffectStamping() {
+    let stampEraseActive = false
+    el.canvas.addEventListener(
+      "pointerdown",
+      function (e) {
+        if (eraseEffectStampAtPointer(e)) {
+          stampEraseActive = true
+          try {
+            el.canvas.setPointerCapture(e.pointerId)
+          } catch (err) {}
+          e.preventDefault()
+          e.stopImmediatePropagation()
+          return
+        }
+        if (!stampEffectAtPointer(e)) return
+        e.preventDefault()
+        e.stopImmediatePropagation()
+      },
+      true,
+    )
+    el.canvas.addEventListener(
+      "pointermove",
+      function (e) {
+        if (!draw.eraseMode || (!draw.isDrawing && !stampEraseActive)) return
+        if (!eraseEffectStampAtPointer(e)) return
+        e.preventDefault()
+        e.stopImmediatePropagation()
+      },
+      true,
+    )
+    const stopStampErase = function () {
+      stampEraseActive = false
+    }
+    el.canvas.addEventListener("pointerup", stopStampErase, true)
+    el.canvas.addEventListener("pointercancel", stopStampErase, true)
+    el.canvas.addEventListener("pointerleave", stopStampErase, true)
+  }
+
   // --- 팔레트 라벨 ---
 
   function renderPaletteLabels() {
     const count = paletteCount()
     el.paletteLabels.innerHTML = ""
-    for (let i = 0; i < count; i++) {
+    for (let i = 1; i <= count; i++) {
       const d = document.createElement("div")
-      d.className = "palette-label"
+      d.className = "palette-label" + (i === count ? " palette-label-end" : "")
       d.style.left = (i / count) * 100 + "%"
-      d.style.width = 100 / count + "%"
-      const from = i * SEGMENT_SECONDS
-      const to = Math.min((i + 1) * SEGMENT_SECONDS, state.duration)
-      d.innerHTML = "<span>" + from + "-" + to + "초</span>"
+      const time = Math.min(i * SEGMENT_SECONDS, state.duration)
+      d.innerHTML = "<span>" + time + "초</span>"
       el.paletteLabels.appendChild(d)
     }
   }
@@ -535,17 +1029,36 @@
     syncTimelineWidth(resetScroll)
     draw.compute()
     draw.render()
+    renderEffectStamps()
     updateReadouts()
   }
 
   // --- 읽기 표시 ---
 
   function updateReadouts() {
-    el.scaleReadout.textContent = state.style.scaleName
-    el.rhythmReadout.textContent = (state.mode === "rhythm" ? "리듬형" : "선율형") + " · 4/4"
-    el.noteReadout.textContent = String(state.mode === "rhythm" ? draw.hits.length : draw.notes.length)
+    el.scaleReadout.textContent = state.instrument.label
+    el.rhythmReadout.textContent = draw.getStrokes().length ? draw.getStrokes().length + "개 선" : "그린 선"
+    el.noteReadout.textContent = String(draw.notes.length)
     el.durReadout.textContent = state.duration + "초"
-    el.placardMeta.textContent = state.atmosphere.label + " · " + state.style.label + " · " + state.instrument.label
+    const tags = hashtagText(state.hashtags)
+    el.placardMeta.textContent =
+      state.atmosphere.label +
+      " · " +
+      state.instrument.label +
+      (effectCount() ? " · 효과 " + effectCount() + "개" : "") +
+      (tags ? " · " + tags : "")
+  }
+
+  function syncReflectionInputs() {
+    if (el.bgReasonInput && el.bgReasonInput.value !== state.backgroundReason) {
+      el.bgReasonInput.value = state.backgroundReason
+    }
+    if (el.melodyIntentInput && el.melodyIntentInput.value !== state.melodyIntent) {
+      el.melodyIntentInput.value = state.melodyIntent
+    }
+    if (el.hashtagsInput && el.hashtagsInput.value !== state.hashtags) {
+      el.hashtagsInput.value = state.hashtags
+    }
   }
 
   // --- 그림 업로드 / 표지 ---
@@ -606,74 +1119,435 @@
     ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh)
   }
 
+  function fitCanvasLine(ctx, text, maxWidth) {
+    let out = String(text || "")
+    if (ctx.measureText(out).width <= maxWidth) return out
+    while (out.length > 1 && ctx.measureText(out + "...").width > maxWidth) out = out.slice(0, -1)
+    return out + "..."
+  }
+
   // --- 재생 ---
 
-  engine.onState = function (playing) {
-    el.statusText.textContent = playing
-      ? state.version.label + " 재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
-      : "대기 중"
-    el.statusText.classList.toggle("playing", playing)
-    el.frame.classList.toggle("playing", playing)
-    el.body.dataset.playback = playing ? "playing" : "idle"
-    if (playing) startPlayhead()
-    else stopPlayhead()
-    // 완성곡 재생이 끝나면 드로잉 화면에선 배경음을 다시 깐다
-    if (!playing) startDrawingAmbience()
+  function setIcon(button, text) {
+    if (!button) return
+    const icon = button.querySelector("span")
+    if (icon) icon.textContent = text
   }
 
-  // 드로잉(5단계) 화면에서만 분위기 배경음을 깐다. 완성곡 재생 중엔 engine 이 끈다.
-  function startDrawingAmbience() {
-    if (state.step !== 4) return
-    engine.startAmbience(buildRecipe()).catch(function (e) {
-      console.warn("드로잉 배경음 시작 실패", e)
-    })
+  function syncTransportButtons(playing, paused) {
+    const hasAmbience = !!engine.ambience
+    const canPause = playing || paused || hasAmbience
+    const playLabel = playing && paused ? "이어 재생" : "재생"
+    el.playBtn.setAttribute("aria-label", playLabel)
+    el.playBtn.title = playLabel
+    el.pauseBtn.disabled = !canPause
+    el.pauseBtn.classList.toggle("active", paused)
+    el.pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false")
+    el.pauseBtn.setAttribute("aria-label", paused ? "이어 재생" : "일시정지")
+    el.pauseBtn.title = paused ? "이어 재생" : "일시정지"
+    setIcon(el.pauseBtn, paused ? "▶" : "❚❚")
+    el.composePlay.textContent = playing && paused ? "▶ 이어 재생" : "▶ 전체 재생"
+    if (el.completeStopBtn) el.completeStopBtn.disabled = !canPause
   }
+
+  engine.onState = function (playing, paused) {
+    paused = !!paused
+    const wasPaused = el.body.dataset.playback === "paused"
+    el.statusText.textContent = paused
+      ? playing
+        ? "일시정지"
+        : "배경음 일시정지"
+      : playing
+        ? state.version.label + " 재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
+        : "대기 중"
+    el.statusText.classList.toggle("playing", playing && !paused)
+    el.statusText.classList.toggle("paused", paused)
+    el.frame.classList.toggle("playing", playing && !paused)
+    el.body.dataset.playback = paused ? "paused" : playing ? "playing" : "idle"
+    syncTransportButtons(playing, paused)
+    if (paused) pausePlayhead()
+    else if (playing) startPlayhead(wasPaused)
+    else stopPlayhead()
+  }
+
+  // 드로잉(3단계) 화면에서만 분위기 배경음을 깐다. 완성곡 재생 중엔 engine 이 끈다.
 
   // --- 재생 헤드(재생바) ---
 
   let playheadRAF = null
+  let playheadStartedAt = 0
+  let playheadElapsedMs = 0
   function nowMs() {
     return window.performance && window.performance.now ? window.performance.now() : Date.now()
+  }
+  function positionPlayhead(progress) {
+    const wrap = canvasWrap()
+    if (!wrap || !el.playhead) return
+    const prog = Math.max(0, Math.min(1, progress))
+    const cw = el.canvas.clientWidth || el.canvas.getBoundingClientRect().width
+    const left = el.canvas.offsetLeft + prog * cw
+    el.playhead.style.left = left + "px"
+    const view = wrap.clientWidth
+    if (left < wrap.scrollLeft + 48 || left > wrap.scrollLeft + view - 48) {
+      wrap.scrollLeft = Math.max(0, left - view / 2)
+    }
   }
   function stopPlayhead() {
     if (playheadRAF) cancelAnimationFrame(playheadRAF)
     playheadRAF = null
+    playheadStartedAt = 0
+    playheadElapsedMs = 0
     if (el.playhead) el.playhead.hidden = true
   }
-  function startPlayhead() {
+  function pausePlayhead() {
+    if (playheadRAF) cancelAnimationFrame(playheadRAF)
+    playheadRAF = null
+    const durMs = Math.max(1, state.duration * 1000)
+    if (playheadStartedAt) playheadElapsedMs = Math.max(0, Math.min(durMs, nowMs() - playheadStartedAt))
+    if (el.playhead) {
+      el.playhead.hidden = false
+      positionPlayhead(playheadElapsedMs / durMs)
+    }
+  }
+  function startPlayhead(resume) {
     const wrap = canvasWrap()
     if (!wrap || !el.playhead || typeof requestAnimationFrame === "undefined") return
-    const startT = nowMs()
     const durMs = Math.max(1, state.duration * 1000)
+    if (!resume) playheadElapsedMs = 0
+    playheadStartedAt = nowMs() - playheadElapsedMs
     el.playhead.hidden = false
     const tick = function () {
-      const elapsed = nowMs() - startT
+      const elapsed = nowMs() - playheadStartedAt
       const prog = Math.max(0, Math.min(1, elapsed / durMs))
-      const cw = el.canvas.clientWidth || el.canvas.getBoundingClientRect().width
-      const left = el.canvas.offsetLeft + prog * cw
-      el.playhead.style.left = left + "px"
-      // 재생 위치가 화면 밖이면 가로 스크롤로 따라가기
-      const view = wrap.clientWidth
-      if (left < wrap.scrollLeft + 48 || left > wrap.scrollLeft + view - 48) {
-        wrap.scrollLeft = Math.max(0, left - view / 2)
-      }
-      if (prog < 1 && engine.isPlaying) playheadRAF = requestAnimationFrame(tick)
+      playheadElapsedMs = elapsed
+      positionPlayhead(prog)
+      if (prog < 1 && engine.isPlaying && !engine.isPaused) playheadRAF = requestAnimationFrame(tick)
       else stopPlayhead()
     }
     if (playheadRAF) cancelAnimationFrame(playheadRAF)
     playheadRAF = requestAnimationFrame(tick)
   }
 
+  // --- 배경음악 미니 플레이어 (드로잉 화면) ---
+
+  function fmtTime(sec) {
+    if (!isFinite(sec) || sec < 0) sec = 0
+    const m = Math.floor(sec / 60)
+    const s = Math.floor(sec % 60)
+    return m + ":" + (s < 10 ? "0" : "") + s
+  }
+
+  function bgDuration() {
+    const d = bgPlayer.duration
+    if (!isFinite(d) || d <= 0) return 0
+    return d
+  }
+
+  function bgMinGap(total) {
+    if (!total) return 0
+    return Math.min(0.1, total)
+  }
+
+  function defaultBgEnd(total, start) {
+    if (!total) return 0
+    const from = start == null ? state.bgOffset : start
+    return Math.min(total, Math.max(from + bgMinGap(total), from + state.duration))
+  }
+
+  function normalizeBgRange(keepEnd) {
+    const total = bgDuration()
+    if (!canSelectBgRange()) {
+      state.bgOffset = 0
+      state.bgEndOffset = 0
+      return
+    }
+    if (!total) return
+    const gap = bgMinGap(total)
+    const maxStart = Math.max(0, total - gap)
+    state.bgOffset = clampNumber(state.bgOffset, 0, maxStart)
+    let end = parseFloat(state.bgEndOffset)
+    if (!keepEnd || !isFinite(end) || end <= state.bgOffset + gap * 0.5) end = defaultBgEnd(total, state.bgOffset)
+    state.bgEndOffset = clampNumber(end, Math.min(total, state.bgOffset + gap), total)
+  }
+
+  function selectedBgEnd() {
+    if (!canSelectBgRange()) {
+      const total = bgDuration()
+      return total ? defaultBgEnd(total, 0) : 0
+    }
+    normalizeBgRange(true)
+    return state.bgEndOffset
+  }
+
+  function syncBgPlayerUI() {
+    normalizeBgRange(true)
+    const total = bgDuration()
+    const gap = bgMinGap(total)
+    const maxStart = Math.max(0, total - gap)
+    const endMin = Math.min(total, state.bgOffset + gap)
+    const hasSrc = !!bgPlayer.getAttribute("src")
+    const canSelectRange = canSelectBgRange()
+    if (el.bgPlayer) el.bgPlayer.classList.toggle("disabled", !hasSrc)
+    const bgRange = el.bgSeek ? el.bgSeek.closest(".bg-range") : null
+    if (bgRange) bgRange.hidden = !canSelectRange
+    if (el.bgSeek) {
+      el.bgSeek.max = String(maxStart)
+      el.bgSeek.value = String(state.bgOffset)
+      el.bgSeek.disabled = !canSelectRange || !(maxStart > 0)
+    }
+    if (el.bgEndSeek) {
+      el.bgEndSeek.min = String(endMin)
+      el.bgEndSeek.max = String(total)
+      el.bgEndSeek.value = String(state.bgEndOffset)
+      el.bgEndSeek.disabled = !canSelectRange || !(total > gap)
+    }
+    if (el.bgTime) {
+      el.bgTime.textContent = canSelectRange
+        ? fmtTime(state.bgOffset) + " ~ " + fmtTime(state.bgEndOffset) + " / " + fmtTime(total)
+        : fmtTime(0) + " / " + fmtTime(total)
+    }
+    setIcon(el.bgPlayBtn, bgPlayer.paused ? "▶" : "❚❚")
+    if (el.bgPlayBtn) {
+      el.bgPlayBtn.setAttribute("aria-label", bgPlayer.paused ? "배경음악 재생" : "배경음악 일시정지")
+      el.bgPlayBtn.classList.toggle("active", !bgPlayer.paused)
+    }
+  }
+
+  // 드로잉 진입/분위기 변경 시: 현재 분위기의 배경 mp3를 걸고 bgOffset 지점에서 정지 대기
+  function setupBgPlayer() {
+    pauseBgPlayer()
+    const src = bgSrcFor(state.atmosphere)
+    if (!src) {
+      bgPlayer.removeAttribute("src")
+      syncBgPlayerUI()
+      return
+    }
+    if (bgPlayer.getAttribute("src") !== src) bgPlayer.src = src
+    const apply = function () {
+      normalizeBgRange(false)
+      try {
+        bgPlayer.currentTime = state.bgOffset
+      } catch (e) {}
+      syncBgPlayerUI()
+    }
+    if (isFinite(bgPlayer.duration) && bgPlayer.duration > 0) apply()
+    else bgPlayer.addEventListener("loadedmetadata", apply, { once: true })
+    syncBgPlayerUI()
+  }
+
+  function pauseBgPlayer() {
+    try {
+      bgPlayer.pause()
+    } catch (e) {}
+    if (bgRAF) cancelAnimationFrame(bgRAF)
+    bgRAF = null
+    if (el.playhead) el.playhead.hidden = true
+    syncBgPlayerUI()
+  }
+
+  function playBgPlayer() {
+    if (!bgSrcFor(state.atmosphere)) return
+    stopBackgroundPreview()
+    stopExamplePreview()
+    engine.stop() // 전체 재생과 겹치지 않게
+    normalizeBgRange(true)
+    try {
+      bgPlayer.currentTime = state.bgOffset
+    } catch (e) {}
+    const p = bgPlayer.play()
+    if (p && p.catch) p.catch((e) => console.warn("배경음악 재생 실패", e))
+    if (el.playhead) el.playhead.hidden = false
+    bgTick()
+    syncBgPlayerUI()
+  }
+
+  function toggleBgPlay() {
+    if (bgPlayer.paused) playBgPlayer()
+    else pauseBgPlayer()
+  }
+
+  function bgTick() {
+    if (bgPlayer.paused) {
+      bgRAF = null
+      return
+    }
+    const end = selectedBgEnd()
+    const segment = Math.max(0.1, end - state.bgOffset)
+    let rel = bgPlayer.currentTime - state.bgOffset
+    if (bgPlayer.currentTime >= end || bgPlayer.currentTime + 0.001 < state.bgOffset) {
+      try {
+        bgPlayer.currentTime = state.bgOffset
+      } catch (e) {}
+      rel = 0
+    }
+    positionPlayhead(Math.max(0, Math.min(1, rel / segment)))
+    if (typeof requestAnimationFrame === "function") bgRAF = requestAnimationFrame(bgTick)
+  }
+
+  function seekBg(value) {
+    if (!canSelectBgRange()) {
+      state.bgOffset = 0
+      state.bgEndOffset = 0
+      syncBgPlayerUI()
+      return
+    }
+    const total = bgDuration()
+    const gap = bgMinGap(total)
+    state.bgOffset = clampNumber(value, 0, Math.max(0, total - gap))
+    state.bgEndOffset = defaultBgEnd(total, state.bgOffset)
+    normalizeBgRange(true)
+    try {
+      bgPlayer.currentTime = state.bgOffset
+    } catch (e) {}
+    if (el.playhead) {
+      el.playhead.hidden = false
+      positionPlayhead(0)
+    }
+    syncBgPlayerUI()
+  }
+
+  function seekBgEnd(value) {
+    if (!canSelectBgRange()) {
+      state.bgOffset = 0
+      state.bgEndOffset = 0
+      syncBgPlayerUI()
+      return
+    }
+    const total = bgDuration()
+    const gap = bgMinGap(total)
+    state.bgEndOffset = clampNumber(value, Math.min(total, state.bgOffset + gap), total)
+    normalizeBgRange(true)
+    if (bgPlayer.currentTime >= state.bgEndOffset) {
+      try {
+        bgPlayer.currentTime = state.bgOffset
+      } catch (e) {}
+      positionPlayhead(0)
+    }
+    syncBgPlayerUI()
+  }
+
+  // --- 따라 그리기(흐름) — 배경음악/시계가 타임라인을 끌고 가고 캔버스가 따라 스크롤된다 ---
+
+  let flowing = false // 흐름 모드 ON/OFF
+  let flowRAF = null
+  let flowClockStart = 0
+
+  const FLOW_NOW_LINE = 0.25 // now-line(재생헤드)을 화면 왼쪽 1/4 지점에 고정
+
+  // 진행도(0..1)에 맞춰 캔버스를 스크롤해 재생헤드가 화면 고정 위치에 오게 한다
+  function scrollFollow(progress) {
+    const wrap = canvasWrap()
+    if (!wrap) return
+    const cw = el.canvas.clientWidth || el.canvas.getBoundingClientRect().width
+    const targetX = el.canvas.offsetLeft + progress * cw
+    const maxScroll = Math.max(0, wrap.scrollWidth - wrap.clientWidth)
+    wrap.scrollLeft = Math.max(0, Math.min(targetX - wrap.clientWidth * FLOW_NOW_LINE, maxScroll))
+  }
+
+  // 펜을 누른 순간(drawing onFlowStart) — 배경음악을 bgOffset부터 재생 + 시계 시작
+  function startFlowClock() {
+    stopBackgroundPreview()
+    stopExamplePreview()
+    if (bgSrcFor(state.atmosphere)) {
+      normalizeBgRange(true)
+      try {
+        bgPlayer.currentTime = state.bgOffset
+      } catch (e) {}
+      const p = bgPlayer.play()
+      if (p && p.catch) p.catch(() => {})
+    }
+    flowClockStart = nowMs()
+    if (el.playhead) el.playhead.hidden = false
+    if (flowRAF) cancelAnimationFrame(flowRAF)
+    flowTick()
+  }
+
+  // 펜을 뗌(drawing onFlowEnd) 또는 끝 도달 — 음악/시계 정지(그린 줄은 drawing이 마감)
+  function stopFlowClock() {
+    if (flowRAF) cancelAnimationFrame(flowRAF)
+    flowRAF = null
+    try {
+      bgPlayer.pause()
+    } catch (e) {}
+    if (el.playhead) el.playhead.hidden = true
+    syncBgPlayerUI()
+  }
+
+  function flowTick() {
+    let progress = (nowMs() - flowClockStart) / (state.duration * 1000)
+    if (bgSrcFor(state.atmosphere) && !bgPlayer.paused && isFinite(bgPlayer.currentTime)) {
+      const end = selectedBgEnd()
+      if (end > state.bgOffset && bgPlayer.currentTime >= end) {
+        try {
+          bgPlayer.currentTime = state.bgOffset
+        } catch (e) {}
+      }
+    }
+    progress = Math.max(0, Math.min(1, progress))
+    positionPlayhead(progress)
+    scrollFollow(progress)
+    draw.flowRecord(progress)
+    if (progress >= 1) {
+      draw.finishFlowStroke(false)
+      flowing = false
+      draw.setFlowMode(false)
+      stopFlowClock()
+      syncFlowBtn()
+      el.exportStatus.textContent = "따라 그리기 완료. 전체 재생으로 들어보세요. 다시 펜을 누르면 새 줄이 시작됩니다."
+      return
+    }
+    if (typeof requestAnimationFrame === "function") flowRAF = requestAnimationFrame(flowTick)
+  }
+
+  function syncFlowBtn() {
+    el.body.dataset.flow = flowing ? "on" : "off"
+    if (!el.flowBtn) return
+    el.flowBtn.classList.toggle("active", flowing)
+    el.flowBtn.setAttribute("aria-pressed", flowing ? "true" : "false")
+    el.flowBtn.setAttribute("title", flowing ? "따라 그리기 끄기" : "배경음악에 맞춰 따라 그리기")
+    el.flowBtn.textContent = flowing ? "따라 그리기 끄기" : "따라 그리기"
+  }
+
+  // 토글: 켜면 흐름 모드(펜을 누르면 음악에 맞춰 흐르며 기록). 끄면 일반 드로잉.
+  function toggleFlow() {
+    flowing = !flowing
+    if (flowing) {
+      setEraser(false)
+      draw.setFlowMode(true)
+      el.exportStatus.textContent = "따라 그리기: 펜을 누른 채 음악에 맞춰 위·아래로 그리세요. 떼면 끝납니다."
+    } else {
+      draw.setFlowMode(false)
+      stopFlowClock()
+    }
+    syncFlowBtn()
+  }
+
+  // 드로잉 화면을 떠나거나 전체 재생할 때 흐름을 끈다
+  function exitFlow() {
+    if (!flowing && !flowRAF) return
+    flowing = false
+    draw.setFlowMode(false)
+    stopFlowClock()
+    syncFlowBtn()
+  }
+
   function requireDrawn() {
-    if (draw.getPath().length >= 2) return true
+    if (draw.getPath().length >= 1) return true
     el.statusText.textContent = "먼저 선을 그려주세요"
-    el.exportStatus.textContent = "먼저 캔버스에 선을 그리거나 자동완성을 직접 눌러주세요."
+    el.exportStatus.textContent = "먼저 캔버스에 점을 찍거나 선을 그려주세요."
     return false
   }
 
   function play() {
+    if (engine.isPlaying && engine.isPaused) {
+      engine.resume()
+      return
+    }
     if (!requireDrawn()) return
+    exitFlow()
     stopBackgroundPreview()
+    stopExamplePreview()
+    pauseBgPlayer() // 전체 재생 중엔 배경음악 미니 플레이어를 멈춘다(중복 방지 — 패드는 bgOffset부터 깔림)
     renderAtmospheres()
     const recipe = buildRecipe()
     engine.play(recipe, notesFor(recipe)).catch(function (e) {
@@ -682,22 +1556,62 @@
     })
   }
 
+  function pause() {
+    if (!engine.isPlaying && !engine.ambience && !engine.isPaused) return
+    stopBackgroundPreview()
+    stopExamplePreview()
+    renderAtmospheres()
+    if (engine.isPaused) engine.resume()
+    else engine.pause()
+  }
+
   function stop() {
     stopBackgroundPreview()
+    stopExamplePreview()
+    exitFlow()
     renderAtmospheres()
     engine.stop()
   }
 
   function setEraser(on) {
+    if (on && flowing) exitFlow()
+    if (on && state.effectStampId) {
+      state.effectStampId = null
+      renderEffects()
+    }
     draw.setEraseMode(on)
+    renderEffectStamps()
+    if (el.penBtn) {
+      el.penBtn.classList.toggle("active", !on)
+      el.penBtn.setAttribute("aria-pressed", on ? "false" : "true")
+    }
     el.clearBtn.classList.toggle("active", on)
     el.clearBtn.setAttribute("aria-pressed", on ? "true" : "false")
+    if (on) el.exportStatus.textContent = "지우개로 선과 효과음 도장을 지울 수 있습니다."
+  }
+
+  function syncUndoButton() {
+    if (!el.undoBtn || typeof draw.canUndo !== "function") return
+    el.undoBtn.disabled = !draw.canUndo()
   }
 
   function resetCompose() {
     engine.stop()
+    exitFlow()
     setEraser(false)
-    draw.clear()
+    draw.clear(false)
+    draw.clearUndoHistory()
+    syncUndoButton()
+    draw.setActiveInstrument(state.instrument.id)
+    state.effectIds = []
+    state.effectStamps = []
+    state.effectStampId = null
+    state.bgOffset = 0
+    state.bgEndOffset = 0
+    renderEffects()
+    renderEffectStamps()
+    renderOrchestraLegend()
+    setupBgPlayer()
     el.statusText.textContent = "대기 중"
     el.exportStatus.textContent = "초기화했습니다. 새 선을 그리면 선택한 악기로 바로 들립니다."
   }
@@ -775,12 +1689,11 @@
       window.TakesStore.renderThumbnail(cv, t.recipe, atmos.color)
       const meta = document.createElement("div")
       meta.className = "take-meta"
-      const styleObj = D.styles.find((s) => s.id === t.recipe.style) || D.styles[0]
       const instObj = D.instruments.find((i) => i.id === t.recipe.instrument) || D.instruments[0]
       renderTakeName(meta, t, idx + 1)
       const detail = document.createElement("span")
       detail.className = "take-detail"
-      detail.textContent = atmos.label + " · " + styleObj.label + " · " + instObj.label + " · " + t.recipe.duration + "초"
+      detail.textContent = atmos.label + " · " + instObj.label + " · " + t.recipe.duration + "초"
       meta.appendChild(detail)
       const tools = document.createElement("div")
       tools.className = "take-tools"
@@ -824,25 +1737,43 @@
     state.duration = 30 // 길이는 30초로 고정(옛 레시피도 정규화)
     state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || D.atmospheres[0]
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
-    state.style = D.styles.find((s) => s.id === recipe.style) || D.styles[0]
+    state.style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
     state.version = D.versions.find((v) => v.id === recipe.version) || D.versions[0]
-    state.mode = recipe.mode || "melody"
+    state.mode = "melody"
     state.group = state.instrument.group
-    document.querySelectorAll("[data-mode]").forEach((b) => {
-      b.classList.toggle("active", b.dataset.mode === state.mode)
-    })
+    state.effectStamps = simplifyEffectStamps(recipe.effectStamps || [])
+    const stampIds = state.effectStamps.map((stamp) => stamp.id)
+    state.effectIds = (recipe.effectIds || []).filter((id) => !!D.effects[id] && stampIds.indexOf(id) === -1)
+    state.effectStampId = null
+    if (canSelectBgRange()) {
+      state.bgOffset = recipe.bgOffset || 0
+      state.bgEndOffset = recipe.bgEndOffset || 0
+    } else {
+      state.bgOffset = 0
+      state.bgEndOffset = 0
+    }
+    state.backgroundReason = recipe.backgroundReason || ""
+    state.melodyIntent = recipe.melodyIntent || ""
+    state.hashtags = Array.isArray(recipe.hashtags) ? hashtagText(recipe.hashtags) : recipe.hashtags || ""
     applyMoodTint()
     renderAtmospheres()
     renderInstrumentGroups()
     renderInstruments()
-    renderStyles()
     renderVersions()
     renderComposeInstruments()
+    renderEffects()
     renderPaletteLabels()
     syncTimelineWidth(true)
     // 다중 획 우선 복원, 없으면(옛 레시피) 단일 path를 하나의 획으로
-    if (recipe.strokes && recipe.strokes.length) draw.setStrokes(recipe.strokes)
-    else draw.setPath(recipe.path || [])
+    draw.setActiveInstrument(state.instrument.id)
+    if (recipe.strokes && recipe.strokes.length) draw.setStrokes(recipe.strokes, recipe.strokeInstruments)
+    else draw.setPath(recipe.path || [], recipe.instrument)
+    draw.clearUndoHistory()
+    syncUndoButton()
+    renderEffectStamps()
+    renderOrchestraLegend()
+    setupBgPlayer()
+    syncReflectionInputs()
     updateReadouts()
   }
 
@@ -874,20 +1805,25 @@
     const ctx = cv.getContext("2d")
 
     function finish() {
-      // 명패
-      const padH = 150
+      const padH = 210
+      const tags = hashtagText(state.hashtags)
       ctx.fillStyle = "rgba(20,26,26,0.82)"
       ctx.fillRect(0, size - padH, size, padH)
       ctx.fillStyle = "#fbf6ec"
       ctx.font = "700 52px Georgia, serif"
-      ctx.fillText(state.title || "무제", 48, size - padH + 64)
+      ctx.fillText(fitCanvasLine(ctx, state.title || "무제", size - 96), 48, size - padH + 64)
       ctx.font = "500 30px 'Segoe UI', sans-serif"
       ctx.fillStyle = "rgba(251,246,236,0.78)"
       ctx.fillText(
-        state.atmosphere.label + " · " + state.style.label + " · " + state.instrument.label,
+        fitCanvasLine(ctx, state.atmosphere.label + " · " + state.style.label + " · " + state.instrument.label, size - 96),
         48,
         size - padH + 110
       )
+      if (tags) {
+        ctx.font = "800 28px 'Segoe UI', sans-serif"
+        ctx.fillStyle = "rgba(251,246,236,0.92)"
+        ctx.fillText(fitCanvasLine(ctx, tags, size - 96), 48, size - padH + 158)
+      }
       // 재생 글리프
       ctx.fillStyle = "rgba(251,246,236,0.92)"
       ctx.beginPath()
@@ -944,20 +1880,321 @@
     }
   }
 
+  function roundCanvasRect(ctx, x, y, w, h, r) {
+    r = Math.min(r, h / 2, w / 2)
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.arcTo(x + w, y, x + w, y + h, r)
+    ctx.arcTo(x + w, y + h, x, y + h, r)
+    ctx.arcTo(x, y + h, x, y, r)
+    ctx.arcTo(x, y, x + w, y, r)
+    ctx.closePath()
+  }
+
+  function loadCanvasImage(src) {
+    return new Promise(function (resolve) {
+      if (!src) {
+        resolve(null)
+        return
+      }
+      const img = new Image()
+      let done = false
+      const finish = function (value) {
+        if (done) return
+        done = true
+        resolve(value)
+      }
+      img.onload = function () {
+        finish(img)
+      }
+      img.onerror = function () {
+        finish(null)
+      }
+      img.src = src
+      if (img.complete) finish(img)
+    })
+  }
+
+  async function stampImageMap() {
+    const ids = []
+    state.effectStamps.forEach((stamp) => {
+      if (ids.indexOf(stamp.id) === -1) ids.push(stamp.id)
+    })
+    const pairs = await Promise.all(
+      ids.map(function (id) {
+        const effect = D.effects[id]
+        return loadCanvasImage(effect && effect.image).then((img) => [id, img])
+      }),
+    )
+    const out = {}
+    pairs.forEach((pair) => {
+      out[pair[0]] = pair[1]
+    })
+    return out
+  }
+
+  function drawSnapshotTimeLabels(ctx, w, h) {
+    const count = paletteCount()
+    const fontSize = Math.max(18, Math.round(w * 0.013))
+    ctx.save()
+    ctx.font = "800 " + fontSize + "px 'Segoe UI', sans-serif"
+    ctx.textBaseline = "middle"
+    ctx.textAlign = "center"
+    for (let i = 1; i <= count; i++) {
+      const text = Math.min(i * SEGMENT_SECONDS, state.duration) + "초"
+      const metrics = ctx.measureText(text)
+      const pillW = Math.max(48, metrics.width + 18)
+      const pillH = fontSize + 14
+      const x = Math.max(pillW / 2 + 8, Math.min(w - pillW / 2 - 8, (i / count) * w))
+      const y = Math.max(pillH / 2 + 8, fontSize + 8)
+      ctx.fillStyle = "rgba(251,246,236,0.92)"
+      roundCanvasRect(ctx, x - pillW / 2, y - pillH / 2, pillW, pillH, pillH / 2)
+      ctx.fill()
+      ctx.strokeStyle = "rgba(31,38,38,0.12)"
+      ctx.stroke()
+      ctx.fillStyle = "rgba(31,38,38,0.72)"
+      ctx.fillText(text, x, y)
+    }
+    ctx.restore()
+  }
+
+  function drawSnapshotStamps(ctx, w, h, images) {
+    state.effectStamps.forEach((stamp) => {
+      const effect = D.effects[stamp.id]
+      if (!effect) return
+      const size = Math.max(44, Math.min(76, Math.round(w * 0.04)))
+      const x = Math.max(size / 2, Math.min(w - size / 2, (stamp.x || 0) * w))
+      const y = Math.max(size / 2, Math.min(h - size / 2, (stamp.y == null ? 0.5 : stamp.y) * h))
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.rotate((-4 * Math.PI) / 180)
+      ctx.shadowColor = "rgba(31,38,38,0.16)"
+      ctx.shadowBlur = Math.max(8, size * 0.22)
+      ctx.shadowOffsetY = Math.max(4, size * 0.12)
+      ctx.fillStyle = "rgba(251,246,236,0.88)"
+      roundCanvasRect(ctx, -size / 2, -size / 2, size, size, Math.max(10, size * 0.24))
+      ctx.fill()
+      ctx.shadowColor = "transparent"
+      ctx.strokeStyle = "rgba(31,38,38,0.18)"
+      ctx.stroke()
+      const img = images[stamp.id]
+      if (img) {
+        ctx.drawImage(img, -size * 0.38, -size * 0.38, size * 0.76, size * 0.76)
+      } else {
+        ctx.fillStyle = "rgba(31,38,38,0.78)"
+        ctx.font = "800 " + Math.max(10, Math.round(size * 0.18)) + "px 'Segoe UI', sans-serif"
+        ctx.textAlign = "center"
+        ctx.textBaseline = "middle"
+        ctx.fillText(fitCanvasLine(ctx, effect.label, size * 0.78), 0, 0)
+      }
+      ctx.restore()
+    })
+  }
+
+  function drawSnapshotPlayhead(ctx, w, h, progress) {
+    if (progress == null) return
+    const x = Math.max(0, Math.min(1, progress)) * w
+    ctx.save()
+    ctx.strokeStyle = "rgba(185,67,54,0.92)"
+    ctx.lineWidth = Math.max(3, Math.round(w * 0.0025))
+    ctx.beginPath()
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x, h)
+    ctx.stroke()
+    ctx.fillStyle = "rgba(185,67,54,0.94)"
+    ctx.beginPath()
+    ctx.arc(x, Math.max(18, h * 0.055), Math.max(8, Math.round(w * 0.007)), 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  async function renderDrawingSnapshotCanvas(options) {
+    options = options || {}
+    draw.render()
+    const w = el.canvas.width || 1440
+    const h = el.canvas.height || 540
+    const cv = document.createElement("canvas")
+    cv.width = w
+    cv.height = h
+    const ctx = cv.getContext("2d")
+    ctx.drawImage(el.canvas, 0, 0, w, h)
+    drawSnapshotTimeLabels(ctx, w, h)
+    drawSnapshotStamps(ctx, w, h, await stampImageMap())
+    drawSnapshotPlayhead(ctx, w, h, options.playheadProgress)
+    return cv
+  }
+
+  function canvasToBlob(canvas, type) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) {
+        if (blob) resolve(blob)
+        else reject(new Error("canvas toBlob failed"))
+      }, type)
+    })
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
+  }
+
+  async function exportDrawingImage() {
+    if (!requireDrawn()) return
+    el.exportStatus.textContent = "드로잉 이미지를 만드는 중…"
+    try {
+      const cv = await renderDrawingSnapshotCanvas()
+      downloadBlob(await canvasToBlob(cv, "image/png"), safeName() + "_drawing.png")
+      el.exportStatus.textContent = "드로잉 이미지를 저장했어요."
+    } catch (e) {
+      console.error(e)
+      el.exportStatus.textContent = "드로잉 이미지 저장 실패 — 콘솔을 확인하세요."
+    }
+  }
+
+  function supportedVideoMime() {
+    if (!window.MediaRecorder) return ""
+    const list = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+    for (const type of list) {
+      if (!MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(type)) return type
+    }
+    return ""
+  }
+
+  async function exportDrawingVideo() {
+    if (!requireDrawn()) return
+    const base = await renderDrawingSnapshotCanvas()
+    if (!window.MediaRecorder || typeof base.captureStream !== "function") {
+      el.exportStatus.textContent = "이 브라우저에서는 드로잉 영상 저장을 지원하지 않아요. 드로잉 이미지를 이용해 주세요."
+      return
+    }
+    const mimeType = supportedVideoMime()
+    if (!mimeType) {
+      el.exportStatus.textContent = "이 브라우저에서는 WebM 영상 저장을 지원하지 않아요."
+      return
+    }
+    const cv = document.createElement("canvas")
+    cv.width = base.width
+    cv.height = base.height
+    const ctx = cv.getContext("2d")
+    const drawFrame = function (progress) {
+      ctx.clearRect(0, 0, cv.width, cv.height)
+      ctx.drawImage(base, 0, 0)
+      drawSnapshotPlayhead(ctx, cv.width, cv.height, progress)
+    }
+    drawFrame(0)
+    const stream = cv.captureStream(30)
+    const chunks = []
+    const recorder = new MediaRecorder(stream, { mimeType: mimeType })
+    const done = new Promise(function (resolve, reject) {
+      recorder.ondataavailable = function (event) {
+        if (event.data && event.data.size) chunks.push(event.data)
+      }
+      recorder.onstop = resolve
+      recorder.onerror = function (event) {
+        reject((event && event.error) || new Error("MediaRecorder error"))
+      }
+    })
+    const durationMs = Math.max(1000, state.duration * 1000)
+    let raf = 0
+    let lastStatus = 0
+    if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.disabled = true
+    el.exportStatus.textContent = "드로잉 영상을 녹화하는 중… " + Math.round(durationMs / 1000) + "초 정도 기다려 주세요."
+    try {
+      const start = performance.now()
+      recorder.start()
+      const tick = function (now) {
+        const elapsed = now - start
+        const progress = Math.min(1, elapsed / durationMs)
+        drawFrame(progress)
+        if (now - lastStatus > 1000) {
+          lastStatus = now
+          el.exportStatus.textContent =
+            "드로잉 영상을 녹화하는 중… " + Math.min(state.duration, Math.floor(elapsed / 1000)) + "/" + state.duration + "초"
+        }
+        if (progress < 1 && recorder.state !== "inactive") {
+          raf = requestAnimationFrame(tick)
+        } else if (recorder.state !== "inactive") {
+          recorder.stop()
+        }
+      }
+      raf = requestAnimationFrame(tick)
+      await done
+      if (!chunks.length) throw new Error("recorded video is empty")
+      downloadBlob(new Blob(chunks, { type: mimeType }), safeName() + "_drawing.webm")
+      el.exportStatus.textContent = "드로잉 영상을 저장했어요. 소리는 오디오 내보내기(WAV)로 따로 저장할 수 있어요."
+    } catch (e) {
+      console.error(e)
+      if (raf) cancelAnimationFrame(raf)
+      el.exportStatus.textContent = "드로잉 영상 저장 실패 — 콘솔을 확인하세요."
+    } finally {
+      stream.getTracks().forEach((track) => track.stop())
+      if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.disabled = false
+    }
+  }
+
   function shareLink() {
     const code = Core.encodeRecipe(buildRecipe())
-    const url = location.origin + location.pathname + "#r=" + code
+    const url = setShareHash(code)
+    const copied = function () {
+      el.exportStatus.textContent = "공유 링크를 복사했어요. 같은 사이트에서 열면 그대로 복원됩니다."
+    }
+    const fallback = function () {
+      if (copyViaSelection(url)) {
+        copied()
+        return
+      }
+      if (typeof prompt === "function") prompt("공유 링크", url)
+      el.exportStatus.textContent = "공유 링크를 주소창에 만들었어요. 주소창의 링크를 복사하세요."
+    }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(
-        function () {
-          el.exportStatus.textContent = "공유 링크를 복사했어요. 같은 사이트에서 열면 그대로 복원됩니다."
-        },
-        function () {
-          prompt("공유 링크", url)
-        }
-      )
+      try {
+        const write = navigator.clipboard.writeText(url)
+        if (write && typeof write.then === "function") write.then(copied, fallback)
+        else copied()
+      } catch (e) {
+        fallback()
+      }
     } else {
-      prompt("공유 링크", url)
+      fallback()
+    }
+  }
+
+  function setShareHash(code) {
+    const hash = "r=" + code
+    try {
+      const url = new URL(location.href)
+      url.search = ""
+      url.hash = hash
+      history.replaceState(null, "", url.href)
+      return url.href
+    } catch (e) {
+      location.hash = hash
+      return location.href
+    }
+  }
+
+  function copyViaSelection(text) {
+    if (!document.execCommand) return false
+    const input = document.createElement("textarea")
+    input.value = text
+    input.setAttribute("readonly", "")
+    input.style.position = "fixed"
+    input.style.left = "-9999px"
+    input.style.top = "0"
+    document.body.appendChild(input)
+    input.select()
+    try {
+      return document.execCommand("copy")
+    } catch (e) {
+      return false
+    } finally {
+      document.body.removeChild(input)
     }
   }
 
@@ -983,7 +2220,13 @@
       stopBackgroundPreview()
       renderAtmospheres()
     }
-    state.step = Math.max(0, Math.min(screens.length - 1, i))
+    if (state.examplePreviewId) {
+      stopExamplePreview()
+      renderInstruments()
+    }
+    const nextStep = Math.max(0, Math.min(screens.length - 1, i))
+    if (state.step === DRAWING_STEP && nextStep !== DRAWING_STEP) exitFlow()
+    state.step = nextStep
     el.body.dataset.step = String(state.step)
     screens.forEach((s, idx) => {
       const on = idx === state.step
@@ -991,15 +2234,22 @@
       s.toggleAttribute("hidden", !on)
     })
     tabs.forEach((t, idx) => t.classList.toggle("active", idx === state.step))
-    if (state.step === 4) {
-      drawFrameFallback()
+    if (state.step === DRAWING_STEP) {
       refreshTimeline(true)
       renderComposeInstruments()
-      renderTakes()
+      renderEffects()
       warmSelectedInstrument()
-      startDrawingAmbience()
+      setupBgPlayer()
     } else {
       engine.stopAmbience(false)
+      pauseBgPlayer()
+      if (!engine.isPlaying && engine.isPaused) engine.stop()
+      else syncTransportButtons(engine.isPlaying, engine.isPaused)
+    }
+    if (state.step === COMPLETE_STEP) {
+      drawFrameFallback()
+      renderTakes()
+      updateReadouts()
     }
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -1007,17 +2257,7 @@
   // --- 이벤트 ---
 
   function bind() {
-    document.querySelectorAll("[data-mode]").forEach((b) => {
-      b.addEventListener("click", () => {
-        state.mode = b.dataset.mode
-        document.querySelectorAll("[data-mode]").forEach((x) => x.classList.toggle("active", x === b))
-        el.modeHint.textContent =
-          state.mode === "rhythm" ? "리듬형: 그린 봉우리가 4/4 타격이 됩니다." : "선율형: 그린 선이 음높이가 됩니다."
-        draw.compute()
-        draw.render()
-        updateReadouts()
-      })
-    })
+    bindEffectStamping()
 
     el.picInput.addEventListener("change", (e) => {
       const f = e.target.files && e.target.files[0]
@@ -1054,6 +2294,12 @@
       b.addEventListener("click", () => setStep(state.step - 1))
     })
 
+    if (el.penBtn) {
+      el.penBtn.addEventListener("click", () => {
+        setEraser(false)
+        el.exportStatus.textContent = "펜 모드 — 캔버스에 선을 그릴 수 있어요."
+      })
+    }
     el.clearBtn.addEventListener("click", () => {
       const on = !draw.eraseMode
       setEraser(on)
@@ -1062,26 +2308,70 @@
         ? "지우개 모드 — 캔버스를 드래그하면 선의 일부를 지웁니다. 다시 누르면 그리기로 돌아갑니다."
         : "그리기 모드로 돌아왔어요."
     })
+    if (el.undoBtn) {
+      el.undoBtn.addEventListener("click", () => {
+        if (!draw.undo()) return
+        renderEffectStamps()
+        el.exportStatus.textContent = "마지막 드로잉 작업을 되돌렸어요."
+      })
+    }
     el.resetComposeBtn.addEventListener("click", resetCompose)
 
+    // 배경음악 미니 플레이어 — 재생/일시정지 + 시작 지점(bgOffset) 스크럽
+    if (el.bgPlayBtn) el.bgPlayBtn.addEventListener("click", toggleBgPlay)
+    if (el.bgSeek) el.bgSeek.addEventListener("input", (e) => seekBg(e.target.value))
+    if (el.bgEndSeek) el.bgEndSeek.addEventListener("input", (e) => seekBgEnd(e.target.value))
+    if (el.flowBtn) el.flowBtn.addEventListener("click", toggleFlow)
+    if (el.instrumentPreviewStopBtn) {
+      el.instrumentPreviewStopBtn.addEventListener("click", function () {
+        stopExamplePreview(true)
+        renderInstruments()
+      })
+    }
+
     el.playBtn.addEventListener("click", play)
+    el.pauseBtn.addEventListener("click", pause)
     el.framePlay.addEventListener("click", play)
     el.composePlay.addEventListener("click", play)
     el.stopBtn.addEventListener("click", stop)
+    if (el.completeStopBtn) el.completeStopBtn.addEventListener("click", stop)
 
     el.saveTakeBtn.addEventListener("click", saveTake)
     el.adminModeBtn.addEventListener("click", function () {
       setAdminMode(!state.adminMode)
     })
     el.exportWavBtn.addEventListener("click", exportWav)
+    if (el.exportDrawingImageBtn) el.exportDrawingImageBtn.addEventListener("click", exportDrawingImage)
+    if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.addEventListener("click", exportDrawingVideo)
     el.exportCoverBtn.addEventListener("click", exportCover)
     el.shareBtn.addEventListener("click", shareLink)
 
     el.titleInput.addEventListener("input", () => {
       state.title = el.titleInput.value || "무제"
     })
+    if (el.bgReasonInput) {
+      el.bgReasonInput.addEventListener("input", () => {
+        state.backgroundReason = el.bgReasonInput.value
+      })
+    }
+    if (el.melodyIntentInput) {
+      el.melodyIntentInput.addEventListener("input", () => {
+        state.melodyIntent = el.melodyIntentInput.value
+      })
+    }
+    if (el.hashtagsInput) {
+      el.hashtagsInput.addEventListener("input", () => {
+        state.hashtags = el.hashtagsInput.value
+        updateReadouts()
+      })
+      el.hashtagsInput.addEventListener("blur", () => {
+        state.hashtags = hashtagText(state.hashtags)
+        syncReflectionInputs()
+        updateReadouts()
+      })
+    }
     window.addEventListener("resize", () => {
-      if (state.step !== 4) return
+      if (state.step !== DRAWING_STEP) return
       refreshTimeline(false)
     })
   }
@@ -1093,13 +2383,19 @@
     renderAtmospheres()
     renderInstrumentGroups()
     renderInstruments()
-    renderStyles()
     renderVersions()
     renderComposeInstruments()
+    renderOrchestraLegend()
+    renderEffects()
+    syncBgPlayerUI()
+    syncFlowBtn()
     refreshTimeline(true)
     bind()
     syncAdminModeUI()
+    syncTransportButtons(false, false)
+    syncReflectionInputs()
     updateReadouts()
+    syncUndoButton()
     restoreFromHash()
     setStep(0)
     warmSelectedInstrument() // 기본 악기 미리 준비 + 음원 로드 상태(실제/합성)를 하단에 표시
@@ -1116,18 +2412,33 @@
         style: state.style.scaleName,
         version: state.version.id,
         mode: state.mode,
+        bgOffset: state.bgOffset,
+        bgEndOffset: state.bgEndOffset,
+        backgroundReason: state.backgroundReason,
+        melodyIntent: state.melodyIntent,
+        hashtags: normalizeHashtags(state.hashtags),
         step: state.step,
         noteCount: state.mode === "rhythm" ? draw.hits.length : draw.notes.length,
         hasPicture: !!state.pic,
         takes: takes.list().length,
         adminMode: state.adminMode,
+        effectIds: state.effectIds.slice(),
+        effectStamps: state.effectStamps.map((stamp) => ({ id: stamp.id, x: stamp.x, y: stamp.y })),
+        effectStampId: state.effectStampId,
         isPlaying: engine.isPlaying,
+        isPaused: engine.isPaused,
         lastMode: engine.lastMode,
       }
     },
     play: play,
+    pause: pause,
+    resume: function () {
+      return engine.resume()
+    },
     stop: stop,
     exportWav: exportWav,
+    exportDrawingImage: exportDrawingImage,
+    exportDrawingVideo: exportDrawingVideo,
     loadRecipe: loadRecipe,
     buildRecipe: buildRecipe,
     setStep: setStep,

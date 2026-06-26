@@ -35,11 +35,11 @@ test("녹음 배경 패드에 추가 부스트(×1.25)가 없어야 한다 — �
 
 test("균형(balanced) 믹스: 선율이 배경 위로 또렷하되 배경을 덮지는 않아야 한다", () => {
   // 사용자 피드백(2026-06-22): 선율이 배경에 묻힌다 → 균형에서도 선율이 배경 위로 또렷하게.
-  // 단 배경을 완전히 덮지는 않도록 상한을 둔다.
+  // 2026-06-23 요청으로 선율을 ×2 더 키움 → 상한을 완화(배경이 들리는 선은 유지).
   const v = loadData().versions.find((x) => x.id === "balanced")
   const bg = bgFactor(v)
   const mel = melodyPeakFactor(v)
-  assert.ok(mel <= bg * 1.7, `선율 피크(${mel.toFixed(3)}) 가 배경(${bg.toFixed(3)})을 과하게 덮는다`)
+  assert.ok(mel <= bg * 3.2, `선율 피크(${mel.toFixed(3)}) 가 배경(${bg.toFixed(3)})을 과하게 덮는다`)
   assert.ok(mel >= bg * 0.9, `선율 피크(${mel.toFixed(3)}) 가 배경(${bg.toFixed(3)})에 묻힌다`)
 })
 
@@ -48,9 +48,14 @@ test("선율 강조(drawing): 선율이 배경보다 앞선다", () => {
   assert.ok(melodyPeakFactor(v) > bgFactor(v), "선율 강조인데 선율이 배경보다 크지 않다")
 })
 
-test("공간 강조(scene): 배경이 선율보다 앞선다", () => {
-  const v = loadData().versions.find((x) => x.id === "scene")
-  assert.ok(bgFactor(v) > melodyPeakFactor(v), "공간 강조인데 배경이 선율보다 크지 않다")
+test("공간 강조(scene): 네 믹스 중 배경 비중이 가장 크다", () => {
+  // 선율 ×2(2026-06-23) 후엔 절대값으로 배경<선율이 되지만,
+  // scene 은 여전히 선율/배경 비율이 가장 낮은(가장 배경 지향적인) 믹스여야 한다.
+  const vs = loadData().versions
+  const ratio = (v) => melodyPeakFactor(v) / bgFactor(v)
+  const sceneRatio = ratio(vs.find((x) => x.id === "scene"))
+  const minRatio = Math.min(...vs.map(ratio))
+  assert.ok(sceneRatio === minRatio, `공간 강조가 가장 배경 지향적이지 않다 (scene ${sceneRatio.toFixed(2)}, min ${minRatio.toFixed(2)})`)
 })
 
 test("선율 비중 순서: 선율 강조 > 균형 > 공간 강조", () => {
