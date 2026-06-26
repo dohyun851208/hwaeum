@@ -115,7 +115,7 @@ check("전자 악기 그룹 제거", qc("#instrumentGroups .group-tab") === 2, q
 check("신디 선택지 제거", window.SDStudioData.instruments.every((instrument) => instrument.id !== "synth"))
 check("스타일 선택 카드 제거", qc("#styleGrid") === 0, qc("#styleGrid"))
 check("연주 형태 토글 제거", qc("[data-mode]") === 0, qc("[data-mode]"))
-check("믹스 버전 4개", qc("#versionList .version") === 4, qc("#versionList .version"))
+check("믹스 선택 UI 제거", qc("#versionList") === 0 && !window.document.body.textContent.includes("믹스"), qc("#versionList"))
 check("단계 탭 4개", qc("[data-step-jump]") === 4)
 check("국악 음원 출처 표기", window.document.getElementById("audioModeNote").textContent.includes("국립국악원"))
 
@@ -413,6 +413,7 @@ SD.loadRecipe({
 })
 s = SD.getStateSummary()
 check("loadRecipe 길이 30 고정(옛 45초 레시피도 정규화)", s.duration === 30, s.duration)
+check("loadRecipe는 옛 믹스 값을 기본값으로 고정", s.version === "balanced", s.version)
 check("loadRecipe 악기 daegeum", s.instrument === "daegeum")
 check("loadRecipe 무드색 적용", window.document.documentElement.style.getPropertyValue("--accent") === "#6b8f9c")
 check("loadRecipe 업로드 배경 끝 지점 복원", SD.buildRecipe().bgEndOffset === 8, SD.buildRecipe().bgEndOffset)

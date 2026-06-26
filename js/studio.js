@@ -25,6 +25,10 @@
     return D.styles.find((s) => s.id === DEFAULT_STYLE_ID) || D.styles[0]
   }
 
+  function defaultVersion() {
+    return D.versions[0]
+  }
+
   function loadAdminMode() {
     try {
       return window.localStorage ? window.localStorage.getItem(ADMIN_STORAGE_KEY) === "1" : false
@@ -44,7 +48,7 @@
     atmosphere: D.atmospheres[0],
     instrument: D.instruments[0],
     style: defaultStyle(),
-    version: D.versions[0],
+    version: defaultVersion(),
     mode: "melody",
     pic: null,
     title: "무제",
@@ -759,6 +763,7 @@
   }
 
   function renderVersions() {
+    if (!el.versionList) return
     el.versionList.innerHTML = ""
     D.versions.forEach((v) => {
       const b = document.createElement("button")
@@ -1198,7 +1203,7 @@
         ? "일시정지"
         : "배경음 일시정지"
       : playing
-        ? state.version.label + " 재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
+        ? "재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
         : "대기 중"
     el.statusText.classList.toggle("playing", playing && !paused)
     el.statusText.classList.toggle("paused", paused)
@@ -1777,7 +1782,7 @@
     state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || D.atmospheres[0]
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
     state.style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
-    state.version = D.versions.find((v) => v.id === recipe.version) || D.versions[0]
+    state.version = defaultVersion()
     state.mode = "melody"
     state.group = state.instrument.group
     state.effectStamps = simplifyEffectStamps(recipe.effectStamps || [])

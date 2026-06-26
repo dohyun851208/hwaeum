@@ -84,6 +84,17 @@ test("배경음악 구간 선택은 업로드한 배경 음원에만 열린다",
   assert.match(source, /bgEndOffset: recipeBgEndOffset\(\)/)
 })
 
+test("드로잉 화면에서 믹스 선택 UI를 제거한다", () => {
+  const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+
+  assert.doesNotMatch(html, /id="versionList"/)
+  assert.doesNotMatch(html, />믹스</)
+  assert.match(source, /function defaultVersion\(\)[\s\S]*D\.versions\[0\]/)
+  assert.match(source, /state\.version = defaultVersion\(\)/)
+  assert.doesNotMatch(source, /state\.version\.label \+ " 재생 중/)
+})
+
 test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const start = source.indexOf("function resetCompose()")
