@@ -84,6 +84,48 @@ test("새 도장 효과음은 정리된 폴더의 음원과 이미지를 사용�
   }
 })
 
+test("배경/악기 화면은 선별된 배경음과 새 하위 범주를 사용한다", () => {
+  const data = loadManifest()
+  const expectedGroups = ["분위기", "소리풍경", "리듬장단"]
+  const actualGroups = []
+  for (const item of data.atmospheres) {
+    if (!actualGroups.includes(item.group)) actualGroups.push(item.group)
+  }
+
+  assert.deepEqual(actualGroups, expectedGroups)
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(data.atmospheres.map((item) => item.id))),
+    [
+      "calm",
+      "tension",
+      "bright",
+      "cuteSchool",
+      "soaringField",
+      "sadDawn",
+      "sereneLake",
+      "energetic",
+      "river",
+      "city",
+      "forest",
+      "school",
+      "rhythm",
+      "jajinSamchae",
+      "jungjungmori",
+      "pungnyu",
+    ],
+  )
+
+  for (const id of ["exotic", "peaceful", "africanRhythm", "theme4"]) {
+    assert.equal(data.backgrounds[id], undefined, id + " background removed")
+    assert.equal(data.atmospheres.some((item) => item.id === id), false, id + " atmosphere removed")
+  }
+
+  for (const asset of Object.values(data.backgrounds)) {
+    assert.match(asset.src, /^sound\/배경-(분위기|소리풍경|리듬장단)\//)
+    assert.doesNotMatch(asset.src, /배경\(freesound\)|배경-환경음|배경-리듬반주|배경-테마루프/)
+  }
+})
+
 test("자족형 구조: 음원 폴더가 앱 폴더 안에 있고 serve는 앱 폴더를 그대로 띄운다", () => {
   // 음원을 상대경로(sound/...)로 앱 폴더 안에 두어, 폴더 하나만 복사하면 어디서든 동작.
   assert.ok(fs.existsSync(path.join(projectDir, "sound")), "앱 폴더 안에 sound/ 가 없다")

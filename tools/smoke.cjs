@@ -86,15 +86,25 @@ const SD = window.SoundDrawing
 check("window.SoundDrawing 노출", !!SD)
 let s = SD.getStateSummary()
 check("기본 길이 30초", s.duration === 30)
-check("기본 분위기 calm", s.atmosphere === "calm")
+check("기본 배경 calm", s.atmosphere === "calm")
 check("기본 악기 = 매니페스트 첫 악기", s.instrument === window.SDStudioData.instruments[0].id, s.instrument)
 check("초기 단계 0", s.step === 0)
 check("초기 음 수 0", s.noteCount === 0)
 
 check(
-  "분위기 카드 = 매니페스트 분위기 수",
+  "배경 카드 = 매니페스트 배경 수",
   qc("#atmosphereGrid .mood-card") === window.SDStudioData.atmospheres.length,
   qc("#atmosphereGrid .mood-card") + "/" + window.SDStudioData.atmospheres.length,
+)
+check("단계 이름은 배경/악기", window.document.body.textContent.includes("배경/악기"))
+check(
+  "배경 하위 범주 표시",
+  Array.from(window.document.querySelectorAll("#atmosphereGrid .atmosphere-group-label"))
+    .map((node) => node.textContent.trim())
+    .join("|") === "분위기|소리풍경|리듬장단",
+  Array.from(window.document.querySelectorAll("#atmosphereGrid .atmosphere-group-label"))
+    .map((node) => node.textContent.trim())
+    .join("|"),
 )
 check("배경 추가 카드 1개", qc("#atmosphereGrid .upload-card") === 1, qc("#atmosphereGrid .upload-card"))
 const findMusicLink = window.document.querySelector("#atmosphereGrid .upload-action-secondary")
@@ -125,12 +135,12 @@ window.document.getElementById("instrumentPreviewStopBtn").click()
 check("악기 감상 정지 버튼으로 멈춤", qc("#instrumentGrid .card.playing") === 0 && window.document.getElementById("instrumentPreviewStopBtn").hidden === true)
 westernTab.click()
 
-// 분위기 클릭 → 배경 미리듣기 토글
+// 배경 클릭 → 미리듣기 토글
 const firstMood = window.document.querySelector("#atmosphereGrid .mood-card")
 firstMood.click()
-check("분위기 클릭 시 미리듣기 시작", qc("#atmosphereGrid .mood-card.playing") === 1, qc("#atmosphereGrid .mood-card.playing"))
+check("배경 클릭 시 미리듣기 시작", qc("#atmosphereGrid .mood-card.playing") === 1, qc("#atmosphereGrid .mood-card.playing"))
 firstMood.click()
-check("같은 분위기 재클릭 시 미리듣기 정지", qc("#atmosphereGrid .mood-card.playing") === 0, qc("#atmosphereGrid .mood-card.playing"))
+check("같은 배경 재클릭 시 미리듣기 정지", qc("#atmosphereGrid .mood-card.playing") === 0, qc("#atmosphereGrid .mood-card.playing"))
 
 const bgInput = window.document.getElementById("bgUploadInput")
 let bgInputClickCount = 0
@@ -151,11 +161,11 @@ const upFile = new window.File(["abc"], "내음원.mp3", { type: "audio/mpeg" })
 Object.defineProperty(bgInput, "files", { value: [upFile], configurable: true })
 bgInput.dispatchEvent(new window.Event("change"))
 check(
-  "업로드 후 분위기 카드 +1",
+  "업로드 후 배경 카드 +1",
   qc("#atmosphereGrid .mood-card") === window.SDStudioData.atmospheres.length,
   qc("#atmosphereGrid .mood-card") + "/" + window.SDStudioData.atmospheres.length,
 )
-check("업로드한 분위기 선택됨(내음원)", SD.getStateSummary().atmosphere === "custom-1", SD.getStateSummary().atmosphere)
+check("업로드한 배경 선택됨(내음원)", SD.getStateSummary().atmosphere === "custom-1", SD.getStateSummary().atmosphere)
 
 SD.draw.setPath([
   { x: 0, y: 0.6 },

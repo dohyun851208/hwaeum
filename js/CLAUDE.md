@@ -10,7 +10,7 @@
 | 파일 | 책임 | 의존 |
 | --- | --- | --- |
 | `music-core.js` | **순수 로직** — 음계·피치 보정·시간 재샘플링·리듬·시김새·레시피 코덱·WAV 인코딩 | 없음(DOM·오디오 X) |
-| `manifest.js` | **데이터** — 음원·분위기·악기·음계 카탈로그 | 없음 |
+| `manifest.js` | **데이터** — 음원·배경·악기·음계 카탈로그 | 없음 |
 | `sample-maps.js` | 악기 샘플 매핑(음이름→샘플, 피치 보정 기준) | 없음 |
 | `audio-engine.js` | Web Audio 합주(라이브 + 오프라인 렌더)·피치 시프트·시김새·**합성 폴백** | Web Audio, music-core, manifest, sample-maps |
 | `drawing.js` | 캔버스 드로잉·가이드/팔레트 렌더·보정 음 오버레이 | Canvas, music-core |
@@ -33,7 +33,7 @@ manifest · sample-maps (데이터, 무의존)
 
 ## 어디를 고치나
 
-- 새 악기/음원/분위기 추가 → `manifest.js` (+ 필요 시 `sample-maps.js`)
+- 새 악기/음원/배경 추가 → `manifest.js` (+ 필요 시 `sample-maps.js`)
 - 음 보정·리듬·시김새·음계 규칙 → `music-core.js` (테스트 동반)
 - 합성음/실제음 폴백, 렌더 품질 → `audio-engine.js`
 - 캔버스 입력·가이드 표시 → `drawing.js`

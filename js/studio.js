@@ -53,7 +53,7 @@
     effectIds: [], // 옛 레시피 호환용: 자동 배치 효과
     effectStamps: [], // 새 방식: 캔버스에 찍은 효과음 도장 [{ id, x, y }]
     effectStampId: null,
-    bgPreviewId: null, // 현재 미리듣기 중인 분위기 id
+    bgPreviewId: null, // 현재 미리듣기 중인 배경 id
     examplePreviewId: null, // 현재 감상 재생 중인 악기 id
     bgOffset: 0, // 배경음악을 이 지점(초)부터 — 캔버스 가로축이 [bgOffset, bgOffset+길이]에 대응, 최종 곡에도 반영
     bgEndOffset: 0,
@@ -63,7 +63,7 @@
     adminMode: loadAdminMode(),
   }
 
-  // 분위기(배경) 미리듣기 — Web Audio 합주 엔진과 독립된 단순 재생기
+  // 배경 미리듣기 — Web Audio 합주 엔진과 독립된 단순 재생기
   const bgPreview = new Audio()
   bgPreview.preload = "none"
   let customBgSeq = 0
@@ -75,7 +75,7 @@
   bgPlayer.volume = 0.55
   let bgRAF = null
 
-  // 악기 연주곡 감상 — 분위기 미리듣기와 동일한 독립 재생기(한 번에 하나만)
+  // 악기 연주곡 감상 — 배경 미리듣기와 동일한 독립 재생기(한 번에 하나만)
   const examplePreview = new Audio()
   examplePreview.preload = "none"
   examplePreview.addEventListener("ended", () => {
@@ -539,10 +539,25 @@
   }
 
   // 카드 그룹 표시 순서. manifest 의 atmosphere.group 과 맞춘다. 새 group 은 이 뒤에 자동으로 붙는다.
-  const ATMOSPHERE_GROUP_ORDER = ["분위기", "환경 소리", "리듬 반주", "테마 루프"]
+  const ATMOSPHERE_GROUP_ORDER = ["분위기", "소리풍경", "리듬장단"]
+
+  function balanceParentheticalMoodTitle(button, label) {
+    const match = /^(.+?)(\(.+\))$/.exec(label || "")
+    if (!match) return
+    const title = button.querySelector(".card-copy strong")
+    if (!title) return
+    title.textContent = ""
+    const main = document.createElement("span")
+    main.textContent = match[1]
+    const suffix = document.createElement("span")
+    suffix.textContent = match[2]
+    title.appendChild(main)
+    title.appendChild(suffix)
+  }
 
   function appendAtmosphereCard(a) {
     const b = card(a, a.id === state.atmosphere.id, a.detail)
+    balanceParentheticalMoodTitle(b, a.label)
     b.style.setProperty("--swatch", a.color)
     b.classList.add("with-swatch", "mood-card")
     if (state.bgPreviewId === a.id) b.classList.add("playing")
@@ -554,14 +569,14 @@
     b.title = a.label + " 배경 미리듣기"
     b.addEventListener("click", () => {
       state.atmosphere = a
-      state.bgOffset = 0 // 새 분위기는 처음(0초)부터
+      state.bgOffset = 0 // 새 배경은 처음(0초)부터
       state.bgEndOffset = 0
       applyMoodTint()
       syncBgPlayerUI()
       toggleBackgroundPreview(a)
       renderAtmospheres()
       updateReadouts()
-      engine.warmAmbience(buildRecipe()).catch(function () {}) // 고른 분위기 배경음 미리 로드
+      engine.warmAmbience(buildRecipe()).catch(function () {}) // 고른 배경음 미리 로드
     })
     el.atmosphereGrid.appendChild(b)
   }
@@ -1170,7 +1185,7 @@
     else stopPlayhead()
   }
 
-  // 드로잉(3단계) 화면에서만 분위기 배경음을 깐다. 완성곡 재생 중엔 engine 이 끈다.
+  // 드로잉(3단계) 화면에서만 배경음을 깐다. 완성곡 재생 중엔 engine 이 끈다.
 
   // --- 재생 헤드(재생바) ---
 
@@ -1313,7 +1328,7 @@
     }
   }
 
-  // 드로잉 진입/분위기 변경 시: 현재 분위기의 배경 mp3를 걸고 bgOffset 지점에서 정지 대기
+  // 드로잉 진입/배경 변경 시: 현재 배경 mp3를 걸고 bgOffset 지점에서 정지 대기
   function setupBgPlayer() {
     pauseBgPlayer()
     const src = bgSrcFor(state.atmosphere)
@@ -2399,7 +2414,7 @@
     restoreFromHash()
     setStep(0)
     warmSelectedInstrument() // 기본 악기 미리 준비 + 음원 로드 상태(실제/합성)를 하단에 표시
-    engine.warmAmbience(buildRecipe()).catch(function () {}) // 기본 분위기 배경음 미리 로드(드로잉 진입 시 즉시)
+    engine.warmAmbience(buildRecipe()).catch(function () {}) // 기본 배경음 미리 로드(드로잉 진입 시 즉시)
   }
 
   // 테스트/QA용 API

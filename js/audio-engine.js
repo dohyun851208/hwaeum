@@ -1071,7 +1071,7 @@
     } catch (e) {}
   }
 
-  // --- 드로잉 화면 배경음(분위기 패드 루프) ---
+  // --- 드로잉 화면 배경음(패드 루프) ---
   // 라이브 선율 프리뷰와 독립적으로 깔리지만, 사용자가 누르는 정지/일시정지에는 같이 반응한다.
 
   // 배경 음원(특히 큰 배경 mp3)을 미리 디코드해 두어, 드로잉 진입 시 즉시 깔리게 한다.
@@ -1138,7 +1138,7 @@
     const run = function () {
       const plan = self.resolvePlan(recipe, [])
       const sig = self._ambienceSignature(plan)
-      // 같은 분위기·믹스로 이미 깔려 있으면 끊지 않는다(악기만 바꿔도 배경음 유지).
+      // 같은 배경·믹스로 이미 깔려 있으면 끊지 않는다(악기만 바꿔도 배경음 유지).
       if (self.ambience && self.ambience.signature === sig) return Promise.resolve()
       self.stopAmbience(true)
       const token = ++self.ambienceToken

@@ -8,7 +8,7 @@
   --muted: #6c7370;
   --line: rgba(32, 41, 42, 0.12);
   --line-strong: rgba(32, 41, 42, 0.22);
-  --accent: #5f8f63; /* JS가 분위기 색으로 덮어씀 */
+  --accent: #5f8f63; /* JS가 배경 색으로 덮어씀 */
   --accent-soft: rgba(95, 143, 99, 0.14);
   --accent-line: rgba(95, 143, 99, 0.4);
   --shadow-sm: 0 4px 14px rgba(32, 41, 42, 0.07);
@@ -415,7 +415,7 @@ p {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 12px;
 }
-/* 2단계 분위기 카드 그룹 소제목 (분위기 / 환경 소리 / 리듬 반주 / 테마 루프) */
+/* 2단계 배경 카드 그룹 소제목 (분위기 / 소리풍경 / 리듬장단) */
 .atmosphere-group-label {
   grid-column: 1 / -1;
   margin: 10px 0 -2px;
@@ -554,9 +554,19 @@ p {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
 }
 
-/* 분위기 미리듣기 카드 */
+/* 배경 미리듣기 카드 */
 .card.mood-card {
   padding-right: 52px;
+}
+.card.mood-card .card-copy strong {
+  display: grid;
+  gap: 1px;
+  font-size: 1rem;
+  line-height: 1.16;
+  word-break: keep-all;
+}
+.card.mood-card .card-copy > span {
+  word-break: keep-all;
 }
 .mood-play {
   position: absolute;
@@ -755,7 +765,7 @@ p {
   font-size: 1rem;
 }
 
-/* 2단계: 분위기·악기 통합 선택 */
+/* 2단계: 배경/악기 통합 선택 */
 .sound-palette-screen .screen-head {
   max-width: 920px;
 }

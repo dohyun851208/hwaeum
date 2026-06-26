@@ -1,32 +1,34 @@
 /*
- * manifest.js — 음원·분위기·악기·음계 데이터 (브라우저 전역 window.SDStudioData)
+ * manifest.js — 음원·배경·악기·음계 데이터 (브라우저 전역 window.SDStudioData)
  *
  * 선생님이 음원을 추가/교체할 때는 주로 이 파일만 수정하면 됩니다.
  * - 실제 파일이 있으면 src 경로를, 없으면 src: null (합성음 폴백).
  * - 선율 악기는 단일음 샘플의 기준음(baseMidi)을 기준으로 피치 시프트합니다.
- * - 분위기(atmosphere)는 backgroundId로 배경 음원과 1:1 매칭됩니다. padType은 배경 로드 실패 시 합성 패드 음색, color는 무드색입니다.
+ * - 배경(atmosphere)은 backgroundId로 배경 음원과 1:1 매칭됩니다. padType은 배경 로드 실패 시 합성 패드 음색, color는 무드색입니다.
  */
 ;(function (root) {
   "use strict"
 
-  // 배경음악 (sound/배경(freesound)) — 분위기(atmosphere)와 id로 1:1 매칭되는 배경 음원
+  // 배경음악 — 배경(atmosphere)과 id로 1:1 매칭되는 앱용 MP3
   const backgrounds = {
-    calm: { label: "고요한", src: "sound/배경(freesound)/고요한.mp3", duration: 155 },
-    tension: { label: "긴장되는", src: "sound/배경(freesound)/긴장되는.mp3", duration: 15 },
-    bright: { label: "밝은", src: "sound/배경(freesound)/밝은.mp3", duration: 44 },
-    exotic: { label: "이국적인", src: "sound/배경(freesound)/이국적인.mp3", duration: 32 },
-    peaceful: { label: "평화로운", src: "sound/배경(freesound)/평화로운.mp3", duration: 269 },
-    energetic: { label: "활기찬", src: "sound/배경(freesound)/활기찬.mp3", duration: 19 },
-    // 사운드스케이프-환경음 (sound/배경-환경음) — 강·도시·숲·학교 환경 소리. 앞 60초 mono 96k 압축(원본 wav/flac은 deploy 트리 밖 보관).
-    river: { label: "강", src: "sound/배경-환경음/강.mp3", duration: 60 },
-    city: { label: "도시", src: "sound/배경-환경음/도시.mp3", duration: 47 },
-    forest: { label: "숲", src: "sound/배경-환경음/숲.mp3", duration: 60 },
-    school: { label: "학교", src: "sound/배경-환경음/학교.mp3", duration: 60 },
-    // 리듬반주 (sound/배경-리듬반주) — 곡 아래 깔리는 리듬 배경. 아프리카 리듬(15초)은 짧아 자동 루프됨.
-    rhythm: { label: "리듬", src: "sound/배경-리듬반주/리듬.mp3", duration: 60 },
-    africanRhythm: { label: "아프리카 리듬", src: "sound/배경-리듬반주/아프리카리듬.mp3", duration: 15 },
-    // 테마 루프 (sound/배경-테마루프) — 4음 동기의 오케스트라 루프
-    theme4: { label: "4음 테마", src: "sound/배경-테마루프/4음테마.mp3", duration: 60 },
+    calm: { label: "고요한(우주)", src: "sound/배경-분위기/고요한(우주).mp3", duration: 155 },
+    tension: { label: "긴장되는(4음테마)", src: "sound/배경-분위기/긴장되는(4음테마).mp3", duration: 94 },
+    bright: { label: "밝은(아침)", src: "sound/배경-분위기/밝은(아침).mp3", duration: 44 },
+    cuteSchool: { label: "귀여운(학교)", src: "sound/배경-분위기/귀여운(학교).mp3", duration: 104 },
+    soaringField: { label: "벅차오르는(초원)", src: "sound/배경-분위기/벅차오르는(초원).mp3", duration: 168 },
+    sadDawn: { label: "슬픈(새벽)", src: "sound/배경-분위기/슬픈(새벽).mp3", duration: 132 },
+    sereneLake: { label: "잔잔한(호수)", src: "sound/배경-분위기/잔잔한(호수).mp3", duration: 154 },
+    energetic: { label: "활기찬(도시)", src: "sound/배경-분위기/활기찬(도시).mp3", duration: 140 },
+    // 소리풍경 — 강·도시·숲·학교 환경 소리. 앞 60초 mono 96k 압축(원본 wav/flac은 deploy 트리 밖 보관).
+    river: { label: "강", src: "sound/배경-소리풍경/강.mp3", duration: 60 },
+    city: { label: "도시", src: "sound/배경-소리풍경/도시.mp3", duration: 47 },
+    forest: { label: "숲", src: "sound/배경-소리풍경/숲.mp3", duration: 60 },
+    school: { label: "학교", src: "sound/배경-소리풍경/학교.mp3", duration: 60 },
+    // 리듬장단 — 곡 아래 깔리는 장단형 배경. 짧은 장단은 자동 루프됨.
+    rhythm: { label: "리듬", src: "sound/배경-리듬장단/리듬.mp3", duration: 60 },
+    jajinSamchae: { label: "자진삼채", src: "sound/배경-리듬장단/자진삼채.mp3", duration: 7 },
+    jungjungmori: { label: "중중모리", src: "sound/배경-리듬장단/중중모리.mp3", duration: 4 },
+    pungnyu: { label: "풍류", src: "sound/배경-리듬장단/풍류.mp3", duration: 4 },
   }
 
   // 패드 종류 — 선생님이 ambient/string/drone/choir/synth pad 음원을 추가하면 src를 채웁니다.
@@ -86,26 +88,28 @@
     sfxHarp: { label: "하프", group: "효과", src: "sound/효과음-도장/효과/하프.mp3", image: "./assets/effects/stamps/sfx-harp.svg" },
   }
 
-  // 분위기 — 배경(freesound) 음원과 1:1로 직접 매칭. id가 곧 backgroundId.
+  // 배경 — 배경 음원과 1:1로 직접 매칭. id가 곧 backgroundId.
   // 선생님이 추가로 올린 음원은 studio.js에서 이 배열에 동적으로 push 됩니다.
   // group: 2단계 카드 묶음 라벨. studio.js renderAtmospheres 가 group 순서대로 소제목을 붙여 보여 준다.
   const atmospheres = [
-    { id: "calm", label: "고요한", group: "분위기", padType: "ambient", detail: "잔잔하고 평온한 배경", color: "#7fa6a0", backgroundId: "calm", effectIds: [] },
-    { id: "tension", label: "긴장되는", group: "분위기", padType: "drone", detail: "조여드는 긴장감", color: "#9c6b7a", backgroundId: "tension", effectIds: [] },
-    { id: "bright", label: "밝은", group: "분위기", padType: "synth", detail: "환하고 경쾌한 느낌", color: "#c89a4e", backgroundId: "bright", effectIds: [] },
-    { id: "exotic", label: "이국적인", group: "분위기", padType: "choir", detail: "낯설고 신비로운 색채", color: "#8a6fb0", backgroundId: "exotic", effectIds: [] },
-    { id: "peaceful", label: "평화로운", group: "분위기", padType: "string", detail: "포근하고 안정된 분위기", color: "#6f9b6b", backgroundId: "peaceful", effectIds: [] },
-    { id: "energetic", label: "활기찬", group: "분위기", padType: "synth", detail: "밝고 힘찬 에너지", color: "#d3814f", backgroundId: "energetic", effectIds: [] },
-    // 사운드스케이프-환경음 — 강·도시·숲·학교 (연속 배경 앰비언스)
-    { id: "river", label: "강", group: "환경 소리", padType: "ambient", detail: "흐르는 강물 소리", color: "#5a86a8", backgroundId: "river", effectIds: [] },
-    { id: "city", label: "도시", group: "환경 소리", padType: "synth", detail: "도시의 거리 소음", color: "#7d7a86", backgroundId: "city", effectIds: [] },
-    { id: "forest", label: "숲", group: "환경 소리", padType: "ambient", detail: "새소리 가득한 숲", color: "#5f8a55", backgroundId: "forest", effectIds: [] },
-    { id: "school", label: "학교", group: "환경 소리", padType: "ambient", detail: "운동장·교실의 학교 소리", color: "#b08a4e", backgroundId: "school", effectIds: [] },
-    // 리듬반주 — 곡 아래 깔리는 리듬 배경
-    { id: "rhythm", label: "리듬", group: "리듬 반주", padType: "synth", detail: "기본 리듬 반주", color: "#c2683f", backgroundId: "rhythm", effectIds: [] },
-    { id: "africanRhythm", label: "아프리카 리듬", group: "리듬 반주", padType: "synth", detail: "타악 중심의 아프리카 리듬", color: "#b5532f", backgroundId: "africanRhythm", effectIds: [] },
-    // 테마 루프 — 4음 동기의 오케스트라 루프
-    { id: "theme4", label: "4음 테마", group: "테마 루프", padType: "string", detail: "4음 동기의 오케스트라 루프", color: "#6f7fb0", backgroundId: "theme4", effectIds: [] },
+    { id: "calm", label: "고요한(우주)", group: "분위기", padType: "ambient", detail: "넓고 고요한 우주 배경", color: "#7fa6a0", backgroundId: "calm", effectIds: [] },
+    { id: "tension", label: "긴장되는(4음테마)", group: "분위기", padType: "drone", detail: "짧은 4음 동기의 긴장감", color: "#9c6b7a", backgroundId: "tension", effectIds: [] },
+    { id: "bright", label: "밝은(아침)", group: "분위기", padType: "synth", detail: "아침처럼 맑고 밝은 배경", color: "#c89a4e", backgroundId: "bright", effectIds: [] },
+    { id: "cuteSchool", label: "귀여운(학교)", group: "분위기", padType: "synth", detail: "귀여운 학교 색감", color: "#d09b61", backgroundId: "cuteSchool", effectIds: [] },
+    { id: "soaringField", label: "벅차오르는(초원)", group: "분위기", padType: "string", detail: "초원처럼 넓게 차오르는 느낌", color: "#7d9f5f", backgroundId: "soaringField", effectIds: [] },
+    { id: "sadDawn", label: "슬픈(새벽)", group: "분위기", padType: "string", detail: "새벽빛의 차분한 슬픔", color: "#687b9e", backgroundId: "sadDawn", effectIds: [] },
+    { id: "sereneLake", label: "잔잔한(호수)", group: "분위기", padType: "ambient", detail: "호수처럼 잔잔한 흐름", color: "#5f98a0", backgroundId: "sereneLake", effectIds: [] },
+    { id: "energetic", label: "활기찬(도시)", group: "분위기", padType: "synth", detail: "도시의 활기와 움직임", color: "#d3814f", backgroundId: "energetic", effectIds: [] },
+    // 소리풍경 — 강·도시·숲·학교 (연속 배경 앰비언스)
+    { id: "river", label: "강", group: "소리풍경", padType: "ambient", detail: "흐르는 강물 소리", color: "#5a86a8", backgroundId: "river", effectIds: [] },
+    { id: "city", label: "도시", group: "소리풍경", padType: "synth", detail: "도시의 거리 소음", color: "#7d7a86", backgroundId: "city", effectIds: [] },
+    { id: "forest", label: "숲", group: "소리풍경", padType: "ambient", detail: "새소리 가득한 숲", color: "#5f8a55", backgroundId: "forest", effectIds: [] },
+    { id: "school", label: "학교", group: "소리풍경", padType: "ambient", detail: "운동장·교실의 학교 소리", color: "#b08a4e", backgroundId: "school", effectIds: [] },
+    // 리듬장단 — 곡 아래 깔리는 장단형 배경
+    { id: "rhythm", label: "리듬", group: "리듬장단", padType: "synth", detail: "기본 리듬 장단", color: "#c2683f", backgroundId: "rhythm", effectIds: [] },
+    { id: "jajinSamchae", label: "자진삼채", group: "리듬장단", padType: "synth", detail: "빠른 자진삼채", color: "#b5532f", backgroundId: "jajinSamchae", effectIds: [] },
+    { id: "jungjungmori", label: "중중모리", group: "리듬장단", padType: "synth", detail: "중중모리 장단의 흐름", color: "#a8623f", backgroundId: "jungjungmori", effectIds: [] },
+    { id: "pungnyu", label: "풍류", group: "리듬장단", padType: "string", detail: "풍류 장단의 여유", color: "#8a6b4e", backgroundId: "pungnyu", effectIds: [] },
   ]
 
   const instruments = [

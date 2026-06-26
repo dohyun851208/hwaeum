@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음(畵音) · 그림으로 만드는 30초 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260626-grid-credit-stop" />
+    <link rel="stylesheet" href="./styles.css?v=20260626-background-groups" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -33,7 +33,7 @@
       <!-- 단계 표시 -->
       <nav class="steps" aria-label="제작 단계">
         <button class="step active" type="button" data-step-jump="0"><span>1</span><strong>그림</strong></button>
-        <button class="step" type="button" data-step-jump="1"><span>2</span><strong>분위기·악기</strong></button>
+        <button class="step" type="button" data-step-jump="1"><span>2</span><strong>배경/악기</strong></button>
         <button class="step" type="button" data-step-jump="2"><span>3</span><strong>드로잉</strong></button>
         <button class="step" type="button" data-step-jump="3"><span>4</span><strong>완성</strong></button>
       </nav>
@@ -44,7 +44,7 @@
           <div class="screen-head">
             <p class="eyebrow">Step 1</p>
             <h2>그림을 올립니다</h2>
-            <p class="lead">이 그림을 보면서 분위기와 악기를 고르게 됩니다. 그림은 위쪽에 계속 표시됩니다.</p>
+            <p class="lead">이 그림을 보면서 배경과 악기를 고르게 됩니다. 그림은 위쪽에 계속 표시됩니다.</p>
           </div>
           <div class="setup-grid">
             <label class="dropframe" id="dropframe" for="picInput">
@@ -68,19 +68,19 @@
           </div>
         </section>
 
-        <!-- 2단계: 분위기 · 악기 -->
-        <section class="screen sound-palette-screen" data-screen="1" aria-label="2단계 분위기, 악기">
+        <!-- 2단계: 배경 / 악기 -->
+        <section class="screen sound-palette-screen" data-screen="1" aria-label="2단계 배경, 악기">
           <div class="screen-head">
             <p class="eyebrow">Step 2</p>
-            <h2>분위기와 악기를 맞춥니다</h2>
-            <p class="lead">아래로 스크롤하면서 배경 분위기와 연주 악기를 골라보세요. 각 카드를 눌러 바로 들어보고 조합을 바꿀 수 있습니다.</p>
+            <h2>배경과 악기를 맞춥니다</h2>
+            <p class="lead">아래로 스크롤하면서 배경음악과 연주 악기를 골라보세요. 각 카드를 눌러 바로 들어보고 조합을 바꿀 수 있습니다.</p>
           </div>
           <div class="sound-choice-flow">
             <section class="choice-section" aria-labelledby="atmosphereTitle">
               <div class="choice-section-head">
                 <p class="eyebrow">Atmosphere</p>
-                <h3 id="atmosphereTitle">분위기</h3>
-                <p class="muted">카드를 누르면 배경 음악을 미리 들어볼 수 있어요. 고른 분위기가 곡 전체의 배경이 됩니다.</p>
+                <h3 id="atmosphereTitle">배경</h3>
+                <p class="muted">카드를 누르면 배경 음악을 미리 들어볼 수 있어요. 고른 배경이 곡 전체의 바탕이 됩니다.</p>
               </div>
               <div class="card-grid" id="atmosphereGrid"></div>
               <input id="bgUploadInput" type="file" accept="audio/*" hidden />
@@ -184,12 +184,12 @@
             </div>
             <div class="placard">
               <input id="titleInput" class="placard-title" type="text" value="무제" aria-label="작품 제목" maxlength="24" />
-              <p class="placard-meta" id="placardMeta">분위기 · 악기</p>
+              <p class="placard-meta" id="placardMeta">배경 · 악기</p>
             </div>
             <div class="reflection-fields">
               <label class="reflection-field" for="bgReasonInput">
                 <span>배경음악을 고른 이유</span>
-                <textarea id="bgReasonInput" rows="3" maxlength="180" placeholder="그림 분위기와 어울린다고 생각한 이유를 적어보세요."></textarea>
+                <textarea id="bgReasonInput" rows="3" maxlength="180" placeholder="그림 배경과 어울린다고 생각한 이유를 적어보세요."></textarea>
               </label>
               <label class="reflection-field" for="melodyIntentInput">
                 <span>선율을 표현한 의도</span>
@@ -237,12 +237,12 @@
     </div>
 
     <script src="./js/music-core.js?v=20260624-reflect-limit"></script>
-    <script src="./js/manifest.js?v=20260626-stamp-effects"></script>
+    <script src="./js/manifest.js?v=20260626-background-groups"></script>
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
     <script src="./js/audio-engine.js?v=20260626-grid-credit-stop"></script>
     <script src="./js/drawing.js?v=20260626-grid-credit-stop"></script>
     <script src="./js/takes.js?v=20260624-reflect-limit"></script>
-    <script src="./js/studio.js?v=20260626-grid-credit-stop" defer></script>
+    <script src="./js/studio.js?v=20260626-background-groups" defer></script>
   </body>
 </html>
