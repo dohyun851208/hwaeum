@@ -57,6 +57,24 @@
     return out
   }
 
+  function pitchLabelsForStyle(style) {
+    const scale = Core.buildScale(style)
+    const labelScale = buildPitchLabelScale()
+    const last = Math.max(1, labelScale.length - 1)
+    return labelScale
+      .map((midi, i) =>
+        midi == null
+          ? null
+          : {
+              midi: midi,
+              label: midiToNoteName(midi),
+              top: 100 - (i / last) * 100,
+              selected: scale.indexOf(midi) !== -1,
+            },
+      )
+      .filter(Boolean)
+  }
+
   function DrawingCanvas(canvas, opts) {
     this.canvas = canvas
     this.ctx = canvas.getContext("2d")
@@ -642,6 +660,10 @@
     return Math.min(68 * px, Math.max(48 * px, this.canvas.width * 0.055))
   }
 
+  DrawingCanvas.prototype.pitchLabelGutterCssPx = function () {
+    return this._pitchLabelGutter() / (this.pixelRatio || 1)
+  }
+
   DrawingCanvas.prototype.renderPitchLabels = function () {
     const ctx = this.ctx
     if (typeof ctx.fillText !== "function") return
@@ -813,6 +835,8 @@
     for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x * w, path[i].y * h)
     ctx.stroke()
   }
+
+  DrawingCanvas.pitchLabelsForStyle = pitchLabelsForStyle
 
   root.DrawingCanvas = DrawingCanvas
 })(typeof self !== "undefined" ? self : this)

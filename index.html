@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음(畵音) · 그림으로 만드는 30초 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260626-background-groups" />
+    <link rel="stylesheet" href="./styles.css?v=20260626-sticky-pitch-reset" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -125,6 +125,7 @@
               <div class="canvas-wrap">
                 <canvas id="drawingCanvas" width="1440" height="540" aria-label="소리를 그리는 캔버스"></canvas>
                 <div class="effect-stamp-layer" id="effectStampLayer" aria-hidden="true"></div>
+                <div class="pitch-labels" id="pitchLabels" aria-hidden="true"></div>
                 <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
                 <div class="playhead" id="playhead" aria-hidden="true" hidden></div>
               </div>
@@ -241,8 +242,8 @@
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
     <script src="./js/audio-engine.js?v=20260626-grid-credit-stop"></script>
-    <script src="./js/drawing.js?v=20260626-grid-credit-stop"></script>
+    <script src="./js/drawing.js?v=20260626-sticky-pitch-reset"></script>
     <script src="./js/takes.js?v=20260624-reflect-limit"></script>
-    <script src="./js/studio.js?v=20260626-background-groups" defer></script>
+    <script src="./js/studio.js?v=20260626-sticky-pitch-reset" defer></script>
   </body>
 </html>

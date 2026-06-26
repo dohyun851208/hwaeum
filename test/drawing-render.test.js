@@ -139,3 +139,11 @@ test("renderGrid adds one-second vertical palette cells", () => {
   }
   assert.ok(verticals.length >= 29, "30초 팔레트는 최소 29개의 세로 모눈선을 가져야 한다")
 })
+
+test("sticky pitch axis exposes natural note labels from G3 to G5", () => {
+  const DrawingCanvas = loadDrawing()
+
+  const labels = JSON.parse(JSON.stringify(DrawingCanvas.pitchLabelsForStyle({}).map((label) => label.label)))
+
+  assert.deepEqual(labels, ["G3", "A3", "B3", "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5"])
+})

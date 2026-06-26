@@ -843,6 +843,8 @@ p {
   max-width: 100%;
   min-width: 0;
   --timeline-width: 100%;
+  --canvas-scroll-left: 0px;
+  --pitch-label-width: 56px;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 14px 16px 18px;
@@ -865,6 +867,33 @@ p {
 }
 #drawingCanvas.stamp-mode {
   cursor: copy;
+}
+.pitch-labels {
+  position: absolute;
+  top: 14px;
+  left: calc(16px + var(--canvas-scroll-left));
+  width: var(--pitch-label-width);
+  height: min(62vh, 660px);
+  min-height: 420px;
+  border-radius: 12px 0 0 12px;
+  border-right: 1px solid rgba(31, 38, 38, 0.12);
+  background: rgba(251, 246, 236, 0.94);
+  box-shadow: 7px 0 13px rgba(31, 38, 38, 0.07);
+  pointer-events: none;
+  z-index: 6;
+}
+.pitch-label {
+  position: absolute;
+  right: 9px;
+  transform: translateY(-50%);
+  color: rgba(31, 38, 38, 0.5);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+.pitch-label.selected {
+  color: rgba(31, 38, 38, 0.74);
 }
 .effect-stamp-layer {
   position: absolute;

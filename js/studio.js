@@ -107,6 +107,7 @@
     instrumentPreviewStopBtn: $("instrumentPreviewStopBtn"),
     canvas: $("drawingCanvas"),
     effectStampLayer: $("effectStampLayer"),
+    pitchLabels: $("pitchLabels"),
     paletteLabels: $("paletteLabels"),
     playhead: $("playhead"),
     bgPlayer: $("bgPlayer"),
@@ -288,6 +289,13 @@
     wrap.dataset.segmentWidth = String(segmentWidth)
     wrap.dataset.segments = String(paletteCount())
     if (resetScroll) wrap.scrollLeft = 0
+    syncCanvasScrollState()
+  }
+
+  function syncCanvasScrollState() {
+    const wrap = canvasWrap()
+    if (!wrap) return
+    wrap.style.setProperty("--canvas-scroll-left", Math.max(0, wrap.scrollLeft || 0) + "px")
   }
 
   // 저장/공유용 다운샘플 — 절대 x(시간 위치)를 보존하도록 균등 인덱스로 솎는다.
@@ -1039,11 +1047,28 @@
     }
   }
 
+  function renderPitchAxisLabels() {
+    if (!el.pitchLabels || !window.DrawingCanvas || typeof window.DrawingCanvas.pitchLabelsForStyle !== "function") return
+    const labels = window.DrawingCanvas.pitchLabelsForStyle(state.style)
+    el.pitchLabels.innerHTML = ""
+    if (typeof draw.pitchLabelGutterCssPx === "function") {
+      el.pitchLabels.style.setProperty("--pitch-label-width", Math.round(draw.pitchLabelGutterCssPx()) + "px")
+    }
+    labels.forEach((label) => {
+      const d = document.createElement("span")
+      d.className = "pitch-label" + (label.selected ? " selected" : "")
+      d.style.top = label.top + "%"
+      d.textContent = label.label
+      el.pitchLabels.appendChild(d)
+    })
+  }
+
   function refreshTimeline(resetScroll) {
     renderPaletteLabels()
     syncTimelineWidth(resetScroll)
     draw.compute()
     draw.render()
+    renderPitchAxisLabels()
     renderEffectStamps()
     updateReadouts()
   }
@@ -1205,6 +1230,7 @@
     const view = wrap.clientWidth
     if (left < wrap.scrollLeft + 48 || left > wrap.scrollLeft + view - 48) {
       wrap.scrollLeft = Math.max(0, left - view / 2)
+      syncCanvasScrollState()
     }
   }
   function stopPlayhead() {
@@ -1329,7 +1355,7 @@
   }
 
   // 드로잉 진입/배경 변경 시: 현재 배경 mp3를 걸고 bgOffset 지점에서 정지 대기
-  function setupBgPlayer() {
+  function setupBgPlayer(keepRange) {
     pauseBgPlayer()
     const src = bgSrcFor(state.atmosphere)
     if (!src) {
@@ -1339,7 +1365,7 @@
     }
     if (bgPlayer.getAttribute("src") !== src) bgPlayer.src = src
     const apply = function () {
-      normalizeBgRange(false)
+      normalizeBgRange(!!keepRange)
       try {
         bgPlayer.currentTime = state.bgOffset
       } catch (e) {}
@@ -1621,14 +1647,12 @@
     state.effectIds = []
     state.effectStamps = []
     state.effectStampId = null
-    state.bgOffset = 0
-    state.bgEndOffset = 0
     renderEffects()
     renderEffectStamps()
     renderOrchestraLegend()
-    setupBgPlayer()
+    setupBgPlayer(true)
     el.statusText.textContent = "대기 중"
-    el.exportStatus.textContent = "초기화했습니다. 새 선을 그리면 선택한 악기로 바로 들립니다."
+    el.exportStatus.textContent = "드로잉만 초기화했습니다. 배경음악 구간은 그대로 유지됩니다."
   }
 
   // --- 시도(테이크) ---
@@ -1787,7 +1811,7 @@
     syncUndoButton()
     renderEffectStamps()
     renderOrchestraLegend()
-    setupBgPlayer()
+    setupBgPlayer(true)
     syncReflectionInputs()
     updateReadouts()
   }
@@ -2273,6 +2297,8 @@
 
   function bind() {
     bindEffectStamping()
+    const wrap = canvasWrap()
+    if (wrap) wrap.addEventListener("scroll", syncCanvasScrollState, { passive: true })
 
     el.picInput.addEventListener("change", (e) => {
       const f = e.target.files && e.target.files[0]

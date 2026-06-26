@@ -262,6 +262,18 @@ try {
   threw = e
 }
 check("setStep(2) 예외 없음", !threw)
+const pitchLabelText = Array.from(window.document.querySelectorAll("#pitchLabels .pitch-label"))
+  .map((el) => el.textContent)
+  .join("|")
+check("음높이 고정 라벨 표시", pitchLabelText.includes("G3") && pitchLabelText.includes("G5"), pitchLabelText)
+const canvasWrap = window.document.querySelector(".canvas-wrap")
+canvasWrap.scrollLeft = 360
+canvasWrap.dispatchEvent(new window.Event("scroll"))
+check(
+  "음높이 라벨은 가로 스크롤 중에도 왼쪽에 고정",
+  canvasWrap.style.getPropertyValue("--canvas-scroll-left") === "360px",
+  canvasWrap.style.getPropertyValue("--canvas-scroll-left"),
+)
 const firstEffect = window.document.querySelector("#effectList .effect-btn")
 let warmedEffectId = ""
 const originalWarmEffect = SD.engine.warmEffect
@@ -407,6 +419,11 @@ check("loadRecipe 업로드 배경 끝 지점 복원", SD.buildRecipe().bgEndOff
 check("loadRecipe 업로드 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
 check("loadRecipe 회고 입력 복원", window.document.getElementById("bgReasonInput").value === "불러온 이유")
 check("loadRecipe 해시태그 입력 복원", window.document.getElementById("hashtagsInput").value === "#하나 #둘")
+SD.draw.setStrokes([[{ x: 0.2, y: 0.4 }, { x: 0.4, y: 0.5 }]], ["daegeum"])
+window.document.getElementById("resetComposeBtn").click()
+check("초기화는 업로드 배경 시작 구간 유지", SD.buildRecipe().bgOffset === 2, SD.buildRecipe().bgOffset)
+check("초기화는 업로드 배경 끝 구간 유지", SD.buildRecipe().bgEndOffset === 8, SD.buildRecipe().bgEndOffset)
+check("초기화는 드로잉만 삭제", SD.draw.getStrokes().length === 0 && SD.buildRecipe().effectStamps.length === 0)
 
 SD.takes.clearAll()
 const savedTake = SD.takes.add(recipe, "테스트")

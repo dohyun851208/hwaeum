@@ -82,5 +82,30 @@ test("배경음악 구간 선택은 업로드한 배경 음원에만 열린다",
   assert.match(css, /\.bg-range\[hidden\][\s\S]*display:\s*none/)
   assert.match(source, /bgOffset: recipeBgOffset\(\)/)
   assert.match(source, /bgEndOffset: recipeBgEndOffset\(\)/)
-  assert.match(source, /state\.bgOffset = 0[\s\S]*state\.bgEndOffset = 0/)
+})
+
+test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const start = source.indexOf("function resetCompose()")
+  const end = source.indexOf("// --- 시도(테이크) ---", start)
+  const resetCompose = source.slice(start, end)
+
+  assert.ok(start >= 0)
+  assert.ok(end > start)
+  assert.doesNotMatch(resetCompose, /state\.bgOffset\s*=\s*0/)
+  assert.doesNotMatch(resetCompose, /state\.bgEndOffset\s*=\s*0/)
+  assert.match(resetCompose, /draw\.clear\(false\)/)
+  assert.match(resetCompose, /setupBgPlayer\(true\)/)
+})
+
+test("레시피 불러오기도 업로드 배경 구간 설정을 유지한다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const start = source.indexOf("function loadRecipe(recipe)")
+  const end = source.indexOf("// --- 내보내기 ---", start)
+  const loadRecipe = source.slice(start, end)
+
+  assert.ok(start >= 0)
+  assert.ok(end > start)
+  assert.match(loadRecipe, /state\.bgEndOffset = recipe\.bgEndOffset \|\| 0/)
+  assert.match(loadRecipe, /setupBgPlayer\(true\)/)
 })
