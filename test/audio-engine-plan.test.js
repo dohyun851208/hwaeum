@@ -64,7 +64,7 @@ function makeNode(extra) {
 }
 
 function makeAudioContext() {
-  const created = { oscillators: [], buffers: [], gains: [], filters: [] }
+  const created = { oscillators: [], buffers: [], gains: [], filters: [], audioBuffers: [] }
   return {
     created,
     currentTime: 0,
@@ -94,6 +94,20 @@ function makeAudioContext() {
       })
       created.buffers.push(node)
       return node
+    },
+    createBuffer(numberOfChannels, length, sampleRate) {
+      const channels = Array.from({ length: numberOfChannels }, () => new Float32Array(length))
+      const buffer = {
+        numberOfChannels,
+        length,
+        sampleRate,
+        duration: length / sampleRate,
+        getChannelData(ch) {
+          return channels[ch]
+        },
+      }
+      created.audioBuffers.push(buffer)
+      return buffer
     },
     createGain() {
       const node = makeNode({ gain: makeParam() })
@@ -220,6 +234,85 @@ test("sample playback mirrors live drawing by not adding synthetic ornament ramp
   assert.ok(rateEvents.some((event) => event[0] === "target"))
 })
 
+test("full playback uses stored drawing strokes as one continuous sample source", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const recipe = {
+    duration: 30,
+    atmosphere: "calm",
+    instrument: "sogeum",
+    style: "gugak",
+    version: "balanced",
+    mode: "melody",
+    strokes: [[{ x: 0, y: 0.5 }, { x: 0.25, y: 0.5 }, { x: 0.5, y: 0.5 }]],
+    strokeInstruments: ["sogeum"],
+  }
+  const fragmentedNotes = [
+    { time: 0, duration: 0.2, midi: 60, velocity: 0.7, voice: 0 },
+    { time: 2, duration: 0.2, midi: 60, velocity: 0.7, voice: 0 },
+    { time: 4, duration: 0.2, midi: 60, velocity: 0.7, voice: 0 },
+  ]
+  const plan = engine.resolvePlan(recipe, fragmentedNotes)
+
+  engine.schedule(
+    ctx,
+    dest,
+    plan,
+    {
+      pad: null,
+      melody: { duration: 2.4 },
+      melodySamples: null,
+      effects: [],
+      byInstrument: { sogeum: { melody: { duration: 2.4 }, melodySamples: null } },
+    },
+    0,
+    noop,
+  )
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].startCalls.length, 1)
+  assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 15)
+})
+
+test("stroke sample playback uses live drawing glide timing", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const recipe = {
+    duration: 30,
+    atmosphere: "calm",
+    instrument: "haegeum",
+    style: "gugak",
+    version: "balanced",
+    mode: "melody",
+    strokes: [[{ x: 0, y: 0.2 }, { x: 0.25, y: 0.8 }]],
+    strokeInstruments: ["haegeum"],
+  }
+  const plan = engine.resolvePlan(recipe, [{ time: 0, duration: 7.5, midi: 60, velocity: 0.7, voice: 0 }])
+
+  engine.schedule(
+    ctx,
+    dest,
+    plan,
+    {
+      pad: null,
+      melody: { duration: 2.4 },
+      melodySamples: null,
+      effects: [],
+      byInstrument: { haegeum: { melody: { duration: 2.4 }, melodySamples: null } },
+    },
+    0,
+    noop,
+  )
+
+  const target = ctx.created.buffers[0].playbackRate.events.find((event) => event[0] === "target")
+  assert.ok(target)
+  assert.equal(target[3], 0.09)
+})
+
 test("scheduleSampleMelody loops a long single phrase sample from its stable region until the drawn note ends", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
@@ -260,6 +353,37 @@ test("scheduleSampleMelody snaps sustained sample loops to nearby zero crossings
   assert.equal(ctx.created.buffers[0].loop, true)
   assert.equal(ctx.created.buffers[0].loopStart, 0.69)
   assert.equal(ctx.created.buffers[0].loopEnd, 1.88)
+})
+
+test("sustained sample playback bakes a crossfaded loop buffer when PCM data is available", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 5, midi: 60, velocity: 0.7 }],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
+  const data = new Float32Array(2400)
+  for (let i = 0; i < data.length; i++) data[i] = i / data.length
+  const buffer = {
+    duration: 2.4,
+    length: data.length,
+    sampleRate: 1000,
+    numberOfChannels: 1,
+    getChannelData: () => data,
+  }
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: buffer, melodySamples: null }, 0, noop)
+
+  const source = ctx.created.buffers[0]
+  assert.equal(ctx.created.audioBuffers.length, 1)
+  assert.notEqual(source.buffer, buffer)
+  assert.equal(source.loop, true)
+  assert.equal(source.startCalls[0][1], 0)
+  const tailFrame = Math.round(source.loopEnd * source.buffer.sampleRate) - 1
+  assert.notEqual(source.buffer.getChannelData(0)[tailFrame], data[tailFrame])
 })
 
 test("gugak multi-sample long horizontal notes loop the stable region of the sample", () => {

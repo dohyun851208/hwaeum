@@ -22,6 +22,7 @@
   const HAEGEUM_LIVE_NOTE_GLIDE_SECONDS = 0.09
   const HAEGEUM_PHRASE_ATTACK_SECONDS = 0.06
   const DRAWING_NOTE_GAP_TOLERANCE_SECONDS = 0.08
+  const STROKE_TAP_SECONDS = 0.16
   function midiToFreq(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12)
   }
@@ -157,6 +158,57 @@
     source.loopEnd = region.end
     return true
   }
+  function createCrossfadedSustainBuffer(ctx, buffer, offset, duration) {
+    if (!ctx || typeof ctx.createBuffer !== "function") return null
+    if (!buffer || typeof buffer.getChannelData !== "function" || !buffer.sampleRate || !buffer.numberOfChannels) return null
+    const region = refineSustainLoopRegion(sampleSustainLoopRegion(offset || 0, duration), offset || 0, duration, buffer)
+    if (!region) return null
+    const sampleRate = buffer.sampleRate
+    const sourceLength = buffer.length || Math.round((buffer.duration || 0) * sampleRate)
+    const startFrame = clamp(Math.floor((offset || 0) * sampleRate), 0, Math.max(0, sourceLength - 1))
+    const endFrame = clamp(Math.ceil(((offset || 0) + duration) * sampleRate), startFrame + 1, sourceLength)
+    const outLength = endFrame - startFrame
+    const loopStartFrame = clamp(Math.round((region.start - (offset || 0)) * sampleRate), 0, Math.max(0, outLength - 2))
+    const loopEndFrame = clamp(Math.round((region.end - (offset || 0)) * sampleRate), loopStartFrame + 2, outLength)
+    const loopFrames = loopEndFrame - loopStartFrame
+    const fadeFrames = Math.floor(Math.min(0.08 * sampleRate, loopFrames * 0.25))
+    if (fadeFrames < 8) return null
+    const out = ctx.createBuffer(buffer.numberOfChannels, outLength, sampleRate)
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      const input = buffer.getChannelData(ch)
+      const data = out.getChannelData(ch)
+      for (let i = 0; i < outLength; i++) data[i] = input[startFrame + i] || 0
+      for (let i = 0; i < fadeFrames; i++) {
+        const x = (i + 1) / (fadeFrames + 1)
+        const tailIndex = loopEndFrame - fadeFrames + i
+        const headIndex = loopStartFrame + i
+        const fadeOut = Math.cos(x * Math.PI * 0.5)
+        const fadeIn = Math.sin(x * Math.PI * 0.5)
+        data[tailIndex] = data[tailIndex] * fadeOut + data[headIndex] * fadeIn
+      }
+    }
+    return {
+      buffer: out,
+      offset: 0,
+      duration: outLength / sampleRate,
+      loopStart: loopStartFrame / sampleRate,
+      loopEnd: loopEndFrame / sampleRate,
+    }
+  }
+  function preparePlaybackSustain(ctx, source, offset, duration) {
+    const baked = createCrossfadedSustainBuffer(ctx, source && source.buffer, offset || 0, duration)
+    if (baked) {
+      source.buffer = baked.buffer
+      source.loop = true
+      source.loopStart = baked.loopStart
+      source.loopEnd = baked.loopEnd
+      return baked
+    }
+    if (applySustainLoop(source, offset, duration)) {
+      return { buffer: source.buffer, offset: offset || 0, duration: duration, loopStart: source.loopStart, loopEnd: source.loopEnd }
+    }
+    return { buffer: source.buffer, offset: offset || 0, duration: duration }
+  }
   // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
   // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
   function connectMasterToOutput(ctx, master, output, when) {
@@ -240,6 +292,96 @@
     return out
   }
   // 멀티샘플에서 해당 음의 실제 녹음 버퍼를 고른다. 없으면 대표(폴백) 버퍼.
+  function strokeSegmentsForPlan(recipe, duration, style, instrument, melodyAsset, voiceAssets) {
+    const out = []
+    const total = Math.max(0.05, Number(duration) || 30)
+    ;(recipe.strokes || []).forEach(function (stroke, voice) {
+      if (!Array.isArray(stroke) || !stroke.length) return
+      const voiceAsset = voiceAssets && voiceAssets[voice] ? voiceAssets[voice] : null
+      const inst = voiceAsset ? voiceAsset.instrument : instrument
+      const asset = voiceAsset ? voiceAsset.melodyAsset : melodyAsset
+      const points = stroke
+        .map(function (point) {
+          return {
+            time: clamp(Number(point && point.x) || 0, 0, 1) * total,
+            y: clamp(Number(point && point.y) || 0, 0, 1),
+          }
+        })
+        .sort(function (a, b) {
+          return a.time - b.time
+        })
+      let current = []
+      function pushCurrent(endTime) {
+        if (!current.length) return
+        const startTime = current[0].time
+        const lastTime = endTime == null ? current[current.length - 1].time : endTime
+        const segmentEnd = Math.min(total, Math.max(lastTime, startTime + STROKE_TAP_SECONDS))
+        if (segmentEnd <= startTime + 0.01) {
+          current = []
+          return
+        }
+        out.push({
+          voice: voice,
+          start: startTime,
+          end: segmentEnd,
+          duration: segmentEnd - startTime,
+          events: current.slice(),
+        })
+        current = []
+      }
+      for (let i = 0; i < points.length; i++) {
+        const point = points[i]
+        const uiMidi = Core.quantizePitch(point.y, style, asset)
+        const midi = playbackMidiForInstrument(uiMidi, inst, asset)
+        if (midi == null) {
+          pushCurrent(point.time)
+          continue
+        }
+        const event = { time: point.time, midi: midi, uiMidi: uiMidi }
+        const prev = current[current.length - 1]
+        if (prev && Math.abs(prev.time - event.time) < 1e-3) current[current.length - 1] = event
+        else current.push(event)
+      }
+      pushCurrent(points.length ? points[points.length - 1].time : null)
+    })
+    return out.sort(function (a, b) {
+      return a.start - b.start
+    })
+  }
+  function strokeEventAt(events, time) {
+    let found = events[0]
+    for (let i = 0; i < events.length; i++) {
+      if (events[i].time <= time + 1e-6) found = events[i]
+      else break
+    }
+    return found
+  }
+  function shiftStrokeSegments(segments, offset, totalDuration) {
+    return (segments || [])
+      .filter(function (segment) {
+        return segment && segment.end > offset && segment.start < totalDuration
+      })
+      .map(function (segment) {
+        const startTime = Math.max(segment.start, offset)
+        const endTime = Math.min(segment.end, totalDuration)
+        const anchor = strokeEventAt(segment.events || [], startTime)
+        const events = []
+        if (anchor) events.push(Object.assign({}, anchor, { time: startTime - offset }))
+        ;(segment.events || []).forEach(function (event) {
+          if (event.time <= startTime + 1e-6 || event.time >= endTime - 1e-6) return
+          events.push(Object.assign({}, event, { time: event.time - offset }))
+        })
+        return Object.assign({}, segment, {
+          start: startTime - offset,
+          end: endTime - offset,
+          duration: Math.max(0.01, endTime - startTime),
+          events: events,
+        })
+      })
+      .filter(function (segment) {
+        return segment.events && segment.events.length && segment.duration > 0.01
+      })
+  }
   function sampleBufferFor(sampleBuffers, segment, fallback) {
     if (sampleBuffers && segment && sampleBuffers[segment.midi]) return sampleBuffers[segment.midi]
     return fallback
@@ -488,6 +630,7 @@
       gugak: gugak,
       notes: playbackNotesForPlan(notes || [], instrument, melodyAsset, voiceAssets),
       uiNotes: notes || [],
+      strokeSegments: strokeSegmentsForPlan(recipe, duration, style, instrument, melodyAsset, voiceAssets),
       rhythmHits: rhythmHits,
     }
   }
@@ -531,6 +674,7 @@
       playbackOffset: offset,
       notes: shiftNotes(plan.notes),
       uiNotes: shiftNotes(plan.uiNotes),
+      strokeSegments: shiftStrokeSegments(plan.strokeSegments, offset, totalDuration),
       rhythmHits: shiftTimed(plan.rhythmHits),
       effectStamps: shiftTimed(plan.effectStamps),
     })
@@ -676,12 +820,23 @@
     } else {
       const self = this
       const byVoice = new Map()
+      const strokesByVoice = new Map()
+      const voiceKeys = new Set()
       ;(plan.notes || []).forEach(function (note) {
         const key = note.voice == null ? "_" : String(note.voice)
+        voiceKeys.add(key)
         if (!byVoice.has(key)) byVoice.set(key, [])
         byVoice.get(key).push(note)
       })
-      byVoice.forEach(function (voiceNotes, key) {
+      ;(plan.strokeSegments || []).forEach(function (segment) {
+        const key = segment.voice == null ? "_" : String(segment.voice)
+        voiceKeys.add(key)
+        if (!strokesByVoice.has(key)) strokesByVoice.set(key, [])
+        strokesByVoice.get(key).push(segment)
+      })
+      Array.from(voiceKeys).sort().forEach(function (key) {
+        const voiceNotes = byVoice.get(key) || []
+        const voiceStrokes = strokesByVoice.get(key) || []
         const va = key !== "_" && plan.voiceAssets ? plan.voiceAssets[key] : null
         const inst = va ? va.instrument : plan.instrument
         const asset = va ? va.melodyAsset : plan.melodyAsset
@@ -699,9 +854,10 @@
         melodyGain.gain.setValueAtTime(melodyOutputGain(voicePlan, inst), start)
         melodyGain.connect(dest)
         if (instBuffers.melody) {
-          self.scheduleSampleMelody(ctx, melodyGain, voicePlan, voiceNotes, instBuffers, start, register)
+          if (voiceStrokes.length) self.scheduleSampleStrokes(ctx, melodyGain, voicePlan, voiceStrokes, instBuffers, start, register)
+          else self.scheduleSampleMelody(ctx, melodyGain, voicePlan, voiceNotes, instBuffers, start, register)
           usedReal = true
-        } else {
+        } else if (voiceNotes.length) {
           self.scheduleSynthMelody(ctx, melodyGain, voicePlan, voiceNotes, start, register)
         }
       })
@@ -732,6 +888,57 @@
     }
   }
 
+  AudioEngine.prototype.scheduleSampleStrokes = function (ctx, dest, plan, strokeSegments, instBuffers, start, register) {
+    const asset = plan.melodyAsset
+    const buffer = instBuffers.melody
+    const sampleBuffers = instBuffers.melodySamples
+    const multi = isMultiSample(asset)
+    const samplePhrase = asset.sampleMode === "phrase"
+    const glideSeconds = liveNoteGlideSeconds(plan)
+    const attackSeconds = 0.035
+    for (const stroke of strokeSegments || []) {
+      if (!stroke || !stroke.events || !stroke.events.length) continue
+      const first = stroke.events[0]
+      const phraseStart = start + stroke.start
+      const phraseDuration = Math.max(0.03, stroke.duration)
+      const phraseStop = start + stroke.end
+      const segment = nearestSampleSegment(asset, first.midi)
+      const srcBuffer = multi ? sampleBufferFor(sampleBuffers, segment, buffer) : buffer
+      if (!srcBuffer) continue
+      const env = ctx.createGain()
+      const baseRate = segmentPlaybackRate(asset, first.midi, segment)
+      const offset = multi ? 0 : segment ? segment.offset : samplePhrase ? Math.min(0.05, Math.max(0, srcBuffer.duration * 0.08)) : 0
+      const usableSourceDur = multi ? srcBuffer.duration : segment ? segment.duration : srcBuffer.duration - offset
+      const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
+      const src = ctx.createBufferSource()
+      src.buffer = srcBuffer
+      let startOffset = offset
+      let startSourceDur = usableSourceDur
+      src.playbackRate.setValueAtTime(baseRate, phraseStart)
+      for (let k = 1; k < stroke.events.length; k++) {
+        const event = stroke.events[k]
+        const nextRate = segmentPlaybackRate(asset, event.midi, segment)
+        src.playbackRate.setTargetAtTime(nextRate, start + event.time, glideSeconds)
+      }
+      if (needSustain) {
+        const sustain = preparePlaybackSustain(ctx, src, offset, usableSourceDur)
+        startOffset = sustain.offset
+        startSourceDur = sustain.duration
+      }
+      applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds)
+      connectGugakSampleTone(ctx, src, env, plan, phraseStart)
+      env.connect(dest)
+      register(src)
+      if (src.loop) {
+        src.start(phraseStart, startOffset)
+      } else {
+        const srcDur = Math.max(0.05, Math.min(startSourceDur, phraseDuration * baseRate + 0.18))
+        src.start(phraseStart, startOffset, srcDur)
+      }
+      src.stop(phraseStop + 0.18)
+    }
+  }
+
   AudioEngine.prototype.scheduleSampleMelody = function (ctx, dest, plan, notes, instBuffers, start, register) {
     const asset = plan.melodyAsset
     const buffer = instBuffers.melody
@@ -757,6 +964,8 @@
         const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
         const src = ctx.createBufferSource()
         src.buffer = srcBuffer
+        let startOffset = 0
+        let startSourceDur = usableSourceDur
         src.playbackRate.setValueAtTime(baseRate, phraseStart)
         for (let k = 1; k < phraseNotes.length; k++) {
           const note = phraseNotes[k]
@@ -765,16 +974,20 @@
           src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
         }
         // Match live drawing preview: recorded samples glide on one source without synthetic re-attacks.
-        if (needSustain) applySustainLoop(src, 0, usableSourceDur)
+        if (needSustain) {
+          const sustain = preparePlaybackSustain(ctx, src, 0, usableSourceDur)
+          startOffset = sustain.offset
+          startSourceDur = sustain.duration
+        }
         applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
         connectGugakSampleTone(ctx, src, env, plan, phraseStart)
         env.connect(dest)
         register(src)
         if (src.loop) {
-          src.start(phraseStart, 0)
+          src.start(phraseStart, startOffset)
         } else {
-          const srcDur = Math.max(0.05, Math.min(usableSourceDur, phraseDuration * baseRate + 0.18))
-          src.start(phraseStart, 0, srcDur)
+          const srcDur = Math.max(0.05, Math.min(startSourceDur, phraseDuration * baseRate + 0.18))
+          src.start(phraseStart, startOffset, srcDur)
         }
         src.stop(phraseStop + 0.18)
       }
@@ -797,6 +1010,8 @@
       const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
       const src = ctx.createBufferSource()
       src.buffer = srcBuffer
+      let startOffset = offset
+      let startSourceDur = usableSourceDur
       src.playbackRate.setValueAtTime(baseRate, phraseStart)
       for (let k = 1; k < notes.length; k++) {
         const note = notes[k]
@@ -806,16 +1021,20 @@
       }
       // Match live drawing preview: recorded samples glide on one source without synthetic re-attacks.
       // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지도록 안정 구간을 루프한다.
-      if (needSustain) applySustainLoop(src, offset, usableSourceDur)
+      if (needSustain) {
+        const sustain = preparePlaybackSustain(ctx, src, offset, usableSourceDur)
+        startOffset = sustain.offset
+        startSourceDur = sustain.duration
+      }
       applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
       register(src)
       if (src.loop) {
-        src.start(phraseStart, offset)
+        src.start(phraseStart, startOffset)
       } else {
-        const srcDur = Math.max(0.05, Math.min(usableSourceDur, phraseDuration * baseRate + 0.18))
-        src.start(phraseStart, offset, srcDur)
+        const srcDur = Math.max(0.05, Math.min(startSourceDur, phraseDuration * baseRate + 0.18))
+        src.start(phraseStart, startOffset, srcDur)
       }
       src.stop(phraseStop + 0.18)
     }
