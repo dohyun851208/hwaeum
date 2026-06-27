@@ -21,6 +21,7 @@
   const HAEGEUM_NOTE_GLIDE_SECONDS = 0.12
   const HAEGEUM_LIVE_NOTE_GLIDE_SECONDS = 0.09
   const HAEGEUM_PHRASE_ATTACK_SECONDS = 0.06
+  const DRAWING_NOTE_GAP_TOLERANCE_SECONDS = 0.08
   function midiToFreq(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12)
   }
@@ -288,7 +289,8 @@
     if (note.voice != null || next.voice != null) {
       if (note.voice !== next.voice) return false
     }
-    return Math.abs(note.time + note.duration - next.time) < 1e-3
+    const gap = next.time - (note.time + note.duration)
+    return gap >= -1e-3 && gap <= DRAWING_NOTE_GAP_TOLERANCE_SECONDS
   }
 
   function phraseEnd(notes) {
@@ -762,12 +764,7 @@
           const nextRate = segmentPlaybackRate(asset, note.midi, segment)
           src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
         }
-        for (let k = 0; k < phraseNotes.length; k++) {
-          const note = phraseNotes[k]
-          this.applySigimsae(src, null, segmentPlaybackRate(asset, note.midi, segment), note, plan, start + note.time, {
-            skipGrace: isHaegeumPlan(plan) && k > 0,
-          })
-        }
+        // Match live drawing preview: recorded samples glide on one source without synthetic re-attacks.
         if (needSustain) applySustainLoop(src, 0, usableSourceDur)
         applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
         connectGugakSampleTone(ctx, src, env, plan, phraseStart)
@@ -807,12 +804,7 @@
         const nextRate = segmentPlaybackRate(asset, note.midi, segment)
         src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
       }
-      for (let k = 0; k < notes.length; k++) {
-        const note = notes[k]
-        this.applySigimsae(src, null, segmentPlaybackRate(asset, note.midi, segment), note, plan, start + note.time, {
-          skipGrace: isHaegeumPlan(plan) && k > 0,
-        })
-      }
+      // Match live drawing preview: recorded samples glide on one source without synthetic re-attacks.
       // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지도록 안정 구간을 루프한다.
       if (needSustain) applySustainLoop(src, offset, usableSourceDur)
       applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)

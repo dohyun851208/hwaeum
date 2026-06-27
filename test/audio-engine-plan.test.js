@@ -177,6 +177,49 @@ test("scheduleSampleMelody sustains contiguous notes as one connected sample phr
   assert.ok(ctx.created.buffers[0].playbackRate.events.length >= 3)
 })
 
+test("scheduleSampleMelody bridges tiny drawing gaps as one connected sample phrase", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
+    [
+      { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
+      { time: 0.55, duration: 0.5, midi: 60, velocity: 0.7 },
+      { time: 1.1, duration: 0.5, midi: 60, velocity: 0.7 },
+    ],
+  )
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].startCalls.length, 1)
+  assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 1.6)
+})
+
+test("sample playback mirrors live drawing by not adding synthetic ornament ramps", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "haegeum", style: "gugak", version: "balanced", mode: "melody" },
+    [
+      { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
+      { time: 0.5, duration: 0.5, midi: 62, velocity: 0.7 },
+      { time: 1, duration: 0.5, midi: 64, velocity: 0.7 },
+    ],
+  )
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
+
+  const rateEvents = ctx.created.buffers[0].playbackRate.events
+  assert.equal(rateEvents.filter((event) => event[0] === "set").length, 1)
+  assert.equal(rateEvents.some((event) => event[0] === "linear"), false)
+  assert.ok(rateEvents.some((event) => event[0] === "target"))
+})
+
 test("scheduleSampleMelody loops a long single phrase sample from its stable region until the drawn note ends", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
