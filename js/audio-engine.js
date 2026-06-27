@@ -92,13 +92,64 @@
   function sampleSustainLoopRegion(offset, duration) {
     const dur = Number(duration) || 0
     if (dur <= 0.25) return null
-    const relStart = dur * 0.25
-    const relEnd = dur * 0.75
+    const minLoop = Math.min(0.22, dur * 0.35)
+    const relStart = clamp(dur * 0.28, Math.min(0.18, Math.max(0, dur - minLoop)), Math.max(0, dur - minLoop - 0.06))
+    const relEnd = clamp(Math.max(relStart + minLoop, dur * 0.78), relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
     if (relEnd <= relStart + 0.06) return null
     return { start: offset + relStart, end: offset + relEnd }
   }
+  function nearestZeroCrossingTime(buffer, targetTime, minTime, maxTime) {
+    if (!buffer || typeof buffer.getChannelData !== "function" || !buffer.sampleRate) return targetTime
+    let channel = null
+    try {
+      channel = buffer.getChannelData(0)
+    } catch (e) {
+      return targetTime
+    }
+    if (!channel || !channel.length) return targetTime
+    const sr = buffer.sampleRate
+    const target = clamp(Math.round(targetTime * sr), 1, channel.length - 2)
+    const lo = clamp(Math.floor(minTime * sr), 1, channel.length - 2)
+    const hi = clamp(Math.ceil(maxTime * sr), lo, channel.length - 2)
+    let best = target
+    let bestScore = Infinity
+    for (let i = lo; i <= hi; i++) {
+      const a = channel[i - 1]
+      const b = channel[i]
+      if ((a <= 0 && b >= 0) || (a >= 0 && b <= 0)) {
+        const distance = Math.abs(i - target) / sr
+        const amplitude = Math.abs(a) + Math.abs(b)
+        const score = distance + amplitude * 0.002
+        if (score < bestScore) {
+          bestScore = score
+          best = i
+        }
+      }
+    }
+    return bestScore < Infinity ? best / sr : targetTime
+  }
+  function refineSustainLoopRegion(region, offset, duration, buffer) {
+    if (!region || !buffer) return region
+    const dur = Number(duration) || 0
+    const windowSec = Math.min(0.08, dur * 0.08)
+    const absoluteEnd = offset + dur
+    const start = nearestZeroCrossingTime(
+      buffer,
+      region.start,
+      Math.max(offset, region.start - windowSec),
+      Math.min(region.start + windowSec, absoluteEnd - 0.12),
+    )
+    const end = nearestZeroCrossingTime(
+      buffer,
+      region.end,
+      Math.max(start + 0.08, region.end - windowSec),
+      Math.min(region.end + windowSec, absoluteEnd - 0.02),
+    )
+    if (end <= start + 0.06) return region
+    return { start: start, end: end }
+  }
   function applySustainLoop(source, offset, duration) {
-    const region = sampleSustainLoopRegion(offset || 0, duration)
+    const region = refineSustainLoopRegion(sampleSustainLoopRegion(offset || 0, duration), offset || 0, duration, source && source.buffer)
     if (!region) return false
     source.loop = true
     source.loopStart = region.start

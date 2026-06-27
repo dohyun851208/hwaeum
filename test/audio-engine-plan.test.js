@@ -108,10 +108,19 @@ function makeAudioContext() {
   }
 }
 
-function assertMiddle50Loop(source, duration, offset = 0) {
+function expectedStableLoop(duration, offset = 0) {
+  const dur = Number(duration) || 0
+  const minLoop = Math.min(0.22, dur * 0.35)
+  const relStart = Math.max(Math.min(dur * 0.28, Math.max(0, dur - minLoop - 0.06)), Math.min(0.18, Math.max(0, dur - minLoop)))
+  const relEnd = Math.max(Math.min(Math.max(relStart + minLoop, dur * 0.78), Math.max(relStart + 0.08, dur - 0.06)), relStart + 0.08)
+  return { start: offset + relStart, end: offset + relEnd }
+}
+
+function assertStableLoop(source, duration, offset = 0) {
+  const expected = expectedStableLoop(duration, offset)
   assert.equal(source.loop, true)
-  assert.equal(source.loopStart, offset + duration * 0.25)
-  assert.equal(source.loopEnd, offset + duration * 0.75)
+  assert.ok(Math.abs(source.loopStart - expected.start) < 1e-9)
+  assert.ok(Math.abs(source.loopEnd - expected.end) < 1e-9)
 }
 
 test("resolvePlan keeps the selected scale independent from instrument sample ranges", () => {
@@ -168,7 +177,7 @@ test("scheduleSampleMelody sustains contiguous notes as one connected sample phr
   assert.ok(ctx.created.buffers[0].playbackRate.events.length >= 3)
 })
 
-test("scheduleSampleMelody loops a long single phrase sample from its middle half until the drawn note ends", () => {
+test("scheduleSampleMelody loops a long single phrase sample from its stable region until the drawn note ends", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -182,12 +191,35 @@ test("scheduleSampleMelody loops a long single phrase sample from its middle hal
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
   assert.equal(ctx.created.buffers.length, 1)
-  assertMiddle50Loop(ctx.created.buffers[0], 2.4)
+  assertStableLoop(ctx.created.buffers[0], 2.4)
   assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
   assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 5)
 })
 
-test("gugak multi-sample long horizontal notes loop the middle half of the sample", () => {
+test("scheduleSampleMelody snaps sustained sample loops to nearby zero crossings", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 5, midi: 60, velocity: 0.7 }],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
+  const data = new Float32Array(2400).fill(-0.5)
+  data[690] = 0.1
+  data[1880] = 0.1
+  const buffer = { duration: 2.4, sampleRate: 1000, getChannelData: () => data }
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: buffer, melodySamples: null }, 0, noop)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].loop, true)
+  assert.equal(ctx.created.buffers[0].loopStart, 0.69)
+  assert.equal(ctx.created.buffers[0].loopEnd, 1.88)
+})
+
+test("gugak multi-sample long horizontal notes loop the stable region of the sample", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -201,7 +233,7 @@ test("gugak multi-sample long horizontal notes loop the middle half of the sampl
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: null, melodySamples: { 72: { duration: 2.4 } } }, 0, noop)
 
   assert.equal(ctx.created.buffers.length, 1)
-  assertMiddle50Loop(ctx.created.buffers[0], 2.4)
+  assertStableLoop(ctx.created.buffers[0], 2.4)
   assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
   assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 8)
 })
@@ -400,7 +432,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   assert.ok(toneFilter.Q.events.some((event) => event[1] === 0.9))
 })
 
-test("live drawing preview loops long sample tones from the middle half, including gayageum", () => {
+test("live drawing preview loops long sample tones from the stable region, including gayageum", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -413,7 +445,7 @@ test("live drawing preview loops long sample tones from the middle half, includi
   engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
 
   assert.equal(ctx.created.buffers.length, 1)
-  assertMiddle50Loop(ctx.created.buffers[0], 2.35, 0.05)
+  assertStableLoop(ctx.created.buffers[0], 2.35, 0.05)
 })
 
 test("resolvePlan applies instrument playback transposition per drawn voice", () => {
