@@ -16,14 +16,13 @@
   const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
   const PITCH_LABEL_LOW_MIDI = 55 // G3
   const PITCH_LABEL_HIGH_MIDI = 79 // G5
-  const PITCH_LABEL_SILENT_EDGE_ROWS = 1
+  const PITCH_LABEL_SILENT_EDGE_ROWS = 0
   const NATURAL_NOTE_CLASSES = [0, 2, 4, 5, 7, 9, 11]
   const STRING_INSTRUMENTS = {
     violin: true,
     viola: true,
     cello: true,
     doubleBass: true,
-    mandolin: true,
     gayageum: true,
     ajaeng: true,
     haegeum: true,
@@ -60,18 +59,26 @@
   function pitchLabelsForStyle(style) {
     const scale = Core.buildScale(style)
     const labelScale = buildPitchLabelScale()
-    return labelScale
-      .map((midi, i) =>
-        midi == null
-          ? null
-          : {
-              midi: midi,
-              label: midiToNoteName(midi),
-              top: pitchRowCenterRatio(i, labelScale.length) * 100,
-              selected: scale.indexOf(midi) !== -1,
-            },
-      )
+    return pitchRowsForStyle(style)
+      .filter((row) => row.midi != null)
       .filter(Boolean)
+  }
+
+  function pitchRowsForStyle(style) {
+    const scale = Core.buildScale(style)
+    const labelScale = buildPitchLabelScale()
+    return labelScale.map((midi, i) => {
+      const bounds = pitchRowBoundsRatio(i, labelScale.length)
+      return {
+        midi: midi,
+        label: midi == null ? "" : midiToNoteName(midi),
+        top: pitchRowCenterRatio(i, labelScale.length) * 100,
+        rowTop: bounds.top * 100,
+        rowBottom: bounds.bottom * 100,
+        rowHeight: (bounds.bottom - bounds.top) * 100,
+        selected: midi != null && scale.indexOf(midi) !== -1,
+      }
+    })
   }
 
   function pitchRowCenterRatio(rowIndex, rowCount) {
@@ -84,12 +91,20 @@
   }
 
   function pitchRowBoundsY(rowIndex, rowCount, height) {
+    const bounds = pitchRowBoundsRatio(rowIndex, rowCount)
+    return {
+      top: bounds.top * height,
+      bottom: bounds.bottom * height,
+    }
+  }
+
+  function pitchRowBoundsRatio(rowIndex, rowCount) {
     const last = Math.max(1, rowCount - 1)
     const topIndex = Math.min(last, rowIndex + 0.5)
     const bottomIndex = Math.max(0, rowIndex - 0.5)
     return {
-      top: height - (topIndex / last) * height,
-      bottom: height - (bottomIndex / last) * height,
+      top: 1 - topIndex / last,
+      bottom: 1 - bottomIndex / last,
     }
   }
 
@@ -108,6 +123,8 @@
     this.onPreviewStart = opts.onPreviewStart || function () {}
     this.onPreview = opts.onPreview || function () {}
     this.onPreviewEnd = opts.onPreviewEnd || function () {}
+    this.onFlowStart = opts.onFlowStart || function () {}
+    this.onFlowEnd = opts.onFlowEnd || function () {}
     this.accent = opts.accent || "#5f8f63"
     this.strokes = [] // 정규화 다중 획: [ [{x,y}...], ... ]
     this.strokeInstruments = [] // 각 획의 악기 id(획과 1:1, 지우개로 쪼개져도 유지) — 오케스트라용
@@ -118,18 +135,15 @@
     this.instrumentColor = opts.instrumentColor || null // (id) => 색. 없으면 accent
     this.maxInstruments = opts.maxInstruments || 4 // 동시에 쌓을 수 있는 악기 수
     this.onInstrumentLimit = opts.onInstrumentLimit || function () {}
-    // 따라 그리기(흐름 모드): 펜은 음높이만, 가로(시간)는 음악/시계가 끌고 간다.
-    this.flowMode = false // 흐름 모드 ON/OFF
-    this.flowActive = false // 흐름 중 펜이 눌려 기록되는 상태
-    this.flowY = null // 현재 펜의 음높이(0..1)
-    this.onFlowStart = opts.onFlowStart || function () {} // 펜 누름 → studio가 음악/시계 시작
-    this.onFlowEnd = opts.onFlowEnd || function () {} // 펜 뗌/끝 → studio가 음악/시계 정지
     this.currentStroke = null // 그리는 중인 획
     this.notes = []
     this.hits = []
     this.isDrawing = false
     this.eraseMode = false // 지우개 모드
     this.eraseRadius = 0.035 // 정규화 반경
+    this.flowMode = false
+    this.flowActive = false
+    this.flowY = 0.5
     this.pixelRatio = 1
     this.lastPreviewAt = 0
     this.lastPreviewY = null
@@ -154,6 +168,18 @@
     this.canvas.style.cursor = this.eraseMode ? "cell" : "crosshair"
   }
 
+  // 따라 그리기: 가로(시간)는 studio의 시계가 기록하고, 펜은 세로(음높이)만 조절한다.
+  DrawingCanvas.prototype.setFlowMode = function (on) {
+    this.flowMode = !!on
+    if (this.flowMode) {
+      this._stopAutoScroll()
+      this.canvas.style.cursor = "ns-resize"
+    } else {
+      this.finishFlowStroke(false)
+      this.canvas.style.cursor = this.eraseMode ? "cell" : "crosshair"
+    }
+  }
+
   DrawingCanvas.prototype.setAccent = function (color) {
     this.accent = color
     this.render()
@@ -162,68 +188,6 @@
   // 다음에 그릴 획에 입힐 악기. 이미 그린 획은 바뀌지 않는다.
   DrawingCanvas.prototype.setActiveInstrument = function (id) {
     this.activeInstrument = id != null ? id : null
-  }
-
-  // --- 따라 그리기(흐름 모드) ---
-  // ON이면 펜은 음높이(y)만 정하고, 가로(시간)는 studio가 flowRecord(진행도)로 끌고 간다.
-  DrawingCanvas.prototype.setFlowMode = function (on) {
-    this.flowMode = !!on
-    if (on) this._stopAutoScroll()
-    else this.finishFlowStroke(false)
-  }
-
-  // 펜을 누르면 흐름 한 줄 시작(한 줄=한 악기). studio에 onFlowStart로 음악/시계 시작을 알린다.
-  DrawingCanvas.prototype._startFlowStroke = function (p) {
-    const active = this.activeInstrument
-    if (
-      active != null &&
-      this.strokeInstruments.indexOf(active) === -1 &&
-      this.distinctInstrumentCount() >= this.maxInstruments
-    ) {
-      this.isDrawing = false
-      this.onInstrumentLimit(this.maxInstruments)
-      return
-    }
-    this._pushUndo()
-    this.flowY = p.y
-    this.flowActive = true
-    this.currentStroke = [{ x: 0, y: p.y }] // 펜을 누른 순간 = 진행도 0
-    this.strokes.push(this.currentStroke)
-    this.strokeInstruments.push(active)
-    this._previewStart(p)
-    this.render()
-    this.onFlowStart()
-  }
-
-  // studio가 매 프레임 진행도(0..1)를 넘긴다 → 현재 음높이를 그 시간 위치에 기록(x 단조 증가).
-  DrawingCanvas.prototype.flowRecord = function (progress) {
-    if (!this.flowMode || !this.flowActive || !this.currentStroke) return
-    const x = clamp(progress, 0, 1)
-    const stroke = this.currentStroke
-    const last = stroke[stroke.length - 1]
-    const y = this.flowY == null ? (last ? last.y : 0.5) : this.flowY
-    if (!last || x > last.x) stroke.push({ x: x, y: y })
-    else stroke[stroke.length - 1] = { x: last.x, y: y } // 같은 시간이면 음높이만 갱신
-    this.renderStrokeOnly()
-  }
-
-  // 흐름 한 줄 종료(펜 뗌 또는 끝 도달). onFlowEnd는 호출하지 않는다(호출부가 정리).
-  DrawingCanvas.prototype.endFlowStroke = function () {
-    if (!this.flowActive) return
-    this.flowActive = false
-    this.currentStroke = null
-    this.compute()
-    this.render()
-    this.onChange()
-  }
-
-  DrawingCanvas.prototype.finishFlowStroke = function (notifyFlowEnd) {
-    const hadFlow = this.flowActive
-    this.endFlowStroke()
-    if (!hadFlow) return false
-    this.onPreviewEnd()
-    if (notifyFlowEnd) this.onFlowEnd()
-    return true
   }
 
   DrawingCanvas.prototype.getStrokeInstruments = function () {
@@ -254,6 +218,64 @@
     if (id != null && WIND_INSTRUMENTS[id]) return "bar"
     if (id != null && STRING_INSTRUMENTS[id]) return "line"
     return "bar"
+  }
+
+  DrawingCanvas.prototype._startFlowStroke = function (p) {
+    const active = this.activeInstrument
+    if (
+      active != null &&
+      this.strokeInstruments.indexOf(active) === -1 &&
+      this.distinctInstrumentCount() >= this.maxInstruments
+    ) {
+      this.isDrawing = false
+      this.onInstrumentLimit(this.maxInstruments)
+      return false
+    }
+    this._pushUndo()
+    this.isDrawing = true
+    this.flowActive = true
+    this.flowY = clamp(p && p.y != null ? p.y : this.flowY, 0, 1)
+    this.currentStroke = [{ x: 0, y: this.flowY }]
+    this.strokes.push(this.currentStroke)
+    this.strokeInstruments.push(active)
+    this._previewStart(this.currentStroke[0])
+    this.onFlowStart()
+    this.render()
+    return true
+  }
+
+  DrawingCanvas.prototype.flowRecord = function (progress) {
+    if (!this.flowActive || !this.currentStroke) return false
+    const x = clamp(Number(progress) || 0, 0, 1)
+    const y = clamp(this.flowY, 0, 1)
+    const stroke = this.currentStroke
+    const last = stroke[stroke.length - 1]
+    if (last && Math.abs(last.x - x) < 1e-4) {
+      last.y = y
+    } else if (!last || x > last.x) {
+      stroke.push({ x: x, y: y })
+    } else {
+      return false
+    }
+    this._preview({ x: x, y: y }, false)
+    this.compute()
+    this.renderStrokeOnly()
+    this.onChange()
+    return true
+  }
+
+  DrawingCanvas.prototype.finishFlowStroke = function (notifyFlowEnd) {
+    if (!this.flowActive) return false
+    this.flowActive = false
+    this.isDrawing = false
+    this.pendingUndoSnapshot = null
+    this.currentStroke = null
+    this.onPreviewEnd()
+    if (notifyFlowEnd) this.onFlowEnd()
+    this.compute()
+    this.render()
+    this.onChange()
+    return true
   }
 
   function cleanStroke(stroke) {
@@ -314,7 +336,6 @@
     const snapshot = this.undoStack.pop()
     this.pendingUndoSnapshot = null
     this.isDrawing = false
-    this.flowActive = false
     this.currentStroke = null
     this._stopAutoScroll()
     this.strokes = (snapshot.strokes || []).map(cleanStroke).filter((s) => s.length > 0)
@@ -425,7 +446,6 @@
         self.canvas.setPointerCapture(e.pointerId)
       } catch (err) {}
       if (self.flowMode) {
-        // 따라 그리기: 펜을 누르면 음악/시계가 시작되고, 가로는 시간이 끌고 간다(펜은 음높이만).
         self._startFlowStroke(p)
         return
       }
@@ -459,11 +479,10 @@
       self._lastClientX = e.clientX
       self._lastClientY = e.clientY
       if (self.flowMode) {
-        // 흐름 중엔 가로(시간)는 무시하고 음높이(y)만 갱신 — 기록은 flowRecord가 한다.
         if (self.flowActive) {
           const fp = self._point(e)
           self.flowY = fp.y
-          self._preview(fp, false)
+          self._preview({ x: self.currentStroke ? self.currentStroke[self.currentStroke.length - 1].x : 0, y: fp.y }, false)
         }
         return
       }
@@ -474,11 +493,11 @@
     })
     const finish = function () {
       if (!self.isDrawing) return
-      self.isDrawing = false
-      if (self.flowMode) {
-        self.finishFlowStroke(true) // studio가 음악/시계 정지
+      if (self.flowMode && self.flowActive) {
+        self.finishFlowStroke(true)
         return
       }
+      self.isDrawing = false
       self.pendingUndoSnapshot = null
       self._stopAutoScroll()
       if (!self.eraseMode) self.onPreviewEnd()
@@ -685,6 +704,29 @@
     if (typeof ctx.save === "function") ctx.save()
     ctx.fillStyle = "rgba(251,246,236,0.92)"
     ctx.fillRect(0, 0, labelGutter, H)
+    for (let i = 0; i < labelScale.length; i++) {
+      const bounds = pitchRowBoundsY(i, labelScale.length, H)
+      const midi = labelScale[i]
+      const inSelectedScale = midi != null && scale.indexOf(midi) !== -1
+      ctx.fillStyle =
+        midi == null
+          ? "rgba(31,38,38,0.028)"
+          : inSelectedScale
+            ? "rgba(255,255,255,0.34)"
+            : i % 2
+              ? "rgba(31,38,38,0.014)"
+              : "rgba(31,38,38,0.022)"
+      ctx.fillRect(0, bounds.top, labelGutter, Math.max(0, bounds.bottom - bounds.top))
+    }
+    ctx.strokeStyle = "rgba(31,38,38,0.12)"
+    ctx.lineWidth = 1 * px
+    for (let i = 0; i <= labelScale.length; i++) {
+      const y = pitchRowBoundaryY(i, labelScale.length, H)
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(labelGutter, y)
+      ctx.stroke()
+    }
     ctx.font = "700 " + fontSize + "px sans-serif"
     ctx.textAlign = "right"
     ctx.textBaseline = "middle"
@@ -839,6 +881,7 @@
   }
 
   DrawingCanvas.pitchLabelsForStyle = pitchLabelsForStyle
+  DrawingCanvas.pitchRowsForStyle = pitchRowsForStyle
 
   root.DrawingCanvas = DrawingCanvas
 })(typeof self !== "undefined" ? self : this)

@@ -110,7 +110,8 @@ check("배경 추가 카드 1개", qc("#atmosphereGrid .upload-card") === 1, qc(
 const findMusicLink = window.document.querySelector("#atmosphereGrid .upload-action-secondary")
 check("찾아보기 버튼은 Pixabay Music으로 연결", findMusicLink && findMusicLink.getAttribute("href") === "https://pixabay.com/music/")
 check("찾아보기 버튼은 새 탭으로 열림", findMusicLink && findMusicLink.getAttribute("target") === "_blank")
-check("악기 카드(서양) 9개", qc("#instrumentGrid .card") === 9, qc("#instrumentGrid .card"))
+const westernInstrumentCount = window.SDStudioData.instruments.filter((instrument) => instrument.group === "서양").length
+check("악기 카드(서양) 매니페스트 수와 일치", qc("#instrumentGrid .card") === westernInstrumentCount, qc("#instrumentGrid .card"))
 check("전자 악기 그룹 제거", qc("#instrumentGroups .group-tab") === 2, qc("#instrumentGroups .group-tab"))
 check("신디 선택지 제거", window.SDStudioData.instruments.every((instrument) => instrument.id !== "synth"))
 check("스타일 선택 카드 제거", qc("#styleGrid") === 0, qc("#styleGrid"))
@@ -208,8 +209,23 @@ check("지우개로 쪼갠 획도 악기 유지(cello)", splitInsts.length >= 2 
 // 배경음악 미니 플레이어 — 요소 존재 + 레시피에 bgOffset(기본 0) 포함
 check(
   "배경음악 플레이어 요소 존재",
-  qc("#bgPlayer") === 1 && qc("#bgPlayBtn") === 1 && qc("#bgSeek") === 1 && qc("#bgEndSeek") === 1,
-  qc("#bgPlayer") + "/" + qc("#bgPlayBtn") + "/" + qc("#bgSeek") + "/" + qc("#bgEndSeek"),
+  qc("#bgPlayer") === 1 &&
+    qc("#bgPlayBtn") === 1 &&
+    qc("#bgSeek") === 1 &&
+    qc("#bgEndSeek") === 1 &&
+    qc("#bgStartInput") === 1 &&
+    qc("#bgEndInput") === 1,
+  qc("#bgPlayer") +
+    "/" +
+    qc("#bgPlayBtn") +
+    "/" +
+    qc("#bgSeek") +
+    "/" +
+    qc("#bgEndSeek") +
+    "/" +
+    qc("#bgStartInput") +
+    "/" +
+    qc("#bgEndInput"),
 )
 check("레시피에 bgOffset 포함(기본 0)", SD.buildRecipe().bgOffset === 0, SD.buildRecipe().bgOffset)
 check("레시피에 bgEndOffset 포함(기본 0)", SD.buildRecipe().bgEndOffset === 0, SD.buildRecipe().bgEndOffset)
@@ -317,7 +333,7 @@ check(
   "배경음이 켜지면 재생 버튼이 일시정지 상태",
   window.document.getElementById("playBtn").classList.contains("active") &&
     window.document.getElementById("playBtn").querySelector("span").textContent === "❚❚" &&
-    window.document.getElementById("playBtn").getAttribute("aria-label") === "일시정지",
+    window.document.getElementById("playBtn").getAttribute("aria-label") === "전체곡 일시정지",
 )
 check("완성 페이지 음악 멈춤 버튼도 활성화", window.document.getElementById("completeStopBtn").disabled === false)
 SD.setStep(3)
@@ -325,7 +341,7 @@ check(
   "배경음이 꺼진 뒤 재생 버튼은 재생 상태",
   !window.document.getElementById("playBtn").classList.contains("active") &&
     window.document.getElementById("playBtn").querySelector("span").textContent === "▶" &&
-    window.document.getElementById("playBtn").getAttribute("aria-label") === "재생",
+    window.document.getElementById("playBtn").getAttribute("aria-label") === "전체곡 재생",
 )
 check("완성 페이지 음악 멈춤 버튼 비활성화", window.document.getElementById("completeStopBtn").disabled === true)
 let copiedShareUrl = ""
@@ -401,8 +417,9 @@ SD.loadRecipe({
   bgEndOffset: 8,
   path: [],
 })
-check("기본 배경 loadRecipe는 구간 값을 버림", SD.buildRecipe().bgEndOffset === 0, SD.buildRecipe().bgEndOffset)
-check("기본 배경은 구간 선택 슬라이더 숨김", window.document.querySelector(".bg-range").hidden === true)
+check("기본 배경 loadRecipe는 구간 시작 복원", SD.buildRecipe().bgOffset === 2, SD.buildRecipe().bgOffset)
+check("기본 배경 loadRecipe는 구간 끝 복원", SD.buildRecipe().bgEndOffset === 8, SD.buildRecipe().bgEndOffset)
+check("기본 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
 
 SD.loadRecipe({
   duration: 45,
@@ -422,7 +439,7 @@ SD.loadRecipe({
   ],
 })
 s = SD.getStateSummary()
-check("loadRecipe 길이 30 고정(옛 45초 레시피도 정규화)", s.duration === 30, s.duration)
+check("loadRecipe 길이 45초 유지", s.duration === 45, s.duration)
 check("loadRecipe는 옛 믹스 값을 기본값으로 고정", s.version === "balanced", s.version)
 check("loadRecipe 악기 daegeum", s.instrument === "daegeum")
 check("loadRecipe 무드색 적용", window.document.documentElement.style.getPropertyValue("--accent") === "#6b8f9c")

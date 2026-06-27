@@ -959,21 +959,48 @@ p {
   min-height: 420px;
   border-radius: 12px 0 0 12px;
   background: rgba(251, 246, 236, 0.94);
+  overflow: hidden;
   pointer-events: none;
   z-index: 6;
+}
+.pitch-label-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid rgba(31, 38, 38, 0.12);
+  background: rgba(31, 38, 38, 0.018);
+}
+.pitch-label-row:nth-of-type(even) {
+  background: rgba(31, 38, 38, 0.012);
+}
+.pitch-label-row.selected {
+  background: rgba(255, 255, 255, 0.34);
+}
+.pitch-label-row.silent {
+  background: rgba(31, 38, 38, 0.028);
 }
 .pitch-label {
   position: absolute;
   right: 9px;
   transform: translateY(-50%);
-  color: rgba(31, 38, 38, 0.5);
-  font-size: 0.72rem;
-  font-weight: 800;
+  z-index: 2;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(251, 246, 236, 0.78);
+  color: rgba(31, 38, 38, 0.64);
+  font-size: 0.75rem;
+  font-weight: 900;
   line-height: 1;
   white-space: nowrap;
 }
 .pitch-label.selected {
-  color: rgba(31, 38, 38, 0.74);
+  color: rgba(31, 38, 38, 0.88);
+}
+.pitch-label.edge-high {
+  transform: translateY(0);
+}
+.pitch-label.edge-low {
+  transform: translateY(-100%);
 }
 .effect-stamp-layer {
   position: absolute;
@@ -1046,13 +1073,14 @@ p {
   position: absolute;
   top: 14px;
   bottom: 18px;
-  width: 2.5px;
-  margin-left: -1.25px;
+  width: 18px;
+  margin-left: -9px;
   border-radius: 2px;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent-line);
-  pointer-events: none;
-  z-index: 3;
+  background: transparent;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: ew-resize;
+  z-index: 6;
 }
 .playhead::before {
   content: "";
@@ -1063,6 +1091,21 @@ p {
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
   border-top: 8px solid var(--accent);
+}
+.playhead::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2.5px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-line);
+}
+.playhead:focus-visible::after {
+  box-shadow: 0 0 0 3px rgba(251, 246, 236, 0.84), 0 0 0 5px var(--accent-line);
 }
 
 #penBtn.active,
@@ -1112,18 +1155,19 @@ p {
 .bg-play-btn {
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
   border-radius: 50%;
-  border: 1px solid transparent;
-  background: var(--ink);
-  color: var(--canvas);
+  border: 1px solid var(--accent-line);
+  background: var(--canvas);
+  color: var(--accent);
   box-shadow: var(--shadow-sm);
-  transition: background 140ms ease, transform 140ms ease;
+  transition: background 140ms ease, transform 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 .bg-play-btn:hover {
   transform: translateY(-1px);
+  border-color: var(--accent);
 }
 .bg-play-btn:active,
 .bg-play-btn.pressing {
@@ -1133,18 +1177,26 @@ p {
 .bg-play-btn.pressing {
   background: var(--accent);
   color: #fff;
+  border-color: transparent;
   box-shadow: 0 8px 20px rgba(32, 41, 42, 0.16);
 }
 .bg-player-label {
   font-weight: 800;
-  color: var(--muted);
+  color: var(--ink);
   white-space: nowrap;
+}
+.bg-range-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 360px;
+  min-width: 280px;
 }
 .bg-range {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1 1 340px;
+  flex: 1 1 auto;
   min-width: 220px;
 }
 .bg-range[hidden] {
@@ -1169,30 +1221,39 @@ p {
   font-size: 0.9rem;
   white-space: nowrap;
 }
-.flow-btn {
-  min-height: 38px;
+.bg-time-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex: 0 0 auto;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  background: var(--canvas);
-  color: var(--ink);
-  font-size: 0.88rem;
+}
+.bg-time-inputs[hidden] {
+  display: none;
+}
+.bg-time-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
   font-weight: 900;
   white-space: nowrap;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
 }
-.flow-btn:hover {
-  transform: translateY(-1px);
+.bg-time-field input {
+  width: 58px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.bg-time-field input:focus {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
   border-color: var(--accent);
-}
-.flow-btn.active {
-  border-color: transparent;
-  background: var(--accent);
-  color: #fff;
-}
-body[data-flow="on"] #drawingCanvas {
-  cursor: ns-resize;
 }
 /* 오케스트라 범례 — 지금 곡에 쓰인 악기(색·줄 수) + 다음에 그릴 악기 */
 .orchestra-legend {

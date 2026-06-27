@@ -4,7 +4,7 @@ const core = require("../js/music-core.js")
 
 const C_MAJOR = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11] }
 const C_MAJOR_LIMITED = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 60, highMidi: 72 }
-const G3_G5_WITH_SILENT_EDGES = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 55, highMidi: 79, silentEdgeRows: 1 }
+const G3_G5 = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 55, highMidi: 79 }
 
 // --- Task 1: scale / pitch / time resampling ---
 
@@ -29,11 +29,11 @@ test("buildScale: 악기별 권장 음역을 적용", () => {
   assert.strictEqual(core.quantizePitch(1, C_MAJOR_LIMITED), 60)
 })
 
-test("quantizePitch: 무음 여백 줄은 음을 만들지 않는다", () => {
-  assert.strictEqual(core.quantizePitch(0.01, G3_G5_WITH_SILENT_EDGES), null)
-  assert.strictEqual(core.quantizePitch(0.99, G3_G5_WITH_SILENT_EDGES), null)
-  assert.strictEqual(core.quantizePitch(1 / 16, G3_G5_WITH_SILENT_EDGES), 79)
-  assert.strictEqual(core.quantizePitch(15 / 16, G3_G5_WITH_SILENT_EDGES), 55)
+test("quantizePitch: G3..G5 축의 맨 위와 맨 아래도 음을 만든다", () => {
+  assert.strictEqual(core.quantizePitch(0, G3_G5), 79)
+  assert.strictEqual(core.quantizePitch(1, G3_G5), 55)
+  assert.strictEqual(core.quantizePitch(0.01, G3_G5), 79)
+  assert.strictEqual(core.quantizePitch(0.99, G3_G5), 55)
 })
 
 test("resampleByTime: 그리는 속도와 무관 — 점 밀도가 달라도 같은 결과", () => {
@@ -63,11 +63,12 @@ test("autocompleteMelody: 제한 음역 밖으로 음을 만들지 않음", () =
   assert.ok(notes.every((n) => n.midi >= 60 && n.midi <= 72))
 })
 
-test("autocompleteMelody: 위아래 무음 여백은 쉼표로 둔다", () => {
+test("autocompleteMelody: 위아래 가장자리도 선율 음으로 만든다", () => {
   const path = [{ x: 0, y: 0.01 }, { x: 1, y: 0.01 }]
-  const notes = core.autocompleteMelody(path, { durationSec: 12, style: G3_G5_WITH_SILENT_EDGES })
+  const notes = core.autocompleteMelody(path, { durationSec: 12, style: G3_G5 })
 
-  assert.deepStrictEqual(notes, [])
+  assert.ok(notes.length > 0)
+  assert.ok(notes.every((n) => n.midi === 79))
 })
 
 test("autocompleteMelody keeps un-drawn timeline sections empty", () => {

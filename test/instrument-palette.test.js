@@ -25,7 +25,7 @@ test("서양 악기 목록은 목관, 금관, 현악기 순서를 유지한다",
     .filter((instrument) => instrument.group === "서양")
     .map((instrument) => instrument.label)
 
-  assert.deepEqual(westernLabels, ["플루트", "오보에", "클라리넷", "호른", "만돌린", "바이올린", "비올라", "첼로", "더블베이스"])
+  assert.deepEqual(westernLabels, ["플루트", "오보에", "클라리넷", "호른", "바이올린", "비올라", "첼로", "더블베이스"])
 })
 
 test("국악 악기는 요청한 다섯 악기만 지정 순서로 보여준다", () => {
@@ -42,7 +42,6 @@ test("악기별 실제 재생 음역 규칙을 manifest에 선언한다", () => 
   assert.equal(data.melodies.flute.playbackTranspose, 12)
   assert.equal(data.melodies.oboe.playbackTranspose, 12)
   assert.equal(data.melodies.clarinet.playbackTranspose, 0)
-  assert.equal(data.melodies.mandolin.playbackTranspose, 0)
   assert.equal(data.melodies.violin.playbackTranspose, 0)
   assert.equal(data.melodies.viola.playbackTranspose, 0)
   assert.equal(data.melodies.frenchHorn.playbackTranspose, -12)
@@ -52,13 +51,13 @@ test("악기별 실제 재생 음역 규칙을 manifest에 선언한다", () => 
   assert.deepEqual(plain(data.melodies.ajaeng.playableMidi), [55, 57, 60, 62, 64, 67, 69])
 })
 
-test("팔레트 스타일은 기본 음역 G3부터 G5까지와 위아래 무음 줄을 가진다", () => {
+test("팔레트 스타일은 무음 줄 없이 기본 음역 G3부터 G5까지를 쓴다", () => {
   const data = loadManifest()
 
   for (const style of data.styles) {
     assert.equal(style.lowMidi, 55, style.label)
     assert.equal(style.highMidi, 79, style.label)
-    assert.equal(style.silentEdgeRows, 1, style.label)
+    assert.equal(style.silentEdgeRows || 0, 0, style.label)
   }
 })
 
@@ -73,15 +72,26 @@ test("작곡 악기 목록은 선택 악기를 맨 앞으로 재정렬하지 않
   assert.doesNotMatch(renderComposeInstruments, /\.sort\([\s\S]*state\.instrument\.id/)
 })
 
-test("배경음악 구간 선택은 업로드한 배경 음원에만 열린다", () => {
+test("배경음악 구간 선택은 src가 있는 배경 음원에 열린다", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
-  assert.match(source, /function canSelectBgRange\(\)[\s\S]*bg\.custom/)
+  assert.match(source, /function canSelectBgRange\(\)[\s\S]*bg && bg\.src/)
   assert.match(source, /bgRange\.hidden = !canSelectRange/)
   assert.match(css, /\.bg-range\[hidden\][\s\S]*display:\s*none/)
   assert.match(source, /bgOffset: recipeBgOffset\(\)/)
   assert.match(source, /bgEndOffset: recipeBgEndOffset\(\)/)
+})
+
+test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", () => {
+  const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+
+  assert.doesNotMatch(html, /id="composePlay"/)
+  assert.doesNotMatch(html, /id="framePlay"/)
+  assert.doesNotMatch(source, /composePlay/)
+  assert.doesNotMatch(source, /framePlay/)
+  assert.match(html, /id="playBtn"[\s\S]*aria-label="전체곡 재생"/)
 })
 
 test("드로잉 화면에서 믹스 선택 UI를 제거한다", () => {
@@ -109,7 +119,7 @@ test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () =>
   assert.match(resetCompose, /setupBgPlayer\(true\)/)
 })
 
-test("레시피 불러오기도 업로드 배경 구간 설정을 유지한다", () => {
+test("레시피 불러오기도 배경 구간 설정과 길이를 유지한다", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const start = source.indexOf("function loadRecipe(recipe)")
   const end = source.indexOf("// --- 내보내기 ---", start)
@@ -117,6 +127,7 @@ test("레시피 불러오기도 업로드 배경 구간 설정을 유지한다",
 
   assert.ok(start >= 0)
   assert.ok(end > start)
-  assert.match(loadRecipe, /state\.bgEndOffset = recipe\.bgEndOffset \|\| 0/)
+  assert.match(loadRecipe, /state\.duration = normalizeDuration\(recipe\.duration \|\| DEFAULT_DURATION_SECONDS\)/)
+  assert.match(loadRecipe, /state\.bgEndOffset = Math\.max\(0, Number\(recipe\.bgEndOffset\) \|\| 0\)/)
   assert.match(loadRecipe, /setupBgPlayer\(true\)/)
 })

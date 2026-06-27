@@ -106,17 +106,18 @@ test("renderNotes keeps stroke instrument colors and renders strings as lines", 
   assert.ok(fluteFills.length >= 1, "wind instruments should keep the filled bar treatment")
 })
 
-test("pitch rendering keeps non-label pitches inside the audible palette rows", () => {
+test("pitch rendering places edge pitches on the full G3..G5 axis", () => {
   const DrawingCanvas = loadDrawing()
   const ctx = makeContext()
   const draw = new DrawingCanvas(makeCanvas(ctx), {
     getState: () => ({ duration: 30, style: {}, mode: "melody" }),
   })
 
-  const y = draw._pitchToY(56, [56, 58, 60])
+  assert.equal(draw._pitchToY(55, [55, 57, 60, 79]), draw.canvas.height)
+  assert.equal(draw._pitchToY(79, [55, 57, 60, 79]), 0)
 
-  assert.ok(y < draw.canvas.height, "lowest audible pitch should stay above the bottom silent row")
-  assert.ok(y > 0, "audible pitch should stay below the top silent row")
+  const y = draw._pitchToY(56, [56, 58, 60])
+  assert.equal(y, draw.canvas.height, "lowest playable non-label pitch should use the bottom axis edge")
 })
 
 test("renderGrid draws pitch-row cells without timeline vertical lines", () => {
@@ -152,7 +153,10 @@ test("renderGrid draws pitch-row cells without timeline vertical lines", () => {
 test("sticky pitch axis exposes natural note labels from G3 to G5", () => {
   const DrawingCanvas = loadDrawing()
 
-  const labels = JSON.parse(JSON.stringify(DrawingCanvas.pitchLabelsForStyle({}).map((label) => label.label)))
+  const pitchLabels = DrawingCanvas.pitchLabelsForStyle({})
+  const labels = JSON.parse(JSON.stringify(pitchLabels.map((label) => label.label)))
 
   assert.deepEqual(labels, ["G3", "A3", "B3", "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5"])
+  assert.equal(pitchLabels[0].top, 100)
+  assert.equal(pitchLabels[pitchLabels.length - 1].top, 0)
 })

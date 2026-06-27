@@ -49,7 +49,6 @@
     viola: { label: "비올라", group: "서양", src: "sound/선율-서양(필하모니아)/현/viola/viola_Cs5.mp3", sampleMode: "multi", baseMidi: 73, lowMidi: 48, highMidi: 98, playbackTranspose: 0, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth" },
     cello: { label: "첼로", group: "서양", src: "sound/선율-서양(필하모니아)/현/cello/cello_C4.mp3", sampleMode: "multi", baseMidi: 60, lowMidi: 36, highMidi: 84, playbackTranspose: -12, minRate: 0.62, maxRate: 1.9, waveform: "triangle" },
     doubleBass: { label: "더블베이스", group: "서양", src: "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_As2.mp3", sampleMode: "multi", baseMidi: 46, lowMidi: 24, highMidi: 67, playbackTranspose: -24, minRate: 0.72, maxRate: 1.9, waveform: "triangle" },
-    mandolin: { label: "만돌린", group: "서양", src: "sound/선율-서양(필하모니아)/현/mandolin/mandolin_D5.mp3", sampleMode: "multi", baseMidi: 74, lowMidi: 55, highMidi: 93, playbackTranspose: 0, tremoloAfter: 1, minRate: 0.55, maxRate: 1.9, waveform: "triangle" },
     clarinet: { label: "클라리넷", group: "서양", src: "sound/선율-서양(필하모니아)/관/clarinet/clarinet_Cs5.mp3", sampleMode: "multi", baseMidi: 73, lowMidi: 50, highMidi: 96, playbackTranspose: 0, minRate: 0.55, maxRate: 1.9, waveform: "square" },
     oboe: { label: "오보에", group: "서양", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_E5.mp3", sampleMode: "multi", baseMidi: 76, lowMidi: 58, highMidi: 94, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth" },
     flute: { label: "플루트", group: "서양", src: "sound/선율-서양(필하모니아)/관/flute/flute_A5.mp3", sampleMode: "multi", baseMidi: 81, lowMidi: 60, highMidi: 101, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sine" },
@@ -117,7 +116,6 @@
     { id: "oboe", group: "서양", label: "오보에", detail: "뚜렷한 관악 소리", waveform: "sawtooth", image: "./assets/instruments/oboe.png" },
     { id: "clarinet", group: "서양", label: "클라리넷", detail: "둥글고 부드러운 목관 소리", waveform: "square", image: "./assets/instruments/clarinet.png" },
     { id: "frenchHorn", group: "서양", label: "호른", detail: "긴 호흡의 관악", waveform: "triangle", image: "./assets/instruments/french-horn.png" },
-    { id: "mandolin", group: "서양", label: "만돌린", detail: "통통 튕기는 발현 현악", waveform: "triangle", image: "./assets/instruments/mandolin.png" },
     { id: "violin", group: "서양", label: "바이올린", detail: "밝고 선명한 소리", waveform: "sawtooth", image: "./assets/instruments/violin.png" },
     { id: "viola", group: "서양", label: "비올라", detail: "중음역의 안정된 현악", waveform: "sawtooth", image: "./assets/instruments/viola.png" },
     { id: "cello", group: "서양", label: "첼로", detail: "낮고 따뜻한 소리", waveform: "triangle", image: "./assets/instruments/cello.png" },
@@ -172,15 +170,15 @@
   // 으뜸음을 도(C, 60)로 통일해 "음계의 성격(장/단/온음/펜타)"이 실제로 다르게 들리도록 한다.
   // (예전엔 C장조·A단조·D도리안이 모두 흰건반 같은 집합이라 동일하게 들렸음)
   // 팔레트 기본 음역은 G3..G5로 통일한다.
-  // 맨 아래와 맨 위에는 silentEdgeRows 만큼 소리 나지 않는 빈 줄을 둔다.
-  // 음 간격이 넓어져, 자유롭게 그려도 "연결된" 선율로 들린다(캔버스 맨 아래=낮은 으뜸음).
+  // 캔버스 맨 아래는 G3, 맨 위는 G5로 바로 대응한다.
+  // 음 간격이 넓어져, 자유롭게 그려도 "연결된" 선율로 들린다.
   // 기본값(맨 앞)은 펜타토닉 — 반음이 없어 어떤 순서로 그려도 어울려 "틀린 음"이 안 난다(칸딘스키 뮤직랩 방식).
   const styles = [
-    { id: "natural", label: "자연스러움", scaleName: "C Pentatonic", root: 60, intervals: [0, 2, 4, 7, 9], lowMidi: 55, highMidi: 79, silentEdgeRows: 1, detail: "5음 음계 — 막힘 없는 울림", gugak: false },
-    { id: "bright", label: "밝음", scaleName: "C Major", root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 55, highMidi: 79, silentEdgeRows: 1, detail: "장음계 — 밝고 안정적", gugak: false },
-    { id: "calm", label: "차분함", scaleName: "C Minor", root: 60, intervals: [0, 2, 3, 5, 7, 8, 10], lowMidi: 55, highMidi: 79, silentEdgeRows: 1, detail: "단음계 — 어둡고 차분", gugak: false },
-    { id: "mystic", label: "신비로움", scaleName: "C Whole Tone", root: 60, intervals: [0, 2, 4, 6, 8, 10], lowMidi: 55, highMidi: 79, silentEdgeRows: 1, detail: "온음음계 — 몽환적·붕 뜬 느낌", gugak: false },
-    { id: "gugak", label: "국악풍", scaleName: "G Pentatonic + 시김새", root: 55, intervals: [0, 2, 5, 7, 9], lowMidi: 55, highMidi: 79, silentEdgeRows: 1, detail: "전통 5음계 — 꺾음·흘러내림·떠는음", gugak: true },
+    { id: "natural", label: "자연스러움", scaleName: "C Pentatonic", root: 60, intervals: [0, 2, 4, 7, 9], lowMidi: 55, highMidi: 79, detail: "5음 음계 — 막힘 없는 울림", gugak: false },
+    { id: "bright", label: "밝음", scaleName: "C Major", root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 55, highMidi: 79, detail: "장음계 — 밝고 안정적", gugak: false },
+    { id: "calm", label: "차분함", scaleName: "C Minor", root: 60, intervals: [0, 2, 3, 5, 7, 8, 10], lowMidi: 55, highMidi: 79, detail: "단음계 — 어둡고 차분", gugak: false },
+    { id: "mystic", label: "신비로움", scaleName: "C Whole Tone", root: 60, intervals: [0, 2, 4, 6, 8, 10], lowMidi: 55, highMidi: 79, detail: "온음음계 — 몽환적·붕 뜬 느낌", gugak: false },
+    { id: "gugak", label: "국악풍", scaleName: "G Pentatonic + 시김새", root: 55, intervals: [0, 2, 5, 7, 9], lowMidi: 55, highMidi: 79, detail: "전통 5음계 — 꺾음·흘러내림·떠는음", gugak: true },
   ]
 
   // 믹스 변형 — 한 시도(테이크)를 다른 균형으로 들어보는 옵션

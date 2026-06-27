@@ -10,6 +10,8 @@
   const engine = new window.AudioEngine()
   const takes = new window.TakesStore("sda.takes")
   const SEGMENT_SECONDS = 10
+  const DEFAULT_DURATION_SECONDS = 30
+  const MIN_DURATION_SECONDS = 1
   const DEFAULT_COVER_SRC = "./assets/default-cover.png"
   const ADMIN_STORAGE_KEY = "sda.adminMode"
   const TAKE_NAME_MAX = 24
@@ -44,7 +46,7 @@
   }
 
   const state = {
-    duration: 30,
+    duration: DEFAULT_DURATION_SECONDS,
     atmosphere: D.atmospheres[0],
     instrument: D.instruments[0],
     style: defaultStyle(),
@@ -72,8 +74,8 @@
   bgPreview.preload = "none"
   let customBgSeq = 0
 
-  // 드로잉(3단계) 배경음악 — 전용 <audio>로 재생/일시정지. 업로드 배경만 슬라이더로 구간을 고른다.
-  // 업로드 배경 재생 시 [bgOffset, bgEndOffset] 구간을 반복하고, 그 구간이 최종 곡에도 반영된다.
+  // 드로잉(3단계) 배경음악 — 전용 <audio>로 재생/일시정지.
+  // [bgOffset, bgEndOffset] 구간을 반복하고, 그 구간 길이가 최종 곡 길이가 된다.
   const bgPlayer = new Audio()
   bgPlayer.preload = "auto"
   bgPlayer.volume = 0.55
@@ -117,12 +119,13 @@
     bgPlayBtn: $("bgPlayBtn"),
     bgSeek: $("bgSeek"),
     bgEndSeek: $("bgEndSeek"),
+    bgStartInput: $("bgStartInput"),
+    bgEndInput: $("bgEndInput"),
     bgTime: $("bgTime"),
     penBtn: $("penBtn"),
     clearBtn: $("clearBtn"),
     undoBtn: $("undoBtn"),
     resetComposeBtn: $("resetComposeBtn"),
-    flowBtn: $("flowBtn"),
     scaleReadout: $("scaleReadout"),
     rhythmReadout: $("rhythmReadout"),
     noteReadout: $("noteReadout"),
@@ -134,7 +137,6 @@
     frame: $("frame"),
     frameImg: $("frameImg"),
     frameCanvas: $("frameCanvas"),
-    framePlay: $("framePlay"),
     titleInput: $("titleInput"),
     placardMeta: $("placardMeta"),
     bgReasonInput: $("bgReasonInput"),
@@ -152,13 +154,12 @@
     takesList: $("takesList"),
     takesCount: $("takesCount"),
     takesEmpty: $("takesEmpty"),
-    composePlay: $("composePlay"),
     audioModeNote: $("audioModeNote"),
   }
 
   // 악기별 줄 색 — 오케스트라에서 어떤 줄이 어떤 악기인지 색으로 구분
   const INSTRUMENT_COLORS = {
-    violin: "#c0504d", viola: "#d18a4e", cello: "#9b5a3c", doubleBass: "#5b4a3a", mandolin: "#b07d4e",
+    violin: "#c0504d", viola: "#d18a4e", cello: "#9b5a3c", doubleBass: "#5b4a3a",
     clarinet: "#4f6fae", oboe: "#5f8d4e", flute: "#4f9bb8", frenchHorn: "#c08a3c",
     daegeum: "#2f8f86", danso: "#6aa39a", sogeum: "#3f93ad", piri: "#b5614b",
     gayageum: "#9a6a3a", ajaeng: "#7a4a5a", haegeum: "#9c5b76",
@@ -203,13 +204,11 @@
     onPreviewEnd: () => {
       engine.liveDrawingEnd()
       if (!engine.isPlaying) {
-        el.statusText.textContent = "대기 중"
+        el.statusText.textContent = "전체곡 대기"
         el.statusText.classList.remove("playing")
         el.body.dataset.livePreview = "idle"
       }
     },
-    onFlowStart: () => startFlowClock(), // 따라 그리기: 펜 누름 → 음악/시계 시작
-    onFlowEnd: () => stopFlowClock(), // 펜 뗌 → 음악/시계 정지
     accent: state.atmosphere.color,
   })
 
@@ -232,6 +231,18 @@
 
   function round3(v) {
     return Math.round(v * 1000) / 1000
+  }
+
+  function normalizeDuration(value) {
+    const n = Number(value)
+    return round3(Math.max(MIN_DURATION_SECONDS, isFinite(n) ? n : DEFAULT_DURATION_SECONDS))
+  }
+
+  function secondsLabel(value) {
+    const n = round3(Math.max(0, Number(value) || 0))
+    const whole = Math.round(n)
+    if (Math.abs(n - whole) < 0.001) return whole + "초"
+    return n.toFixed(1).replace(/\.0$/, "") + "초"
   }
 
   function clampNumber(value, min, max) {
@@ -471,7 +482,7 @@
 
   function canSelectBgRange() {
     const bg = backgroundFor(state.atmosphere)
-    return !!(bg && bg.custom)
+    return !!(bg && bg.src)
   }
 
   function stopBackgroundPreview() {
@@ -582,6 +593,7 @@
       state.atmosphere = a
       state.bgOffset = 0 // 새 배경은 처음(0초)부터
       state.bgEndOffset = 0
+      state.duration = DEFAULT_DURATION_SECONDS
       applyMoodTint()
       syncBgPlayerUI()
       toggleBackgroundPreview(a)
@@ -668,6 +680,7 @@
     state.atmosphere = atmosphere
     state.bgOffset = 0
     state.bgEndOffset = 0
+    state.duration = DEFAULT_DURATION_SECONDS
     applyMoodTint()
     syncBgPlayerUI()
     startBackgroundPreview(atmosphere)
@@ -1046,21 +1059,37 @@
       d.className = "palette-label" + (i === count ? " palette-label-end" : "")
       d.style.left = (i / count) * 100 + "%"
       const time = Math.min(i * SEGMENT_SECONDS, state.duration)
-      d.innerHTML = "<span>" + time + "초</span>"
+      d.innerHTML = "<span>" + secondsLabel(time) + "</span>"
       el.paletteLabels.appendChild(d)
     }
   }
 
   function renderPitchAxisLabels() {
     if (!el.pitchLabels || !window.DrawingCanvas || typeof window.DrawingCanvas.pitchLabelsForStyle !== "function") return
-    const labels = window.DrawingCanvas.pitchLabelsForStyle(state.style)
+    const rows =
+      typeof window.DrawingCanvas.pitchRowsForStyle === "function"
+        ? window.DrawingCanvas.pitchRowsForStyle(state.style)
+        : window.DrawingCanvas.pitchLabelsForStyle(state.style)
     el.pitchLabels.innerHTML = ""
     if (typeof draw.pitchLabelGutterCssPx === "function") {
       el.pitchLabels.style.setProperty("--pitch-label-width", Math.round(draw.pitchLabelGutterCssPx()) + "px")
     }
-    labels.forEach((label) => {
+    rows.forEach((row) => {
+      if (row.rowTop == null || row.rowHeight == null) return
       const d = document.createElement("span")
-      d.className = "pitch-label" + (label.selected ? " selected" : "")
+      d.className = "pitch-label-row" + (row.selected ? " selected" : "") + (!row.label ? " silent" : "")
+      d.style.top = row.rowTop + "%"
+      d.style.height = row.rowHeight + "%"
+      el.pitchLabels.appendChild(d)
+    })
+    rows.forEach((label) => {
+      if (!label.label) return
+      const d = document.createElement("span")
+      d.className =
+        "pitch-label" +
+        (label.selected ? " selected" : "") +
+        (label.top <= 0 ? " edge-high" : "") +
+        (label.top >= 100 ? " edge-low" : "")
       d.style.top = label.top + "%"
       d.textContent = label.label
       el.pitchLabels.appendChild(d)
@@ -1074,6 +1103,7 @@
     draw.render()
     renderPitchAxisLabels()
     renderEffectStamps()
+    if (!engine.isPlaying && bgPlayer.paused) showSelectedPlayhead(false)
     updateReadouts()
   }
 
@@ -1083,7 +1113,7 @@
     el.scaleReadout.textContent = state.instrument.label
     el.rhythmReadout.textContent = draw.getStrokes().length ? draw.getStrokes().length + "개 선" : "그린 선"
     el.noteReadout.textContent = String(draw.notes.length)
-    el.durReadout.textContent = state.duration + "초"
+    el.durReadout.textContent = secondsLabel(state.duration)
     const tags = hashtagText(state.hashtags)
     el.placardMeta.textContent =
       state.atmosphere.label +
@@ -1195,9 +1225,7 @@
     const hasAmbience = !!engine.ambience
     const canPause = playing || paused || hasAmbience
     const activeAudio = (!!playing || hasAmbience) && !paused
-    const activePlayback = !!playing && !paused
-    const pausedPlayback = !!playing && !!paused
-    const playLabel = activeAudio ? "일시정지" : paused ? "이어 재생" : "재생"
+    const playLabel = activeAudio ? "전체곡 일시정지" : paused ? "전체곡 이어 재생" : "전체곡 재생"
     el.playBtn.setAttribute("aria-label", playLabel)
     el.playBtn.title = playLabel
     el.playBtn.classList.toggle("active", activeAudio)
@@ -1205,14 +1233,6 @@
     el.playBtn.setAttribute("aria-pressed", activeAudio ? "true" : "false")
     setIcon(el.playBtn, activeAudio ? "❚❚" : "▶")
     el.stopBtn.setAttribute("aria-pressed", "false")
-    el.composePlay.classList.toggle("playing", activePlayback)
-    el.composePlay.classList.toggle("paused", pausedPlayback)
-    el.composePlay.setAttribute("aria-pressed", activePlayback ? "true" : "false")
-    el.composePlay.textContent = activePlayback ? "❚❚ 일시정지" : pausedPlayback ? "▶ 이어 재생" : "▶ 전체 재생"
-    el.framePlay.classList.toggle("active", activePlayback)
-    el.framePlay.classList.toggle("paused", pausedPlayback)
-    el.framePlay.setAttribute("aria-pressed", activePlayback ? "true" : "false")
-    setIcon(el.framePlay, activePlayback ? "❚❚" : "▶")
     if (el.completeStopBtn) el.completeStopBtn.disabled = !canPause
   }
 
@@ -1227,7 +1247,7 @@
         ? "재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
         : engine.ambience
           ? "배경음 재생 중"
-        : "대기 중"
+        : "전체곡 대기"
     el.statusText.classList.toggle("playing", (playing || !!engine.ambience) && !paused)
     el.statusText.classList.toggle("paused", paused)
     el.frame.classList.toggle("playing", playing && !paused)
@@ -1245,28 +1265,75 @@
   let playheadRAF = null
   let playheadStartedAt = 0
   let playheadElapsedMs = 0
+  let selectedPlayheadProgress = 0
   function nowMs() {
     return window.performance && window.performance.now ? window.performance.now() : Date.now()
   }
-  function positionPlayhead(progress) {
+
+  function clampPlayheadProgress(progress) {
+    const dur = Math.max(0.05, state.duration || 30)
+    const max = Math.max(0, (dur - 0.05) / dur)
+    return Math.max(0, Math.min(max, Number(progress) || 0))
+  }
+
+  function playheadProgressFromEvent(e) {
+    const r = el.canvas.getBoundingClientRect()
+    return clampPlayheadProgress((e.clientX - r.left) / Math.max(1, r.width))
+  }
+
+  function syncPlayheadValue(progress) {
+    if (!el.playhead) return
+    const sec = Math.round(progress * (state.duration || 30))
+    el.playhead.setAttribute("aria-valuemin", "0")
+    el.playhead.setAttribute("aria-valuemax", String(state.duration || 30))
+    el.playhead.setAttribute("aria-valuenow", String(sec))
+    el.playhead.setAttribute("title", sec + "초부터 재생")
+  }
+
+  function positionPlayhead(progress, options) {
     const wrap = canvasWrap()
     if (!wrap || !el.playhead) return
     const prog = Math.max(0, Math.min(1, progress))
     const cw = el.canvas.clientWidth || el.canvas.getBoundingClientRect().width
     const left = el.canvas.offsetLeft + prog * cw
     el.playhead.style.left = left + "px"
+    syncPlayheadValue(prog)
     const view = wrap.clientWidth
-    if (left < wrap.scrollLeft + 48 || left > wrap.scrollLeft + view - 48) {
+    const follow = !options || options.follow !== false
+    if (follow && (left < wrap.scrollLeft + 48 || left > wrap.scrollLeft + view - 48)) {
       wrap.scrollLeft = Math.max(0, left - view / 2)
       syncCanvasScrollState()
     }
   }
+
+  function showSelectedPlayhead(follow) {
+    if (!el.playhead) return
+    el.playhead.hidden = false
+    positionPlayhead(selectedPlayheadProgress, { follow: !!follow })
+  }
+
+  function setSelectedPlayhead(progress, announce, follow) {
+    selectedPlayheadProgress = clampPlayheadProgress(progress)
+    playheadElapsedMs = selectedPlayheadProgress * Math.max(1, state.duration * 1000)
+    showSelectedPlayhead(follow)
+    if (announce) {
+      el.exportStatus.textContent = Math.round(selectedPlayheadProgress * state.duration) + "초부터 재생하도록 위치를 옮겼어요."
+    }
+  }
+
+  function selectedPlaybackStartSec() {
+    return clampPlayheadProgress(selectedPlayheadProgress) * (state.duration || 30)
+  }
+
   function stopPlayhead() {
     if (playheadRAF) cancelAnimationFrame(playheadRAF)
     playheadRAF = null
     playheadStartedAt = 0
-    playheadElapsedMs = 0
-    if (el.playhead) el.playhead.hidden = true
+    playheadElapsedMs = selectedPlaybackStartSec() * 1000
+    if (el.playhead) {
+      if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
+      else el.playhead.hidden = true
+    }
   }
   function pausePlayhead() {
     if (playheadRAF) cancelAnimationFrame(playheadRAF)
@@ -1282,7 +1349,7 @@
     const wrap = canvasWrap()
     if (!wrap || !el.playhead || typeof requestAnimationFrame === "undefined") return
     const durMs = Math.max(1, state.duration * 1000)
-    if (!resume) playheadElapsedMs = 0
+    if (!resume) playheadElapsedMs = selectedPlaybackStartSec() * 1000
     playheadStartedAt = nowMs() - playheadElapsedMs
     el.playhead.hidden = false
     const tick = function () {
@@ -1297,6 +1364,57 @@
     playheadRAF = requestAnimationFrame(tick)
   }
 
+  function stopPlaybackForPlayheadSeek() {
+    if (!bgPlayer.paused) pauseBgPlayer()
+    if (engine.isPlaying || engine.isPaused) engine.stop()
+  }
+
+  function bindPlayheadSeeking() {
+    if (!el.playhead) return
+    let seeking = false
+    const seekToEvent = function (e, announce) {
+      setSelectedPlayhead(playheadProgressFromEvent(e), !!announce, true)
+    }
+    el.playhead.addEventListener("pointerdown", function (e) {
+      seeking = true
+      stopPlaybackForPlayheadSeek()
+      seekToEvent(e, false)
+      try {
+        el.playhead.setPointerCapture(e.pointerId)
+      } catch (err) {}
+      e.preventDefault()
+      e.stopPropagation()
+    })
+    el.playhead.addEventListener("pointermove", function (e) {
+      if (!seeking) return
+      seekToEvent(e, false)
+      e.preventDefault()
+      e.stopPropagation()
+    })
+    const finish = function (e) {
+      if (!seeking) return
+      seeking = false
+      seekToEvent(e, true)
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    el.playhead.addEventListener("pointerup", finish)
+    el.playhead.addEventListener("pointercancel", finish)
+    el.playhead.addEventListener("keydown", function (e) {
+      const dur = Math.max(1, state.duration || 30)
+      const step = (e.shiftKey ? 5 : 1) / dur
+      let next = selectedPlayheadProgress
+      if (e.key === "ArrowLeft") next -= step
+      else if (e.key === "ArrowRight") next += step
+      else if (e.key === "Home") next = 0
+      else if (e.key === "End") next = 1
+      else return
+      stopPlaybackForPlayheadSeek()
+      setSelectedPlayhead(next, true, true)
+      e.preventDefault()
+    })
+  }
+
   // --- 배경음악 미니 플레이어 (드로잉 화면) ---
 
   function fmtTime(sec) {
@@ -1304,6 +1422,24 @@
     const m = Math.floor(sec / 60)
     const s = Math.floor(sec % 60)
     return m + ":" + (s < 10 ? "0" : "") + s
+  }
+
+  function fmtInputTime(sec) {
+    return fmtTime(Math.round(Math.max(0, Number(sec) || 0)))
+  }
+
+  function parseTimeInput(value) {
+    const raw = String(value || "").trim()
+    if (!raw) return null
+    if (/^\d+(?:\.\d+)?$/.test(raw)) return Number(raw)
+    const parts = raw.split(":")
+    if (parts.length < 2 || parts.length > 3) return null
+    let total = 0
+    for (const part of parts) {
+      if (!/^\d+(?:\.\d+)?$/.test(part)) return null
+      total = total * 60 + Number(part)
+    }
+    return total
   }
 
   function bgDuration() {
@@ -1314,7 +1450,7 @@
 
   function bgMinGap(total) {
     if (!total) return 0
-    return Math.min(0.1, total)
+    return Math.min(MIN_DURATION_SECONDS, total)
   }
 
   function defaultBgEnd(total, start) {
@@ -1339,6 +1475,21 @@
     state.bgEndOffset = clampNumber(end, Math.min(total, state.bgOffset + gap), total)
   }
 
+  function syncDurationFromBgRange(resetScroll) {
+    const total = bgDuration()
+    if (!canSelectBgRange() || !total || !(state.bgEndOffset > state.bgOffset)) {
+      if (!isFinite(state.duration) || state.duration <= 0) state.duration = DEFAULT_DURATION_SECONDS
+      return false
+    }
+    const next = round3(Math.max(bgMinGap(total), state.bgEndOffset - state.bgOffset))
+    if (Math.abs(next - state.duration) < 0.001) return false
+    state.duration = next
+    selectedPlayheadProgress = clampPlayheadProgress(selectedPlayheadProgress)
+    playheadElapsedMs = selectedPlaybackStartSec() * 1000
+    refreshTimeline(!!resetScroll)
+    return true
+  }
+
   function selectedBgEnd() {
     if (!canSelectBgRange()) {
       const total = bgDuration()
@@ -1359,6 +1510,8 @@
     if (el.bgPlayer) el.bgPlayer.classList.toggle("disabled", !hasSrc)
     const bgRange = el.bgSeek ? el.bgSeek.closest(".bg-range") : null
     if (bgRange) bgRange.hidden = !canSelectRange
+    const bgTimeInputs = el.bgStartInput ? el.bgStartInput.closest(".bg-time-inputs") : null
+    if (bgTimeInputs) bgTimeInputs.hidden = !canSelectRange
     if (el.bgSeek) {
       el.bgSeek.max = String(maxStart)
       el.bgSeek.value = String(state.bgOffset)
@@ -1370,14 +1523,24 @@
       el.bgEndSeek.value = String(state.bgEndOffset)
       el.bgEndSeek.disabled = !canSelectRange || !(total > gap)
     }
+    const durationChanged = syncDurationFromBgRange(false)
+    if (el.bgStartInput) {
+      el.bgStartInput.disabled = !canSelectRange || !total
+      if (document.activeElement !== el.bgStartInput) el.bgStartInput.value = fmtInputTime(state.bgOffset)
+    }
+    if (el.bgEndInput) {
+      el.bgEndInput.disabled = !canSelectRange || !total
+      if (document.activeElement !== el.bgEndInput) el.bgEndInput.value = fmtInputTime(state.bgEndOffset)
+    }
     if (el.bgTime) {
       el.bgTime.textContent = canSelectRange
-        ? fmtTime(state.bgOffset) + " ~ " + fmtTime(state.bgEndOffset) + " / " + fmtTime(total)
+        ? fmtInputTime(state.bgOffset) + " ~ " + fmtInputTime(state.bgEndOffset) + " / " + fmtInputTime(total)
         : fmtTime(0) + " / " + fmtTime(total)
     }
+    if (!durationChanged) updateReadouts()
     setIcon(el.bgPlayBtn, bgPlayer.paused ? "▶" : "❚❚")
     if (el.bgPlayBtn) {
-      el.bgPlayBtn.setAttribute("aria-label", bgPlayer.paused ? "배경음악 재생" : "배경음악 일시정지")
+      el.bgPlayBtn.setAttribute("aria-label", bgPlayer.paused ? "배경음악만 재생" : "배경음악 일시정지")
       el.bgPlayBtn.classList.toggle("active", !bgPlayer.paused)
       el.bgPlayBtn.setAttribute("aria-pressed", bgPlayer.paused ? "false" : "true")
     }
@@ -1411,7 +1574,8 @@
     } catch (e) {}
     if (bgRAF) cancelAnimationFrame(bgRAF)
     bgRAF = null
-    if (el.playhead) el.playhead.hidden = true
+    if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
+    else if (el.playhead) el.playhead.hidden = true
     syncBgPlayerUI()
   }
 
@@ -1463,15 +1627,16 @@
     }
     const total = bgDuration()
     const gap = bgMinGap(total)
+    const previousEnd = Number(state.bgEndOffset)
     state.bgOffset = clampNumber(value, 0, Math.max(0, total - gap))
-    state.bgEndOffset = defaultBgEnd(total, state.bgOffset)
+    state.bgEndOffset =
+      isFinite(previousEnd) && previousEnd > state.bgOffset + gap ? previousEnd : defaultBgEnd(total, state.bgOffset)
     normalizeBgRange(true)
     try {
       bgPlayer.currentTime = state.bgOffset
     } catch (e) {}
     if (el.playhead) {
-      el.playhead.hidden = false
-      positionPlayhead(0)
+      showSelectedPlayhead(false)
     }
     syncBgPlayerUI()
   }
@@ -1491,114 +1656,27 @@
       try {
         bgPlayer.currentTime = state.bgOffset
       } catch (e) {}
-      positionPlayhead(0)
+      showSelectedPlayhead(false)
     }
     syncBgPlayerUI()
   }
 
-  // --- 따라 그리기(흐름) — 배경음악/시계가 타임라인을 끌고 가고 캔버스가 따라 스크롤된다 ---
-
-  let flowing = false // 흐름 모드 ON/OFF
-  let flowRAF = null
-  let flowClockStart = 0
-
-  const FLOW_NOW_LINE = 0.25 // now-line(재생헤드)을 화면 왼쪽 1/4 지점에 고정
-
-  // 진행도(0..1)에 맞춰 캔버스를 스크롤해 재생헤드가 화면 고정 위치에 오게 한다
-  function scrollFollow(progress) {
-    const wrap = canvasWrap()
-    if (!wrap) return
-    const cw = el.canvas.clientWidth || el.canvas.getBoundingClientRect().width
-    const targetX = el.canvas.offsetLeft + progress * cw
-    const maxScroll = Math.max(0, wrap.scrollWidth - wrap.clientWidth)
-    wrap.scrollLeft = Math.max(0, Math.min(targetX - wrap.clientWidth * FLOW_NOW_LINE, maxScroll))
-  }
-
-  // 펜을 누른 순간(drawing onFlowStart) — 배경음악을 bgOffset부터 재생 + 시계 시작
-  function startFlowClock() {
-    stopBackgroundPreview()
-    stopExamplePreview()
-    if (bgSrcFor(state.atmosphere)) {
-      normalizeBgRange(true)
-      try {
-        bgPlayer.currentTime = state.bgOffset
-      } catch (e) {}
-      const p = bgPlayer.play()
-      if (p && p.catch) p.catch(() => {})
-    }
-    flowClockStart = nowMs()
-    if (el.playhead) el.playhead.hidden = false
-    if (flowRAF) cancelAnimationFrame(flowRAF)
-    flowTick()
-  }
-
-  // 펜을 뗌(drawing onFlowEnd) 또는 끝 도달 — 음악/시계 정지(그린 줄은 drawing이 마감)
-  function stopFlowClock() {
-    if (flowRAF) cancelAnimationFrame(flowRAF)
-    flowRAF = null
-    try {
-      bgPlayer.pause()
-    } catch (e) {}
-    if (el.playhead) el.playhead.hidden = true
-    syncBgPlayerUI()
-  }
-
-  function flowTick() {
-    let progress = (nowMs() - flowClockStart) / (state.duration * 1000)
-    if (bgSrcFor(state.atmosphere) && !bgPlayer.paused && isFinite(bgPlayer.currentTime)) {
-      const end = selectedBgEnd()
-      if (end > state.bgOffset && bgPlayer.currentTime >= end) {
-        try {
-          bgPlayer.currentTime = state.bgOffset
-        } catch (e) {}
-      }
-    }
-    progress = Math.max(0, Math.min(1, progress))
-    positionPlayhead(progress)
-    scrollFollow(progress)
-    draw.flowRecord(progress)
-    if (progress >= 1) {
-      draw.finishFlowStroke(false)
-      flowing = false
-      draw.setFlowMode(false)
-      stopFlowClock()
-      syncFlowBtn()
-      el.exportStatus.textContent = "따라 그리기 완료. 전체 재생으로 들어보세요. 다시 펜을 누르면 새 줄이 시작됩니다."
+  function commitBgStartInput() {
+    const parsed = parseTimeInput(el.bgStartInput && el.bgStartInput.value)
+    if (parsed == null) {
+      syncBgPlayerUI()
       return
     }
-    if (typeof requestAnimationFrame === "function") flowRAF = requestAnimationFrame(flowTick)
+    seekBg(parsed)
   }
 
-  function syncFlowBtn() {
-    el.body.dataset.flow = flowing ? "on" : "off"
-    if (!el.flowBtn) return
-    el.flowBtn.classList.toggle("active", flowing)
-    el.flowBtn.setAttribute("aria-pressed", flowing ? "true" : "false")
-    el.flowBtn.setAttribute("title", flowing ? "따라 그리기 끄기" : "배경음악에 맞춰 따라 그리기")
-    el.flowBtn.textContent = flowing ? "따라 그리기 끄기" : "따라 그리기"
-  }
-
-  // 토글: 켜면 흐름 모드(펜을 누르면 음악에 맞춰 흐르며 기록). 끄면 일반 드로잉.
-  function toggleFlow() {
-    flowing = !flowing
-    if (flowing) {
-      setEraser(false)
-      draw.setFlowMode(true)
-      el.exportStatus.textContent = "따라 그리기: 펜을 누른 채 음악에 맞춰 위·아래로 그리세요. 떼면 끝납니다."
-    } else {
-      draw.setFlowMode(false)
-      stopFlowClock()
+  function commitBgEndInput() {
+    const parsed = parseTimeInput(el.bgEndInput && el.bgEndInput.value)
+    if (parsed == null) {
+      syncBgPlayerUI()
+      return
     }
-    syncFlowBtn()
-  }
-
-  // 드로잉 화면을 떠나거나 전체 재생할 때 흐름을 끈다
-  function exitFlow() {
-    if (!flowing && !flowRAF) return
-    flowing = false
-    draw.setFlowMode(false)
-    stopFlowClock()
-    syncFlowBtn()
+    seekBgEnd(parsed)
   }
 
   function requireDrawn() {
@@ -1618,13 +1696,12 @@
       return
     }
     if (!requireDrawn()) return
-    exitFlow()
     stopBackgroundPreview()
     stopExamplePreview()
     pauseBgPlayer() // 전체 재생 중엔 배경음악 미니 플레이어를 멈춘다(중복 방지 — 패드는 bgOffset부터 깔림)
     renderAtmospheres()
     const recipe = buildRecipe()
-    engine.play(recipe, notesFor(recipe)).catch(function (e) {
+    engine.play(recipe, notesFor(recipe), { startOffset: selectedPlaybackStartSec() }).catch(function (e) {
       el.statusText.textContent = "재생 오류"
       console.error(e)
     })
@@ -1654,13 +1731,11 @@
   function stop() {
     stopBackgroundPreview()
     stopExamplePreview()
-    exitFlow()
     renderAtmospheres()
     engine.stop()
   }
 
   function setEraser(on) {
-    if (on && flowing) exitFlow()
     if (on && state.effectStampId) {
       state.effectStampId = null
       renderEffects()
@@ -1683,7 +1758,6 @@
 
   function resetCompose() {
     engine.stop()
-    exitFlow()
     setEraser(false)
     draw.clear(false)
     draw.clearUndoHistory()
@@ -1696,7 +1770,8 @@
     renderEffectStamps()
     renderOrchestraLegend()
     setupBgPlayer(true)
-    el.statusText.textContent = "대기 중"
+    setSelectedPlayhead(0, false, false)
+    el.statusText.textContent = "전체곡 대기"
     el.exportStatus.textContent = "드로잉만 초기화했습니다. 배경음악 구간은 그대로 유지됩니다."
   }
 
@@ -1777,7 +1852,7 @@
       renderTakeName(meta, t, idx + 1)
       const detail = document.createElement("span")
       detail.className = "take-detail"
-      detail.textContent = atmos.label + " · " + instObj.label + " · " + t.recipe.duration + "초"
+      detail.textContent = atmos.label + " · " + instObj.label + " · " + secondsLabel(t.recipe.duration)
       meta.appendChild(detail)
       const tools = document.createElement("div")
       tools.className = "take-tools"
@@ -1818,7 +1893,7 @@
   // --- 레시피 불러오기 ---
 
   function loadRecipe(recipe) {
-    state.duration = 30 // 길이는 30초로 고정(옛 레시피도 정규화)
+    state.duration = normalizeDuration(recipe.duration || DEFAULT_DURATION_SECONDS)
     state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || D.atmospheres[0]
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
     state.style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
@@ -1830,8 +1905,8 @@
     state.effectIds = (recipe.effectIds || []).filter((id) => !!D.effects[id] && stampIds.indexOf(id) === -1)
     state.effectStampId = null
     if (canSelectBgRange()) {
-      state.bgOffset = recipe.bgOffset || 0
-      state.bgEndOffset = recipe.bgEndOffset || 0
+      state.bgOffset = Math.max(0, Number(recipe.bgOffset) || 0)
+      state.bgEndOffset = Math.max(0, Number(recipe.bgEndOffset) || 0)
     } else {
       state.bgOffset = 0
       state.bgEndOffset = 0
@@ -1857,6 +1932,7 @@
     renderEffectStamps()
     renderOrchestraLegend()
     setupBgPlayer(true)
+    setSelectedPlayhead(0, false, false)
     syncReflectionInputs()
     updateReadouts()
   }
@@ -2025,7 +2101,7 @@
     ctx.textBaseline = "middle"
     ctx.textAlign = "center"
     for (let i = 1; i <= count; i++) {
-      const text = Math.min(i * SEGMENT_SECONDS, state.duration) + "초"
+      const text = secondsLabel(Math.min(i * SEGMENT_SECONDS, state.duration))
       const metrics = ctx.measureText(text)
       const pillW = Math.max(48, metrics.width + 18)
       const pillH = fontSize + 14
@@ -2309,7 +2385,6 @@
       renderInstruments()
     }
     const nextStep = Math.max(0, Math.min(screens.length - 1, i))
-    if (state.step === DRAWING_STEP && nextStep !== DRAWING_STEP) exitFlow()
     state.step = nextStep
     el.body.dataset.step = String(state.step)
     screens.forEach((s, idx) => {
@@ -2342,6 +2417,7 @@
 
   function bind() {
     bindEffectStamping()
+    bindPlayheadSeeking()
     const wrap = canvasWrap()
     if (wrap) wrap.addEventListener("scroll", syncCanvasScrollState, { passive: true })
 
@@ -2412,7 +2488,26 @@
     }
     if (el.bgSeek) el.bgSeek.addEventListener("input", (e) => seekBg(e.target.value))
     if (el.bgEndSeek) el.bgEndSeek.addEventListener("input", (e) => seekBgEnd(e.target.value))
-    if (el.flowBtn) el.flowBtn.addEventListener("click", toggleFlow)
+    if (el.bgStartInput) {
+      el.bgStartInput.addEventListener("change", commitBgStartInput)
+      el.bgStartInput.addEventListener("blur", commitBgStartInput)
+      el.bgStartInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          commitBgStartInput()
+          el.bgStartInput.blur()
+        }
+      })
+    }
+    if (el.bgEndInput) {
+      el.bgEndInput.addEventListener("change", commitBgEndInput)
+      el.bgEndInput.addEventListener("blur", commitBgEndInput)
+      el.bgEndInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          commitBgEndInput()
+          el.bgEndInput.blur()
+        }
+      })
+    }
     if (el.instrumentPreviewStopBtn) {
       el.instrumentPreviewStopBtn.addEventListener("click", function () {
         stopExamplePreview(true)
@@ -2423,14 +2518,6 @@
     el.playBtn.addEventListener("click", function () {
       pulseControl(el.playBtn)
       toggleTransport()
-    })
-    el.framePlay.addEventListener("click", function () {
-      pulseControl(el.framePlay)
-      play()
-    })
-    el.composePlay.addEventListener("click", function () {
-      pulseControl(el.composePlay)
-      play()
     })
     el.stopBtn.addEventListener("click", function () {
       pulseControl(el.stopBtn)
@@ -2495,7 +2582,6 @@
     renderOrchestraLegend()
     renderEffects()
     syncBgPlayerUI()
-    syncFlowBtn()
     refreshTimeline(true)
     bind()
     syncAdminModeUI()

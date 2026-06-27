@@ -39,7 +39,6 @@ INSTRUMENTS = [
     ("현/viola", "현", "viola"),
     ("현/cello", "현", "cello"),
     ("현/double bass", "현", "doubleBass"),
-    ("현/mandolin", "현", "mandolin"),
     ("관/clarinet", "관", "clarinet"),
     ("관/oboe", "관", "oboe"),
     ("관/flute", "관", "flute"),

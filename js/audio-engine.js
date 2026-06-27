@@ -95,7 +95,7 @@
     if (!total) return { start: 0, end: 0, length: 0 }
     const start = clamp(plan.bgOffset || 0, 0, Math.max(0, total - 0.05))
     let end = Number(plan.bgEndOffset || 0)
-    if (!isFinite(end) || end <= start + 0.05) end = Math.min(total, start + (plan.duration || 30))
+    if (!isFinite(end) || end <= start + 0.05) end = Math.min(total, start + (plan.totalDuration || plan.duration || 30))
     end = clamp(end, Math.min(total, start + 0.05), total)
     return { start: start, end: end, length: Math.max(0.05, end - start) }
   }
@@ -112,7 +112,6 @@
     viola: { cutoff: 2100, vibratoDepth: 9 },
     cello: { cutoff: 1200, attack: 0.06, vibratoDepth: 7 }, // 낮고 따뜻
     doubleBass: { cutoff: 600, attack: 0.07, vibratoRate: 4, vibratoDepth: 5 }, // 묵직
-    mandolin: { cutoff: 2600, Q: 0.8, attack: 0.004, vibratoRate: 0, vibratoDepth: 0 }, // 발현(트레몰로 없이 또렷)
     clarinet: { cutoff: 1700, Q: 1.2, attack: 0.05, vibratoDepth: 6 }, // 둥글고 부드러운 목관
     flute: { cutoff: 3600, Q: 0.5, attack: 0.05, vibratoDepth: 5 }, // 맑은 숨결
     oboe: { cutoff: 2300, Q: 1.6, vibratoDepth: 9 }, // 코맹맹이 공명
@@ -314,6 +313,8 @@
       mode === "rhythm" ? Core.autocompleteRhythm(recipe.path || [], { durationSec: duration, bpm: 100 }) : []
     return {
       duration: duration,
+      totalDuration: duration,
+      playbackOffset: 0,
       bgOffset: Math.max(0, recipe.bgOffset || 0), // 배경음악을 이 지점(초)부터 깐다(스케줄에서 버퍼 길이로 클램프)
       bgEndOffset: Math.max(0, recipe.bgEndOffset || 0),
       mode: mode,
@@ -333,6 +334,50 @@
       uiNotes: notes || [],
       rhythmHits: rhythmHits,
     }
+  }
+
+  AudioEngine.prototype.seekPlan = function (plan, offsetSec) {
+    const totalDuration = Math.max(0.05, plan.totalDuration || plan.duration || 30)
+    const offset = clamp(Number(offsetSec) || 0, 0, Math.max(0, totalDuration - 0.05))
+    if (offset <= 0) {
+      return Object.assign({}, plan, {
+        totalDuration: totalDuration,
+        playbackOffset: 0,
+      })
+    }
+    const remaining = Math.max(0.05, totalDuration - offset)
+    const shiftNotes = function (notes) {
+      return (notes || [])
+        .filter(function (note) {
+          return note && note.time + note.duration > offset && note.time < totalDuration
+        })
+        .map(function (note) {
+          const noteStart = Math.max(note.time, offset)
+          const noteEnd = Math.min(note.time + note.duration, totalDuration)
+          return Object.assign({}, note, {
+            time: noteStart - offset,
+            duration: Math.max(0.03, noteEnd - noteStart),
+          })
+        })
+    }
+    const shiftTimed = function (items) {
+      return (items || [])
+        .filter(function (item) {
+          return item && item.time >= offset && item.time < totalDuration
+        })
+        .map(function (item) {
+          return Object.assign({}, item, { time: item.time - offset })
+        })
+    }
+    return Object.assign({}, plan, {
+      duration: remaining,
+      totalDuration: totalDuration,
+      playbackOffset: offset,
+      notes: shiftNotes(plan.notes),
+      uiNotes: shiftNotes(plan.uiNotes),
+      rhythmHits: shiftTimed(plan.rhythmHits),
+      effectStamps: shiftTimed(plan.effectStamps),
+    })
   }
 
   AudioEngine.prototype.preload = async function (ctx, plan) {
@@ -410,9 +455,11 @@
       const g = ctx.createGain()
       src.buffer = buffers.pad
       const bgRange = backgroundRange(plan, buffers.pad)
+      const bgPlaybackOffset =
+        bgRange.length > 0 ? bgRange.start + ((plan.playbackOffset || 0) % bgRange.length) : bgRange.start
       src.loopStart = bgRange.start
       src.loopEnd = bgRange.end
-      src.loop = bgRange.length < dur || buffers.pad.duration < bgRange.start + dur
+      src.loop = bgRange.length < dur || buffers.pad.duration < bgPlaybackOffset + dur
       g.gain.setValueAtTime(v.padGain * 0.35, start)
       g.gain.linearRampToValueAtTime(v.padGain, start + 0.35)
       g.gain.setValueAtTime(v.padGain, start + Math.max(1.2, dur - 1.5))
@@ -420,7 +467,7 @@
       src.connect(g)
       g.connect(dest)
       register(src)
-      src.start(start, bgRange.start)
+      src.start(start, bgPlaybackOffset)
       src.stop(start + dur + 0.05)
       usedReal = true
     } else {
@@ -1341,7 +1388,7 @@
     return Promise.resolve()
   }
 
-  AudioEngine.prototype.play = async function (recipe, notes) {
+  AudioEngine.prototype.play = async function (recipe, notes, options) {
     this.stop({ emitState: false })
     this.stopAmbience(true) // 완성곡 재생 중엔 드로잉 배경음을 끈다(중복 방지)
     const gen = ++this.playGen // 이 재생의 세대 토큰 (this.stop() 이 playGen 을 올린 뒤 새로 받음)
@@ -1350,7 +1397,8 @@
     const ctx = this.ensureContext()
     if (ctx.state === "suspended") await ctx.resume()
     if (gen !== this.playGen) return this.lastMode // 깨우는 사이 정지/재요청됨 → 중단
-    const plan = this.resolvePlan(recipe, notes)
+    const basePlan = this.resolvePlan(recipe, notes)
+    const plan = this.seekPlan(basePlan, options && options.startOffset)
     const buffers = await this.preload(ctx, plan)
     if (gen !== this.playGen) return this.lastMode // 음원 디코드 사이 정지됨 → 소리 내지 않음
     const self = this

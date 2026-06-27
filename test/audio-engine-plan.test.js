@@ -274,24 +274,6 @@ test("resolvePlan filters Korean instrument notes outside the allowed playable r
   )
 })
 
-test("mandolin notes lasting at least one second are scheduled as tremolo", () => {
-  const sandbox = loadEngine()
-  const engine = new sandbox.AudioEngine()
-  const ctx = makeAudioContext()
-  const dest = makeNode()
-  const plan = engine.resolvePlan(
-    { duration: 30, atmosphere: "calm", instrument: "mandolin", style: "bright", version: "balanced", mode: "melody" },
-    [{ time: 0, duration: 1.2, midi: 67, velocity: 0.7 }],
-  )
-  const g4 = { duration: 0.8, id: "mandolin_G4" }
-
-  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 0.8, id: "fallback" }, melodySamples: { 67: g4 } }, 0, noop)
-
-  const started = ctx.created.buffers.filter((source) => source.startCalls.length)
-  assert.ok(started.length >= 8)
-  assert.ok(started.every((source) => source.buffer === g4))
-})
-
 test("preload decodes uploaded background files for the merged playback graph", async () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
@@ -525,6 +507,89 @@ test("full playback background starts with the first beat and is cut at the reci
   assert.equal(padSource.stopCalls[0][0], start + plan.duration + 0.05)
   assert.ok(padGain.gain.events[0][1] > 0, "배경 gain 이 0에서 시작하면 초반에 선율만 들린다")
   assert.ok(padGain.gain.events[1][2] <= start + 0.5, "배경 fade-in 이 길면 선율 뒤에야 배경이 들린다")
+})
+
+test("seekPlan starts playback from the selected timeline time", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "violin", style: "bright", version: "balanced", mode: "melody" },
+    [
+      { time: 4, duration: 2, midi: 60, velocity: 0.7 },
+      { time: 10, duration: 5, midi: 62, velocity: 0.7 },
+      { time: 16, duration: 2, midi: 64, velocity: 0.7 },
+    ],
+  )
+
+  const seeked = engine.seekPlan(plan, 12)
+
+  assert.equal(seeked.duration, 18)
+  assert.equal(seeked.totalDuration, 30)
+  assert.equal(seeked.playbackOffset, 12)
+  assert.deepEqual(
+    plain(seeked.notes.map((note) => ({ time: note.time, duration: note.duration, midi: note.midi }))),
+    [
+      { time: 0, duration: 3, midi: 62 },
+      { time: 4, duration: 2, midi: 64 },
+    ],
+  )
+})
+
+test("seeked background starts at the matching point inside the selected loop range", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const basePlan = engine.resolvePlan(
+    {
+      duration: 30,
+      atmosphere: "calm",
+      instrument: "violin",
+      style: "bright",
+      version: "balanced",
+      mode: "melody",
+      bgOffset: 5,
+      bgEndOffset: 9,
+    },
+    [],
+  )
+  const plan = engine.seekPlan(basePlan, 10)
+
+  engine.schedule(ctx, dest, plan, { pad: { duration: 60 }, melody: null, effects: [], byInstrument: {} }, 0, noop)
+
+  const padSource = ctx.created.buffers[0]
+  assert.equal(padSource.loopStart, 5)
+  assert.equal(padSource.loopEnd, 9)
+  assert.equal(padSource.startCalls[0][1], 7)
+  assert.equal(padSource.stopCalls[0][0], 20.05)
+})
+
+test("play accepts a selected start offset and schedules only the remaining duration", async () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  let scheduledPlan = null
+
+  engine.ensureContext = function () {
+    return ctx
+  }
+  engine.preload = async function () {
+    return { pad: null, melody: null, effects: [], byInstrument: {} }
+  }
+  engine.schedule = function (ctx, dest, plan) {
+    scheduledPlan = plan
+    return false
+  }
+
+  await engine.play(
+    { duration: 30, atmosphere: "calm", instrument: "violin", style: "bright", version: "balanced", mode: "melody" },
+    [],
+    { startOffset: 12 },
+  )
+
+  assert.equal(scheduledPlan.duration, 18)
+  assert.equal(scheduledPlan.playbackOffset, 12)
+  engine.stop()
 })
 
 test("pause and resume emit transport state so the UI can freeze and continue", () => {
