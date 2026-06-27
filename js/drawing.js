@@ -2,7 +2,7 @@
  * drawing.js — 드로잉 캔버스 (window.DrawingCanvas)
  *
  * - 좌표는 0..1 정규화로 저장 → 해상도/그리는 속도와 무관, 레시피로 직렬화 가능.
- * - 가로 = 시간, 세로 = 음높이. 음계 가이드 가로선 + 팔레트 구간 분할선 표시.
+ * - 가로 = 시간, 세로 = 음높이. 음높이 칸을 나누는 가로선 표시.
  * - 그린 원본 선 + music-core로 보정한 음(피아노롤)을 함께 렌더.
  */
 ;(function (root) {
@@ -60,7 +60,6 @@
   function pitchLabelsForStyle(style) {
     const scale = Core.buildScale(style)
     const labelScale = buildPitchLabelScale()
-    const last = Math.max(1, labelScale.length - 1)
     return labelScale
       .map((midi, i) =>
         midi == null
@@ -68,11 +67,37 @@
           : {
               midi: midi,
               label: midiToNoteName(midi),
-              top: 100 - (i / last) * 100,
+              top: pitchRowCenterRatio(i, labelScale.length) * 100,
               selected: scale.indexOf(midi) !== -1,
             },
       )
       .filter(Boolean)
+  }
+
+  function pitchRowCenterRatio(rowIndex, rowCount) {
+    const last = Math.max(1, rowCount - 1)
+    return 1 - rowIndex / last
+  }
+
+  function pitchRowCenterY(rowIndex, rowCount, height) {
+    return pitchRowCenterRatio(rowIndex, rowCount) * height
+  }
+
+  function pitchRowBoundsY(rowIndex, rowCount, height) {
+    const last = Math.max(1, rowCount - 1)
+    const topIndex = Math.min(last, rowIndex + 0.5)
+    const bottomIndex = Math.max(0, rowIndex - 0.5)
+    return {
+      top: height - (topIndex / last) * height,
+      bottom: height - (bottomIndex / last) * height,
+    }
+  }
+
+  function pitchRowBoundaryY(boundaryIndex, rowCount, height) {
+    if (boundaryIndex <= 0) return height
+    if (boundaryIndex >= rowCount) return 0
+    const last = Math.max(1, rowCount - 1)
+    return height - ((boundaryIndex - 0.5) / last) * height
   }
 
   function DrawingCanvas(canvas, opts) {
@@ -607,51 +632,34 @@
     ctx.fillStyle = "rgba(251,246,236,0.9)"
     ctx.fillRect(0, 0, labelGutter, H)
 
-    // 음계 가이드 가로선
+    // 음높이 칸: 각 자연음이 줄 위가 아니라 칸 안에 들어가도록 경계선을 그린다.
     const st = this.getState()
     const scale = Core.buildScale(st.style)
     const labelScale = buildPitchLabelScale()
+    const rowCount = labelScale.length
+    for (let i = 0; i < rowCount; i++) {
+      const bounds = pitchRowBoundsY(i, rowCount, H)
+      const midi = labelScale[i]
+      const inSelectedScale = midi != null && scale.indexOf(midi) !== -1
+      ctx.fillStyle =
+        midi == null
+          ? "rgba(31,38,38,0.028)"
+          : inSelectedScale
+            ? "rgba(255,255,255,0.34)"
+            : i % 2
+              ? "rgba(31,38,38,0.014)"
+              : "rgba(31,38,38,0.022)"
+      ctx.fillRect(labelGutter, bounds.top, W - labelGutter, Math.max(0, bounds.bottom - bounds.top))
+    }
+
     ctx.lineWidth = 1 * px
-    for (let i = 0; i < labelScale.length; i++) {
-      const y = H - (i / Math.max(1, labelScale.length - 1)) * H
-      const inSelectedScale = scale.indexOf(labelScale[i]) !== -1
-      ctx.strokeStyle = inSelectedScale ? "rgba(31,38,38,0.14)" : "rgba(31,38,38,0.045)"
+    ctx.strokeStyle = "rgba(31,38,38,0.12)"
+    for (let i = 0; i <= rowCount; i++) {
+      const y = pitchRowBoundaryY(i, rowCount, H)
       ctx.beginPath()
       ctx.moveTo(labelGutter, y)
       ctx.lineTo(W, y)
       ctx.stroke()
-    }
-    ctx.strokeStyle = "rgba(31,38,38,0.12)"
-    ctx.beginPath()
-    ctx.moveTo(labelGutter, 0)
-    ctx.lineTo(labelGutter, H)
-    ctx.stroke()
-
-    // 팔레트 세로칸: 1초 단위 모눈으로 그린 위치를 기억하기 쉽게 한다.
-    const seconds = Math.max(1, Math.round(st.duration || 30))
-    for (let i = 1; i < seconds; i++) {
-      const x = labelGutter + (i / seconds) * (W - labelGutter)
-      const major = i % 10 === 0
-      ctx.strokeStyle = major ? "rgba(31,38,38,0.12)" : "rgba(31,38,38,0.055)"
-      ctx.lineWidth = (major ? 1.2 : 1) * px
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, H)
-      ctx.stroke()
-    }
-
-    // 팔레트 구간 분할선 (액자 느낌)
-    const count = this._paletteCount()
-    for (let i = 1; i < count; i++) {
-      ctx.strokeStyle = "rgba(31,38,38,0.22)"
-      ctx.setLineDash([6 * px, 6 * px])
-      ctx.lineWidth = 1.5 * px
-      ctx.beginPath()
-      const x = labelGutter + i * ((W - labelGutter) / count)
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, H)
-      ctx.stroke()
-      ctx.setLineDash([])
     }
   }
 
@@ -677,19 +685,13 @@
     if (typeof ctx.save === "function") ctx.save()
     ctx.fillStyle = "rgba(251,246,236,0.92)"
     ctx.fillRect(0, 0, labelGutter, H)
-    ctx.strokeStyle = "rgba(31,38,38,0.12)"
-    ctx.lineWidth = 1 * px
-    ctx.beginPath()
-    ctx.moveTo(labelGutter, 0)
-    ctx.lineTo(labelGutter, H)
-    ctx.stroke()
     ctx.font = "700 " + fontSize + "px sans-serif"
     ctx.textAlign = "right"
     ctx.textBaseline = "middle"
     ctx.fillStyle = "rgba(31,38,38,0.72)"
     for (let i = 0; i < labelScale.length; i++) {
       if (labelScale[i] == null) continue
-      const y = H - (i / Math.max(1, labelScale.length - 1)) * H
+      const y = pitchRowCenterY(i, labelScale.length, H)
       const inSelectedScale = scale.indexOf(labelScale[i]) !== -1
       ctx.fillStyle = inSelectedScale ? "rgba(31,38,38,0.74)" : "rgba(31,38,38,0.48)"
       ctx.fillText(midiToNoteName(labelScale[i]), labelGutter - 9 * px, clamp(y, fontSize, H - fontSize))
@@ -734,7 +736,7 @@
     const labelScale = buildPitchLabelScale()
     const labelIdx = labelScale.indexOf(midi)
     if (labelIdx >= 0) {
-      return this.canvas.height - (labelIdx / Math.max(1, labelScale.length - 1)) * this.canvas.height
+      return pitchRowCenterY(labelIdx, labelScale.length, this.canvas.height)
     }
     const idx = Math.max(0, scale.indexOf(midi))
     const edgeRatio = PITCH_LABEL_SILENT_EDGE_ROWS / Math.max(1, labelScale.length - 1)

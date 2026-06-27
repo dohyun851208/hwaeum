@@ -119,7 +119,7 @@ test("pitch rendering keeps non-label pitches inside the audible palette rows", 
   assert.ok(y > 0, "audible pitch should stay below the top silent row")
 })
 
-test("renderGrid adds one-second vertical palette cells", () => {
+test("renderGrid draws pitch-row cells without timeline vertical lines", () => {
   const DrawingCanvas = loadDrawing()
   const ctx = makeContext()
   const draw = new DrawingCanvas(makeCanvas(ctx), {
@@ -137,7 +137,16 @@ test("renderGrid adds one-second vertical palette cells", () => {
       verticals.push(a[1])
     }
   }
-  assert.ok(verticals.length >= 29, "30초 팔레트는 최소 29개의 세로 모눈선을 가져야 한다")
+  const horizontals = []
+  for (let i = 0; i < ctx.calls.length - 1; i++) {
+    const a = ctx.calls[i]
+    const b = ctx.calls[i + 1]
+    if (a[0] === "moveTo" && b[0] === "lineTo" && a[2] === b[2] && b[1] === draw.canvas.width) {
+      horizontals.push(a[2])
+    }
+  }
+  assert.equal(verticals.length, 0, "드로잉 격자에는 세로 모눈선이 없어야 한다")
+  assert.ok(horizontals.length >= 16, "음높이 칸을 나누는 가로선이 충분해야 한다")
 })
 
 test("sticky pitch axis exposes natural note labels from G3 to G5", () => {
