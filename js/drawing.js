@@ -14,10 +14,10 @@
   }
 
   const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-  function midiToNoteName(midi) {
-    const note = NOTE_NAMES[((midi % 12) + 12) % 12]
-    const octave = Math.floor(midi / 12) - 1
-    return note + octave
+  // 음 이름만 반환(옥타브 숫자 없음). 악기마다 음역대가 달라 적힌 옥타브 숫자가
+  // 실제 들리는 소리와 어긋날 수 있어, 축 라벨에는 음 이름만 표시한다.
+  function noteLetter(midi) {
+    return NOTE_NAMES[((midi % 12) + 12) % 12]
   }
 
   // 그릴 수 있는 음 목록(음계 ∩ 악기 연주가능음). 축·격자·렌더·quantize 가 모두 이 한 목록을 공유한다.
@@ -25,10 +25,11 @@
     return (Core.drawableScale || Core.buildScale)(style, asset)
   }
 
-  // 악기 transpose 를 반영한 "실제 들리는" 음 이름(예: 더블베이스 G3칸 → G1, 오보에 → 한 옥타브 위).
+  // 축 라벨에 쓸 음 이름. 악기 transpose 를 반영하되 옥타브 숫자는 떼고 음 이름만 보여준다.
+  // (악기마다 음역대가 달라 옥타브 숫자가 실제 소리와 어긋날 수 있어서. 높은 음=위, 낮은 음=아래는 그대로.)
   function soundingLabel(midi, asset) {
     const tr = asset && asset.playbackTranspose ? asset.playbackTranspose : 0
-    return midiToNoteName(midi + tr)
+    return noteLetter(midi + tr)
   }
 
   function pitchRowsForStyle(style, asset) {

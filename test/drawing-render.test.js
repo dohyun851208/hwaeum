@@ -155,13 +155,14 @@ test("renderGrid draws pitch-row cells with timeline vertical lines", () => {
   assert.equal(horizontals.length, rowCount + 1, "pitch rows should draw one boundary line around each row")
 })
 
-test("sticky pitch axis exposes natural note labels from G3 to G5", () => {
+test("sticky pitch axis exposes note names without octave numbers", () => {
   const DrawingCanvas = loadDrawing()
 
   const pitchLabels = DrawingCanvas.pitchLabelsForStyle({})
   const labels = JSON.parse(JSON.stringify(pitchLabels.map((label) => label.label)))
 
-  assert.deepEqual(labels, ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"])
+  // 악기마다 음역대가 달라 옥타브 숫자가 실제 소리와 어긋날 수 있어, 음 이름만 표시한다.
+  assert.deepEqual(labels, ["C", "D", "E", "F", "G", "A", "B", "C"])
   assert.equal(pitchLabels[0].top, 93.75)
   assert.equal(pitchLabels[pitchLabels.length - 1].top, 6.25)
 })
