@@ -261,10 +261,17 @@ check(
 )
 check("완성 작곡가/회고 입력칸 존재", qc("#composerInput") === 1 && qc("#bgReasonInput") === 1 && qc("#melodyIntentInput") === 1 && qc("#hashtagsInput") === 1)
 check(
-  "드로잉 저장 버튼 존재",
-  qc("#exportAudioBtn") === 1 && qc("#exportDrawingImageBtn") === 1,
-  qc("#exportAudioBtn") + "/" + qc("#exportDrawingImageBtn"),
+  "완성 탭 일괄 내보내기/공유 버튼 제거",
+  qc("#exportAudioBtn") === 0 && qc("#exportDrawingImageBtn") === 0 && qc("#exportCoverBtn") === 0 && qc("#shareBtn") === 0,
+  qc("#exportAudioBtn") + "/" + qc("#exportDrawingImageBtn") + "/" + qc("#exportCoverBtn") + "/" + qc("#shareBtn"),
 )
+check("완성 탭은 '이 시도 저장' 버튼만 유지", qc("#saveTakeBtn") === 1, qc("#saveTakeBtn"))
+check(
+  "완성 탭 채널 공유 패널 제거",
+  qc(".share-publish-panel") === 0 && qc("#publishShareBtn") === 0 && qc("#shareChannelInput") === 0 && qc("#openShareStepBtn") === 0,
+  qc(".share-publish-panel") + "/" + qc("#publishShareBtn") + "/" + qc("#shareChannelInput"),
+)
+check("완성 탭 관리자 모드 버튼 제거", qc("#adminModeBtn") === 0, qc("#adminModeBtn"))
 check("완성 탭 음악 멈춤 버튼 제거", qc("#completeStopBtn") === 0, qc("#completeStopBtn"))
 check("완성 탭 드로잉 영상 버튼 제거", qc("#exportDrawingVideoBtn") === 0, qc("#exportDrawingVideoBtn"))
 check(
@@ -417,9 +424,9 @@ Object.defineProperty(window.navigator, "clipboard", {
   },
   configurable: true,
 })
-window.document.getElementById("shareBtn").click()
-check("공유 버튼은 현재 주소에 복원 해시 생성", window.location.hash.indexOf("#r=") === 0, window.location.hash)
-check("공유 버튼은 복사할 링크 생성", copiedShareUrl.indexOf("#r=") > 0, copiedShareUrl)
+SD.shareLink()
+check("레시피 링크 복사는 현재 주소에 복원 해시 생성", window.location.hash.indexOf("#r=") === 0, window.location.hash)
+check("레시피 링크 복사는 복사할 링크 생성", copiedShareUrl.indexOf("#r=") > 0, copiedShareUrl)
 const copiedRecipeCode = copiedShareUrl.split("#r=")[1] || ""
 const copiedRecipe = copiedRecipeCode ? window.MusicCore.decodeRecipe(copiedRecipeCode) : {}
 check("공유 링크 레시피는 드로잉 공유 모드", copiedRecipe.shareMode === "drawing", copiedRecipe.shareMode)
@@ -448,7 +455,7 @@ window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", co
 check("스페이스바로 상단 재생 버튼 동작", spacePlayCalls === 1, spacePlayCalls)
 window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", repeat: true, bubbles: true }))
 check("스페이스바 길게 누름은 반복 토글하지 않음", spacePlayCalls === 1, spacePlayCalls)
-window.document.getElementById("shareChannelInput").dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))
+window.document.getElementById("hashtagsInput").dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))
 check("입력칸 스페이스바는 재생 단축키로 쓰지 않음", spacePlayCalls === 1, spacePlayCalls)
 SD.engine.play = originalPlayForSpace
 window.document.getElementById("clearBtn").click()
@@ -569,16 +576,18 @@ check("초기화는 업로드 배경 끝 구간 유지", SD.buildRecipe().bgEndO
 check("초기화는 드로잉만 삭제", SD.draw.getStrokes().length === 0 && SD.buildRecipe().effectStamps.length === 0)
 
 SD.takes.clearAll()
-const savedTake = SD.takes.add(recipe, "테스트")
+const savedTake = SD.takes.add(Object.assign({}, recipe, { title: "테스트" }), "테스트")
 check("테이크 저장됨", SD.takes.list().length === 1)
-SD.setAdminMode(false)
-check("저장된 시도 제목 입력 표시", qc(".take-name-input") === 1, qc(".take-name-input"))
-check("저장된 시도 제목 저장 버튼 제거", qc(".take-name-save") === 0, qc(".take-name-save"))
-const takeTitleInput = window.document.querySelector(".take-name-input")
-takeTitleInput.value = "1번 학생 작품"
-takeTitleInput.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
-check("저장된 시도 제목 저장 반영", SD.takes.get(savedTake.id).name === "1번 학생 작품", SD.takes.get(savedTake.id).name)
-check("저장된 시도 레시피 제목 저장 반영", SD.takes.get(savedTake.id).recipe.title === "1번 학생 작품", SD.takes.get(savedTake.id).recipe.title)
+SD.setStep(3)
+check("저장된 시도 제목 텍스트 표시", qc(".take-name-text") === 1, qc(".take-name-text"))
+check("저장된 시도 제목 입력칸 제거", qc(".take-name-input") === 0, qc(".take-name-input"))
+check("저장된 시도 제목 텍스트 내용", window.document.querySelector(".take-name-text").textContent === "테스트", window.document.querySelector(".take-name-text").textContent)
+check("저장된 시도 액션 버튼 4개(음악/이미지/링크/채널)", qc(".take-action") === 4, qc(".take-action"))
+check(
+  "저장된 시도 액션 버튼 라벨",
+  Array.from(window.document.querySelectorAll(".take-action")).map((b) => b.textContent).join("/") === "음악 저장/이미지 저장/레시피 링크 복사/채널에 공유하기",
+  Array.from(window.document.querySelectorAll(".take-action")).map((b) => b.textContent).join("/"),
+)
 SD.loadRecipe(Object.assign({}, recipe, { picture: "data:image/png;base64,ZGlydHk=", pictureName: "다른 그림" }))
 window.document.querySelector(".take").click()
 check("저장된 시도 클릭 시 그림 복원", window.document.getElementById("frameImg").src === smokeImageData)
@@ -611,7 +620,7 @@ check("저장된 시도 재생 중 일시정지 활성", activeTakePause.disable
 activeTakePause.click()
 check("저장된 시도 일시정지 버튼 동작", takePauseCalls === 1, takePauseCalls)
 check("저장된 시도 일시정지 후 이어듣기 표시", window.document.querySelector(".take-pause").textContent === "▶")
-check("저장된 시도 재생 시 완성 제목 반영", window.document.getElementById("titleInput").value === "1번 학생 작품")
+check("저장된 시도 재생 시 완성 제목 반영", window.document.getElementById("titleInput").value === "테스트", window.document.getElementById("titleInput").value)
 SD.engine.play = originalTakePlay
 SD.engine.pause = originalTakePause
 SD.stop()

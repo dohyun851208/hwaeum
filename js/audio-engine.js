@@ -272,6 +272,38 @@
     }
     return { buffer: source.buffer, offset: safeOffset, duration: safeDuration }
   }
+  // 라이브 미리듣기와 재생이 "지속음(loop)"을 똑같이 처리하도록, 버퍼만 받아 loop 계획을 계산한다.
+  // ⚠ AudioBufferSourceNode.buffer 는 "한 번만" 설정 가능 — 두 번 설정하면 브라우저가 InvalidStateError 를
+  //   던져 드로잉 미리듣기/선율이 통째로 무음이 된다. 그래서 이 함수는 실제 source 를 만지지 않고(순수),
+  //   호출부가 반환된 buffer 를 source.buffer 에 "딱 한 번" 설정한다.
+  // 기준: 샘플이 충분히 길면(원본 >0.45s, 사용 구간 >0.45s) 무조건 안정 구간을 루프 → 드로잉 중과 재생이
+  //   같은 연속감. 루프는 preparePlaybackSustain(크로스페이드로 구운 버퍼)로 통일 → 이음매 잡음 제거.
+  function continuousSustainPlan(ctx, buffer, offset, usableSourceDur) {
+    const bufferDuration = audioBufferDuration(buffer)
+    if (!(bufferDuration > 0.45 && usableSourceDur > 0.45)) {
+      return { buffer: buffer, offset: offset, duration: usableSourceDur, loop: false }
+    }
+    // preparePlaybackSustain 의 baking/clamp/loop 로직을 그대로 재사용하되, 실제 source 가 아니라
+    // 가짜 probe 에 적용해 결과만 읽는다(실제 source.buffer 이중 설정 방지).
+    const probe = { buffer: buffer }
+    const sustain = preparePlaybackSustain(ctx, probe, offset, usableSourceDur)
+    return {
+      buffer: probe.buffer,
+      offset: sustain.offset,
+      duration: sustain.duration,
+      loop: !!probe.loop,
+      loopStart: probe.loopStart,
+      loopEnd: probe.loopEnd,
+    }
+  }
+  // 계산된 loop 계획을 source 에 적용한다(buffer 는 호출부가 한 번만 설정하므로 여기선 loop 파라미터만).
+  function applySustainPlanToSource(source, plan) {
+    if (plan && plan.loop) {
+      source.loop = true
+      source.loopStart = plan.loopStart
+      source.loopEnd = plan.loopEnd
+    }
+  }
   // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
   // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
   function connectMasterToOutput(ctx, master, output, when) {
@@ -1034,21 +1066,19 @@
       const offset = sourceBounds.offset
       const usableSourceDur = sourceBounds.duration
       if (!(usableSourceDur > 0.01)) continue
-      const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
+      // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다(획당 source 1개 + 피치 글라이드).
+      // ⚠ source.buffer 는 여기서 "한 번만" 설정(이중 설정 시 브라우저 throw → 선율 무음).
+      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur)
+      const startOffset = sustain.offset
+      const startSourceDur = sustain.duration
       const src = ctx.createBufferSource()
-      src.buffer = srcBuffer
-      let startOffset = offset
-      let startSourceDur = usableSourceDur
+      src.buffer = sustain.buffer
+      applySustainPlanToSource(src, sustain)
       src.playbackRate.setValueAtTime(baseRate, phraseStart)
       for (let k = 1; k < stroke.events.length; k++) {
         const event = stroke.events[k]
         const nextRate = segmentPlaybackRate(asset, event.midi, segment)
         src.playbackRate.setTargetAtTime(nextRate, start + event.time, glideSeconds)
-      }
-      if (needSustain) {
-        const sustain = preparePlaybackSustain(ctx, src, offset, usableSourceDur)
-        startOffset = sustain.offset
-        startSourceDur = sustain.duration
       }
       applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
@@ -1098,23 +1128,19 @@
         const baseRate = segmentPlaybackRate(asset, first.midi, segment)
         const usableSourceDur = audioBufferDuration(srcBuffer)
         if (!(usableSourceDur > 0.01)) continue
-        const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
+        // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다. source.buffer 는 한 번만 설정.
+        const sustain = continuousSustainPlan(ctx, srcBuffer, 0, usableSourceDur)
+        const startOffset = sustain.offset
+        const startSourceDur = sustain.duration
         const src = ctx.createBufferSource()
-        src.buffer = srcBuffer
-        let startOffset = 0
-        let startSourceDur = usableSourceDur
+        src.buffer = sustain.buffer
+        applySustainPlanToSource(src, sustain)
         src.playbackRate.setValueAtTime(baseRate, phraseStart)
         for (let k = 1; k < phraseNotes.length; k++) {
           const note = phraseNotes[k]
           const noteStart = start + note.time
           const nextRate = segmentPlaybackRate(asset, note.midi, segment)
           src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
-        }
-        // Match live drawing preview: recorded samples glide on one source without synthetic re-attacks.
-        if (needSustain) {
-          const sustain = preparePlaybackSustain(ctx, src, 0, usableSourceDur)
-          startOffset = sustain.offset
-          startSourceDur = sustain.duration
         }
         applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
         connectGugakSampleTone(ctx, src, env, plan, phraseStart)
@@ -1158,24 +1184,20 @@
       const offset = sourceBounds.offset
       const usableSourceDur = sourceBounds.duration
       if (!(usableSourceDur > 0.01)) continue
-      const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
+      // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다. source.buffer 는 한 번만 설정.
+      // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지고, 짧게 그려도 라이브처럼 안 끊긴다.
+      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur)
+      const startOffset = sustain.offset
+      const startSourceDur = sustain.duration
       const src = ctx.createBufferSource()
-      src.buffer = srcBuffer
-      let startOffset = offset
-      let startSourceDur = usableSourceDur
+      src.buffer = sustain.buffer
+      applySustainPlanToSource(src, sustain)
       src.playbackRate.setValueAtTime(baseRate, phraseStart)
       for (let k = 1; k < notes.length; k++) {
         const note = notes[k]
         const noteStart = start + note.time
         const nextRate = segmentPlaybackRate(asset, note.midi, segment)
         src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
-      }
-      // Match live drawing preview: recorded samples glide on one source without synthetic re-attacks.
-      // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지도록 안정 구간을 루프한다.
-      if (needSustain) {
-        const sustain = preparePlaybackSustain(ctx, src, offset, usableSourceDur)
-        startOffset = sustain.offset
-        startSourceDur = sustain.duration
       }
       applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
@@ -1468,10 +1490,12 @@
     filter.connect(env)
     env.connect(ctx.destination)
 
+    // 재생 스케줄러와 똑같은 지속음 정책. source.buffer 는 "한 번만" 설정(이중 설정 시 무음).
+    const sustain = continuousSustainPlan(ctx, buffer, offset, segmentDur)
     const source = ctx.createBufferSource()
-    source.buffer = buffer
+    source.buffer = sustain.buffer
+    applySustainPlanToSource(source, sustain)
     source.playbackRate.setValueAtTime(baseRate, start)
-    if (buffer.duration > 0.45 && segmentDur > 0.45) applySustainLoop(source, offset, segmentDur)
 
     source.connect(filter)
 
@@ -1493,7 +1517,7 @@
         } catch (e) {}
       })
     }
-    source.start(start, offset)
+    source.start(start, sustain.offset)
     return live
   }
 

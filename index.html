@@ -209,7 +209,7 @@
               <canvas id="frameCanvas" width="640" height="640" aria-hidden="true"></canvas>
             </div>
             <div class="placard">
-              <input id="titleInput" class="placard-title" type="text" value="무제" aria-label="작품 제목" maxlength="24" />
+              <input id="titleInput" class="placard-title" type="text" placeholder="제목" aria-label="작품 제목" maxlength="24" />
               <label class="composer-field" for="composerInput">
                 <span>작곡가</span>
                 <input id="composerInput" type="text" maxlength="24" placeholder="나의 이름" aria-label="작곡가 이름" />
@@ -235,22 +235,6 @@
 
             <div class="actions-row">
               <button class="btn small primary" id="saveTakeBtn" type="button">이 시도 저장</button>
-              <button class="btn small" id="exportAudioBtn" type="button">음악 저장(WebM)</button>
-              <button class="btn small" id="exportDrawingImageBtn" type="button">드로잉 이미지(PNG)</button>
-              <button class="btn small" id="exportCoverBtn" type="button">커버 이미지(PNG)</button>
-              <button class="btn small" id="shareBtn" type="button">레시피 링크 복사</button>
-            </div>
-            <div class="share-publish-panel" aria-label="학급 채널 공유">
-              <div>
-                <strong>학급 채널에 공유</strong>
-                <span class="muted">완성 음악과 표지를 작게 압축해서 올립니다.</span>
-              </div>
-              <label class="share-channel-field" for="shareChannelInput">
-                <span>채널 번호</span>
-                <input id="shareChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="예: 3021" />
-              </label>
-              <button class="btn small primary" id="publishShareBtn" type="button">채널에 공유하기</button>
-              <button class="btn small" id="openShareStepBtn" type="button">공유 탭 보기</button>
             </div>
             <p class="upload-status" id="exportStatus" aria-live="polite"></p>
 
@@ -260,7 +244,6 @@
                   <h3>내 시도</h3>
                   <span class="muted" id="takesCount"></span>
                 </div>
-                <button class="btn tiny admin-mode-btn" id="adminModeBtn" type="button" aria-pressed="false">관리자 모드</button>
               </div>
               <div class="takes-list" id="takesList"></div>
               <p class="muted takes-empty" id="takesEmpty">드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요.</p>

@@ -2251,6 +2251,15 @@ p {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+.take-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink);
+}
 .take-meta span,
 .take-detail {
   display: block;
@@ -2260,6 +2269,19 @@ p {
 .take-tools {
   display: flex;
   gap: 6px;
+}
+/* 시도별 저장·공유 버튼 줄 — 카드 전체 폭으로 펼친다(.take는 3열 그리드). */
+.take-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.take-action {
+  white-space: nowrap;
 }
 .takes-empty {
   font-size: 0.85rem;

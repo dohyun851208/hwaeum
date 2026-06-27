@@ -195,7 +195,6 @@
     melodyIntentInput: $("melodyIntentInput"),
     hashtagsInput: $("hashtagsInput"),
     saveTakeBtn: $("saveTakeBtn"),
-    adminModeBtn: $("adminModeBtn"),
     exportAudioBtn: $("exportAudioBtn"),
     completeStopBtn: $("completeStopBtn"),
     exportDrawingImageBtn: $("exportDrawingImageBtn"),
@@ -2301,10 +2300,8 @@
   // --- 시도(테이크) ---
 
   function syncAdminModeUI() {
+    // 관리자 모드 버튼은 제거됨 — 상태만 body 데이터셋에 반영(공유 삭제 로직/디버그 API용).
     el.body.dataset.adminMode = state.adminMode ? "on" : "off"
-    el.adminModeBtn.classList.toggle("active", state.adminMode)
-    el.adminModeBtn.setAttribute("aria-pressed", state.adminMode ? "true" : "false")
-    el.adminModeBtn.textContent = state.adminMode ? "관리자 모드 켜짐" : "관리자 모드"
   }
 
   function setAdminMode(on) {
@@ -2337,41 +2334,14 @@
     num.textContent = index + "번"
     row.appendChild(num)
 
-    const input = document.createElement("input")
-    input.type = "text"
-    input.className = "take-name-input"
-    input.value = take.name || (take.recipe && take.recipe.title) || ""
-    input.maxLength = TAKE_NAME_MAX
-    input.placeholder = "작품 제목"
-    input.setAttribute("aria-label", index + "번 작품 제목")
-    const commitTitle = function () {
-      const nextTitle = input.value.trim() || "무제"
-      const currentTitle = take.name || (take.recipe && take.recipe.title) || "무제"
-      if (nextTitle === currentTitle) return
-      takes.setTitle(take.id, nextTitle)
-      if (state.activeTakeId === take.id) {
-        state.title = nextTitle
-        if (el.titleInput) el.titleInput.value = nextTitle
-      }
-      renderTakes()
-      el.exportStatus.textContent = index + "번 작품 제목을 저장했어요."
-    }
-    // 제목 편집 컨트롤은 카드 클릭(결과 보기)으로 번지지 않게 막는다.
-    input.addEventListener("click", function (event) {
-      event.stopPropagation()
-    })
-    input.addEventListener("keydown", function (event) {
-      event.stopPropagation()
-      if (event.key === "Enter") {
-        event.preventDefault()
-        commitTitle()
-      }
-    })
-    input.addEventListener("change", function (event) {
-      event.stopPropagation()
-      commitTitle()
-    })
-    row.appendChild(input)
+    // 제목은 읽기 전용 텍스트로만 표시한다(시도별 제목 편집·저장 기능 제거).
+    // 기본값 "무제"는 화면에서 "제목"으로 보여 준다.
+    const rawTitle = take.name || (take.recipe && take.recipe.title) || ""
+    const titleText = document.createElement("span")
+    titleText.className = "take-name-text"
+    titleText.textContent = rawTitle && rawTitle !== "무제" ? rawTitle : "제목"
+    row.appendChild(titleText)
+
     meta.appendChild(row)
   }
 
@@ -3871,6 +3841,7 @@
     loadSharedChannel: loadSharedChannel,
     exportDrawingImage: exportDrawingImage,
     exportDrawingVideo: exportDrawingVideo,
+    shareLink: shareLink,
     loadRecipe: loadRecipe,
     buildRecipe: buildRecipe,
     buildSharedRecipe: buildSharedRecipe,

@@ -151,7 +151,9 @@ test("완성 화면 그림에는 재생 버튼이 있고 음악 저장은 WebM�
 
   assert.match(source, /function ensureFramePlayButton\(\)/)
   assert.match(source, /framePlayBtn/)
-  assert.match(html, /id="exportAudioBtn"[\s\S]*WebM/)
+  // 음악 저장은 완성 탭 일괄 버튼이 아니라 시도별 버튼으로 옮겼고, 여전히 WebM만 사용한다.
+  assert.doesNotMatch(html, /id="exportAudioBtn"/)
+  assert.match(source, /makeTakeActionButton\("음악 저장"[^)]*WebM/)
   assert.doesNotMatch(html, /exportWavBtn|오디오 내보내기\(WAV\)/)
   assert.match(source, /function exportAudio\(\)/)
   assert.match(source, /exportCompressedAudio/)

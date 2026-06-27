@@ -1340,4 +1340,70 @@ test("배경음악 bgOffset: 버퍼 길이를 넘으면 클램프된다", () => 
   assert.ok(padSource.startCalls[0][1] <= 40, "bgOffset이 버퍼 길이로 클램프됨: " + padSource.startCalls[0][1])
 })
 
+test("짧게 그린 획도 라이브처럼 지속음(loop)으로 이어진다 — 한 source + 피치 글라이드", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "haegeum", style: "gugak", version: "balanced", mode: "melody" },
+    [],
+  )
+  // 샘플(2.4s)보다 훨씬 짧은 0.5s 획: 과거 게이트(phrase>sample)에서는 loop 를 걸지 않아
+  // 드로잉 중(라이브)과 달리 재생에서 음이 뚝 끊겼다. 이제 라이브와 같은 기준으로 항상 loop 한다.
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
+
+  engine.scheduleSampleStrokes(
+    ctx,
+    dest,
+    plan,
+    [
+      {
+        start: 0,
+        end: 0.5,
+        duration: 0.5,
+        events: [
+          { time: 0, midi: 60, uiMidi: 60 },
+          { time: 0.25, midi: 62, uiMidi: 62 },
+          { time: 0.5, midi: 64, uiMidi: 64 },
+        ],
+      },
+    ],
+    { melody: { duration: 2.4 }, melodySamples: null },
+    0,
+    noop,
+  )
+
+  // 획 하나당 단 하나의 sample source (음마다 재타격하지 않음)
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].startCalls.length, 1)
+  // 핵심: 짧은 획도 이제 loop 로 지속됨 (게이트 통일의 직접 검증)
+  assert.equal(ctx.created.buffers[0].loop, true)
+  // 음 변화는 새 source 가 아니라 playbackRate 글라이드로 표현됨
+  const rateEvents = ctx.created.buffers[0].playbackRate.events
+  assert.equal(rateEvents.filter((event) => event[0] === "set").length, 1)
+  assert.ok(rateEvents.some((event) => event[0] === "target"), "음 변화는 playbackRate 글라이드여야 한다")
+})
+
+test("드로잉 미리듣기와 전체 재생이 같은 지속음 헬퍼(continuousSustainPlan)를 쓴다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "audio-engine.js"), "utf8")
+  // 네 군데(획/멀티/단일 phrase 재생 + 라이브 미리듣기)가 모두 공통 헬퍼를 거쳐야 한다.
+  const calls = source.match(/continuousSustainPlan\(/g) || []
+  assert.ok(calls.length >= 5, "정의 1 + 호출 4 이상이어야 한다 (실제: " + calls.length + ")")
+  // 과거의 분기 기준(악구 길이 > 샘플 길이)이 스케줄러에 남아 있으면 안 된다.
+  assert.doesNotMatch(source, /needSustain = phraseDuration \* baseRate > usableSourceDur \* 0\.85/)
+})
+
+test("preparePlaybackSustain 은 continuousSustainPlan 안에서만 호출된다 (실제 source 이중 buffer 설정 방지)", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "audio-engine.js"), "utf8")
+  // preparePlaybackSustain 은 넘겨받은 객체의 .buffer 를 재할당한다. 실제 source(이미 buffer 설정됨)에
+  // 직접 부르면 buffer 이중 설정 → 브라우저 InvalidStateError → 선율/미리듣기 무음.
+  // 실제 노드(스케줄러의 src)에 직접 부르면 안 되고, 가짜 probe 객체에만 적용해야 한다.
+  // (정의는 (ctx, source) 시그니처이므로 호출형 src 만 검사한다.)
+  assert.doesNotMatch(source, /preparePlaybackSustain\(\s*ctx\s*,\s*src\b/, "preparePlaybackSustain 을 실제 src 에 직접 부르면 buffer 이중 설정")
+  assert.match(source, /preparePlaybackSustain\(ctx, probe,/, "sustain 계산은 probe 객체로 해야 한다")
+  // 스케줄러/미리듣기는 계산된 결과 buffer 를 한 번만 설정한다.
+  assert.match(source, /\.buffer = sustain\.buffer\b/, "source.buffer 는 sustain 계획 결과로 한 번만 설정해야 한다")
+})
+
 
