@@ -90,6 +90,23 @@
     filter.connect(env)
     return filter
   }
+  function sampleSustainLoopRegion(offset, duration) {
+    const dur = Number(duration) || 0
+    if (dur <= 0.25) return null
+    const minLoop = Math.min(0.22, dur * 0.35)
+    const relStart = clamp(dur * 0.28, Math.min(0.18, Math.max(0, dur - minLoop)), Math.max(0, dur - minLoop - 0.06))
+    const relEnd = clamp(Math.max(relStart + minLoop, dur * 0.78), relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
+    if (relEnd <= relStart + 0.06) return null
+    return { start: offset + relStart, end: offset + relEnd }
+  }
+  function applySustainLoop(source, offset, duration) {
+    const region = sampleSustainLoopRegion(offset || 0, duration)
+    if (!region) return false
+    source.loop = true
+    source.loopStart = region.start
+    source.loopEnd = region.end
+    return true
+  }
   // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
   // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
   function connectMasterToOutput(ctx, master, output, when) {
@@ -702,11 +719,7 @@
             skipGrace: isHaegeumPlan(plan) && k > 0,
           })
         }
-        if (needSustain && usableSourceDur > 0.25) {
-          src.loop = true
-          src.loopStart = Math.min(0.12, usableSourceDur * 0.2)
-          src.loopEnd = Math.max(usableSourceDur - Math.min(0.08, usableSourceDur * 0.1), src.loopStart + 0.15)
-        }
+        if (needSustain) applySustainLoop(src, 0, usableSourceDur)
         applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
         connectGugakSampleTone(ctx, src, env, plan, phraseStart)
         env.connect(dest)
@@ -751,11 +764,7 @@
       const usableSourceDur = segment ? segment.duration : srcBuffer.duration - offset
       const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
       // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지도록 안정 구간을 루프한다.
-      if (needSustain && usableSourceDur > 0.25) {
-        src.loop = true
-        src.loopStart = offset + Math.min(0.12, usableSourceDur * 0.2)
-        src.loopEnd = offset + Math.max(usableSourceDur - Math.min(0.08, usableSourceDur * 0.1), src.loopStart - offset + 0.15)
-      }
+      if (needSustain) applySustainLoop(src, offset, usableSourceDur)
       applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
@@ -1029,11 +1038,7 @@
 
     source.buffer = buffer
     source.playbackRate.setValueAtTime(segmentPlaybackRate(plan.melodyAsset, midi, segment), start)
-    if (buffer.duration > 0.45 && segmentDur > 0.45) {
-      source.loop = true
-      source.loopStart = offset + Math.min(0.18, Math.max(0.04, segmentDur * 0.18))
-      source.loopEnd = offset + Math.max(source.loopStart - offset + 0.18, segmentDur - Math.min(0.08, segmentDur * 0.12))
-    }
+    if (buffer.duration > 0.45 && segmentDur > 0.45) applySustainLoop(source, offset, segmentDur)
     configureSampleToneFilter(filter, plan, start)
     env.gain.setValueAtTime(0.0001, start)
     env.gain.linearRampToValueAtTime(targetGain, start + 0.035)

@@ -45,3 +45,14 @@ test("background range pause keeps its current position for resume", () => {
   assert.match(playBody, /bgPausedAt = null/)
   assert.match(toggleBody, /else pauseBgPlayer\(true\)/)
 })
+
+test("background range changes do not rewrite the drawing timeline duration", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const ensureBody = functionBody(source, "ensureTimelineDuration")
+  const syncUiBody = functionBody(source, "syncBgPlayerUI")
+
+  assert.doesNotMatch(ensureBody, /state\.bgEndOffset\s*-\s*state\.bgOffset/)
+  assert.doesNotMatch(ensureBody, /state\.duration\s*=\s*next/)
+  assert.doesNotMatch(ensureBody, /bgMinGap\(total\)/)
+  assert.match(syncUiBody, /const durationChanged = ensureTimelineDuration\(false\)/)
+})

@@ -177,7 +177,30 @@ test("scheduleSampleMelody loops a long single phrase sample until the drawn not
 
   assert.equal(ctx.created.buffers.length, 1)
   assert.equal(ctx.created.buffers[0].loop, true)
+  assert.ok(ctx.created.buffers[0].loopStart > 0.4, "긴 지속음은 샘플 앞 공격음이 아니라 가운데 안정 구간부터 반복해야 한다")
+  assert.ok(ctx.created.buffers[0].loopEnd < 2.2, "긴 지속음은 샘플 끝 감쇠 구간까지 반복하지 않아야 한다")
+  assert.ok(ctx.created.buffers[0].loopEnd > ctx.created.buffers[0].loopStart + 0.2)
   assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 5)
+})
+
+test("gugak multi-sample long horizontal notes loop the stable middle of the sample", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 8, midi: 60, velocity: 0.7 }],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "multi", sampleMap: [{ midi: 72, src: "sogeum_C5.mp3" }] })
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: null, melodySamples: { 72: { duration: 2.4 } } }, 0, noop)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].loop, true)
+  assert.ok(ctx.created.buffers[0].loopStart > 0.4)
+  assert.ok(ctx.created.buffers[0].loopEnd < 2.2)
+  assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 8)
 })
 
 test("multi-sample melody sustains contiguous notes as one connected phrase", () => {

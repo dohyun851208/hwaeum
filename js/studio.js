@@ -1668,15 +1668,9 @@
     state.bgEndOffset = clampNumber(end, Math.min(total, state.bgOffset + gap), total)
   }
 
-  function syncDurationFromBgRange(resetScroll) {
-    const total = bgDuration()
-    if (!canSelectBgRange() || !total || !(state.bgEndOffset > state.bgOffset)) {
-      if (!isFinite(state.duration) || state.duration <= 0) state.duration = DEFAULT_DURATION_SECONDS
-      return false
-    }
-    const next = round3(Math.max(bgMinGap(total), state.bgEndOffset - state.bgOffset))
-    if (Math.abs(next - state.duration) < 0.001) return false
-    state.duration = next
+  function ensureTimelineDuration(resetScroll) {
+    if (isFinite(state.duration) && state.duration > 0) return false
+    state.duration = DEFAULT_DURATION_SECONDS
     selectedPlayheadProgress = clampPlayheadProgress(selectedPlayheadProgress)
     playheadElapsedMs = selectedPlaybackStartSec() * 1000
     refreshTimeline(!!resetScroll)
@@ -1735,7 +1729,7 @@
       el.bgEndSeek.value = String(state.bgEndOffset)
       el.bgEndSeek.disabled = !canSelectRange || !(total > gap)
     }
-    const durationChanged = syncDurationFromBgRange(false)
+    const durationChanged = ensureTimelineDuration(false)
     if (el.bgStartInput) {
       el.bgStartInput.disabled = !canSelectRange || !total
       if (document.activeElement !== el.bgStartInput) el.bgStartInput.value = fmtInputTime(state.bgOffset)
