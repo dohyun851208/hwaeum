@@ -2194,6 +2194,316 @@
     updateReadouts()
   }
 
+  // --- 학급 채널 공유 ---
+
+  function syncShareInputs(channel) {
+    const normalized = ShareStore ? ShareStore.normalizeChannel(channel || state.sharedChannel || "") : String(channel || state.sharedChannel || "")
+    state.sharedChannel = normalized
+    if (el.shareChannelInput && el.shareChannelInput.value !== normalized) el.shareChannelInput.value = normalized
+    if (el.channelBrowseInput && el.channelBrowseInput.value !== normalized) el.channelBrowseInput.value = normalized
+  }
+
+  function setShareMessage(text, error) {
+    const target = state.step === SHARE_STEP && el.shareStatus ? el.shareStatus : el.exportStatus
+    if (!target) return
+    target.textContent = text
+    target.classList.toggle("error", !!error)
+  }
+
+  function sharedMetadata() {
+    const atmos = state.atmosphere || D.atmospheres[0]
+    const inst = state.instrument || D.instruments[0]
+    return {
+      title: state.title || "무제",
+      backgroundReason: cleanText(state.backgroundReason, 180),
+      melodyIntent: cleanText(state.melodyIntent, 180),
+      hashtags: normalizeHashtags(state.hashtags),
+      atmosphereLabel: atmos.label,
+      instrumentLabel: inst.label,
+      duration: state.duration,
+    }
+  }
+
+  function sharedWorkUrl(work) {
+    if (work && work.shareUrl) return work.shareUrl
+    try {
+      const url = new URL(location.href)
+      url.search = "?shareChannel=" + encodeURIComponent((work && work.channel) || state.sharedChannel || "")
+      url.hash = work && work.id ? "work=" + encodeURIComponent(work.id) : ""
+      return url.href
+    } catch (e) {
+      return location.href
+    }
+  }
+
+  function updateShareUrl(channel, workId) {
+    try {
+      const url = new URL(location.href)
+      if (channel) url.searchParams.set("shareChannel", channel)
+      if (workId) url.hash = "work=" + encodeURIComponent(workId)
+      else if (url.hash.indexOf("#work=") === 0) url.hash = ""
+      history.replaceState(null, "", url.href)
+    } catch (e) {}
+  }
+
+  async function copyText(text, doneMessage) {
+    const copied = function () {
+      setShareMessage(doneMessage || "링크를 복사했어요.", false)
+    }
+    const fallback = function () {
+      if (copyViaSelection(text)) copied()
+      else if (typeof prompt === "function") prompt("공유 링크", text)
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text)
+        copied()
+      } catch (e) {
+        fallback()
+      }
+    } else {
+      fallback()
+    }
+  }
+
+  function workIsMine(work) {
+    if (!ShareStore || !work) return false
+    const owner = ShareStore.getOwner()
+    return !!owner && !!owner.id && owner.id === work.ownerId
+  }
+
+  function adminPinValue() {
+    return el.shareAdminPinInput ? el.shareAdminPinInput.value.trim() : ""
+  }
+
+  function formatSharedDate(value) {
+    const d = new Date(value || "")
+    if (!isFinite(d.getTime())) return ""
+    return d.toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+  }
+
+  function renderSharedWorks() {
+    if (!el.sharedWorksList || !el.sharedEmpty) return
+    el.sharedWorksList.innerHTML = ""
+    const works = state.sharedWorks || []
+    if (state.sharedLoading) {
+      el.sharedEmpty.style.display = "block"
+      el.sharedEmpty.textContent = "채널을 불러오는 중입니다."
+      return
+    }
+    el.sharedEmpty.style.display = works.length ? "none" : "block"
+    el.sharedEmpty.textContent = state.sharedChannel ? "아직 이 채널에 공유된 음악이 없습니다." : "채널 번호를 입력하고 열기를 누르면 공유된 음악이 여기에 모입니다."
+    const adminReady = !!adminPinValue()
+    works.forEach(function (work) {
+      const meta = work.metadata || {}
+      const files = work.files || {}
+      const card = document.createElement("article")
+      card.className = "shared-work"
+      card.id = "work-" + work.id
+
+      const img = document.createElement("img")
+      img.className = "shared-work-cover"
+      img.src = files.thumbUrl || files.coverUrl || DEFAULT_COVER_SRC
+      img.alt = (work.title || meta.title || "공유 음악") + " 표지"
+      card.appendChild(img)
+
+      const main = document.createElement("div")
+      main.className = "shared-work-main"
+      const title = document.createElement("h3")
+      title.className = "shared-work-title"
+      title.textContent = work.title || meta.title || "무제"
+      main.appendChild(title)
+      const detail = document.createElement("p")
+      detail.className = "shared-work-meta"
+      detail.textContent = [meta.atmosphereLabel, meta.instrumentLabel, secondsLabel(meta.duration || 30)].filter(Boolean).join(" · ")
+      main.appendChild(detail)
+      if (meta.backgroundReason) {
+        const p = document.createElement("p")
+        p.className = "shared-work-text"
+        p.textContent = "배경: " + meta.backgroundReason
+        main.appendChild(p)
+      }
+      if (meta.melodyIntent) {
+        const p = document.createElement("p")
+        p.className = "shared-work-text"
+        p.textContent = "선율: " + meta.melodyIntent
+        main.appendChild(p)
+      }
+      if (meta.hashtags && meta.hashtags.length) {
+        const tags = document.createElement("p")
+        tags.className = "shared-work-tags"
+        tags.textContent = meta.hashtags.map((tag) => (tag.charAt(0) === "#" ? tag : "#" + tag)).join(" ")
+        main.appendChild(tags)
+      }
+      const date = document.createElement("p")
+      date.className = "shared-work-date"
+      date.textContent = formatSharedDate(work.createdAt)
+      main.appendChild(date)
+      card.appendChild(main)
+
+      const tools = document.createElement("div")
+      tools.className = "shared-work-tools"
+      const audio = document.createElement("audio")
+      audio.controls = true
+      audio.preload = "none"
+      audio.src = files.musicUrl || ""
+      tools.appendChild(audio)
+      const actions = document.createElement("div")
+      actions.className = "shared-work-actions"
+      const copyB = document.createElement("button")
+      copyB.type = "button"
+      copyB.className = "btn tiny"
+      copyB.textContent = "링크 복사"
+      copyB.addEventListener("click", function () {
+        copyText(sharedWorkUrl(work), "작품 링크를 복사했어요.")
+      })
+      actions.appendChild(copyB)
+      if (workIsMine(work) || adminReady) {
+        const delB = document.createElement("button")
+        delB.type = "button"
+        delB.className = "btn tiny"
+        delB.textContent = workIsMine(work) ? "삭제" : "관리자 삭제"
+        delB.addEventListener("click", function () {
+          deleteSharedWork(work)
+        })
+        actions.appendChild(delB)
+      }
+      tools.appendChild(actions)
+      card.appendChild(tools)
+      el.sharedWorksList.appendChild(card)
+    })
+  }
+
+  async function loadSharedChannel(channel, options) {
+    options = options || {}
+    if (!ShareStore) {
+      setShareMessage("공유 모듈을 불러오지 못했어요.", true)
+      return
+    }
+    const normalized = ShareStore.normalizeChannel(channel || state.sharedChannel || "")
+    if (!normalized) {
+      setShareMessage("공유 채널 번호를 적어 주세요.", true)
+      return
+    }
+    syncShareInputs(normalized)
+    state.sharedLoading = true
+    renderSharedWorks()
+    setShareMessage(normalized + " 채널을 불러오는 중입니다.", false)
+    try {
+      const result = await ShareStore.listChannel(normalized)
+      state.sharedWorks = result.works || []
+      setShareMessage(normalized + " 채널에 공유된 음악 " + state.sharedWorks.length + "개를 불러왔어요.", false)
+      if (options.updateUrl !== false) updateShareUrl(normalized)
+    } catch (e) {
+      console.error(e)
+      state.sharedWorks = []
+      setShareMessage(e.message || "공유 채널을 불러오지 못했어요.", true)
+    } finally {
+      state.sharedLoading = false
+      renderSharedWorks()
+      if (options.focusWork) {
+        const target = document.getElementById("work-" + options.focusWork)
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    }
+  }
+
+  async function publishSharedWork() {
+    if (!requireDrawn()) return
+    if (!ShareStore) {
+      el.exportStatus.textContent = "공유 모듈을 불러오지 못했어요."
+      el.exportStatus.classList.add("error")
+      return
+    }
+    const channel = ShareStore.normalizeChannel(el.shareChannelInput ? el.shareChannelInput.value : state.sharedChannel)
+    if (!channel) {
+      el.exportStatus.textContent = "공유 채널 번호를 적어 주세요."
+      el.exportStatus.classList.add("error")
+      return
+    }
+    syncShareInputs(channel)
+    const recipe = buildRecipe()
+    const metadata = sharedMetadata()
+    const publishButton = el.publishShareBtn
+    if (publishButton) publishButton.disabled = true
+    try {
+      el.exportStatus.classList.remove("error")
+      el.exportStatus.textContent = "표지 이미지를 작게 압축하는 중입니다."
+      const images = await ShareStore.createImageBlobs({
+        pictureSrc: state.pic,
+        defaultCoverSrc: DEFAULT_COVER_SRC,
+        title: metadata.title,
+        hashtags: hashtagText(metadata.hashtags),
+        accent: state.atmosphere.color,
+      })
+      el.exportStatus.textContent = "최종 음악을 압축하는 중입니다. 노래 길이만큼 기다려 주세요."
+      if (!engine.renderCompressedAudioBlob) throw new Error("압축 음악을 만들 수 없는 브라우저입니다.")
+      const music = await engine.renderCompressedAudioBlob(recipe, notesFor(recipe), { audioBitsPerSecond: SHARE_AUDIO_BITS_PER_SECOND })
+      el.exportStatus.textContent =
+        "공유 서버에 올리는 중입니다. 음악 " + ShareStore.formatBytes(music.size) + ", 표지 " + ShareStore.formatBytes(images.cover.size) + "."
+      const result = await ShareStore.publishWork({
+        channel: channel,
+        title: metadata.title,
+        recipe: recipe,
+        metadata: metadata,
+        coverBlob: images.cover,
+        thumbBlob: images.thumb,
+        musicBlob: music,
+      })
+      const work = result.work
+      el.exportStatus.textContent = channel + " 채널에 공유했어요."
+      state.sharedChannel = channel
+      state.sharedLoading = true
+      setStep(SHARE_STEP)
+      state.sharedLoading = false
+      await loadSharedChannel(channel, { focusWork: work && work.id })
+      if (work && work.id) updateShareUrl(channel, work.id)
+    } catch (e) {
+      console.error(e)
+      el.exportStatus.textContent = e.message || "공유 업로드에 실패했어요."
+      el.exportStatus.classList.add("error")
+    } finally {
+      if (publishButton) publishButton.disabled = false
+    }
+  }
+
+  async function deleteSharedWork(work) {
+    if (!ShareStore || !work) return
+    const pin = adminPinValue()
+    if (!workIsMine(work) && !pin) {
+      setShareMessage("다른 사람의 작품은 관리자 PIN이 있어야 지울 수 있어요.", true)
+      return
+    }
+    if (!window.confirm("이 공유 작품을 지울까요?")) return
+    try {
+      setShareMessage("공유 작품을 삭제하는 중입니다.", false)
+      await ShareStore.deleteWork(work, pin)
+      state.sharedWorks = state.sharedWorks.filter((item) => item.id !== work.id)
+      renderSharedWorks()
+      setShareMessage("공유 작품을 삭제했어요.", false)
+    } catch (e) {
+      console.error(e)
+      setShareMessage(e.message || "공유 작품을 삭제하지 못했어요.", true)
+    }
+  }
+
+  function restoreSharedChannelFromUrl() {
+    if (!ShareStore) return false
+    let params
+    try {
+      params = new URL(location.href).searchParams
+    } catch (e) {
+      return false
+    }
+    const channel = ShareStore.normalizeChannel(params.get("shareChannel") || params.get("channel") || "")
+    if (!channel) return false
+    const focus = (location.hash || "").indexOf("#work=") === 0 ? decodeURIComponent(location.hash.slice(6)) : ""
+    syncShareInputs(channel)
+    setStep(SHARE_STEP)
+    loadSharedChannel(channel, { updateUrl: false, focusWork: focus })
+    return true
+  }
+
   // --- 내보내기 ---
 
   async function exportAudio() {
@@ -2669,6 +2979,13 @@
       renderTakes()
       updateReadouts()
     }
+    if (state.step === SHARE_STEP) {
+      syncShareInputs()
+      renderSharedWorks()
+      if (state.sharedChannel && !state.sharedLoading && !state.sharedWorks.length) {
+        loadSharedChannel(state.sharedChannel, { updateUrl: false })
+      }
+    }
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
@@ -2798,6 +3115,23 @@
     if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.addEventListener("click", exportDrawingVideo)
     el.exportCoverBtn.addEventListener("click", exportCover)
     el.shareBtn.addEventListener("click", shareLink)
+    if (el.publishShareBtn) el.publishShareBtn.addEventListener("click", publishSharedWork)
+    if (el.openShareStepBtn) el.openShareStepBtn.addEventListener("click", () => setStep(SHARE_STEP))
+    if (el.shareChannelInput) {
+      el.shareChannelInput.addEventListener("input", () => syncShareInputs(el.shareChannelInput.value))
+    }
+    if (el.channelBrowseInput) {
+      el.channelBrowseInput.addEventListener("input", () => syncShareInputs(el.channelBrowseInput.value))
+      el.channelBrowseInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") loadSharedChannel(el.channelBrowseInput.value)
+      })
+    }
+    if (el.loadChannelBtn) {
+      el.loadChannelBtn.addEventListener("click", () => loadSharedChannel(el.channelBrowseInput ? el.channelBrowseInput.value : state.sharedChannel))
+    }
+    if (el.shareAdminPinInput) {
+      el.shareAdminPinInput.addEventListener("input", renderSharedWorks)
+    }
 
     el.titleInput.addEventListener("input", () => {
       state.title = el.titleInput.value || "무제"
@@ -2866,10 +3200,12 @@
     syncAdminModeUI()
     syncTransportButtons(false, false)
     syncReflectionInputs()
+    syncShareInputs()
     updateReadouts()
     syncUndoButton()
     restoreFromHash()
     setStep(0)
+    restoreSharedChannelFromUrl()
     warmSelectedInstrument() // 기본 악기 미리 준비 + 음원 로드 상태(실제/합성)를 하단에 표시
     engine.warmAmbience(buildRecipe()).catch(function () {}) // 기본 배경음 미리 로드(드로잉 진입 시 즉시)
   }
