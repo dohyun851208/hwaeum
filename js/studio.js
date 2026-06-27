@@ -95,7 +95,6 @@
     body: document.body,
     statusText: $("statusText"),
     playBtn: $("playBtn"),
-    pauseBtn: $("pauseBtn"),
     stopBtn: $("stopBtn"),
     picInput: $("picInput"),
     dropPreview: $("dropPreview"),
@@ -1179,19 +1178,41 @@
     if (icon) icon.textContent = text
   }
 
+  const controlFeedbackTimers = new WeakMap()
+  function pulseControl(button) {
+    if (!button) return
+    const oldTimer = controlFeedbackTimers.get(button)
+    if (oldTimer) clearTimeout(oldTimer)
+    button.classList.add("pressing")
+    const timer = setTimeout(function () {
+      button.classList.remove("pressing")
+      controlFeedbackTimers.delete(button)
+    }, 220)
+    controlFeedbackTimers.set(button, timer)
+  }
+
   function syncTransportButtons(playing, paused) {
     const hasAmbience = !!engine.ambience
     const canPause = playing || paused || hasAmbience
-    const playLabel = playing && paused ? "이어 재생" : "재생"
+    const activeAudio = (!!playing || hasAmbience) && !paused
+    const activePlayback = !!playing && !paused
+    const pausedPlayback = !!playing && !!paused
+    const playLabel = activeAudio ? "일시정지" : paused ? "이어 재생" : "재생"
     el.playBtn.setAttribute("aria-label", playLabel)
     el.playBtn.title = playLabel
-    el.pauseBtn.disabled = !canPause
-    el.pauseBtn.classList.toggle("active", paused)
-    el.pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false")
-    el.pauseBtn.setAttribute("aria-label", paused ? "이어 재생" : "일시정지")
-    el.pauseBtn.title = paused ? "이어 재생" : "일시정지"
-    setIcon(el.pauseBtn, paused ? "▶" : "❚❚")
-    el.composePlay.textContent = playing && paused ? "▶ 이어 재생" : "▶ 전체 재생"
+    el.playBtn.classList.toggle("active", activeAudio)
+    el.playBtn.classList.toggle("paused", !!paused)
+    el.playBtn.setAttribute("aria-pressed", activeAudio ? "true" : "false")
+    setIcon(el.playBtn, activeAudio ? "❚❚" : "▶")
+    el.stopBtn.setAttribute("aria-pressed", "false")
+    el.composePlay.classList.toggle("playing", activePlayback)
+    el.composePlay.classList.toggle("paused", pausedPlayback)
+    el.composePlay.setAttribute("aria-pressed", activePlayback ? "true" : "false")
+    el.composePlay.textContent = activePlayback ? "❚❚ 일시정지" : pausedPlayback ? "▶ 이어 재생" : "▶ 전체 재생"
+    el.framePlay.classList.toggle("active", activePlayback)
+    el.framePlay.classList.toggle("paused", pausedPlayback)
+    el.framePlay.setAttribute("aria-pressed", activePlayback ? "true" : "false")
+    setIcon(el.framePlay, activePlayback ? "❚❚" : "▶")
     if (el.completeStopBtn) el.completeStopBtn.disabled = !canPause
   }
 
@@ -1204,8 +1225,10 @@
         : "배경음 일시정지"
       : playing
         ? "재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
+        : engine.ambience
+          ? "배경음 재생 중"
         : "대기 중"
-    el.statusText.classList.toggle("playing", playing && !paused)
+    el.statusText.classList.toggle("playing", (playing || !!engine.ambience) && !paused)
     el.statusText.classList.toggle("paused", paused)
     el.frame.classList.toggle("playing", playing && !paused)
     el.body.dataset.playback = paused ? "paused" : playing ? "playing" : "idle"
@@ -1356,6 +1379,7 @@
     if (el.bgPlayBtn) {
       el.bgPlayBtn.setAttribute("aria-label", bgPlayer.paused ? "배경음악 재생" : "배경음악 일시정지")
       el.bgPlayBtn.classList.toggle("active", !bgPlayer.paused)
+      el.bgPlayBtn.setAttribute("aria-pressed", bgPlayer.paused ? "false" : "true")
     }
   }
 
@@ -1589,6 +1613,10 @@
       engine.resume()
       return
     }
+    if (engine.isPlaying) {
+      engine.pause()
+      return
+    }
     if (!requireDrawn()) return
     exitFlow()
     stopBackgroundPreview()
@@ -1600,6 +1628,18 @@
       el.statusText.textContent = "재생 오류"
       console.error(e)
     })
+  }
+
+  function toggleTransport() {
+    if (engine.isPaused) {
+      engine.resume()
+      return
+    }
+    if (engine.isPlaying || engine.ambience) {
+      engine.pause()
+      return
+    }
+    play()
   }
 
   function pause() {
@@ -2364,7 +2404,12 @@
     el.resetComposeBtn.addEventListener("click", resetCompose)
 
     // 배경음악 미니 플레이어 — 재생/일시정지 + 시작 지점(bgOffset) 스크럽
-    if (el.bgPlayBtn) el.bgPlayBtn.addEventListener("click", toggleBgPlay)
+    if (el.bgPlayBtn) {
+      el.bgPlayBtn.addEventListener("click", function () {
+        pulseControl(el.bgPlayBtn)
+        toggleBgPlay()
+      })
+    }
     if (el.bgSeek) el.bgSeek.addEventListener("input", (e) => seekBg(e.target.value))
     if (el.bgEndSeek) el.bgEndSeek.addEventListener("input", (e) => seekBgEnd(e.target.value))
     if (el.flowBtn) el.flowBtn.addEventListener("click", toggleFlow)
@@ -2375,12 +2420,28 @@
       })
     }
 
-    el.playBtn.addEventListener("click", play)
-    el.pauseBtn.addEventListener("click", pause)
-    el.framePlay.addEventListener("click", play)
-    el.composePlay.addEventListener("click", play)
-    el.stopBtn.addEventListener("click", stop)
-    if (el.completeStopBtn) el.completeStopBtn.addEventListener("click", stop)
+    el.playBtn.addEventListener("click", function () {
+      pulseControl(el.playBtn)
+      toggleTransport()
+    })
+    el.framePlay.addEventListener("click", function () {
+      pulseControl(el.framePlay)
+      play()
+    })
+    el.composePlay.addEventListener("click", function () {
+      pulseControl(el.composePlay)
+      play()
+    })
+    el.stopBtn.addEventListener("click", function () {
+      pulseControl(el.stopBtn)
+      stop()
+    })
+    if (el.completeStopBtn) {
+      el.completeStopBtn.addEventListener("click", function () {
+        pulseControl(el.completeStopBtn)
+        stop()
+      })
+    }
 
     el.saveTakeBtn.addEventListener("click", saveTake)
     el.adminModeBtn.addEventListener("click", function () {

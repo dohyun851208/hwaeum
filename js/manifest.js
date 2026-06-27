@@ -78,14 +78,14 @@
     thunder2: { label: "번개", src: "sound/효과-자연음(유자레코즈)/천둥2.mp3", image: "./assets/effects/thunder-lightning.png" },
     thunder3: { label: "폭풍우", src: "sound/효과-자연음(유자레코즈)/천둥3.mp3", image: "./assets/effects/thunder-storm.png" },
     thunder4: { label: "우르릉", src: "sound/효과-자연음(유자레코즈)/천둥4.mp3", image: "./assets/effects/thunder-rumble.png" },
-    animalCricket: { label: "귀뚜라미", group: "동물", src: "sound/효과음-도장/동물/귀뚜라미.mp3", image: "./assets/effects/stamps/animal-cricket.svg" },
-    animalCuckoo: { label: "뻐꾸기", group: "동물", src: "sound/효과음-도장/동물/뻐꾸기.mp3", image: "./assets/effects/stamps/animal-cuckoo.svg" },
-    animalBird: { label: "새", group: "동물", src: "sound/효과음-도장/동물/새.mp3", image: "./assets/effects/stamps/animal-bird.svg" },
-    animalWhale: { label: "흑동고래", group: "동물", src: "sound/효과음-도장/동물/흑동고래.mp3", image: "./assets/effects/stamps/animal-whale.svg" },
-    sfxBubblePop: { label: "방울pop", group: "효과", src: "sound/효과음-도장/효과/방울pop.mp3", image: "./assets/effects/stamps/sfx-bubble-pop.svg" },
-    sfxBell: { label: "벨", group: "효과", src: "sound/효과음-도장/효과/벨.mp3", image: "./assets/effects/stamps/sfx-bell.svg" },
-    sfxTambourine: { label: "탬버린", group: "효과", src: "sound/효과음-도장/효과/탬버린.mp3", image: "./assets/effects/stamps/sfx-tambourine.svg" },
-    sfxHarp: { label: "하프", group: "효과", src: "sound/효과음-도장/효과/하프.mp3", image: "./assets/effects/stamps/sfx-harp.svg" },
+    animalCricket: { label: "귀뚜라미", group: "동물", src: "sound/효과음-도장/동물/귀뚜라미.mp3", image: "./assets/effects/stamps/animal-cricket.png" },
+    animalCuckoo: { label: "뻐꾸기", group: "동물", src: "sound/효과음-도장/동물/뻐꾸기.mp3", image: "./assets/effects/stamps/animal-cuckoo.png" },
+    animalBird: { label: "새", group: "동물", src: "sound/효과음-도장/동물/새.mp3", image: "./assets/effects/stamps/animal-bird.png" },
+    animalWhale: { label: "흑동고래", group: "동물", src: "sound/효과음-도장/동물/흑동고래.mp3", image: "./assets/effects/stamps/animal-whale.png" },
+    sfxBubblePop: { label: "방울pop", group: "효과", src: "sound/효과음-도장/효과/방울pop.mp3", image: "./assets/effects/stamps/sfx-bubble-pop.png" },
+    sfxBell: { label: "벨", group: "효과", src: "sound/효과음-도장/효과/벨.mp3", image: "./assets/effects/stamps/sfx-bell.png" },
+    sfxTambourine: { label: "탬버린", group: "효과", src: "sound/효과음-도장/효과/탬버린.mp3", image: "./assets/effects/stamps/sfx-tambourine.png" },
+    sfxHarp: { label: "하프", group: "효과", src: "sound/효과음-도장/효과/하프.mp3", image: "./assets/effects/stamps/sfx-harp.png" },
   }
 
   // 배경 — 배경 음원과 1:1로 직접 매칭. id가 곧 backgroundId.

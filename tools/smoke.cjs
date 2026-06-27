@@ -239,7 +239,7 @@ SD.draw.setEraseMode(false)
 
 // 재생 헤드 요소 존재
 check("재생 헤드 요소 존재", qc("#playhead") === 1)
-check("일시정지 버튼 존재", qc("#pauseBtn") === 1)
+check("상단 재생 제어는 재생/정지 버튼만 표시", qc("#playBtn") === 1 && qc("#pauseBtn") === 0 && qc("#stopBtn") === 1)
 check("효과음 도장 버튼 존재", qc("#effectList .effect-btn") >= 22, qc("#effectList .effect-btn"))
 check("효과음 도장 버튼 이미지 표시", qc("#effectList .effect-btn img") >= 22, qc("#effectList .effect-btn img"))
 check("새 동물 효과음 도장 표시", /귀뚜라미/.test(window.document.getElementById("effectList").textContent), window.document.getElementById("effectList").textContent)
@@ -313,10 +313,20 @@ SD.engine.previewEffect = originalPreviewEffect
 SD.engine.warmEffect = originalWarmEffect
 SD.engine.ambience = { signature: "smoke", gain: null, nodes: [] }
 SD.engine.onState(false, false)
-check("배경음이 켜지면 일시정지 버튼 활성화", window.document.getElementById("pauseBtn").disabled === false)
+check(
+  "배경음이 켜지면 재생 버튼이 일시정지 상태",
+  window.document.getElementById("playBtn").classList.contains("active") &&
+    window.document.getElementById("playBtn").querySelector("span").textContent === "❚❚" &&
+    window.document.getElementById("playBtn").getAttribute("aria-label") === "일시정지",
+)
 check("완성 페이지 음악 멈춤 버튼도 활성화", window.document.getElementById("completeStopBtn").disabled === false)
 SD.setStep(3)
-check("배경음이 꺼진 뒤 일시정지 버튼 비활성화", window.document.getElementById("pauseBtn").disabled === true)
+check(
+  "배경음이 꺼진 뒤 재생 버튼은 재생 상태",
+  !window.document.getElementById("playBtn").classList.contains("active") &&
+    window.document.getElementById("playBtn").querySelector("span").textContent === "▶" &&
+    window.document.getElementById("playBtn").getAttribute("aria-label") === "재생",
+)
 check("완성 페이지 음악 멈춤 버튼 비활성화", window.document.getElementById("completeStopBtn").disabled === true)
 let copiedShareUrl = ""
 Object.defineProperty(window.navigator, "clipboard", {

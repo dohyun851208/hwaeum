@@ -122,8 +122,10 @@ p {
   gap: 10px;
 }
 .status-pill {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   min-height: 38px;
   padding: 0 16px;
   border-radius: 999px;
@@ -133,17 +135,37 @@ p {
   font-size: 0.9rem;
   font-weight: 700;
 }
+.status-pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.38;
+}
 .status-pill.playing {
   background: var(--accent);
   border-color: transparent;
   color: #fff;
+}
+.status-pill.playing::before {
+  opacity: 1;
+  box-shadow: 10px 0 0 rgba(255, 255, 255, 0.62), 20px 0 0 rgba(255, 255, 255, 0.34);
+  animation: transportBeat 880ms ease-in-out infinite;
 }
 .status-pill.paused {
   background: var(--canvas);
   border-color: var(--accent-line);
   color: var(--ink);
 }
+.status-pill.paused::before {
+  width: 9px;
+  border-radius: 2px;
+  box-shadow: 5px 0 0 currentColor;
+  opacity: 0.72;
+}
 .round-btn {
+  position: relative;
   display: inline-grid;
   place-items: center;
   width: 50px;
@@ -153,10 +175,32 @@ p {
   background: var(--ink);
   color: var(--canvas);
   box-shadow: var(--shadow-sm);
-  transition: transform 140ms ease, background 140ms ease;
+  overflow: hidden;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+.round-btn span {
+  position: relative;
+  z-index: 1;
+  font-size: 0.95rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.round-btn::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  opacity: 0;
+  transform: scale(0.65);
+  transition: opacity 160ms ease, transform 160ms ease;
 }
 .round-btn:hover {
   transform: translateY(-1px);
+}
+.round-btn:active,
+.round-btn.pressing {
+  transform: translateY(0) scale(0.94);
 }
 .round-btn:disabled {
   cursor: not-allowed;
@@ -168,10 +212,31 @@ p {
   color: var(--ink);
   border-color: var(--line-strong);
 }
-.round-btn.active {
+.round-btn.active,
+.round-btn.pressing {
   background: var(--accent);
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 10px 24px rgba(32, 41, 42, 0.18);
+}
+.round-btn.active::after,
+.round-btn.pressing::after {
+  opacity: 1;
+  transform: scale(1);
+}
+.round-btn.paused {
+  background: var(--canvas);
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+@keyframes transportBeat {
+  0%,
+  100% {
+    transform: scaleY(0.75);
+  }
+  50% {
+    transform: scaleY(1.22);
+  }
 }
 
 /* 단계 표시 */
@@ -305,6 +370,23 @@ p {
 }
 .btn.primary:hover {
   background: var(--accent);
+}
+.btn.playing,
+.btn.paused,
+.btn.pressing {
+  border-color: transparent;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(32, 41, 42, 0.14);
+}
+.btn.paused {
+  background: var(--canvas);
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.btn:active,
+.btn.pressing {
+  transform: translateY(0) scale(0.98);
 }
 .btn.small {
   min-height: 42px;
@@ -1046,9 +1128,15 @@ p {
 .bg-play-btn:hover {
   transform: translateY(-1px);
 }
-.bg-play-btn.active {
+.bg-play-btn:active,
+.bg-play-btn.pressing {
+  transform: translateY(0) scale(0.94);
+}
+.bg-play-btn.active,
+.bg-play-btn.pressing {
   background: var(--accent);
   color: #fff;
+  box-shadow: 0 8px 20px rgba(32, 41, 42, 0.16);
 }
 .bg-player-label {
   font-weight: 800;
@@ -1431,13 +1519,26 @@ body[data-flow="on"] #drawingCanvas {
   background: rgba(20, 26, 26, 0.6);
   color: #fbf6ec;
   font-size: 1.3rem;
-  transition: transform 140ms ease, background 140ms ease;
+  box-shadow: 0 12px 30px rgba(20, 26, 26, 0.24);
+  transition: transform 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }
 .frame-play:hover {
   transform: translate(-50%, -50%) scale(1.06);
 }
-.frame.playing .frame-play {
+.frame-play:active,
+.frame-play.pressing {
+  transform: translate(-50%, -50%) scale(0.94);
+}
+.frame.playing .frame-play,
+.frame-play.active,
+.frame-play.pressing {
   background: var(--accent);
+  box-shadow: 0 14px 34px rgba(20, 26, 26, 0.3);
+}
+.frame-play.paused {
+  background: rgba(251, 246, 236, 0.92);
+  color: var(--accent);
+  border-color: var(--accent-line);
 }
 .placard {
   display: grid;

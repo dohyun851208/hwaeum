@@ -65,14 +65,14 @@ test("effect image entries point to existing project files", () => {
 test("새 도장 효과음은 정리된 폴더의 음원과 이미지를 사용한다", () => {
   const data = loadManifest()
   const expected = {
-    animalCricket: ["귀뚜라미", "sound/효과음-도장/동물/귀뚜라미.mp3", "./assets/effects/stamps/animal-cricket.svg"],
-    animalCuckoo: ["뻐꾸기", "sound/효과음-도장/동물/뻐꾸기.mp3", "./assets/effects/stamps/animal-cuckoo.svg"],
-    animalBird: ["새", "sound/효과음-도장/동물/새.mp3", "./assets/effects/stamps/animal-bird.svg"],
-    animalWhale: ["흑동고래", "sound/효과음-도장/동물/흑동고래.mp3", "./assets/effects/stamps/animal-whale.svg"],
-    sfxBubblePop: ["방울pop", "sound/효과음-도장/효과/방울pop.mp3", "./assets/effects/stamps/sfx-bubble-pop.svg"],
-    sfxBell: ["벨", "sound/효과음-도장/효과/벨.mp3", "./assets/effects/stamps/sfx-bell.svg"],
-    sfxTambourine: ["탬버린", "sound/효과음-도장/효과/탬버린.mp3", "./assets/effects/stamps/sfx-tambourine.svg"],
-    sfxHarp: ["하프", "sound/효과음-도장/효과/하프.mp3", "./assets/effects/stamps/sfx-harp.svg"],
+    animalCricket: ["귀뚜라미", "sound/효과음-도장/동물/귀뚜라미.mp3", "./assets/effects/stamps/animal-cricket.png"],
+    animalCuckoo: ["뻐꾸기", "sound/효과음-도장/동물/뻐꾸기.mp3", "./assets/effects/stamps/animal-cuckoo.png"],
+    animalBird: ["새", "sound/효과음-도장/동물/새.mp3", "./assets/effects/stamps/animal-bird.png"],
+    animalWhale: ["흑동고래", "sound/효과음-도장/동물/흑동고래.mp3", "./assets/effects/stamps/animal-whale.png"],
+    sfxBubblePop: ["방울pop", "sound/효과음-도장/효과/방울pop.mp3", "./assets/effects/stamps/sfx-bubble-pop.png"],
+    sfxBell: ["벨", "sound/효과음-도장/효과/벨.mp3", "./assets/effects/stamps/sfx-bell.png"],
+    sfxTambourine: ["탬버린", "sound/효과음-도장/효과/탬버린.mp3", "./assets/effects/stamps/sfx-tambourine.png"],
+    sfxHarp: ["하프", "sound/효과음-도장/효과/하프.mp3", "./assets/effects/stamps/sfx-harp.png"],
   }
 
   for (const [id, [label, src, image]] of Object.entries(expected)) {
