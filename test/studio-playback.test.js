@@ -30,6 +30,17 @@ test("main playback can start without a drawn melody so background music can pla
   assert.match(saveTakeBody, /requireDrawn\(\)/, "empty-canvas checks should remain on take saving")
 })
 
+test("main playback button starts the full song instead of pausing drawing ambience", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const toggleBody = functionBody(source, "toggleTransport")
+  const syncBody = functionBody(source, "syncTransportButtons")
+
+  assert.doesNotMatch(toggleBody, /engine\.isPlaying \|\| engine\.ambience/)
+  assert.match(toggleBody, /if \(engine\.isPlaying\)[\s\S]*engine\.pause\(\)/)
+  assert.match(toggleBody, /engine\.stop\(\{ emitState: false \}\)/)
+  assert.match(syncBody, /const activeAudio = !!playing && !paused/)
+})
+
 test("background range pause keeps its current position for resume", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const pauseBody = functionBody(source, "pauseBgPlayer")

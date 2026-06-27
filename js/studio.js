@@ -1425,7 +1425,7 @@
   function syncTransportButtons(playing, paused) {
     const hasAmbience = !!engine.ambience
     const canPause = playing || paused || hasAmbience
-    const activeAudio = (!!playing || hasAmbience) && !paused
+    const activeAudio = !!playing && !paused
     const playLabel = activeAudio ? "전체곡 일시정지" : paused ? "전체곡 이어 재생" : "전체곡 재생"
     el.playBtn.setAttribute("aria-label", playLabel)
     el.playBtn.title = playLabel
@@ -1944,11 +1944,14 @@
   }
 
   function toggleTransport() {
-    if (engine.isPaused) {
+    if (engine.isPaused && engine.isPlaying) {
       engine.resume()
       return
     }
-    if (engine.isPlaying || engine.ambience) {
+    if (engine.isPaused) {
+      engine.stop({ emitState: false })
+    }
+    if (engine.isPlaying) {
       engine.pause()
       return
     }

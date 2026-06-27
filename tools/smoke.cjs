@@ -394,10 +394,10 @@ SD.engine.warmEffect = originalWarmEffect
 SD.engine.ambience = { signature: "smoke", gain: null, nodes: [] }
 SD.engine.onState(false, false)
 check(
-  "배경음이 켜지면 재생 버튼이 일시정지 상태",
-  window.document.getElementById("playBtn").classList.contains("active") &&
-    window.document.getElementById("playBtn").querySelector("span").textContent === "❚❚" &&
-    window.document.getElementById("playBtn").getAttribute("aria-label") === "전체곡 일시정지",
+  "배경음이 켜져도 재생 버튼은 전체곡 재생 상태",
+  !window.document.getElementById("playBtn").classList.contains("active") &&
+    window.document.getElementById("playBtn").querySelector("span").textContent === "▶" &&
+    window.document.getElementById("playBtn").getAttribute("aria-label") === "전체곡 재생",
 )
 SD.setStep(3)
 check(
