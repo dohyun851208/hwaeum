@@ -108,6 +108,18 @@ function makeAudioContext() {
   }
 }
 
+function startedSources(ctx) {
+  return ctx.created.buffers.filter((source) => source.startCalls.length > 0)
+}
+
+function crossfadeGains(ctx) {
+  return ctx.created.gains.filter(
+    (gain) =>
+      gain.gain.events.some((event) => event[0] === "linear" && event[1] === 1) &&
+      gain.gain.events.some((event) => event[0] === "linear" && event[1] === 0.0001),
+  )
+}
+
 test("resolvePlan keeps the selected scale independent from instrument sample ranges", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
@@ -162,7 +174,7 @@ test("scheduleSampleMelody sustains contiguous notes as one connected sample phr
   assert.ok(ctx.created.buffers[0].playbackRate.events.length >= 3)
 })
 
-test("scheduleSampleMelody loops a long single phrase sample until the drawn note ends", () => {
+test("scheduleSampleMelody crossfades a long single phrase sample until the drawn note ends", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -175,15 +187,15 @@ test("scheduleSampleMelody loops a long single phrase sample until the drawn not
 
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
-  assert.equal(ctx.created.buffers.length, 1)
-  assert.equal(ctx.created.buffers[0].loop, true)
-  assert.ok(ctx.created.buffers[0].loopStart > 0.4, "긴 지속음은 샘플 앞 공격음이 아니라 가운데 안정 구간부터 반복해야 한다")
-  assert.ok(ctx.created.buffers[0].loopEnd < 2.2, "긴 지속음은 샘플 끝 감쇠 구간까지 반복하지 않아야 한다")
-  assert.ok(ctx.created.buffers[0].loopEnd > ctx.created.buffers[0].loopStart + 0.2)
-  assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 5)
+  const sources = startedSources(ctx)
+  assert.ok(sources.length >= 2)
+  assert.ok(sources.every((source) => source.loop === false))
+  assert.ok(sources.some((source) => source.startCalls[0][1] > 0.4), "crossfade sustain should restart from the stable middle of the sample")
+  assert.ok(sources.some((source) => source.stopCalls[0][0] >= 5))
+  assert.ok(crossfadeGains(ctx).length >= 2)
 })
 
-test("gugak multi-sample long horizontal notes loop the stable middle of the sample", () => {
+test("gugak multi-sample long horizontal notes crossfade the stable middle of the sample", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -196,11 +208,12 @@ test("gugak multi-sample long horizontal notes loop the stable middle of the sam
 
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: null, melodySamples: { 72: { duration: 2.4 } } }, 0, noop)
 
-  assert.equal(ctx.created.buffers.length, 1)
-  assert.equal(ctx.created.buffers[0].loop, true)
-  assert.ok(ctx.created.buffers[0].loopStart > 0.4)
-  assert.ok(ctx.created.buffers[0].loopEnd < 2.2)
-  assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 8)
+  const sources = startedSources(ctx)
+  assert.ok(sources.length >= 2)
+  assert.ok(sources.every((source) => source.loop === false))
+  assert.ok(sources.some((source) => source.startCalls[0][1] > 0.4))
+  assert.ok(sources.some((source) => source.stopCalls[0][0] >= 8))
+  assert.ok(crossfadeGains(ctx).length >= 2)
 })
 
 test("multi-sample melody sustains contiguous notes as one connected phrase", () => {
@@ -397,7 +410,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   assert.ok(toneFilter.Q.events.some((event) => event[1] === 0.9))
 })
 
-test("live drawing preview loops long sample tones, including gayageum", () => {
+test("live drawing preview crossfades long sample tones, including gayageum", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -408,7 +421,11 @@ test("live drawing preview loops long sample tones, including gayageum", () => {
 
   engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
 
-  assert.equal(ctx.created.buffers[0].loop, true)
+  const sources = startedSources(ctx)
+  assert.ok(sources.length >= 2)
+  assert.ok(sources.every((source) => source.loop === false))
+  assert.ok(sources.some((source) => source.startCalls[0][1] > 0.4))
+  assert.ok(crossfadeGains(ctx).length >= 2)
 })
 
 test("resolvePlan applies instrument playback transposition per drawn voice", () => {

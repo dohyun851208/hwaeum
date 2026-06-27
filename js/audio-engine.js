@@ -21,6 +21,7 @@
   const HAEGEUM_NOTE_GLIDE_SECONDS = 0.12
   const HAEGEUM_LIVE_NOTE_GLIDE_SECONDS = 0.09
   const HAEGEUM_PHRASE_ATTACK_SECONDS = 0.06
+  const SAMPLE_CROSSFADE_SECONDS = 0.08
 
   function midiToFreq(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12)
@@ -681,6 +682,86 @@
     }
   }
 
+  AudioEngine.prototype.scheduleCrossfadeSampleSustain = function (
+    ctx,
+    dest,
+    plan,
+    note,
+    srcBuffer,
+    baseRate,
+    offset,
+    usableSourceDur,
+    phraseStart,
+    phraseDuration,
+    register,
+    options,
+  ) {
+    const region = sampleSustainLoopRegion(offset || 0, usableSourceDur)
+    if (!region || !srcBuffer) return false
+    const onSource = options && typeof options.onSource === "function" ? options.onSource : null
+    const shouldApplySigimsae = !options || options.applySigimsae !== false
+    const shouldUseToneFilter = !options || options.useToneFilter !== false
+
+    const rate = Math.max(0.05, Math.abs(baseRate || 1))
+    const loopSourceDur = Math.max(0.03, region.end - region.start)
+    const loopOutputDur = loopSourceDur / rate
+    const fadeSeconds = Math.min(
+      SAMPLE_CROSSFADE_SECONDS,
+      Math.max(0.025, loopOutputDur * 0.25),
+      Math.max(0.025, phraseDuration * 0.25),
+    )
+    if (loopOutputDur <= fadeSeconds + 0.04) return false
+
+    const phraseStop = phraseStart + phraseDuration
+    const stopAt = phraseStop + 0.18
+    const firstSourceDur = Math.max(0.03, region.end - (offset || 0))
+    const firstOutputDur = firstSourceDur / rate
+    const self = this
+
+    function scheduleTile(tileStart, sourceOffset, sourceDur, fadeIn, fadeOut) {
+      const outputDur = sourceDur / rate
+      const stopTime = Math.min(tileStart + outputDur, stopAt)
+      if (stopTime <= tileStart + 0.02) return false
+
+      const src = ctx.createBufferSource()
+      const env = ctx.createGain()
+      src.buffer = srcBuffer
+      src.playbackRate.setValueAtTime(baseRate, phraseStart)
+      if (shouldApplySigimsae) self.applySigimsae(src, null, baseRate, note, plan, phraseStart)
+
+      if (fadeIn > 0) {
+        env.gain.setValueAtTime(0.0001, tileStart)
+        env.gain.linearRampToValueAtTime(1, Math.min(stopTime - 0.005, tileStart + fadeIn))
+      } else {
+        env.gain.setValueAtTime(1, tileStart)
+      }
+      const safeFadeOut = Math.min(fadeOut, Math.max(0.005, (stopTime - tileStart) * 0.5))
+      const fadeOutStart = Math.max(tileStart + 0.005, stopTime - safeFadeOut)
+      env.gain.setValueAtTime(1, fadeOutStart)
+      env.gain.linearRampToValueAtTime(0.0001, stopTime)
+
+      if (shouldUseToneFilter) connectGugakSampleTone(ctx, src, env, plan, tileStart)
+      else src.connect(env)
+      env.connect(dest)
+      register(src)
+      if (onSource) onSource(src)
+      src.start(tileStart, sourceOffset, Math.max(0.03, sourceDur))
+      src.stop(stopTime)
+      return true
+    }
+
+    let scheduled = scheduleTile(phraseStart, offset || 0, firstSourceDur, 0, fadeSeconds)
+    let tileStart = Math.max(phraseStart + firstOutputDur - fadeSeconds, phraseStart + 0.02)
+    const step = Math.max(0.04, loopOutputDur - fadeSeconds)
+    let guard = 0
+    while (tileStart < stopAt - 0.02 && guard < 512) {
+      scheduled = scheduleTile(tileStart, region.start, loopSourceDur, fadeSeconds, fadeSeconds) || scheduled
+      tileStart += step
+      guard += 1
+    }
+    return scheduled
+  }
+
   AudioEngine.prototype.scheduleSampleMelody = function (ctx, dest, plan, notes, instBuffers, start, register) {
     const asset = plan.melodyAsset
     const buffer = instBuffers.melody
@@ -700,11 +781,21 @@
         const segment = nearestSampleSegment(asset, first.midi)
         const srcBuffer = sampleBufferFor(sampleBuffers, segment, buffer)
         if (!srcBuffer) continue
-        const src = ctx.createBufferSource()
         const env = ctx.createGain()
         const baseRate = segmentPlaybackRate(asset, first.midi, segment)
         const usableSourceDur = srcBuffer.duration
         const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
+        if (
+          needSustain &&
+          phraseNotes.length === 1 &&
+          this.scheduleCrossfadeSampleSustain(ctx, env, plan, first, srcBuffer, baseRate, 0, usableSourceDur, phraseStart, phraseDuration, register)
+        ) {
+          applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
+          env.connect(dest)
+          continue
+        }
+
+        const src = ctx.createBufferSource()
         src.buffer = srcBuffer
         src.playbackRate.setValueAtTime(baseRate, phraseStart)
         for (let k = 1; k < phraseNotes.length; k++) {
@@ -741,11 +832,37 @@
       const phraseStart = start + first.time
       const phraseDuration = phraseEnd(notes) - first.time
       const phraseStop = start + last.time + last.duration
-      const src = ctx.createBufferSource()
       const env = ctx.createGain()
       const segment = nearestSampleSegment(asset, first.midi)
       const srcBuffer = buffer
+      if (!srcBuffer) continue
       const baseRate = segmentPlaybackRate(asset, first.midi, segment)
+      const offset = segment ? segment.offset : samplePhrase ? this.phraseOffset(srcBuffer, first) : 0
+      const usableSourceDur = segment ? segment.duration : srcBuffer.duration - offset
+      const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
+      if (
+        needSustain &&
+        notes.length === 1 &&
+        this.scheduleCrossfadeSampleSustain(
+          ctx,
+          env,
+          plan,
+          first,
+          srcBuffer,
+          baseRate,
+          offset,
+          usableSourceDur,
+          phraseStart,
+          phraseDuration,
+          register,
+        )
+      ) {
+        applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
+        env.connect(dest)
+        continue
+      }
+
+      const src = ctx.createBufferSource()
       src.buffer = srcBuffer
       src.playbackRate.setValueAtTime(baseRate, phraseStart)
       for (let k = 1; k < notes.length; k++) {
@@ -760,9 +877,6 @@
           skipGrace: isHaegeumPlan(plan) && k > 0,
         })
       }
-      const offset = segment ? segment.offset : samplePhrase ? this.phraseOffset(srcBuffer, first) : 0
-      const usableSourceDur = segment ? segment.duration : srcBuffer.duration - offset
-      const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
       // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지도록 안정 구간을 루프한다.
       if (needSustain) applySustainLoop(src, offset, usableSourceDur)
       applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
@@ -1027,7 +1141,6 @@
     const midi = this._liveMidi(plan, normY)
     if (midi == null) return null
     const start = ctx.currentTime + 0.005
-    const source = ctx.createBufferSource()
     const env = ctx.createGain()
     const filter = ctx.createBiquadFilter()
     const targetGain = livePreviewTargetGain(plan, 0.7 * 0.85)
@@ -1035,17 +1148,62 @@
     const segment = nearestSampleSegment(plan.melodyAsset, midi)
     const offset = multi ? 0 : segment ? segment.offset : Math.min(0.05, Math.max(0, buffer.duration * 0.08))
     const segmentDur = multi ? buffer.duration : segment ? segment.duration : buffer.duration - offset
+    const baseRate = segmentPlaybackRate(plan.melodyAsset, midi, segment)
 
-    source.buffer = buffer
-    source.playbackRate.setValueAtTime(segmentPlaybackRate(plan.melodyAsset, midi, segment), start)
-    if (buffer.duration > 0.45 && segmentDur > 0.45) applySustainLoop(source, offset, segmentDur)
-    configureSampleToneFilter(filter, plan, start)
     env.gain.setValueAtTime(0.0001, start)
     env.gain.linearRampToValueAtTime(targetGain, start + 0.035)
-
-    source.connect(filter)
+    configureSampleToneFilter(filter, plan, start)
     filter.connect(env)
     env.connect(ctx.destination)
+
+    if (buffer.duration > 0.45 && segmentDur > 0.45) {
+      const rateParams = []
+      const stopNodes = []
+      const previewDuration = Math.max(35, (plan.duration || 30) + 1)
+      const self = this
+      const scheduled = this.scheduleCrossfadeSampleSustain(
+        ctx,
+        filter,
+        plan,
+        { time: 0, duration: previewDuration, midi: midi, velocity: 0.7 },
+        buffer,
+        baseRate,
+        offset,
+        segmentDur,
+        start,
+        previewDuration,
+        function (node) {
+          stopNodes.push(node)
+          self._registerPreviewNode(node)
+        },
+        {
+          applySigimsae: false,
+          useToneFilter: false,
+          onSource: function (source) {
+            rateParams.push(source.playbackRate)
+          },
+        },
+      )
+      if (scheduled) {
+        return {
+          kind: "sample",
+          env: env,
+          filter: filter,
+          rateParam: rateParams[0] || null,
+          rateParams: rateParams,
+          signature: this._liveSignature(plan),
+          sampleMidi: segment ? segment.midi : null,
+          stopNodes: stopNodes,
+        }
+      }
+    }
+
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.playbackRate.setValueAtTime(baseRate, start)
+    if (buffer.duration > 0.45 && segmentDur > 0.45) applySustainLoop(source, offset, segmentDur)
+
+    source.connect(filter)
 
     const live = {
       kind: "sample",
@@ -1053,6 +1211,7 @@
       env: env,
       filter: filter,
       rateParam: source.playbackRate,
+      rateParams: [source.playbackRate],
       signature: this._liveSignature(plan),
       sampleMidi: segment ? segment.midi : null,
       stopNodes: [source],
@@ -1184,8 +1343,11 @@
                 ? plan.melodyAsset.baseMidi
                 : midi
           const nextRate = Math.pow(2, (midi - baseMidi) / 12)
-          self.livePreview.rateParam.cancelScheduledValues(now)
-          self.livePreview.rateParam.setTargetAtTime(nextRate, now, liveGlideSeconds)
+          ;(self.livePreview.rateParams || [self.livePreview.rateParam]).forEach(function (rateParam) {
+            if (!rateParam) return
+            rateParam.cancelScheduledValues(now)
+            rateParam.setTargetAtTime(nextRate, now, liveGlideSeconds)
+          })
         } else {
           const nextSegment = nearestSampleSegment(plan.melodyAsset, midi)
           const nextSampleMidi = nextSegment ? nextSegment.midi : null
@@ -1195,8 +1357,11 @@
             return
           }
           const nextRate = segmentPlaybackRate(plan.melodyAsset, midi, nextSegment)
-          self.livePreview.rateParam.cancelScheduledValues(now)
-          self.livePreview.rateParam.setTargetAtTime(nextRate, now, liveGlideSeconds)
+          ;(self.livePreview.rateParams || [self.livePreview.rateParam]).forEach(function (rateParam) {
+            if (!rateParam) return
+            rateParam.cancelScheduledValues(now)
+            rateParam.setTargetAtTime(nextRate, now, liveGlideSeconds)
+          })
         }
       } else {
         const nextFreq = midiToFreq(midi)
