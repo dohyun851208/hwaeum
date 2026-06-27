@@ -2392,10 +2392,10 @@ p {
   }
 }
 body[data-step="2"] .instrument-strip .compose-instrument {
-  width: 76px;
-  min-width: 76px;
-  min-height: 72px;
-  padding: 6px 5px 7px;
+  width: auto;
+  min-width: 0;
+  min-height: 64px;
+  padding: 5px 4px 6px;
   border-radius: 11px;
   display: grid;
   justify-items: center;
@@ -2404,8 +2404,8 @@ body[data-step="2"] .instrument-strip .compose-instrument {
   text-align: center;
 }
 body[data-step="2"] .instrument-strip .compose-instrument img {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border: 0;
   border-radius: 7px;
   object-fit: contain;
@@ -2414,37 +2414,35 @@ body[data-step="2"] .instrument-strip .compose-instrument-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  max-height: 168px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   padding: 1px 2px 4px 0;
-  scrollbar-gutter: stable;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-group {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 6px;
   align-items: center;
-  min-width: 0;
-}
-body[data-step="2"] .instrument-strip .compose-instrument-group-list,
-body[data-step="2"] .instrument-strip .compose-instrument-family,
-body[data-step="2"] .instrument-strip .compose-instrument-family-list {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   min-width: 0;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-group-list {
-  overflow-x: auto;
-  padding-bottom: 2px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
+  gap: 6px;
+  min-width: 0;
+  overflow: visible;
+}
+body[data-step="2"] .instrument-strip .compose-instrument-family,
+body[data-step="2"] .instrument-strip .compose-instrument-family-list {
+  display: contents;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-group-head {
   display: flex;
   align-items: center;
   justify-content: center;
   align-self: stretch;
-  min-height: 72px;
-  padding: 0 6px;
+  min-height: 64px;
+  padding: 0 5px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.56);
   color: var(--muted);
@@ -2469,7 +2467,7 @@ body[data-step="2"] .instrument-strip .compose-instrument-text strong {
   overflow: visible;
   text-overflow: clip;
   word-break: keep-all;
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 850;
 }
 @media (max-width: 720px) {
