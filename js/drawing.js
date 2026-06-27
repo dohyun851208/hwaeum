@@ -642,14 +642,14 @@
     for (let t = 0; t <= duration; t++) {
       const x = labelGutter + ((W - labelGutter) * t) / duration
       const crispX = crispLinePosition(x, gridLineWidth, 0, W)
-      ctx.strokeStyle = t % 5 === 0 ? "rgba(35,150,215,0.46)" : "rgba(35,150,215,0.26)"
+      ctx.strokeStyle = t % 5 === 0 ? "rgba(32,41,42,0.14)" : "rgba(32,41,42,0.06)"
       ctx.beginPath()
       ctx.moveTo(crispX, 0)
       ctx.lineTo(crispX, H)
       ctx.stroke()
     }
 
-    ctx.strokeStyle = "rgba(35,150,215,0.36)"
+    ctx.strokeStyle = "rgba(32,41,42,0.09)"
     for (let i = 0; i <= rowCount; i++) {
       const y = crispLinePosition(pitchRowBoundaryY(i, rowCount, H), gridLineWidth, 0, H)
       ctx.beginPath()
@@ -687,7 +687,7 @@
       ctx.fillRect(0, bounds.top, labelGutter, Math.max(0, bounds.bottom - bounds.top))
     }
     const gridLineWidth = Math.max(1, Math.round(px))
-    ctx.strokeStyle = "rgba(35,150,215,0.36)"
+    ctx.strokeStyle = "rgba(32,41,42,0.09)"
     ctx.lineWidth = gridLineWidth
     for (let i = 0; i <= rows.length; i++) {
       const y = crispLinePosition(pitchRowBoundaryY(i, rows.length, H), gridLineWidth, 0, H)
@@ -715,7 +715,7 @@
     const px = this.pixelRatio || 1
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
-    ctx.lineWidth = 6 * px
+    ctx.lineWidth = 24 * px
     ctx.globalAlpha = 0.6
     // 획마다 그 획의 악기 색으로 — 오케스트라에서 어떤 줄이 어떤 악기인지 한눈에
     for (let si = 0; si < this.strokes.length; si++) {
@@ -726,7 +726,7 @@
         // 점 하나짜리 획은 작은 점으로 표시
         if (stroke.length === 1) {
           ctx.beginPath()
-          ctx.arc(stroke[0].x * W, stroke[0].y * H, 3.2 * px, 0, Math.PI * 2)
+          ctx.arc(stroke[0].x * W, stroke[0].y * H, 12.8 * px, 0, Math.PI * 2)
           ctx.fillStyle = color
           ctx.fill()
         }

@@ -73,6 +73,7 @@
     backgroundReason: "",
     melodyIntent: "",
     hashtags: "",
+    activeTakeId: null, // 완성 화면에서 지금 보고 있는 시도(테이크)
     adminMode: loadAdminMode(),
   }
 
@@ -146,6 +147,7 @@
     frameCanvas: $("frameCanvas"),
     titleInput: $("titleInput"),
     placardMeta: $("placardMeta"),
+    placardDetail: $("placardDetail"),
     bgReasonInput: $("bgReasonInput"),
     melodyIntentInput: $("melodyIntentInput"),
     hashtagsInput: $("hashtagsInput"),
@@ -575,7 +577,7 @@
   }
 
   // 카드 그룹 표시 순서. manifest 의 atmosphere.group 과 맞춘다. 새 group 은 이 뒤에 자동으로 붙는다.
-  const STUDENT_MUSIC_GROUP = "학생들이 찾은 음악"
+  const STUDENT_MUSIC_GROUP = "내가 찾은 음악"
   const ATMOSPHERE_GROUP_ORDER = ["분위기", "소리풍경", "리듬장단", STUDENT_MUSIC_GROUP]
 
   function balanceParentheticalMoodTitle(button, label) {
@@ -616,7 +618,47 @@
       updateReadouts()
       engine.warmAmbience(buildRecipe()).catch(function () {}) // 고른 배경음 미리 로드
     })
+    if (a.custom) {
+      const del = document.createElement("button")
+      del.type = "button"
+      del.className = "mood-delete"
+      del.textContent = "✕"
+      del.title = a.label + " 삭제"
+      del.setAttribute("aria-label", a.label + " 삭제")
+      del.addEventListener("click", (e) => {
+        e.stopPropagation()
+        removeCustomBackground(a)
+      })
+      b.appendChild(del)
+    }
     el.atmosphereGrid.appendChild(b)
+  }
+
+  // 업로드한 "내가 찾은 음악" 삭제 — 목록·배경에서 빼고 Blob URL 도 해제한다.
+  function removeCustomBackground(a) {
+    const bg = D.backgrounds[a.id]
+    if (bg && typeof bg.src === "string" && bg.src.indexOf("blob:") === 0) {
+      try {
+        URL.revokeObjectURL(bg.src)
+      } catch (e) {}
+    }
+    delete D.backgrounds[a.id]
+    const idx = D.atmospheres.indexOf(a)
+    if (idx !== -1) D.atmospheres.splice(idx, 1)
+    if (state.bgPreviewId === a.id) stopBackgroundPreview()
+    if (state.atmosphere && state.atmosphere.id === a.id) {
+      state.atmosphere = D.atmospheres[0]
+      state.bgOffset = 0
+      state.bgEndOffset = 0
+      applyMoodTint()
+      syncBgPlayerUI()
+    }
+    renderAtmospheres()
+    updateReadouts()
+    if (el.bgUploadStatus) {
+      el.bgUploadStatus.classList.remove("error")
+      el.bgUploadStatus.textContent = "‘" + a.label + "’ 음악을 지웠어요."
+    }
   }
 
   function renderAtmospheres() {
@@ -1138,6 +1180,33 @@
     const tags = hashtagText(state.hashtags)
     el.placardMeta.textContent = tags
     el.placardMeta.classList.toggle("is-empty", !tags)
+    if (el.placardDetail) {
+      // 제목과 해시태그 사이: 고른 분위기 + 사용한 악기 이름
+      const parts = []
+      if (state.atmosphere && state.atmosphere.label) parts.push(state.atmosphere.label)
+      const instruments = usedInstrumentLabels()
+      if (instruments) parts.push(instruments)
+      const detail = parts.join(" · ")
+      el.placardDetail.textContent = detail
+      el.placardDetail.classList.toggle("is-empty", !detail)
+    }
+  }
+
+  // 곡에 실제로 쓰인 악기 이름(중복 제거). 그린 줄이 없으면 현재 선택 악기.
+  function usedInstrumentLabels() {
+    const ids = []
+    const strokeInsts = typeof draw.getStrokeInstruments === "function" ? draw.getStrokeInstruments() : []
+    strokeInsts.forEach((id) => {
+      const realId = id || state.instrument.id
+      if (ids.indexOf(realId) === -1) ids.push(realId)
+    })
+    if (!ids.length) ids.push(state.instrument.id)
+    return ids
+      .map((id) => {
+        const inst = D.instruments.find((i) => i.id === id)
+        return inst ? inst.label : id
+      })
+      .join(", ")
   }
 
   function syncReflectionInputs() {
@@ -1842,7 +1911,14 @@
         renderTakes()
         el.exportStatus.textContent = index + "번 이름을 저장했어요."
       }
-      saveB.addEventListener("click", saveName)
+      // 이름 편집 컨트롤은 카드 클릭(결과 보기)으로 번지지 않게 막는다.
+      input.addEventListener("click", function (event) {
+        event.stopPropagation()
+      })
+      saveB.addEventListener("click", function (event) {
+        event.stopPropagation()
+        saveName()
+      })
       input.addEventListener("keydown", function (event) {
         if (event.key === "Enter") saveName()
       })
@@ -1865,7 +1941,18 @@
     items.forEach((t, idx) => {
       const atmos = D.atmospheres.find((a) => a.id === t.recipe.atmosphere) || D.atmospheres[0]
       const wrap = document.createElement("div")
-      wrap.className = "take"
+      wrap.className = "take" + (t.id === state.activeTakeId ? " active" : "")
+      wrap.tabIndex = 0
+      wrap.title = "이 시도 결과 보기"
+      wrap.addEventListener("click", function () {
+        selectTake(t)
+      })
+      wrap.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          selectTake(t)
+        }
+      })
       const cv = document.createElement("canvas")
       cv.width = 160
       cv.height = 100
@@ -1886,8 +1973,9 @@
       playB.className = "btn tiny primary"
       playB.textContent = "▶"
       playB.title = "이 시도 듣기"
-      playB.addEventListener("click", function () {
-        loadRecipe(t.recipe)
+      playB.addEventListener("click", function (event) {
+        event.stopPropagation()
+        selectTake(t)
         play()
       })
       const delB = document.createElement("button")
@@ -1895,8 +1983,10 @@
       delB.className = "btn tiny"
       delB.textContent = "✕"
       delB.title = "삭제"
-      delB.addEventListener("click", function () {
+      delB.addEventListener("click", function (event) {
+        event.stopPropagation()
         takes.remove(t.id)
+        if (state.activeTakeId === t.id) state.activeTakeId = null
         renderTakes()
       })
       tools.appendChild(playB)
@@ -1910,9 +2000,22 @@
 
   function saveTake() {
     if (!requireDrawn()) return
-    takes.add(buildRecipe(), state.title)
+    const take = takes.add(buildRecipe(), state.title)
+    state.activeTakeId = take.id
     renderTakes()
     el.exportStatus.textContent = "시도를 저장했어요. 아래에서 골라 비교해 들어보세요."
+  }
+
+  // 시도 카드 클릭 → 그 시도의 결과(제목·분위기·악기·해시태그·그린 음)를 완성 화면에 불러온다.
+  function selectTake(t) {
+    state.activeTakeId = t.id
+    if (t.name) {
+      state.title = t.name
+      if (el.titleInput) el.titleInput.value = t.name
+    }
+    loadRecipe(t.recipe)
+    renderTakes()
+    el.exportStatus.textContent = "‘" + (t.name || "시도") + "’ 결과를 불러왔어요."
   }
 
   // --- 레시피 불러오기 ---
