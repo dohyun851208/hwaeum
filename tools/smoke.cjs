@@ -239,6 +239,11 @@ check("레시피에 bgOffset 포함(기본 0)", SD.buildRecipe().bgOffset === 0,
 check("레시피에 bgEndOffset 포함(기본 0)", SD.buildRecipe().bgEndOffset === 0, SD.buildRecipe().bgEndOffset)
 check("업로드 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
 check("펜 버튼 존재", qc("#penBtn") === 1, qc("#penBtn"))
+check(
+  "드로잉 도구 단축키 안내문구 표시",
+  window.document.querySelector(".tool-shortcut-hint")?.textContent === "펜(키보드1) · 지우개(키보드2)",
+  window.document.querySelector(".tool-shortcut-hint")?.textContent,
+)
 check("완성 회고 입력칸 존재", qc("#bgReasonInput") === 1 && qc("#melodyIntentInput") === 1 && qc("#hashtagsInput") === 1)
 check(
   "드로잉 저장 버튼 존재",
