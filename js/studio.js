@@ -575,7 +575,8 @@
   }
 
   // 카드 그룹 표시 순서. manifest 의 atmosphere.group 과 맞춘다. 새 group 은 이 뒤에 자동으로 붙는다.
-  const ATMOSPHERE_GROUP_ORDER = ["분위기", "소리풍경", "리듬장단"]
+  const STUDENT_MUSIC_GROUP = "학생들이 찾은 음악"
+  const ATMOSPHERE_GROUP_ORDER = ["분위기", "소리풍경", "리듬장단", STUDENT_MUSIC_GROUP]
 
   function balanceParentheticalMoodTitle(button, label) {
     const match = /^(.+?)(\(.+\))$/.exec(label || "")
@@ -630,7 +631,8 @@
     Object.keys(groups).forEach((g) => {
       if (order.indexOf(g) === -1) order.push(g)
     })
-    const visibleGroups = order.filter((g) => groups[g] && groups[g].length)
+    // 학생들이 찾은 음악 섹션은 비어 있어도 항상 보여 준다(여기에 올리도록 안내).
+    const visibleGroups = order.filter((g) => g === STUDENT_MUSIC_GROUP || (groups[g] && groups[g].length))
     visibleGroups.forEach((g) => {
       if (visibleGroups.length > 1) {
         const label = document.createElement("p")
@@ -638,9 +640,10 @@
         label.textContent = g
         el.atmosphereGrid.appendChild(label)
       }
-      groups[g].forEach(appendAtmosphereCard)
+      ;(groups[g] || []).forEach(appendAtmosphereCard)
+      // 업로드 카드는 "학생들이 찾은 음악" 섹션 안(올린 음악들 뒤)에 둔다.
+      if (g === STUDENT_MUSIC_GROUP) el.atmosphereGrid.appendChild(buildUploadCard())
     })
-    el.atmosphereGrid.appendChild(buildUploadCard())
   }
 
   function buildUploadCard() {
@@ -648,7 +651,7 @@
     card.className = "card upload-card"
     card.innerHTML =
       '<span class="upload-plus" aria-hidden="true">＋</span>' +
-      "<strong>학생들이 찾은 음악</strong>" +
+      "<strong>여기에 음악 올리기</strong>" +
       '<span class="upload-sub"><span>Pixabay에서 음악 찾기</span><span>mp3 · wav 올리기</span><span>50MB 이하</span></span>' +
       '<span class="upload-actions">' +
       '<a class="upload-action upload-action-secondary" href="' +
@@ -683,6 +686,7 @@
     const atmosphere = {
       id: id,
       label: label,
+      group: STUDENT_MUSIC_GROUP, // "학생들이 찾은 음악" 섹션에 그 자리로 쌓인다
       padType: "ambient",
       detail: "내가 올린 배경 음원",
       color: "#6b8f9c",
