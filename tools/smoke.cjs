@@ -349,22 +349,30 @@ SD.engine.previewEffect = (effect) => {
   previewEffectId = effect.id
   return Promise.resolve(true)
 }
-const stampEvent = new window.Event("pointerdown", { bubbles: true, cancelable: true })
-Object.defineProperty(stampEvent, "clientX", { value: timelineClientX(0.25) })
-Object.defineProperty(stampEvent, "clientY", { value: 300 })
-canvas.dispatchEvent(stampEvent)
+const makeCanvasPointerEvent = (progress, clientY = 300) => {
+  const event = new window.Event("pointerdown", { bubbles: true, cancelable: true })
+  Object.defineProperty(event, "clientX", { value: timelineClientX(progress) })
+  Object.defineProperty(event, "clientY", { value: clientY })
+  return event
+}
+canvas.dispatchEvent(makeCanvasPointerEvent(0.25))
 check("캔버스 클릭 시 효과음 도장 추가", SD.buildRecipe().effectStamps.length === 1, SD.buildRecipe().effectStamps.length)
 check("효과음 도장을 찍으면 바로 미리듣기", previewEffectId === "wind1", previewEffectId)
 check("캔버스 효과음 도장 이미지 표시", qc("#effectStampLayer .effect-stamp img") === 1, qc("#effectStampLayer .effect-stamp img"))
 check("효과음 도장은 시간 위치를 보존", SD.buildRecipe().effectStamps[0].x === 0.25, SD.buildRecipe().effectStamps[0].x)
+window.document.getElementById("undoBtn").click()
+check("되돌리기로 효과음 도장 추가 취소", SD.buildRecipe().effectStamps.length === 0, SD.buildRecipe().effectStamps.length)
+canvas.dispatchEvent(makeCanvasPointerEvent(0.25))
+check("되돌리기 뒤 효과음 도장 다시 추가", SD.buildRecipe().effectStamps.length === 1, SD.buildRecipe().effectStamps.length)
 firstEffect.click()
 check("효과음 버튼 재클릭 시 도장 선택 해제", SD.getStateSummary().effectStampId === null, SD.getStateSummary().effectStampId)
 window.document.getElementById("clearBtn").click()
-const eraseStampEvent = new window.Event("pointerdown", { bubbles: true, cancelable: true })
-Object.defineProperty(eraseStampEvent, "clientX", { value: timelineClientX(0.25) })
-Object.defineProperty(eraseStampEvent, "clientY", { value: 300 })
-canvas.dispatchEvent(eraseStampEvent)
+canvas.dispatchEvent(makeCanvasPointerEvent(0.25))
 check("지우개로 효과음 도장 삭제", SD.buildRecipe().effectStamps.length === 0, SD.buildRecipe().effectStamps.length)
+window.document.getElementById("undoBtn").click()
+check("되돌리기로 지운 효과음 도장 복원", SD.buildRecipe().effectStamps.length === 1, SD.buildRecipe().effectStamps.length)
+canvas.dispatchEvent(makeCanvasPointerEvent(0.25))
+check("지우개로 효과음 도장 다시 삭제", SD.buildRecipe().effectStamps.length === 0, SD.buildRecipe().effectStamps.length)
 window.document.getElementById("penBtn").click()
 SD.engine.previewEffect = originalPreviewEffect
 SD.engine.warmEffect = originalWarmEffect
@@ -525,6 +533,39 @@ SD.takes.clearAll()
 const savedTake = SD.takes.add(recipe, "테스트")
 check("테이크 저장됨", SD.takes.list().length === 1)
 check("테이크 이름 수정 저장됨", SD.takes.rename(savedTake.id, "1번 학생") && SD.takes.get(savedTake.id).name === "1번 학생")
+SD.setAdminMode(false)
+check("저장된 시도 일시정지 버튼 표시", qc(".take-pause") === 1, qc(".take-pause"))
+check("저장된 시도는 재생 전 일시정지 비활성", window.document.querySelector(".take-pause").disabled === true)
+const originalTakePlay = SD.engine.play
+const originalTakePause = SD.engine.pause
+let takePlayCalls = 0
+let takePauseCalls = 0
+SD.engine.isPlaying = false
+SD.engine.isPaused = false
+SD.engine.ambience = null
+SD.engine.play = () => {
+  takePlayCalls += 1
+  SD.engine.isPlaying = true
+  SD.engine.isPaused = false
+  SD.engine.ambience = null
+  return Promise.resolve("synth")
+}
+SD.engine.pause = () => {
+  takePauseCalls += 1
+  SD.engine.isPlaying = true
+  SD.engine.isPaused = true
+  return true
+}
+window.document.querySelector(".take-play").click()
+const activeTakePause = window.document.querySelector(".take-pause")
+check("저장된 시도 재생 버튼 동작", takePlayCalls === 1, takePlayCalls)
+check("저장된 시도 재생 중 일시정지 활성", activeTakePause.disabled === false && activeTakePause.textContent === "❚❚")
+activeTakePause.click()
+check("저장된 시도 일시정지 버튼 동작", takePauseCalls === 1, takePauseCalls)
+check("저장된 시도 일시정지 후 이어듣기 표시", window.document.querySelector(".take-pause").textContent === "▶")
+SD.engine.play = originalTakePlay
+SD.engine.pause = originalTakePause
+SD.stop()
 SD.setAdminMode(true)
 check("관리자 모드 켜짐", SD.getStateSummary().adminMode === true)
 check("관리자 이름 입력 표시", qc(".take-name-input") === 1, qc(".take-name-input"))

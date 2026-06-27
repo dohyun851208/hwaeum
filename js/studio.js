@@ -30,6 +30,7 @@
   const DEFAULT_INSTRUMENT_FAMILY = "그 밖의 악기"
   const PEN_TOOL_STATUS = "펜(키보드1)"
   const ERASER_TOOL_STATUS = "지우개(키보드2)"
+  const APP_UNDO_MAX = 30
   const CUSTOM_BG_COPYRIGHT_NOTICE =
     "저작권 안내: 다른 사람이 만든 음악은 허락 없이 사용할 수 없어요. 직접 만든 음원이나 사용 허락을 받은 음원만 올려 주세요."
 
@@ -97,6 +98,7 @@
     melodyIntent: "",
     hashtags: "",
     activeTakeId: null, // 완성 화면에서 지금 보고 있는 시도(테이크)
+    playingTakeId: null, // 완성 화면 시도 목록에서 지금 재생/일시정지 중인 시도
     adminMode: loadAdminMode(),
     sharedChannel: ShareStore ? ShareStore.loadChannel() : "",
     sharedWorks: [],
@@ -220,6 +222,11 @@
     node.style.setProperty("--instrument-strong", hexToRgba(color, 0.36))
   }
 
+  const appUndoStack = []
+  let trackedDrawUndoDepth = 0
+  let trackedDrawUndoTop = null
+  let suppressDrawUndoTracking = false
+
   const draw = new window.DrawingCanvas(el.canvas, {
     activeInstrument: state.instrument.id,
     instrumentColor: colorForInstrument,
@@ -229,6 +236,7 @@
     },
     getState: () => ({ duration: state.duration, style: state.style, mode: state.mode, melodyAsset: D.melodies[state.instrument.id] || null }),
     onChange: () => {
+      recordDrawUndoAction()
       updateReadouts()
       renderOrchestraLegend()
       syncUndoButton()
@@ -1137,6 +1145,7 @@
     if (!state.effectStampId || !effect) return false
     const point = canvasPointFromEvent(e)
     if (!point) return false
+    pushEffectStampUndo()
     state.effectStamps.push({ id: state.effectStampId, x: round3(point.x), y: round3(point.y) })
     renderEffectStamps()
     updateReadouts()
@@ -1167,6 +1176,7 @@
       }
     })
     if (bestIndex < 0 || bestDist > radius2) return false
+    pushEffectStampUndo()
     const removed = state.effectStamps.splice(bestIndex, 1)[0]
     renderEffectStamps()
     updateReadouts()
@@ -1436,6 +1446,7 @@
   engine.onState = function (playing, paused) {
     paused = !!paused
     const wasPaused = el.body.dataset.playback === "paused"
+    if (!playing && !paused && !engine.ambience) state.playingTakeId = null
     el.statusText.textContent = paused
       ? playing
         ? "일시정지"
@@ -1450,6 +1461,7 @@
     el.frame.classList.toggle("playing", playing && !paused)
     el.body.dataset.playback = paused ? "paused" : playing ? "playing" : "idle"
     syncTransportButtons(playing, paused)
+    renderTakes()
     if (paused) pausePlayhead()
     else if (playing) startPlayhead(wasPaused)
     else stopPlayhead()
@@ -1921,6 +1933,8 @@
     renderAtmospheres()
     const recipe = buildRecipe()
     engine.play(recipe, notesFor(recipe), { startOffset: selectedPlaybackStartSec() }).catch(function (e) {
+      state.playingTakeId = null
+      renderTakes()
       el.statusText.textContent = "재생 오류"
       console.error(e)
     })
@@ -1951,7 +1965,9 @@
     stopBackgroundPreview()
     stopExamplePreview()
     renderAtmospheres()
+    state.playingTakeId = null
     engine.stop()
+    renderTakes()
   }
 
   function setEraser(on) {
@@ -2015,9 +2031,102 @@
     }
   }
 
+  function drawUndoDepth() {
+    return draw && draw.undoStack ? draw.undoStack.length : 0
+  }
+
+  function drawUndoTop() {
+    const stack = draw && draw.undoStack ? draw.undoStack : []
+    return stack.length ? stack[stack.length - 1] : null
+  }
+
+  function syncTrackedDrawUndoDepth() {
+    trackedDrawUndoDepth = drawUndoDepth()
+    trackedDrawUndoTop = drawUndoTop()
+  }
+
+  function pushAppUndoAction(action) {
+    if (!action) return
+    appUndoStack.push(action)
+    while (appUndoStack.length > APP_UNDO_MAX) appUndoStack.shift()
+    syncUndoButton()
+  }
+
+  function recordDrawUndoAction() {
+    const depth = drawUndoDepth()
+    const top = drawUndoTop()
+    if (suppressDrawUndoTracking) {
+      trackedDrawUndoDepth = depth
+      trackedDrawUndoTop = top
+      return
+    }
+    if (depth > trackedDrawUndoDepth) {
+      for (let i = trackedDrawUndoDepth; i < depth; i++) pushAppUndoAction({ type: "draw" })
+    } else if (depth > 0 && depth === trackedDrawUndoDepth && top && top !== trackedDrawUndoTop) {
+      pushAppUndoAction({ type: "draw" })
+    }
+    trackedDrawUndoDepth = depth
+    trackedDrawUndoTop = top
+  }
+
+  function effectStampSnapshot() {
+    return simplifyEffectStamps(state.effectStamps || [])
+  }
+
+  function pushEffectStampUndo() {
+    pushAppUndoAction({ type: "effects", effectStamps: effectStampSnapshot() })
+  }
+
+  function restoreEffectStamps(snapshot) {
+    state.effectStamps = simplifyEffectStamps(snapshot || [])
+    renderEffectStamps()
+    updateReadouts()
+  }
+
+  function clearAppUndoHistory() {
+    appUndoStack.length = 0
+    syncTrackedDrawUndoDepth()
+    syncUndoButton()
+  }
+
+  function undoLastAction() {
+    while (appUndoStack.length) {
+      const action = appUndoStack.pop()
+      if (action.type === "effects") {
+        restoreEffectStamps(action.effectStamps)
+        syncUndoButton()
+        return "효과음"
+      }
+      if (action.type === "draw") {
+        suppressDrawUndoTracking = true
+        const restored = draw.undo()
+        suppressDrawUndoTracking = false
+        syncTrackedDrawUndoDepth()
+        if (restored) {
+          renderEffectStamps()
+          syncUndoButton()
+          return "드로잉"
+        }
+      }
+    }
+    if (draw.canUndo && draw.canUndo()) {
+      suppressDrawUndoTracking = true
+      const restored = draw.undo()
+      suppressDrawUndoTracking = false
+      syncTrackedDrawUndoDepth()
+      if (restored) {
+        renderEffectStamps()
+        syncUndoButton()
+        return "드로잉"
+      }
+    }
+    syncUndoButton()
+    return ""
+  }
+
   function syncUndoButton() {
     if (!el.undoBtn || typeof draw.canUndo !== "function") return
-    el.undoBtn.disabled = !draw.canUndo()
+    el.undoBtn.disabled = !(appUndoStack.length || draw.canUndo())
   }
 
   function resetCompose() {
@@ -2025,11 +2134,11 @@
     setEraser(false)
     draw.clear(false)
     draw.clearUndoHistory()
-    syncUndoButton()
     draw.setActiveInstrument(state.instrument.id)
     state.effectIds = []
     state.effectStamps = []
     state.effectStampId = null
+    clearAppUndoHistory()
     renderEffects()
     renderEffectStamps()
     renderOrchestraLegend()
@@ -2052,6 +2161,21 @@
     state.adminMode = !!on
     saveAdminMode(state.adminMode)
     syncAdminModeUI()
+    renderTakes()
+  }
+
+  function playTake(t) {
+    if (!t) return
+    if (engine.isPlaying || engine.isPaused || engine.ambience) engine.stop()
+    selectTake(t)
+    state.playingTakeId = t.id
+    play()
+    renderTakes()
+  }
+
+  function toggleTakePause(t) {
+    if (!t || state.playingTakeId !== t.id) return
+    pause()
     renderTakes()
   }
 
@@ -2138,15 +2262,29 @@
       meta.appendChild(detail)
       const tools = document.createElement("div")
       tools.className = "take-tools"
+      const isPlayingTake = state.playingTakeId === t.id && (engine.isPlaying || engine.isPaused || !!engine.ambience)
+      const isPausedTake = isPlayingTake && engine.isPaused
       const playB = document.createElement("button")
       playB.type = "button"
-      playB.className = "btn tiny primary"
+      playB.className = "btn tiny primary take-play"
       playB.textContent = "▶"
-      playB.title = "이 시도 듣기"
+      playB.title = "이 시도 처음부터 듣기"
+      playB.setAttribute("aria-label", (t.name || "시도") + " 처음부터 듣기")
       playB.addEventListener("click", function (event) {
         event.stopPropagation()
-        selectTake(t)
-        play()
+        playTake(t)
+      })
+      const pauseB = document.createElement("button")
+      pauseB.type = "button"
+      pauseB.className = "btn tiny take-pause"
+      pauseB.textContent = isPausedTake ? "▶" : "❚❚"
+      pauseB.title = isPausedTake ? "이어 듣기" : "일시정지"
+      pauseB.disabled = !isPlayingTake
+      pauseB.setAttribute("aria-label", (t.name || "시도") + " " + (isPausedTake ? "이어 듣기" : "일시정지"))
+      pauseB.addEventListener("click", function (event) {
+        event.stopPropagation()
+        if (!isPlayingTake) return
+        toggleTakePause(t)
       })
       const delB = document.createElement("button")
       delB.type = "button"
@@ -2155,11 +2293,17 @@
       delB.title = "삭제"
       delB.addEventListener("click", function (event) {
         event.stopPropagation()
+        if (state.playingTakeId === t.id) {
+          state.playingTakeId = null
+          engine.stop()
+        }
         takes.remove(t.id)
         if (state.activeTakeId === t.id) state.activeTakeId = null
+        if (state.playingTakeId === t.id) state.playingTakeId = null
         renderTakes()
       })
       tools.appendChild(playB)
+      tools.appendChild(pauseB)
       tools.appendChild(delB)
       wrap.appendChild(cv)
       wrap.appendChild(meta)
@@ -2226,7 +2370,7 @@
     if (recipe.strokes && recipe.strokes.length) draw.setStrokes(recipe.strokes, recipe.strokeInstruments)
     else draw.setPath(recipe.path || [], recipe.instrument)
     draw.clearUndoHistory()
-    syncUndoButton()
+    clearAppUndoHistory()
     renderEffectStamps()
     renderOrchestraLegend()
     setupBgPlayer(true)
@@ -3085,9 +3229,10 @@
     document.addEventListener("keydown", handleKeyboardShortcut)
     if (el.undoBtn) {
       el.undoBtn.addEventListener("click", () => {
-        if (!draw.undo()) return
-        renderEffectStamps()
-        el.exportStatus.textContent = "마지막 드로잉 작업을 되돌렸어요."
+        const undone = undoLastAction()
+        if (!undone) return
+        el.exportStatus.textContent =
+          undone === "효과음" ? "마지막 효과음 작업을 되돌렸어요." : "마지막 드로잉 작업을 되돌렸어요."
       })
     }
     el.resetComposeBtn.addEventListener("click", resetCompose)
