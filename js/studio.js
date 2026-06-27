@@ -640,9 +640,9 @@
         label.textContent = g
         el.atmosphereGrid.appendChild(label)
       }
-      ;(groups[g] || []).forEach(appendAtmosphereCard)
-      // 업로드 카드는 "학생들이 찾은 음악" 섹션 안(올린 음악들 뒤)에 둔다.
+      // "학생들이 찾은 음악"은 업로드 카드를 먼저 두고, 올린 음악이 그 오른쪽(뒤)으로 쌓이게 한다.
       if (g === STUDENT_MUSIC_GROUP) el.atmosphereGrid.appendChild(buildUploadCard())
+      ;(groups[g] || []).forEach(appendAtmosphereCard)
     })
   }
 
@@ -2603,6 +2603,10 @@
     icon.setAttribute("aria-hidden", "true")
     icon.textContent = "▶"
     button.appendChild(icon)
+    button.addEventListener("click", function () {
+      pulseControl(button)
+      toggleTransport()
+    })
     el.frame.appendChild(button)
     el.framePlayBtn = button
   }
