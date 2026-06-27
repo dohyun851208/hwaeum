@@ -184,12 +184,13 @@
   // 믹스 변형 — 한 시도(테이크)를 다른 균형으로 들어보는 옵션
   // 선율이 배경에 묻힌다는 피드백을 거듭 반영 → 선율 비중을 키움(배경 padGain 은 그대로 유지).
   // 2026-06-23 사용자 요청: 선율(배경 제외)을 한 번 더 ×2 로 키움(아래 melodyGain). 배경/효과음은 불변.
+  // 2026-06-27 사용자 요청: 배경음·선율음 크기를 현재보다 ×2 로(둘 다). 클리핑은 마스터 리미터(audio-engine.js)가 막음.
   // (믹스 간 상대 순서·균형 한계는 test/audio-balance.test.js 가 지켜 줌)
   const versions = [
-    { id: "balanced", label: "균형", detail: "배경과 그린 소리를 같은 비중으로", melodyGain: 0.84, padGain: 0.17, ornament: false },
-    { id: "drawing", label: "그림소리 강조", detail: "그린 선의 소리를 더 또렷하게", melodyGain: 1.12, padGain: 0.12, ornament: false },
-    { id: "scene", label: "공간 강조", detail: "분위기 음원을 더 넓게", melodyGain: 0.6, padGain: 0.22, ornament: false },
-    { id: "ornament", label: "표현 강조", detail: "소리의 흔들림을 더하게", melodyGain: 0.84, padGain: 0.15, ornament: true },
+    { id: "balanced", label: "균형", detail: "배경과 그린 소리를 같은 비중으로", melodyGain: 1.68, padGain: 0.34, ornament: false },
+    { id: "drawing", label: "그림소리 강조", detail: "그린 선의 소리를 더 또렷하게", melodyGain: 2.24, padGain: 0.24, ornament: false },
+    { id: "scene", label: "공간 강조", detail: "분위기 음원을 더 넓게", melodyGain: 1.2, padGain: 0.44, ornament: false },
+    { id: "ornament", label: "표현 강조", detail: "소리의 흔들림을 더하게", melodyGain: 1.68, padGain: 0.3, ornament: true },
   ]
 
   root.SDStudioData = { backgrounds, pads, melodies, effects, atmospheres, instruments, styles, versions }

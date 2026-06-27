@@ -3,9 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="google-signin-client_id" content="" />
     <title>화음(畵音) · 그림으로 만드는 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260627-bg-range-duration" />
+    <link rel="stylesheet" href="./styles.css?v=20260627-grid-lines" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -19,6 +21,15 @@
           <figure class="pic-chip" id="picChip" hidden>
             <img id="picThumb" alt="올린 그림" />
           </figure>
+          <div class="auth-box" id="authBox" data-auth="guest">
+            <div class="auth-profile" id="authProfile" hidden>
+              <img class="auth-avatar" id="authAvatar" alt="" hidden />
+              <span id="authName">Google 사용자</span>
+            </div>
+            <div class="google-button-slot" id="googleButtonSlot"></div>
+            <button class="btn tiny ghost auth-logout" id="googleLogoutBtn" type="button" hidden>로그아웃</button>
+            <span class="auth-status" id="authStatus" aria-live="polite">로그인 없이도 사용할 수 있어요.</span>
+          </div>
           <div class="transport" aria-label="재생 제어">
             <span class="status-pill" id="statusText" aria-live="polite">전체곡 대기</span>
             <button class="round-btn" id="playBtn" type="button" aria-label="전체곡 재생"><span aria-hidden="true">▶</span></button>
@@ -172,7 +183,7 @@
           <div class="screen-head">
             <p class="eyebrow">Step 4</p>
             <h2>완성한 그림 음악을 저장합니다</h2>
-            <p class="lead">표지와 제목을 확인하고, 시도를 저장하거나 오디오와 커버 이미지를 내보낼 수 있습니다.</p>
+            <p class="lead">표지와 제목을 확인하고, 시도를 저장하거나 압축 음악과 커버 이미지를 내보낼 수 있습니다.</p>
           </div>
           <section class="panel gallery-panel completion-gallery">
             <div class="frame" id="frame">
@@ -181,7 +192,7 @@
             </div>
             <div class="placard">
               <input id="titleInput" class="placard-title" type="text" value="무제" aria-label="작품 제목" maxlength="24" />
-              <p class="placard-meta" id="placardMeta">배경 · 악기</p>
+              <p class="placard-tags" id="placardMeta"></p>
             </div>
             <div class="reflection-fields">
               <label class="reflection-field" for="bgReasonInput">
@@ -201,7 +212,7 @@
 
             <div class="actions-row">
               <button class="btn small primary" id="saveTakeBtn" type="button">이 시도 저장</button>
-              <button class="btn small" id="exportWavBtn" type="button">오디오 내보내기(WAV)</button>
+              <button class="btn small" id="exportAudioBtn" type="button">음악 저장(WebM)</button>
               <button class="btn small" id="completeStopBtn" type="button" disabled>음악 멈춤</button>
               <button class="btn small" id="exportDrawingImageBtn" type="button">드로잉 이미지(PNG)</button>
               <button class="btn small" id="exportDrawingVideoBtn" type="button">드로잉 영상(WebM)</button>
@@ -238,8 +249,9 @@
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
     <script src="./js/audio-engine.js?v=20260626-grid-credit-stop"></script>
-    <script src="./js/drawing.js?v=20260627-pitch-label-rows"></script>
+    <script src="./js/drawing.js?v=20260627-grid-lines"></script>
     <script src="./js/takes.js?v=20260624-reflect-limit"></script>
+    <script src="./js/auth.js?v=20260627-google-login" defer></script>
     <script src="./js/studio.js?v=20260627-bg-range-duration" defer></script>
   </body>
 </html>

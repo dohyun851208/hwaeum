@@ -17,7 +17,8 @@
   const TAKE_NAME_MAX = 24
   const DRAWING_STEP = 2
   const COMPLETE_STEP = 3
-  const DEFAULT_STYLE_ID = "bright"
+  const DEFAULT_STYLE_ID = "bright" // 기본 음계 = C장조(서양 악기는 파(F)도 난다)
+  const GUGAK_STYLE_ID = "gugak" // 국악기만 5음(펜타토닉)+시김새 — 파(F)·시(B) 없음
   const CUSTOM_BG_MAX_BYTES = 50 * 1024 * 1024
   const PIXABAY_MUSIC_URL = "https://pixabay.com/music/"
   const CUSTOM_BG_COPYRIGHT_NOTICE =
@@ -25,6 +26,12 @@
 
   function defaultStyle() {
     return D.styles.find((s) => s.id === DEFAULT_STYLE_ID) || D.styles[0]
+  }
+
+  // 악기 그룹별 기본 음계: 기본은 C장조, 국악기만 5음(펜타토닉)+시김새.
+  function styleForInstrument(instrument) {
+    const id = instrument && instrument.group === "국악" ? GUGAK_STYLE_ID : DEFAULT_STYLE_ID
+    return D.styles.find((s) => s.id === id) || defaultStyle()
   }
 
   function defaultVersion() {
@@ -49,7 +56,7 @@
     duration: DEFAULT_DURATION_SECONDS,
     atmosphere: D.atmospheres[0],
     instrument: D.instruments[0],
-    style: defaultStyle(),
+    style: styleForInstrument(D.instruments[0]),
     version: defaultVersion(),
     mode: "melody",
     pic: null,
@@ -144,7 +151,7 @@
     hashtagsInput: $("hashtagsInput"),
     saveTakeBtn: $("saveTakeBtn"),
     adminModeBtn: $("adminModeBtn"),
-    exportWavBtn: $("exportWavBtn"),
+    exportAudioBtn: $("exportAudioBtn"),
     completeStopBtn: $("completeStopBtn"),
     exportDrawingImageBtn: $("exportDrawingImageBtn"),
     exportDrawingVideoBtn: $("exportDrawingVideoBtn"),
@@ -182,7 +189,7 @@
     onInstrumentLimit: (max) => {
       el.exportStatus.textContent = "악기는 한 곡에 최대 " + max + "개까지예요. 줄을 지우면 다른 악기를 더할 수 있어요."
     },
-    getState: () => ({ duration: state.duration, style: state.style, mode: state.mode }),
+    getState: () => ({ duration: state.duration, style: state.style, mode: state.mode, melodyAsset: D.melodies[state.instrument.id] || null }),
     onChange: () => {
       updateReadouts()
       renderOrchestraLegend()
@@ -408,13 +415,20 @@
 
   function notesFor(recipe) {
     if (recipe.mode === "rhythm") return []
+    const fallbackAsset = D.melodies[state.instrument.id] || null
     if (recipe.strokes && recipe.strokes.length) {
       const style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
-      return Core.autocompleteMelodyStrokes(recipe.strokes, { durationSec: recipe.duration, style: style })
+      const melodyAssets = (recipe.strokeInstruments || []).map((id) => D.melodies[id] || fallbackAsset)
+      return Core.autocompleteMelodyStrokes(recipe.strokes, {
+        durationSec: recipe.duration,
+        style: style,
+        melodyAsset: fallbackAsset,
+        melodyAssets: melodyAssets,
+      })
     }
     if (!recipe.path || recipe.path.length < 1) return []
     const style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
-    return Core.autocompleteMelody(recipe.path, { durationSec: recipe.duration, style: style })
+    return Core.autocompleteMelody(recipe.path, { durationSec: recipe.duration, style: style, melodyAsset: fallbackAsset })
   }
 
   function warmSelectedInstrument() {
@@ -711,6 +725,7 @@
   function selectInstrument(instrument, announce) {
     state.instrument = instrument
     state.group = instrument.group
+    state.style = styleForInstrument(instrument) // 서양=C장조, 국악=5음+시김새
     setEraser(false)
     if (state.effectStampId) {
       state.effectStampId = null
@@ -725,6 +740,7 @@
     renderOrchestraLegend()
     draw.compute()
     draw.render()
+    renderPitchAxisLabels() // 악기에 따라 음계·라벨(들리는 음)이 바뀌므로 음높이 축을 다시 그린다
     updateReadouts()
     warmSelectedInstrument()
     if (announce) {
@@ -1066,10 +1082,11 @@
 
   function renderPitchAxisLabels() {
     if (!el.pitchLabels || !window.DrawingCanvas || typeof window.DrawingCanvas.pitchLabelsForStyle !== "function") return
+    const axisAsset = D.melodies[state.instrument.id] || null
     const rows =
       typeof window.DrawingCanvas.pitchRowsForStyle === "function"
-        ? window.DrawingCanvas.pitchRowsForStyle(state.style)
-        : window.DrawingCanvas.pitchLabelsForStyle(state.style)
+        ? window.DrawingCanvas.pitchRowsForStyle(state.style, axisAsset)
+        : window.DrawingCanvas.pitchLabelsForStyle(state.style, axisAsset)
     el.pitchLabels.innerHTML = ""
     if (typeof draw.pitchLabelGutterCssPx === "function") {
       el.pitchLabels.style.setProperty("--pitch-label-width", Math.round(draw.pitchLabelGutterCssPx()) + "px")
@@ -1115,12 +1132,8 @@
     el.noteReadout.textContent = String(draw.notes.length)
     el.durReadout.textContent = secondsLabel(state.duration)
     const tags = hashtagText(state.hashtags)
-    el.placardMeta.textContent =
-      state.atmosphere.label +
-      " · " +
-      state.instrument.label +
-      (effectCount() ? " · 효과 " + effectCount() + "개" : "") +
-      (tags ? " · " + tags : "")
+    el.placardMeta.textContent = tags
+    el.placardMeta.classList.toggle("is-empty", !tags)
   }
 
   function syncReflectionInputs() {
@@ -1232,6 +1245,15 @@
     el.playBtn.classList.toggle("paused", !!paused)
     el.playBtn.setAttribute("aria-pressed", activeAudio ? "true" : "false")
     setIcon(el.playBtn, activeAudio ? "❚❚" : "▶")
+    if (el.framePlayBtn) {
+      const frameLabel = activeAudio ? "음악 일시정지" : paused ? "음악 이어 재생" : "음악 재생"
+      el.framePlayBtn.setAttribute("aria-label", frameLabel)
+      el.framePlayBtn.title = frameLabel
+      el.framePlayBtn.classList.toggle("active", activeAudio)
+      el.framePlayBtn.classList.toggle("paused", !!paused)
+      el.framePlayBtn.setAttribute("aria-pressed", activeAudio ? "true" : "false")
+      setIcon(el.framePlayBtn, activeAudio ? "❚❚" : "▶")
+    }
     el.stopBtn.setAttribute("aria-pressed", "false")
     if (el.completeStopBtn) el.completeStopBtn.disabled = !canPause
   }
@@ -1695,7 +1717,6 @@
       engine.pause()
       return
     }
-    if (!requireDrawn()) return
     stopBackgroundPreview()
     stopExamplePreview()
     pauseBgPlayer() // 전체 재생 중엔 배경음악 미니 플레이어를 멈춘다(중복 방지 — 패드는 bgOffset부터 깔림)
@@ -1896,7 +1917,7 @@
     state.duration = normalizeDuration(recipe.duration || DEFAULT_DURATION_SECONDS)
     state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || D.atmospheres[0]
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
-    state.style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
+    state.style = styleForInstrument(state.instrument) // 음계는 악기 그룹을 따른다(서양=C장조, 국악=5음)
     state.version = defaultVersion()
     state.mode = "melody"
     state.group = state.instrument.group
@@ -1939,16 +1960,18 @@
 
   // --- 내보내기 ---
 
-  async function exportWav() {
+  async function exportAudio() {
     if (!requireDrawn()) return
-    el.exportStatus.textContent = "오디오를 만드는 중…"
+    el.exportStatus.textContent = "압축 음악을 만드는 중… 노래 길이만큼 기다려 주세요."
     try {
       const recipe = buildRecipe()
-      const size = await engine.exportWav(recipe, notesFor(recipe), safeName() + ".wav")
-      el.exportStatus.textContent = "오디오 내보내기 완료 (" + Math.round(size / 1024) + " KB)"
+      if (!engine.exportCompressedAudio) throw new Error("compressed audio export is not available")
+      const result = await engine.exportCompressedAudio(recipe, notesFor(recipe), safeName() + "_music.webm")
+      const size = result && typeof result === "object" ? result.size : result
+      el.exportStatus.textContent = "음악 저장 완료 (" + Math.round(size / 1024) + " KB, WebM)"
     } catch (e) {
       console.error(e)
-      el.exportStatus.textContent = "오디오 내보내기 실패 — 콘솔을 확인하세요."
+      el.exportStatus.textContent = "음악 저장 실패 — 크롬에서 다시 시도해 주세요."
     }
   }
 
@@ -2287,7 +2310,7 @@
       await done
       if (!chunks.length) throw new Error("recorded video is empty")
       downloadBlob(new Blob(chunks, { type: mimeType }), safeName() + "_drawing.webm")
-      el.exportStatus.textContent = "드로잉 영상을 저장했어요. 소리는 오디오 내보내기(WAV)로 따로 저장할 수 있어요."
+      el.exportStatus.textContent = "드로잉 영상을 저장했어요. 소리는 음악 저장(WebM)으로 따로 저장할 수 있어요."
     } catch (e) {
       console.error(e)
       if (raf) cancelAnimationFrame(raf)
@@ -2534,7 +2557,7 @@
     el.adminModeBtn.addEventListener("click", function () {
       setAdminMode(!state.adminMode)
     })
-    el.exportWavBtn.addEventListener("click", exportWav)
+    if (el.exportAudioBtn) el.exportAudioBtn.addEventListener("click", exportAudio)
     if (el.exportDrawingImageBtn) el.exportDrawingImageBtn.addEventListener("click", exportDrawingImage)
     if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.addEventListener("click", exportDrawingVideo)
     el.exportCoverBtn.addEventListener("click", exportCover)
@@ -2572,6 +2595,21 @@
 
   // --- 초기화 ---
 
+  function ensureFramePlayButton() {
+    if (!el.frame || el.framePlayBtn) return
+    const button = document.createElement("button")
+    button.className = "frame-play"
+    button.id = "framePlayBtn"
+    button.type = "button"
+    button.setAttribute("aria-label", "음악 재생")
+    const icon = document.createElement("span")
+    icon.setAttribute("aria-hidden", "true")
+    icon.textContent = "▶"
+    button.appendChild(icon)
+    el.frame.appendChild(button)
+    el.framePlayBtn = button
+  }
+
   function init() {
     applyMoodTint()
     renderAtmospheres()
@@ -2583,6 +2621,7 @@
     renderEffects()
     syncBgPlayerUI()
     refreshTimeline(true)
+    ensureFramePlayButton()
     bind()
     syncAdminModeUI()
     syncTransportButtons(false, false)
@@ -2629,7 +2668,7 @@
       return engine.resume()
     },
     stop: stop,
-    exportWav: exportWav,
+    exportAudio: exportAudio,
     exportDrawingImage: exportDrawingImage,
     exportDrawingVideo: exportDrawingVideo,
     loadRecipe: loadRecipe,

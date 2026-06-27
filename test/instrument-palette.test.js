@@ -88,10 +88,24 @@ test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", (
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
 
   assert.doesNotMatch(html, /id="composePlay"/)
-  assert.doesNotMatch(html, /id="framePlay"/)
   assert.doesNotMatch(source, /composePlay/)
-  assert.doesNotMatch(source, /framePlay/)
   assert.match(html, /id="playBtn"[\s\S]*aria-label="전체곡 재생"/)
+})
+
+test("완성 화면 그림에는 재생 버튼이 있고 음악 저장은 WebM만 사용한다", () => {
+  const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const engine = fs.readFileSync(path.join(projectDir, "js", "audio-engine.js"), "utf8")
+
+  assert.match(source, /function ensureFramePlayButton\(\)/)
+  assert.match(source, /framePlayBtn/)
+  assert.match(html, /id="exportAudioBtn"[\s\S]*WebM/)
+  assert.doesNotMatch(html, /exportWavBtn|오디오 내보내기\(WAV\)/)
+  assert.match(source, /function exportAudio\(\)/)
+  assert.match(source, /exportCompressedAudio/)
+  assert.doesNotMatch(source, /exportWav/)
+  assert.match(engine, /exportCompressedAudio/)
+  assert.doesNotMatch(engine, /AudioEngine\.prototype\.exportWav/)
 })
 
 test("드로잉 화면에서 믹스 선택 UI를 제거한다", () => {

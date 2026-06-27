@@ -99,6 +99,8 @@ p {
 .topbar-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 16px;
 }
 .pic-chip {
@@ -115,6 +117,66 @@ p {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.auth-box {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 38px;
+}
+.auth-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 170px;
+  min-height: 34px;
+  padding: 3px 9px 3px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+.auth-profile[hidden],
+.auth-avatar[hidden],
+.auth-logout[hidden],
+.auth-status[hidden],
+.google-button-slot[hidden] {
+  display: none;
+}
+.auth-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--accent-soft);
+  border: 1px solid rgba(32, 41, 42, 0.08);
+}
+.auth-profile span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.google-button-slot {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+}
+.google-button-slot iframe {
+  max-width: 100%;
+}
+.auth-google-fallback {
+  white-space: nowrap;
+}
+.auth-status {
+  max-width: 148px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.25;
 }
 .transport {
   display: flex;
@@ -967,7 +1029,7 @@ p {
   position: absolute;
   left: 0;
   right: 0;
-  border-top: 1px solid rgba(31, 38, 38, 0.12);
+  border-top: 1px solid rgba(35, 150, 215, 0.36);
   background: rgba(31, 38, 38, 0.018);
 }
 .pitch-label-row:nth-of-type(even) {
@@ -1085,12 +1147,12 @@ p {
 .playhead::before {
   content: "";
   position: absolute;
-  top: -6px;
+  top: -18px;
   left: 50%;
   transform: translateX(-50%);
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid var(--accent);
+  border-left: 18px solid transparent;
+  border-right: 18px solid transparent;
+  border-top: 24px solid var(--accent);
 }
 .playhead::after {
   content: "";
@@ -1565,39 +1627,6 @@ p {
   height: 100%;
   object-fit: cover;
 }
-.frame-play {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  border: 1px solid rgba(251, 246, 236, 0.5);
-  background: rgba(20, 26, 26, 0.6);
-  color: #fbf6ec;
-  font-size: 1.3rem;
-  box-shadow: 0 12px 30px rgba(20, 26, 26, 0.24);
-  transition: transform 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
-}
-.frame-play:hover {
-  transform: translate(-50%, -50%) scale(1.06);
-}
-.frame-play:active,
-.frame-play.pressing {
-  transform: translate(-50%, -50%) scale(0.94);
-}
-.frame.playing .frame-play,
-.frame-play.active,
-.frame-play.pressing {
-  background: var(--accent);
-  box-shadow: 0 14px 34px rgba(20, 26, 26, 0.3);
-}
-.frame-play.paused {
-  background: rgba(251, 246, 236, 0.92);
-  color: var(--accent);
-  border-color: var(--accent-line);
-}
 .placard {
   display: grid;
   gap: 4px;
@@ -1870,6 +1899,12 @@ p {
     padding: 12px 14px 14px;
   }
   body[data-step="2"] #drawingCanvas {
+    height: clamp(360px, 48vh, 560px);
+    min-height: 360px;
+  }
+  body[data-step="2"] .pitch-labels {
+    top: 12px;
+    left: calc(14px + var(--canvas-scroll-left));
     height: clamp(360px, 48vh, 560px);
     min-height: 360px;
   }

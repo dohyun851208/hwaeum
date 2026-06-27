@@ -234,14 +234,15 @@ check("펜 버튼 존재", qc("#penBtn") === 1, qc("#penBtn"))
 check("완성 회고 입력칸 존재", qc("#bgReasonInput") === 1 && qc("#melodyIntentInput") === 1 && qc("#hashtagsInput") === 1)
 check(
   "드로잉 저장 버튼 존재",
-  qc("#exportDrawingImageBtn") === 1 && qc("#exportDrawingVideoBtn") === 1,
-  qc("#exportDrawingImageBtn") + "/" + qc("#exportDrawingVideoBtn"),
+  qc("#exportAudioBtn") === 1 && qc("#exportDrawingImageBtn") === 1 && qc("#exportDrawingVideoBtn") === 1,
+  qc("#exportAudioBtn") + "/" + qc("#exportDrawingImageBtn") + "/" + qc("#exportDrawingVideoBtn"),
 )
 check(
   "드로잉 저장 API 노출",
-  typeof SD.exportDrawingImage === "function" && typeof SD.exportDrawingVideo === "function",
-  typeof SD.exportDrawingImage + "/" + typeof SD.exportDrawingVideo,
+  typeof SD.exportAudio === "function" && typeof SD.exportDrawingImage === "function" && typeof SD.exportDrawingVideo === "function",
+  typeof SD.exportAudio + "/" + typeof SD.exportDrawingImage + "/" + typeof SD.exportDrawingVideo,
 )
+check("완성 그림 재생 버튼 존재", qc("#framePlayBtn") === 1, qc("#framePlayBtn"))
 
 // 지우개: 한 획을 그려두고 일부를 지우면 점이 줄어든다
 SD.draw.setStrokes([[
@@ -281,7 +282,7 @@ check("setStep(2) 예외 없음", !threw)
 const pitchLabelText = Array.from(window.document.querySelectorAll("#pitchLabels .pitch-label"))
   .map((el) => el.textContent)
   .join("|")
-check("음높이 고정 라벨 표시", pitchLabelText.includes("G3") && pitchLabelText.includes("G5"), pitchLabelText)
+check("음높이 고정 라벨 표시", pitchLabelText.length > 0, pitchLabelText)
 const canvasWrap = window.document.querySelector(".canvas-wrap")
 canvasWrap.scrollLeft = 360
 canvasWrap.dispatchEvent(new window.Event("scroll"))
@@ -371,9 +372,17 @@ check(
   window.document.getElementById("clearBtn").getAttribute("aria-pressed"),
 )
 if (SD.draw.eraseMode) window.document.getElementById("clearBtn").click()
+const originalEnginePlay = SD.engine.play
+SD.draw.setStrokes([])
+let emptyDrawingPlayCalled = false
+SD.engine.play = (recipe, notes) => {
+  emptyDrawingPlayCalled = recipe.strokes.length === 0 && notes.length === 0
+  return Promise.resolve("synth")
+}
+SD.play()
+check("선 없이도 배경음악 재생 요청", emptyDrawingPlayCalled)
 SD.draw.setStrokes([[{ x: 0.35, y: 0.35 }]])
 let singleTapPlayCalled = false
-const originalEnginePlay = SD.engine.play
 SD.engine.play = () => {
   singleTapPlayCalled = true
   return Promise.resolve("synth")
@@ -466,6 +475,13 @@ nameInput.value = "홍길동"
 nameSave.click()
 check("관리자 이름 저장 반영", SD.takes.get(savedTake.id).name === "홍길동", SD.takes.get(savedTake.id).name)
 check("localStorage 재로드 유지", new window.TakesStore("sda.takes").list().length === 1)
+const newestTake = SD.takes.add(recipe, "마지막")
+const orderedTakes = SD.takes.list()
+check(
+  "내 시도는 마지막 시도가 아래로 쌓임",
+  orderedTakes.length === 2 && orderedTakes[orderedTakes.length - 1].id === newestTake.id,
+  orderedTakes.map((take) => take.name).join("/"),
+)
 
 console.log("")
 if (errors.length) {

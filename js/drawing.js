@@ -14,76 +14,47 @@
   }
 
   const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-  const PITCH_LABEL_LOW_MIDI = 55 // G3
-  const PITCH_LABEL_HIGH_MIDI = 79 // G5
-  const PITCH_LABEL_SILENT_EDGE_ROWS = 0
-  const NATURAL_NOTE_CLASSES = [0, 2, 4, 5, 7, 9, 11]
-  const STRING_INSTRUMENTS = {
-    violin: true,
-    viola: true,
-    cello: true,
-    doubleBass: true,
-    gayageum: true,
-    ajaeng: true,
-    haegeum: true,
-  }
-  const WIND_INSTRUMENTS = {
-    clarinet: true,
-    oboe: true,
-    flute: true,
-    frenchHorn: true,
-    daegeum: true,
-    sogeum: true,
-  }
-
   function midiToNoteName(midi) {
     const note = NOTE_NAMES[((midi % 12) + 12) % 12]
     const octave = Math.floor(midi / 12) - 1
     return note + octave
   }
 
-  function isNaturalNote(midi) {
-    return NATURAL_NOTE_CLASSES.indexOf(((midi % 12) + 12) % 12) !== -1
+  // 그릴 수 있는 음 목록(음계 ∩ 악기 연주가능음). 축·격자·렌더·quantize 가 모두 이 한 목록을 공유한다.
+  function drawableScaleFor(style, asset) {
+    return (Core.drawableScale || Core.buildScale)(style, asset)
   }
 
-  function buildPitchLabelScale() {
-    const out = []
-    for (let i = 0; i < PITCH_LABEL_SILENT_EDGE_ROWS; i++) out.push(null)
-    for (let midi = PITCH_LABEL_LOW_MIDI; midi <= PITCH_LABEL_HIGH_MIDI; midi++) {
-      if (isNaturalNote(midi)) out.push(midi)
-    }
-    for (let i = 0; i < PITCH_LABEL_SILENT_EDGE_ROWS; i++) out.push(null)
-    return out
+  // 악기 transpose 를 반영한 "실제 들리는" 음 이름(예: 더블베이스 G3칸 → G1, 오보에 → 한 옥타브 위).
+  function soundingLabel(midi, asset) {
+    const tr = asset && asset.playbackTranspose ? asset.playbackTranspose : 0
+    return midiToNoteName(midi + tr)
   }
 
-  function pitchLabelsForStyle(style) {
-    const scale = Core.buildScale(style)
-    const labelScale = buildPitchLabelScale()
-    return pitchRowsForStyle(style)
-      .filter((row) => row.midi != null)
-      .filter(Boolean)
-  }
-
-  function pitchRowsForStyle(style) {
-    const scale = Core.buildScale(style)
-    const labelScale = buildPitchLabelScale()
-    return labelScale.map((midi, i) => {
-      const bounds = pitchRowBoundsRatio(i, labelScale.length)
+  function pitchRowsForStyle(style, asset) {
+    const rows = drawableScaleFor(style, asset)
+    return rows.map((midi, i) => {
+      const bounds = pitchRowBoundsRatio(i, rows.length)
       return {
         midi: midi,
-        label: midi == null ? "" : midiToNoteName(midi),
-        top: pitchRowCenterRatio(i, labelScale.length) * 100,
+        label: soundingLabel(midi, asset),
+        top: pitchRowCenterRatio(i, rows.length) * 100,
         rowTop: bounds.top * 100,
         rowBottom: bounds.bottom * 100,
         rowHeight: (bounds.bottom - bounds.top) * 100,
-        selected: midi != null && scale.indexOf(midi) !== -1,
+        selected: true,
       }
     })
   }
 
+  function pitchLabelsForStyle(style, asset) {
+    return pitchRowsForStyle(style, asset).filter((row) => row.midi != null)
+  }
+
   function pitchRowCenterRatio(rowIndex, rowCount) {
-    const last = Math.max(1, rowCount - 1)
-    return 1 - rowIndex / last
+    const count = Math.max(1, rowCount)
+    const index = clamp(rowIndex, 0, count - 1)
+    return 1 - (index + 0.5) / count
   }
 
   function pitchRowCenterY(rowIndex, rowCount, height) {
@@ -99,20 +70,28 @@
   }
 
   function pitchRowBoundsRatio(rowIndex, rowCount) {
-    const last = Math.max(1, rowCount - 1)
-    const topIndex = Math.min(last, rowIndex + 0.5)
-    const bottomIndex = Math.max(0, rowIndex - 0.5)
+    const count = Math.max(1, rowCount)
+    const index = clamp(rowIndex, 0, count - 1)
     return {
-      top: 1 - topIndex / last,
-      bottom: 1 - bottomIndex / last,
+      top: 1 - (index + 1) / count,
+      bottom: 1 - index / count,
     }
   }
 
   function pitchRowBoundaryY(boundaryIndex, rowCount, height) {
-    if (boundaryIndex <= 0) return height
-    if (boundaryIndex >= rowCount) return 0
-    const last = Math.max(1, rowCount - 1)
-    return height - ((boundaryIndex - 0.5) / last) * height
+    const count = Math.max(1, rowCount)
+    const index = clamp(boundaryIndex, 0, count)
+    return height - (index / count) * height
+  }
+
+  function crispLinePosition(value, lineWidth, min, max) {
+    const width = Math.max(1, Math.round(lineWidth || 1))
+    const offset = width % 2 ? 0.5 : 0
+    const pos = Math.round(value) + offset
+    if (typeof min === "number" && typeof max === "number") {
+      return clamp(pos, min + offset, max - offset)
+    }
+    return pos
   }
 
   function DrawingCanvas(canvas, opts) {
@@ -212,12 +191,6 @@
   DrawingCanvas.prototype._instrumentForNote = function (note) {
     if (!note || note.voice == null) return this.activeInstrument
     return this.strokeInstruments[note.voice] != null ? this.strokeInstruments[note.voice] : this.activeInstrument
-  }
-
-  DrawingCanvas.prototype._renderKindForInstrument = function (id) {
-    if (id != null && WIND_INSTRUMENTS[id]) return "bar"
-    if (id != null && STRING_INSTRUMENTS[id]) return "line"
-    return "bar"
   }
 
   DrawingCanvas.prototype._startFlowStroke = function (p) {
@@ -651,30 +624,33 @@
     ctx.fillStyle = "rgba(251,246,236,0.9)"
     ctx.fillRect(0, 0, labelGutter, H)
 
-    // 음높이 칸: 각 자연음이 줄 위가 아니라 칸 안에 들어가도록 경계선을 그린다.
+    // 음높이 칸: 그릴 수 있는 음마다 한 칸. 각 음이 줄 위가 아니라 칸 안(중앙)에 들어가도록 경계선을 그린다.
     const st = this.getState()
-    const scale = Core.buildScale(st.style)
-    const labelScale = buildPitchLabelScale()
-    const rowCount = labelScale.length
+    const rows = drawableScaleFor(st.style, st.melodyAsset)
+    const rowCount = rows.length
     for (let i = 0; i < rowCount; i++) {
       const bounds = pitchRowBoundsY(i, rowCount, H)
-      const midi = labelScale[i]
-      const inSelectedScale = midi != null && scale.indexOf(midi) !== -1
-      ctx.fillStyle =
-        midi == null
-          ? "rgba(31,38,38,0.028)"
-          : inSelectedScale
-            ? "rgba(255,255,255,0.34)"
-            : i % 2
-              ? "rgba(31,38,38,0.014)"
-              : "rgba(31,38,38,0.022)"
+      // 모든 칸이 실제로 소리나는 음 → 밝게(연주 가능 표시). 한 칸 걸러 미세하게 농담을 줘 구분.
+      ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.22)"
       ctx.fillRect(labelGutter, bounds.top, W - labelGutter, Math.max(0, bounds.bottom - bounds.top))
     }
 
-    ctx.lineWidth = 1 * px
-    ctx.strokeStyle = "rgba(31,38,38,0.12)"
+    const gridLineWidth = Math.max(1, Math.round(px))
+    const duration = Math.max(1, Number(st.duration) || 30)
+    ctx.lineWidth = gridLineWidth
+    for (let t = 0; t <= duration; t++) {
+      const x = labelGutter + ((W - labelGutter) * t) / duration
+      const crispX = crispLinePosition(x, gridLineWidth, 0, W)
+      ctx.strokeStyle = t % 5 === 0 ? "rgba(35,150,215,0.46)" : "rgba(35,150,215,0.26)"
+      ctx.beginPath()
+      ctx.moveTo(crispX, 0)
+      ctx.lineTo(crispX, H)
+      ctx.stroke()
+    }
+
+    ctx.strokeStyle = "rgba(35,150,215,0.36)"
     for (let i = 0; i <= rowCount; i++) {
-      const y = pitchRowBoundaryY(i, rowCount, H)
+      const y = crispLinePosition(pitchRowBoundaryY(i, rowCount, H), gridLineWidth, 0, H)
       ctx.beginPath()
       ctx.moveTo(labelGutter, y)
       ctx.lineTo(W, y)
@@ -697,31 +673,23 @@
     const H = this.canvas.height
     const px = this.pixelRatio || 1
     const st = this.getState()
-    const scale = Core.buildScale(st.style)
-    const labelScale = buildPitchLabelScale()
+    const rows = drawableScaleFor(st.style, st.melodyAsset)
+    const asset = st.melodyAsset
     const labelGutter = this._pitchLabelGutter()
     const fontSize = Math.max(10, Math.round(12 * px))
     if (typeof ctx.save === "function") ctx.save()
     ctx.fillStyle = "rgba(251,246,236,0.92)"
     ctx.fillRect(0, 0, labelGutter, H)
-    for (let i = 0; i < labelScale.length; i++) {
-      const bounds = pitchRowBoundsY(i, labelScale.length, H)
-      const midi = labelScale[i]
-      const inSelectedScale = midi != null && scale.indexOf(midi) !== -1
-      ctx.fillStyle =
-        midi == null
-          ? "rgba(31,38,38,0.028)"
-          : inSelectedScale
-            ? "rgba(255,255,255,0.34)"
-            : i % 2
-              ? "rgba(31,38,38,0.014)"
-              : "rgba(31,38,38,0.022)"
+    for (let i = 0; i < rows.length; i++) {
+      const bounds = pitchRowBoundsY(i, rows.length, H)
+      ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.22)"
       ctx.fillRect(0, bounds.top, labelGutter, Math.max(0, bounds.bottom - bounds.top))
     }
-    ctx.strokeStyle = "rgba(31,38,38,0.12)"
-    ctx.lineWidth = 1 * px
-    for (let i = 0; i <= labelScale.length; i++) {
-      const y = pitchRowBoundaryY(i, labelScale.length, H)
+    const gridLineWidth = Math.max(1, Math.round(px))
+    ctx.strokeStyle = "rgba(35,150,215,0.36)"
+    ctx.lineWidth = gridLineWidth
+    for (let i = 0; i <= rows.length; i++) {
+      const y = crispLinePosition(pitchRowBoundaryY(i, rows.length, H), gridLineWidth, 0, H)
       ctx.beginPath()
       ctx.moveTo(0, y)
       ctx.lineTo(labelGutter, y)
@@ -730,13 +698,10 @@
     ctx.font = "700 " + fontSize + "px sans-serif"
     ctx.textAlign = "right"
     ctx.textBaseline = "middle"
-    ctx.fillStyle = "rgba(31,38,38,0.72)"
-    for (let i = 0; i < labelScale.length; i++) {
-      if (labelScale[i] == null) continue
-      const y = pitchRowCenterY(i, labelScale.length, H)
-      const inSelectedScale = scale.indexOf(labelScale[i]) !== -1
-      ctx.fillStyle = inSelectedScale ? "rgba(31,38,38,0.74)" : "rgba(31,38,38,0.48)"
-      ctx.fillText(midiToNoteName(labelScale[i]), labelGutter - 9 * px, clamp(y, fontSize, H - fontSize))
+    ctx.fillStyle = "rgba(31,38,38,0.74)"
+    for (let i = 0; i < rows.length; i++) {
+      const y = pitchRowCenterY(i, rows.length, H)
+      ctx.fillText(soundingLabel(rows[i], asset), labelGutter - 9 * px, clamp(y, fontSize, H - fontSize))
     }
     if (typeof ctx.restore === "function") ctx.restore()
   }
@@ -774,17 +739,23 @@
     ctx.globalAlpha = 1
   }
 
+  // 음(midi) → 세로 위치. 음높이 칸과 같은 음 목록(scale)으로 줄을 맞춘다.
   DrawingCanvas.prototype._pitchToY = function (midi, scale) {
-    const labelScale = buildPitchLabelScale()
-    const labelIdx = labelScale.indexOf(midi)
-    if (labelIdx >= 0) {
-      return pitchRowCenterY(labelIdx, labelScale.length, this.canvas.height)
+    let idx = scale.indexOf(midi)
+    if (idx < 0) {
+      // 목록에 없으면 가장 가까운 음의 칸으로
+      let best = 0
+      let bestD = Infinity
+      for (let i = 0; i < scale.length; i++) {
+        const d = Math.abs(scale[i] - midi)
+        if (d < bestD) {
+          bestD = d
+          best = i
+        }
+      }
+      idx = best
     }
-    const idx = Math.max(0, scale.indexOf(midi))
-    const edgeRatio = PITCH_LABEL_SILENT_EDGE_ROWS / Math.max(1, labelScale.length - 1)
-    const activeTop = edgeRatio * this.canvas.height
-    const activeBottom = (1 - edgeRatio) * this.canvas.height
-    return activeBottom - (idx / Math.max(1, scale.length - 1)) * (activeBottom - activeTop)
+    return pitchRowCenterY(idx, scale.length, this.canvas.height)
   }
 
   DrawingCanvas.prototype.renderNotes = function () {
@@ -803,38 +774,31 @@
       }
       return
     }
-    const scale = Core.buildScale(st.style)
-    const rowH = H / Math.max(1, buildPitchLabelScale().length - 1)
+    const rows = drawableScaleFor(st.style, st.melodyAsset)
+    const rowH = H / Math.max(1, rows.length)
     for (const n of this.notes) {
       const x = (n.time / st.duration) * W
       const w = Math.max(6 * px, (n.duration / st.duration) * W - 3 * px)
-      const y = this._pitchToY(n.midi, scale)
+      const y = this._pitchToY(n.midi, rows)
       const instrumentId = this._instrumentForNote(n)
       const color = this._colorFor(instrumentId)
-      if (this._renderKindForInstrument(instrumentId) === "line") {
-        const x1 = x + 2 * px
-        const x2 = x + w
-        ctx.strokeStyle = color
-        ctx.lineCap = "round"
-        ctx.lineJoin = "round"
-        ctx.globalAlpha = 0.2
-        ctx.lineWidth = Math.max(5 * px, rowH * 0.16)
-        ctx.beginPath()
-        ctx.moveTo(x1, y)
-        ctx.lineTo(x2, y)
-        ctx.stroke()
-        ctx.globalAlpha = 0.95
-        ctx.lineWidth = Math.max(2 * px, rowH * 0.075)
-        ctx.beginPath()
-        ctx.moveTo(x1, y)
-        ctx.lineTo(x2, y)
-        ctx.stroke()
-      } else {
-        ctx.fillStyle = color
-        ctx.globalAlpha = 0.9
-        roundRect(ctx, x + 1 * px, y - rowH * 0.34, w, rowH * 0.68, 6 * px)
-        ctx.fill()
-      }
+      const x1 = x + 2 * px
+      const x2 = x + w
+      ctx.strokeStyle = color
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+      ctx.globalAlpha = 0.2
+      ctx.lineWidth = Math.max(5 * px, rowH * 0.16)
+      ctx.beginPath()
+      ctx.moveTo(x1, y)
+      ctx.lineTo(x2, y)
+      ctx.stroke()
+      ctx.globalAlpha = 0.95
+      ctx.lineWidth = Math.max(2 * px, rowH * 0.075)
+      ctx.beginPath()
+      ctx.moveTo(x1, y)
+      ctx.lineTo(x2, y)
+      ctx.stroke()
       ctx.globalAlpha = 1
     }
   }

@@ -57,8 +57,19 @@
     return out.filter((m) => m >= lo && m <= hi).sort((a, b) => a - b)
   }
 
-  function nearestScaleNote(target, style) {
+  // 실제로 "그릴 수 있는" 음 목록 = 음계 ∩ 악기 연주가능음(playableMidi).
+  // 서양 악기는 playableMidi가 없어 음계 전체. 국악기는 연주 가능한 음만 남긴다.
+  // 축·quantize·렌더가 이 한 목록을 공유해야 "그린 칸 = 들리는 음"이 맞는다.
+  function drawableScale(style, asset) {
     const scale = buildScale(style)
+    if (!asset || !Array.isArray(asset.playableMidi) || !asset.playableMidi.length) return scale
+    const tr = asset.playbackTranspose || 0
+    const filtered = scale.filter((m) => asset.playableMidi.indexOf(m + tr) !== -1)
+    return filtered.length ? filtered : scale
+  }
+
+  function nearestScaleNote(target, style, asset) {
+    const scale = drawableScale(style, asset)
     let best = scale[0]
     for (const m of scale) {
       if (Math.abs(m - target) < Math.abs(best - target)) best = m
@@ -67,13 +78,16 @@
   }
 
   // normY: 0 = 캔버스 맨 위(높은 음), 1 = 맨 아래(낮은 음)
-  function quantizePitch(normY, style) {
-    const scale = buildScale(style)
+  function quantizePitch(normY, style, asset) {
+    const scale = drawableScale(style, asset)
     const clamped = Math.max(0, Math.min(1, normY))
     const edge = silentEdgeRatio(style)
     if (edge > 0 && (clamped < edge || clamped > 1 - edge)) return null
     const playableY = edge > 0 ? (clamped - edge) / (1 - edge * 2) : clamped
-    const idx = Math.round((1 - playableY) * (scale.length - 1))
+    // 음마다 균등한 밴드(1/N). fromBottom(0=맨아래,1=맨위)가 속한 밴드로 스냅 →
+    // 끝음(맨 위/아래)도 칸 전체가 히트존이 되어 빠지지 않는다.
+    const fromBottom = 1 - playableY
+    const idx = Math.floor(fromBottom * scale.length)
     return scale[Math.max(0, Math.min(scale.length - 1, idx))]
   }
 
@@ -133,6 +147,7 @@
   function autocompleteMelody(path, opts) {
     const durationSec = opts.durationSec
     const style = opts.style
+    const asset = opts.melodyAsset
     const SAMPLE_RATE = 16 // 초당 샘플 수 — 빠른 음(≈8음/초)·짧은 음을 살림(예전 2/초는 0.5초로 뭉갰다)
     const TAP_SEC = 0.16 // 점 찍기/아주 짧은 획을 표현할 최소 음 길이
     if (!path || path.length === 0) return []
@@ -145,7 +160,7 @@
     // 점 찍기(가로 폭 ≈ 0) → 짧은 음 하나
     if ((maxX - minX) * durationSec < TAP_SEC) {
       const time = Math.max(0, Math.min(1, minX)) * durationSec
-      const midi = quantizePitch(path[0].y, style)
+      const midi = quantizePitch(path[0].y, style, asset)
       if (midi == null) return []
       return [
         {
@@ -168,7 +183,7 @@
         prev = null
         continue
       }
-      let midi = quantizePitch(sample.y, style)
+      let midi = quantizePitch(sample.y, style, asset)
       if (midi == null) {
         raw.push(null)
         prev = null
@@ -176,7 +191,7 @@
       }
       // 큰 도약(>장6도) 완화
       if (prev != null && Math.abs(midi - prev) > 9) {
-        midi = nearestScaleNote(midi > prev ? prev + 7 : prev - 7, style)
+        midi = nearestScaleNote(midi > prev ? prev + 7 : prev - 7, style, asset)
       }
       prev = midi
       raw.push(midi)
@@ -204,8 +219,11 @@
 
   function autocompleteMelodyStrokes(strokes, opts) {
     const notes = []
+    const assets = Array.isArray(opts.melodyAssets) ? opts.melodyAssets : null
     ;(strokes || []).forEach(function (stroke, voice) {
-      autocompleteMelody(stroke, opts).forEach(function (note) {
+      // 획(voice)마다 그 악기의 연주가능음으로 스냅 — 오케스트라에서 악기별 음역이 다를 수 있다.
+      const strokeOpts = assets ? Object.assign({}, opts, { melodyAsset: assets[voice] || opts.melodyAsset }) : opts
+      autocompleteMelody(stroke, strokeOpts).forEach(function (note) {
         notes.push(
           Object.assign({}, note, {
             voice: voice,
@@ -335,6 +353,7 @@
 
   return {
     buildScale,
+    drawableScale,
     nearestScaleNote,
     quantizePitch,
     interpY,

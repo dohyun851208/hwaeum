@@ -3,7 +3,7 @@
  *
  * 레이어: 배경 패드 + 자연 효과음 + 드로잉 선율.
  * 실제 음원 우선, 로드 실패 층만 합성음으로 대체.
- * 같은 그래프를 라이브(AudioContext)와 오프라인(OfflineAudioContext) 양쪽에 구성 → WAV 내보내기.
+ * 같은 그래프를 라이브(AudioContext)와 오프라인(OfflineAudioContext) 양쪽에 구성 → 압축 오디오 내보내기.
  */
 ;(function (root) {
   "use strict"
@@ -17,6 +17,22 @@
   }
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v))
+  }
+  // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
+  // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
+  function connectMasterToOutput(ctx, master, output, when) {
+    if (typeof ctx.createDynamicsCompressor === "function") {
+      const limiter = ctx.createDynamicsCompressor()
+      limiter.threshold.setValueAtTime(-3, when) // -3dBFS 이상 피크만 제한
+      limiter.knee.setValueAtTime(0, when)
+      limiter.ratio.setValueAtTime(20, when) // 사실상 브릭월
+      limiter.attack.setValueAtTime(0.003, when)
+      limiter.release.setValueAtTime(0.25, when)
+      master.connect(limiter)
+      limiter.connect(output)
+    } else {
+      master.connect(output)
+    }
   }
   function samplePlaybackRate(asset, midi) {
     const baseMidi = asset && asset.baseMidi != null ? asset.baseMidi : midi
@@ -432,15 +448,17 @@
     const asset = plan.melodyAsset
     const src = asset && asset.src
     if (!src) return Promise.resolve(null)
-    // 멀티샘플이면 음마다의 파일을 미리 디코드(그리는 중 음 전환 시 끊김 방지)
+    // 멀티샘플이면 음마다의 파일을 미리 디코드(그리는 중 음 전환 시 끊김 방지).
+    // 모든 샘플 디코드가 끝난 뒤 resolve → 워밍 완료 후엔 어느 음을 처음 그려도 즉시 소리남
+    // (예전엔 await 하지 않아 더블베이스 E2 처럼 덜 받은 음을 처음 그리면 "멈칫"했다).
+    const base = this.loadAssetBuffer(ctx, asset)
     const multiMap = isMultiSample(asset) ? sampleMapFor(asset) : null
     if (multiMap) {
       const self = this
-      multiMap.forEach((seg) => {
-        if (seg.src) self.loadBuffer(ctx, seg.src)
-      })
+      const jobs = multiMap.filter((seg) => seg.src).map((seg) => self.loadBuffer(ctx, seg.src).catch(() => null))
+      return Promise.all([base].concat(jobs)).then((res) => res[0])
     }
-    return this.loadAssetBuffer(ctx, asset)
+    return base
   }
 
   // 핵심: 주어진 컨텍스트/목적지에 전체 합주를 스케줄 (라이브/오프라인 공용)
@@ -885,7 +903,7 @@
   }
 
   AudioEngine.prototype._liveMidi = function (plan, normY) {
-    const uiMidi = Core.quantizePitch(normY, plan.pitchStyle || plan.style)
+    const uiMidi = Core.quantizePitch(normY, plan.pitchStyle || plan.style, plan.melodyAsset)
     return playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
   }
 
@@ -1411,7 +1429,7 @@
     const start = ctx.currentTime + 0.05
     const master = ctx.createGain()
     master.gain.setValueAtTime(0.85, start)
-    master.connect(ctx.destination)
+    connectMasterToOutput(ctx, master, ctx.destination, start)
     this.master = master
     const usedReal = this.schedule(ctx, master, plan, buffers, start, register)
     this.lastMode = usedReal ? "real" : "synth"
@@ -1425,7 +1443,16 @@
     return this.lastMode
   }
 
-  // --- 오프라인 렌더 + WAV 내보내기 ---
+  // --- 오프라인 렌더 + 오디오 내보내기 ---
+
+  function supportedCompressedAudioMime() {
+    if (!root.MediaRecorder) return ""
+    const list = ["audio/webm;codecs=opus", "audio/webm"]
+    for (const type of list) {
+      if (!root.MediaRecorder.isTypeSupported || root.MediaRecorder.isTypeSupported(type)) return type
+    }
+    return ""
+  }
 
   AudioEngine.prototype.renderOffline = async function (recipe, notes) {
     const live = this.ensureContext()
@@ -1438,27 +1465,72 @@
     const offline = new OAC(2, length, sampleRate)
     const master = offline.createGain()
     master.gain.setValueAtTime(0.85, 0)
-    master.connect(offline.destination)
+    connectMasterToOutput(offline, master, offline.destination, 0)
     const noop = function () {}
     this.schedule(offline, master, plan, buffers, 0, noop)
     return await offline.startRendering()
   }
 
-  AudioEngine.prototype.exportWav = async function (recipe, notes, filename) {
+  AudioEngine.prototype.exportCompressedAudio = async function (recipe, notes, filename) {
+    const mimeType = supportedCompressedAudioMime()
+    if (!mimeType) throw new Error("Compressed WebM audio recording is not supported")
+    const ctx = this.ensureContext()
+    if (ctx.state === "suspended") await ctx.resume()
+    if (typeof ctx.createMediaStreamDestination !== "function") {
+      throw new Error("Audio recording destination is not supported")
+    }
     const rendered = await this.renderOffline(recipe, notes)
-    const wav = Core.encodeWav(rendered)
-    const blob = new Blob([wav], { type: "audio/wav" })
+    const dest = ctx.createMediaStreamDestination()
+    const source = ctx.createBufferSource()
+    source.buffer = rendered
+    source.connect(dest)
+    const chunks = []
+    const recorder = new root.MediaRecorder(dest.stream, { mimeType })
+    let stopTimer = 0
+    let stopped = false
+    const stopRecorder = function () {
+      if (stopped) return
+      stopped = true
+      if (recorder.state !== "inactive") recorder.stop()
+    }
+    const done = new Promise(function (resolve, reject) {
+      recorder.ondataavailable = function (event) {
+        if (event.data && event.data.size) chunks.push(event.data)
+      }
+      recorder.onstop = resolve
+      recorder.onerror = function (event) {
+        reject((event && event.error) || new Error("MediaRecorder error"))
+      }
+    })
+    try {
+      source.onended = stopRecorder
+      recorder.start()
+      source.start(ctx.currentTime + 0.05)
+      stopTimer = root.setTimeout(stopRecorder, Math.max(1000, (rendered.duration + 1) * 1000))
+      await done
+    } finally {
+      if (stopTimer) root.clearTimeout(stopTimer)
+      try {
+        source.disconnect()
+      } catch (e) {}
+      try {
+        dest.disconnect()
+      } catch (e) {}
+      dest.stream.getTracks().forEach((track) => track.stop())
+    }
+    if (!chunks.length) throw new Error("Compressed audio is empty")
+    const blob = new Blob(chunks, { type: mimeType })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = filename || "sound-drawing.wav"
+    a.download = filename || "sound-drawing.webm"
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     setTimeout(function () {
       URL.revokeObjectURL(url)
     }, 2000)
-    return blob.size
+    return { size: blob.size, mimeType: mimeType }
   }
 
   root.AudioEngine = AudioEngine

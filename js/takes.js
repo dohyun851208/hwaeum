@@ -8,6 +8,15 @@
   "use strict"
   const DrawingCanvas = root.DrawingCanvas
 
+  function createdTime(take) {
+    const n = Date.parse((take && take.createdAt) || "")
+    return isFinite(n) ? n : 0
+  }
+
+  function oldestFirst(items) {
+    return items.slice().sort((a, b) => createdTime(a) - createdTime(b))
+  }
+
   function TakesStore(key) {
     this.key = key || "sda.takes"
     this.items = this._load()
@@ -17,7 +26,7 @@
     try {
       const raw = root.localStorage ? root.localStorage.getItem(this.key) : null
       const parsed = raw ? JSON.parse(raw) : []
-      return Array.isArray(parsed) ? parsed : []
+      return Array.isArray(parsed) ? oldestFirst(parsed) : []
     } catch (e) {
       return []
     }
@@ -40,8 +49,8 @@
       createdAt: new Date().toISOString(),
       recipe: JSON.parse(JSON.stringify(recipe)),
     }
-    this.items.unshift(take)
-    if (this.items.length > 24) this.items = this.items.slice(0, 24)
+    this.items.push(take)
+    if (this.items.length > 24) this.items = this.items.slice(-24)
     this._save()
     return take
   }

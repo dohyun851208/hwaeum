@@ -79,7 +79,7 @@ function makeCanvas(ctx) {
   }
 }
 
-test("renderNotes keeps stroke instrument colors and renders strings as lines", () => {
+test("renderNotes keeps stroke instrument colors and uses the same line treatment for every instrument", () => {
   const DrawingCanvas = loadDrawing()
   const ctx = makeContext()
   const draw = new DrawingCanvas(makeCanvas(ctx), {
@@ -98,34 +98,38 @@ test("renderNotes keeps stroke instrument colors and renders strings as lines", 
   draw.renderNotes()
 
   const violinStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c0504d")
-  const fluteFills = ctx.calls.filter((call) => call[0] === "fill" && call[1] === "#4f9bb8")
+  const fluteStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#4f9bb8")
   const violinWidths = violinStrokes.map((call) => call[2])
+  const fluteWidths = fluteStrokes.map((call) => call[2])
 
-  assert.ok(violinStrokes.length >= 2, "string instruments should render as stroked lines")
-  assert.ok(Math.min(...violinWidths) < Math.max(...violinWidths), "string line should include a thinner foreground stroke")
-  assert.ok(fluteFills.length >= 1, "wind instruments should keep the filled bar treatment")
+  assert.equal(violinStrokes.length, 2, "each violin note should render as a stroked line")
+  assert.equal(fluteStrokes.length, 2, "each flute note should render as a stroked line")
+  assert.deepEqual(fluteWidths, violinWidths, "line widths should not vary by instrument")
 })
 
-test("pitch rendering places edge pitches on the full G3..G5 axis", () => {
+test("pitch rendering places edge pitches at row centers on the G3..G5 axis", () => {
   const DrawingCanvas = loadDrawing()
   const ctx = makeContext()
   const draw = new DrawingCanvas(makeCanvas(ctx), {
     getState: () => ({ duration: 30, style: {}, mode: "melody" }),
   })
+  const scale = [55, 57, 60, 79]
+  const rowH = draw.canvas.height / scale.length
 
-  assert.equal(draw._pitchToY(55, [55, 57, 60, 79]), draw.canvas.height)
-  assert.equal(draw._pitchToY(79, [55, 57, 60, 79]), 0)
+  assert.equal(draw._pitchToY(55, scale), draw.canvas.height - rowH / 2)
+  assert.equal(draw._pitchToY(79, scale), rowH / 2)
 
   const y = draw._pitchToY(56, [56, 58, 60])
-  assert.equal(y, draw.canvas.height, "lowest playable non-label pitch should use the bottom axis edge")
+  assert.equal(y, draw.canvas.height - draw.canvas.height / 6, "lowest playable non-label pitch should use its row center")
 })
 
-test("renderGrid draws pitch-row cells without timeline vertical lines", () => {
+test("renderGrid draws pitch-row cells with timeline vertical lines", () => {
   const DrawingCanvas = loadDrawing()
   const ctx = makeContext()
   const draw = new DrawingCanvas(makeCanvas(ctx), {
     getState: () => ({ duration: 30, style: {}, mode: "melody" }),
   })
+  const rowCount = DrawingCanvas.pitchRowsForStyle({}).length
 
   ctx.calls.length = 0
   draw.renderGrid()
@@ -146,8 +150,9 @@ test("renderGrid draws pitch-row cells without timeline vertical lines", () => {
       horizontals.push(a[2])
     }
   }
-  assert.equal(verticals.length, 0, "드로잉 격자에는 세로 모눈선이 없어야 한다")
-  assert.ok(horizontals.length >= 16, "음높이 칸을 나누는 가로선이 충분해야 한다")
+  assert.equal(verticals.length, 31, "30 second drawing grid should show one vertical line per second")
+  assert.ok(verticals.every((x) => x >= 0 && x <= draw.canvas.width), "vertical lines should stay inside the canvas")
+  assert.equal(horizontals.length, rowCount + 1, "pitch rows should draw one boundary line around each row")
 })
 
 test("sticky pitch axis exposes natural note labels from G3 to G5", () => {
@@ -156,7 +161,7 @@ test("sticky pitch axis exposes natural note labels from G3 to G5", () => {
   const pitchLabels = DrawingCanvas.pitchLabelsForStyle({})
   const labels = JSON.parse(JSON.stringify(pitchLabels.map((label) => label.label)))
 
-  assert.deepEqual(labels, ["G3", "A3", "B3", "C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5", "F5", "G5"])
-  assert.equal(pitchLabels[0].top, 100)
-  assert.equal(pitchLabels[pitchLabels.length - 1].top, 0)
+  assert.deepEqual(labels, ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"])
+  assert.equal(pitchLabels[0].top, 93.75)
+  assert.equal(pitchLabels[pitchLabels.length - 1].top, 6.25)
 })
