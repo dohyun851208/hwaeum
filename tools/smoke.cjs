@@ -242,13 +242,15 @@ check("펜 버튼 존재", qc("#penBtn") === 1, qc("#penBtn"))
 check("완성 회고 입력칸 존재", qc("#bgReasonInput") === 1 && qc("#melodyIntentInput") === 1 && qc("#hashtagsInput") === 1)
 check(
   "드로잉 저장 버튼 존재",
-  qc("#exportAudioBtn") === 1 && qc("#exportDrawingImageBtn") === 1 && qc("#exportDrawingVideoBtn") === 1,
-  qc("#exportAudioBtn") + "/" + qc("#exportDrawingImageBtn") + "/" + qc("#exportDrawingVideoBtn"),
+  qc("#exportAudioBtn") === 1 && qc("#exportDrawingImageBtn") === 1,
+  qc("#exportAudioBtn") + "/" + qc("#exportDrawingImageBtn"),
 )
+check("완성 탭 음악 멈춤 버튼 제거", qc("#completeStopBtn") === 0, qc("#completeStopBtn"))
+check("완성 탭 드로잉 영상 버튼 제거", qc("#exportDrawingVideoBtn") === 0, qc("#exportDrawingVideoBtn"))
 check(
   "드로잉 저장 API 노출",
-  typeof SD.exportAudio === "function" && typeof SD.exportDrawingImage === "function" && typeof SD.exportDrawingVideo === "function",
-  typeof SD.exportAudio + "/" + typeof SD.exportDrawingImage + "/" + typeof SD.exportDrawingVideo,
+  typeof SD.exportAudio === "function" && typeof SD.exportDrawingImage === "function",
+  typeof SD.exportAudio + "/" + typeof SD.exportDrawingImage,
 )
 check("완성 그림 재생 버튼 존재", qc("#framePlayBtn") === 1, qc("#framePlayBtn"))
 
@@ -369,7 +371,6 @@ check(
     window.document.getElementById("playBtn").querySelector("span").textContent === "❚❚" &&
     window.document.getElementById("playBtn").getAttribute("aria-label") === "전체곡 일시정지",
 )
-check("완성 페이지 음악 멈춤 버튼도 활성화", window.document.getElementById("completeStopBtn").disabled === false)
 SD.setStep(3)
 check(
   "배경음이 꺼진 뒤 재생 버튼은 재생 상태",
@@ -377,7 +378,6 @@ check(
     window.document.getElementById("playBtn").querySelector("span").textContent === "▶" &&
     window.document.getElementById("playBtn").getAttribute("aria-label") === "전체곡 재생",
 )
-check("완성 페이지 음악 멈춤 버튼 비활성화", window.document.getElementById("completeStopBtn").disabled === true)
 let copiedShareUrl = ""
 Object.defineProperty(window.navigator, "clipboard", {
   value: {
