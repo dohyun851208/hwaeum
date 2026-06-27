@@ -1486,8 +1486,14 @@
 
     env.gain.setValueAtTime(0.0001, start)
     env.gain.linearRampToValueAtTime(targetGain, start + 0.035)
-    configureSampleToneFilter(filter, plan, start)
-    filter.connect(env)
+
+    // 멀티샘플(서양 선율)은 원음 음색을 그대로 살리기 위해 필터 없이 source → env 직결.
+    // 풀 플레이백(connectGugakSampleTone)과 동일한 신호 경로.
+    const useFilter = !multi
+    if (useFilter) {
+      configureSampleToneFilter(filter, plan, start)
+      filter.connect(env)
+    }
     env.connect(ctx.destination)
 
     // 재생 스케줄러와 똑같은 지속음 정책. source.buffer 는 "한 번만" 설정(이중 설정 시 무음).
@@ -1497,7 +1503,8 @@
     applySustainPlanToSource(source, sustain)
     source.playbackRate.setValueAtTime(baseRate, start)
 
-    source.connect(filter)
+    if (useFilter) source.connect(filter)
+    else source.connect(env)
 
     const live = {
       kind: "sample",
