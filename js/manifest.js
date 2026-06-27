@@ -57,7 +57,7 @@
     oboe: { label: "오보에", group: "서양", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_E5.mp3", sampleMode: "multi", baseMidi: 76, lowMidi: 58, highMidi: 94, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth" },
     flute: { label: "플루트", group: "서양", src: "sound/선율-서양(필하모니아)/관/flute/flute_A5.mp3", sampleMode: "multi", baseMidi: 81, lowMidi: 60, highMidi: 101, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sine" },
     frenchHorn: { label: "호른", group: "서양", src: "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_Gs3.mp3", sampleMode: "multi", baseMidi: 56, lowMidi: 34, highMidi: 77, playbackTranspose: -12, minRate: 0.55, maxRate: 1.72, waveform: "triangle" },
-    sogeum: { label: "소금", group: "국악", src: "sound/선율-국악(국립국악원)/관/소금.mp3", baseMidi: 72, lowMidi: 64, highMidi: 84, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
+    sogeum: { label: "소금", group: "국악", src: "sound/선율-국악(국립국악원)/관/소금.mp3", baseMidi: 72, lowMidi: 64, highMidi: 84, playableMidi: GUGAK_PALETTE_MIDI, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
     daegeum: { label: "대금", group: "국악", src: "sound/선율-국악(국립국악원)/관/정악대금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
     haegeum: { label: "해금", group: "국악", src: "sound/선율-국악(국립국악원)/현/해금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
     gayageum: { label: "가야금", group: "국악", src: "sound/선율-국악(국립국악원)/현/가야금.mp3", baseMidi: 60, lowMidi: 48, highMidi: 72, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.55, maxRate: 1.72, waveform: "triangle", sampleMode: "phrase" },
@@ -115,17 +115,18 @@
   ]
 
   const instruments = [
-    { id: "flute", group: "서양", label: "플루트", detail: "가벼운 숨결감", waveform: "sine", image: "./assets/instruments/flute.png" },
-    { id: "oboe", group: "서양", label: "오보에", detail: "뚜렷한 관악 소리", waveform: "sawtooth", image: "./assets/instruments/oboe.png" },
-    { id: "clarinet", group: "서양", label: "클라리넷", detail: "둥글고 부드러운 목관 소리", waveform: "square", image: "./assets/instruments/clarinet.png" },
-    { id: "frenchHorn", group: "서양", label: "호른", detail: "긴 호흡의 관악", waveform: "triangle", image: "./assets/instruments/french-horn.png" },
-    { id: "violin", group: "서양", label: "바이올린", detail: "밝고 선명한 소리", waveform: "sawtooth", image: "./assets/instruments/violin.png" },
-    { id: "viola", group: "서양", label: "비올라", detail: "중음역의 안정된 현악", waveform: "sawtooth", image: "./assets/instruments/viola.png" },
-    { id: "cello", group: "서양", label: "첼로", detail: "낮고 따뜻한 소리", waveform: "triangle", image: "./assets/instruments/cello.png" },
-    { id: "doubleBass", group: "서양", label: "더블베이스", detail: "묵직한 저음 소리", waveform: "triangle", image: "./assets/instruments/double-bass.png" },
+    { id: "flute", group: "서양", family: "관악기", label: "플루트", detail: "가벼운 숨결감", waveform: "sine", image: "./assets/instruments/flute.png" },
+    { id: "oboe", group: "서양", family: "관악기", label: "오보에", detail: "뚜렷한 관악 소리", waveform: "sawtooth", image: "./assets/instruments/oboe.png" },
+    { id: "clarinet", group: "서양", family: "관악기", label: "클라리넷", detail: "둥글고 부드러운 목관 소리", waveform: "square", image: "./assets/instruments/clarinet.png" },
+    { id: "frenchHorn", group: "서양", family: "관악기", label: "호른", detail: "긴 호흡의 관악", waveform: "triangle", image: "./assets/instruments/french-horn.png" },
+    { id: "violin", group: "서양", family: "현악기", label: "바이올린", detail: "밝고 선명한 소리", waveform: "sawtooth", image: "./assets/instruments/violin.png" },
+    { id: "viola", group: "서양", family: "현악기", label: "비올라", detail: "중음역의 안정된 현악", waveform: "sawtooth", image: "./assets/instruments/viola.png" },
+    { id: "cello", group: "서양", family: "현악기", label: "첼로", detail: "낮고 따뜻한 소리", waveform: "triangle", image: "./assets/instruments/cello.png" },
+    { id: "doubleBass", group: "서양", family: "현악기", label: "더블베이스", detail: "묵직한 저음 소리", waveform: "triangle", image: "./assets/instruments/double-bass.png" },
     {
       id: "sogeum",
       group: "국악",
+      family: "관악기",
       label: "소금",
       detail: "높고 가는 관악 소리",
       waveform: "sine",
@@ -136,6 +137,7 @@
     {
       id: "daegeum",
       group: "국악",
+      family: "관악기",
       label: "대금",
       detail: "시김새가 잘 드러나는 관악",
       waveform: "sine",
@@ -146,6 +148,7 @@
     {
       id: "haegeum",
       group: "국악",
+      family: "현악기",
       label: "해금",
       detail: "흔들림이 강한 소리",
       waveform: "sawtooth",
@@ -154,6 +157,7 @@
     {
       id: "gayageum",
       group: "국악",
+      family: "현악기",
       label: "가야금",
       detail: "뜯는 결이 살아있는 현악",
       waveform: "triangle",
@@ -162,6 +166,7 @@
     {
       id: "ajaeng",
       group: "국악",
+      family: "현악기",
       label: "산조아쟁",
       detail: "거칠고 깊은 현악",
       waveform: "sawtooth",

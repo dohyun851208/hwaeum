@@ -559,6 +559,36 @@ p {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 12px;
 }
+.instrument-family {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+.instrument-family + .instrument-family {
+  margin-top: 6px;
+}
+.instrument-family-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px;
+  color: var(--accent);
+}
+.instrument-family-head strong {
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+.instrument-family-head small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.instrument-family-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
 /* 2단계 배경 카드 그룹 소제목 (분위기 / 소리풍경 / 리듬장단) */
 .atmosphere-group-label {
   grid-column: 1 / -1;
@@ -1494,56 +1524,56 @@ p {
 .compose-instrument-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas:
-    "western western"
-    "gugak gugak";
-  gap: 10px;
+  gap: 0;
   align-items: start;
   min-width: 0;
 }
-.compose-instrument-group[data-group="서양"] {
-  grid-area: western;
-}
-.compose-instrument-group[data-group="국악"] {
-  grid-area: gugak;
-}
 .compose-instrument-group {
   min-width: 0;
-  padding: 8px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: rgba(251, 246, 236, 0.48);
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--line);
 }
-.compose-instrument-group.active {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
+.compose-instrument-group:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 .compose-instrument-group-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 7px;
+  align-self: start;
+  padding-top: 30px;
   color: var(--ink);
 }
 .compose-instrument-group-head strong {
-  font-size: 0.9rem;
-  font-weight: 900;
-}
-.compose-instrument-group-head small {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: 1.2rem;
+  font-weight: 950;
+  letter-spacing: 0;
 }
 .compose-instrument-group-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(122px, 1fr));
-  gap: 8px;
+  gap: 14px;
   min-width: 0;
   overflow: visible;
 }
-.compose-instrument-group.compact .compose-instrument-group-list {
-  grid-template-columns: minmax(112px, 1fr);
+.compose-instrument-family {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.compose-instrument-family-head {
+  padding-left: 2px;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.compose-instrument-family-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  min-width: 0;
+  overflow: visible;
 }
 .version {
   flex: 0 0 auto;
@@ -1567,8 +1597,8 @@ p {
   --instrument-strong: var(--accent-line);
   width: 100%;
   min-width: 0;
-  min-height: 62px;
-  padding: 7px 14px 7px 8px;
+  min-height: 92px;
+  padding: 10px 18px 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--instrument-strong);
   background:
@@ -1577,13 +1607,9 @@ p {
   color: var(--ink);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   font-weight: 800;
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
-}
-.compose-instrument-group.compact .compose-instrument {
-  width: 100%;
-  max-width: none;
 }
 .compose-instrument:hover {
   transform: translateY(-1px);
@@ -1598,36 +1624,26 @@ p {
   box-shadow: inset 0 0 0 2px var(--instrument-strong);
 }
 .compose-instrument img {
-  width: 48px;
-  height: 48px;
+  width: 68px;
+  height: 68px;
   flex: 0 0 auto;
-  border-radius: 8px;
-  object-fit: cover;
+  border-radius: 9px;
+  object-fit: contain;
   border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.36);
 }
 .compose-instrument-text {
   display: grid;
-  gap: 1px;
   min-width: 0;
   text-align: left;
   line-height: 1.1;
 }
 .compose-instrument-text strong {
-  font-size: 1.03rem;
+  font-size: 1.18rem;
+  font-weight: 950;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.compose-instrument-text small {
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 800;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.compose-instrument.active .compose-instrument-text small {
-  color: rgba(255, 255, 255, 0.82);
 }
 
 /* 완성 갤러리 */
@@ -2040,17 +2056,19 @@ p {
   }
   body[data-step="2"] .compose-instrument-list {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "western western"
-      "gugak gugak";
-    gap: 9px;
-  }
-  body[data-step="2"] .compose-instrument-group-list {
-    grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
-    overflow: visible;
+    gap: 0;
   }
   body[data-step="2"] .compose-instrument-group {
-    padding: 7px;
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px 0 14px;
+  }
+  body[data-step="2"] .compose-instrument-group-head {
+    padding-top: 27px;
+  }
+  body[data-step="2"] .compose-instrument-family-list {
+    grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+    gap: 8px;
   }
   body[data-step="2"] .version {
     min-height: 38px;
@@ -2059,15 +2077,12 @@ p {
   body[data-step="2"] .compose-instrument {
     width: 100%;
     min-width: 0;
-    min-height: 56px;
-    padding: 6px 13px 6px 7px;
-  }
-  body[data-step="2"] .compose-instrument-group.compact .compose-instrument {
-    max-width: none;
+    min-height: 84px;
+    padding: 9px 14px 9px 10px;
   }
   body[data-step="2"] .compose-instrument img {
-    width: 42px;
-    height: 42px;
+    width: 60px;
+    height: 60px;
   }
   .gallery-panel {
     grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
@@ -2213,39 +2228,39 @@ p {
   }
   body[data-step="2"] .compose-instrument-list {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "western western"
-      "gugak gugak";
-    gap: 7px;
-  }
-  body[data-step="2"] .compose-instrument-group-list {
-    grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
-    overflow: visible;
+    gap: 0;
   }
   body[data-step="2"] .compose-instrument-group {
-    padding: 6px;
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px 0 12px;
   }
   body[data-step="2"] .compose-instrument-group-head {
-    margin-bottom: 5px;
+    padding-top: 23px;
+  }
+  body[data-step="2"] .compose-instrument-family {
+    gap: 6px;
+  }
+  body[data-step="2"] .compose-instrument-family-head {
+    font-size: 0.9rem;
+  }
+  body[data-step="2"] .compose-instrument-family-list {
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 7px;
   }
   body[data-step="2"] .compose-instrument {
     width: 100%;
     min-width: 0;
-    min-height: 50px;
-    padding: 5px 11px 5px 6px;
+    min-height: 76px;
+    padding: 8px 12px 8px 9px;
+    gap: 10px;
   }
   body[data-step="2"] .compose-instrument img {
-    width: 38px;
-    height: 38px;
+    width: 54px;
+    height: 54px;
   }
   body[data-step="2"] .compose-instrument-text strong {
-    font-size: 0.92rem;
-  }
-  body[data-step="2"] .compose-instrument-text small {
-    font-size: 0.68rem;
-  }
-  body[data-step="2"] .compose-instrument-group.compact .compose-instrument {
-    max-width: none;
+    font-size: 1.02rem;
   }
   body[data-step="2"] .gallery-panel {
     padding: 14px;
@@ -2262,15 +2277,15 @@ p {
   }
 }
 body[data-step="2"] .instrument-strip .compose-instrument {
-  min-height: 48px;
-  padding: 5px 9px 5px 7px;
-  gap: 6px;
+  min-height: 88px;
+  padding: 10px 16px 10px 12px;
+  gap: 12px;
 }
 body[data-step="2"] .instrument-strip .compose-instrument img {
-  width: 34px;
-  height: 34px;
+  width: 64px;
+  height: 64px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   object-fit: contain;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-text {
@@ -2281,10 +2296,7 @@ body[data-step="2"] .instrument-strip .compose-instrument-text strong {
   overflow: visible;
   text-overflow: clip;
   word-break: keep-all;
-  font-size: 0.9rem;
-}
-body[data-step="2"] .instrument-strip .compose-instrument-text small {
-  display: none;
+  font-size: 1.12rem;
 }
 @media (max-width: 720px) {
   body {
@@ -2335,9 +2347,19 @@ body[data-step="2"] .instrument-strip .compose-instrument-text small {
   }
   body[data-step="2"] .compose-instrument-list {
     grid-template-columns: 1fr;
+    gap: 0;
+  }
+  body[data-step="2"] .compose-instrument-group {
+    grid-template-columns: 1fr;
     gap: 8px;
   }
-  body[data-step="2"] .compose-instrument-group-list {
+  body[data-step="2"] .compose-instrument-group-head {
+    padding-top: 0;
+  }
+  body[data-step="2"] .compose-instrument-family-list {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 154px;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-gutter: stable;
@@ -2345,9 +2367,5 @@ body[data-step="2"] .instrument-strip .compose-instrument-text small {
   body[data-step="2"] .compose-instrument {
     width: 154px;
     min-width: 154px;
-  }
-  body[data-step="2"] .compose-instrument-group.compact .compose-instrument {
-    width: 154px;
-    max-width: none;
   }
 }

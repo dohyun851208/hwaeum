@@ -99,7 +99,7 @@
     if (uiMidi == null) return null
     const midi = uiMidi + playbackTranspose(instrument, asset)
     const allowed = playableMidiList(instrument, asset)
-    if (allowed && allowed.indexOf(midi) === -1) return null
+    if (allowed && allowed.indexOf(uiMidi) === -1 && allowed.indexOf(midi) === -1) return null
     return midi
   }
   function playbackNoteForInstrument(note, instrument, asset) {

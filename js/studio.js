@@ -21,6 +21,8 @@
   const GUGAK_STYLE_ID = "gugak" // 국악기만 5음(펜타토닉)+시김새 — 파(F)·시(B) 없음
   const CUSTOM_BG_MAX_BYTES = 50 * 1024 * 1024
   const PIXABAY_MUSIC_URL = "https://pixabay.com/music/"
+  const INSTRUMENT_GROUPS = ["서양", "국악"]
+  const DEFAULT_INSTRUMENT_FAMILY = "그 밖의 악기"
   const CUSTOM_BG_COPYRIGHT_NOTICE =
     "저작권 안내: 다른 사람이 만든 음악은 허락 없이 사용할 수 없어요. 직접 만든 음원이나 사용 허락을 받은 음원만 올려 주세요."
 
@@ -32,6 +34,20 @@
   function styleForInstrument(instrument) {
     const id = instrument && instrument.group === "국악" ? GUGAK_STYLE_ID : DEFAULT_STYLE_ID
     return D.styles.find((s) => s.id === id) || defaultStyle()
+  }
+
+  function instrumentFamilies(items) {
+    const order = []
+    const byFamily = {}
+    ;(items || []).forEach(function (instrument) {
+      const family = instrument.family || DEFAULT_INSTRUMENT_FAMILY
+      if (!byFamily[family]) {
+        byFamily[family] = []
+        order.push(family)
+      }
+      byFamily[family].push(instrument)
+    })
+    return order.map((family) => ({ family: family, items: byFamily[family] }))
   }
 
   function defaultVersion() {
@@ -776,7 +792,7 @@
   }
 
   function renderInstrumentGroups() {
-    const groups = ["서양", "국악"].filter((group) => D.instruments.some((instrument) => instrument.group === group))
+    const groups = INSTRUMENT_GROUPS.filter((group) => D.instruments.some((instrument) => instrument.group === group))
     el.instrumentGroups.innerHTML = ""
     groups.forEach((g) => {
       const b = document.createElement("button")
@@ -820,9 +836,25 @@
 
   function renderInstruments() {
     el.instrumentGrid.innerHTML = ""
-    D.instruments
-      .filter((i) => i.group === state.group)
-      .forEach((i) => {
+    const groupItems = D.instruments.filter((i) => i.group === state.group)
+    instrumentFamilies(groupItems).forEach((familyGroup) => {
+      const section = document.createElement("section")
+      section.className = "instrument-family"
+      section.setAttribute("aria-label", state.group + " " + familyGroup.family)
+
+      const head = document.createElement("div")
+      head.className = "instrument-family-head"
+      const title = document.createElement("strong")
+      title.textContent = familyGroup.family
+      const count = document.createElement("small")
+      count.textContent = familyGroup.items.length + "개"
+      head.appendChild(title)
+      head.appendChild(count)
+      section.appendChild(head)
+
+      const list = document.createElement("div")
+      list.className = "instrument-family-grid"
+      familyGroup.items.forEach((i) => {
         const b = card(i, i.id === state.instrument.id, i.detail)
         b.classList.add("instrument-card")
         applyInstrumentTone(b, i.id)
@@ -855,8 +887,11 @@
           })
           b.appendChild(ex)
         }
-        el.instrumentGrid.appendChild(b)
+        list.appendChild(b)
       })
+      section.appendChild(list)
+      el.instrumentGrid.appendChild(section)
+    })
     syncExamplePreviewStop()
   }
 
@@ -882,7 +917,7 @@
 
   function renderComposeInstruments() {
     el.composeInstrumentList.innerHTML = ""
-    ;["서양", "국악"].forEach((group) => {
+    INSTRUMENT_GROUPS.forEach((group) => {
       const groupItems = D.instruments.filter((instrument) => instrument.group === group)
       if (!groupItems.length) return
 
@@ -890,36 +925,54 @@
       section.className = "compose-instrument-group" + (group === state.group ? " active" : "")
       section.setAttribute("aria-label", group + " 악기")
       section.dataset.group = group
-      section.dataset.count = String(groupItems.length)
-      if (groupItems.length <= 2) section.classList.add("compact")
 
       const head = document.createElement("div")
       head.className = "compose-instrument-group-head"
-      head.innerHTML = "<strong>" + group + "</strong><small>" + groupItems.length + "개</small>"
+      const groupTitle = document.createElement("strong")
+      groupTitle.textContent = group
+      head.appendChild(groupTitle)
       section.appendChild(head)
 
       const list = document.createElement("div")
       list.className = "compose-instrument-group-list"
-      groupItems.forEach((i) => {
-        const b = document.createElement("button")
-        b.type = "button"
-        b.className = "compose-instrument" + (i.id === state.instrument.id ? " active" : "")
-        applyInstrumentTone(b, i.id)
-        b.setAttribute("aria-pressed", i.id === state.instrument.id ? "true" : "false")
-        b.title = i.group + " · " + i.detail
-        if (i.image) {
-          const img = document.createElement("img")
-          img.src = i.image
-          img.alt = ""
-          img.loading = "lazy"
-          b.appendChild(img)
-        }
-        const label = document.createElement("span")
-        label.className = "compose-instrument-text"
-        label.innerHTML = "<strong>" + i.label + "</strong><small>" + i.detail + "</small>"
-        b.appendChild(label)
-        b.addEventListener("click", () => selectInstrument(i, true))
-        list.appendChild(b)
+      instrumentFamilies(groupItems).forEach((familyGroup) => {
+        const familySection = document.createElement("section")
+        familySection.className = "compose-instrument-family"
+        familySection.setAttribute("aria-label", group + " " + familyGroup.family)
+
+        const familyHead = document.createElement("div")
+        familyHead.className = "compose-instrument-family-head"
+        familyHead.textContent = familyGroup.family
+        familySection.appendChild(familyHead)
+
+        const familyList = document.createElement("div")
+        familyList.className = "compose-instrument-family-list"
+        familyGroup.items.forEach((i) => {
+          const b = document.createElement("button")
+          b.type = "button"
+          b.className = "compose-instrument" + (i.id === state.instrument.id ? " active" : "")
+          applyInstrumentTone(b, i.id)
+          b.setAttribute("aria-pressed", i.id === state.instrument.id ? "true" : "false")
+          b.title = i.group + " · " + i.family + " · " + i.detail
+          if (i.image) {
+            const img = document.createElement("img")
+            img.src = i.image
+            img.alt = ""
+            img.loading = "lazy"
+            b.appendChild(img)
+          }
+          const label = document.createElement("span")
+          label.className = "compose-instrument-text"
+          const name = document.createElement("strong")
+          name.textContent = i.label
+          label.appendChild(name)
+          b.appendChild(label)
+          b.addEventListener("click", () => selectInstrument(i, true))
+          familyList.appendChild(b)
+        })
+
+        familySection.appendChild(familyList)
+        list.appendChild(familySection)
       })
 
       section.appendChild(list)

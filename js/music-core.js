@@ -64,7 +64,7 @@
     const scale = buildScale(style)
     if (!asset || !Array.isArray(asset.playableMidi) || !asset.playableMidi.length) return scale
     const tr = asset.playbackTranspose || 0
-    const filtered = scale.filter((m) => asset.playableMidi.indexOf(m + tr) !== -1)
+    const filtered = scale.filter((m) => asset.playableMidi.indexOf(m) !== -1 || asset.playableMidi.indexOf(m + tr) !== -1)
     return filtered.length ? filtered : scale
   }
 

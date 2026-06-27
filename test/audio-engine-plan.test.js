@@ -147,7 +147,7 @@ test("scheduleSampleMelody sustains contiguous notes as one connected sample phr
   const ctx = makeAudioContext()
   const dest = makeNode()
   const plan = engine.resolvePlan(
-    { duration: 30, atmosphere: "calm", instrument: "daegeum", style: "gugak", version: "balanced", mode: "melody" },
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
     [
       { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
       { time: 0.5, duration: 0.5, midi: 62, velocity: 0.7 },
@@ -269,6 +269,12 @@ test("resolvePlan filters Korean instrument notes outside the allowed playable r
   assert.deepEqual(
     plain(
     plan.notes.map((note) => note.midi),
+    ),
+    [79, 88],
+  )
+  assert.deepEqual(
+    plain(
+    plan.notes.map((note) => note.uiMidi),
     ),
     [67, 76],
   )

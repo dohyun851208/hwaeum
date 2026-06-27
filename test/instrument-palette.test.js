@@ -20,7 +20,16 @@ function plain(value) {
 
 const GUGAK_PALETTE_MIDI = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76]
 
-test("서양 악기 목록은 목관, 금관, 현악기 순서를 유지한다", () => {
+function familyLabels(data, group) {
+  const result = {}
+  for (const instrument of data.instruments.filter((item) => item.group === group)) {
+    if (!result[instrument.family]) result[instrument.family] = []
+    result[instrument.family].push(instrument.label)
+  }
+  return result
+}
+
+test("서양 악기 목록은 관악기, 현악기 순서를 유지한다", () => {
   const data = loadManifest()
 
   const westernLabels = Array.from(data.instruments)
@@ -30,12 +39,36 @@ test("서양 악기 목록은 목관, 금관, 현악기 순서를 유지한다",
   assert.deepEqual(westernLabels, ["플루트", "오보에", "클라리넷", "호른", "바이올린", "비올라", "첼로", "더블베이스"])
 })
 
+test("서양 악기는 관악기와 현악기로 나누어 보여준다", () => {
+  const data = loadManifest()
+
+  assert.deepEqual(familyLabels(data, "서양"), {
+    관악기: ["플루트", "오보에", "클라리넷", "호른"],
+    현악기: ["바이올린", "비올라", "첼로", "더블베이스"],
+  })
+})
+
 test("국악 악기는 요청한 다섯 악기만 지정 순서로 보여준다", () => {
   const data = loadManifest()
 
   const gugakLabels = data.instruments.filter((instrument) => instrument.group === "국악").map((instrument) => instrument.label)
 
   assert.deepEqual(plain(gugakLabels), ["소금", "대금", "해금", "가야금", "산조아쟁"])
+})
+
+test("국악 악기는 관악기와 현악기로 나누어 보여준다", () => {
+  const data = loadManifest()
+
+  assert.deepEqual(familyLabels(data, "국악"), {
+    관악기: ["소금", "대금"],
+    현악기: ["해금", "가야금", "산조아쟁"],
+  })
+})
+
+test("모든 악기는 분류 이름을 가진다", () => {
+  const data = loadManifest()
+
+  assert.equal(data.instruments.filter((instrument) => !instrument.family).length, 0)
 })
 
 test("악기별 실제 재생 음역 규칙을 manifest에 선언한다", () => {
@@ -49,6 +82,7 @@ test("악기별 실제 재생 음역 규칙을 manifest에 선언한다", () => 
   assert.equal(data.melodies.frenchHorn.playbackTranspose, -12)
   assert.equal(data.melodies.cello.playbackTranspose, -12)
   assert.equal(data.melodies.doubleBass.playbackTranspose, -24)
+  assert.equal(data.melodies.sogeum.playbackTranspose, 12)
   for (const id of ["sogeum", "daegeum", "haegeum", "gayageum", "ajaeng"]) {
     assert.deepEqual(plain(data.melodies[id].playableMidi), GUGAK_PALETTE_MIDI, id)
   }
