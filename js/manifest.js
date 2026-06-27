@@ -11,14 +11,14 @@
 
   // 배경음악 — 배경(atmosphere)과 id로 1:1 매칭되는 앱용 MP3
   const backgrounds = {
-    calm: { label: "고요한(우주)", src: "sound/배경-분위기/고요한(우주).mp3", duration: 155 },
-    tension: { label: "긴장되는(4음테마)", src: "sound/배경-분위기/긴장되는(4음테마).mp3", duration: 94 },
-    bright: { label: "밝은(아침)", src: "sound/배경-분위기/밝은(아침).mp3", duration: 44 },
-    cuteSchool: { label: "귀여운(학교)", src: "sound/배경-분위기/귀여운(학교).mp3", duration: 104 },
-    soaringField: { label: "벅차오르는(초원)", src: "sound/배경-분위기/벅차오르는(초원).mp3", duration: 168 },
-    sadDawn: { label: "슬픈(새벽)", src: "sound/배경-분위기/슬픈(새벽).mp3", duration: 132 },
-    sereneLake: { label: "잔잔한(호수)", src: "sound/배경-분위기/잔잔한(호수).mp3", duration: 154 },
-    energetic: { label: "활기찬(도시)", src: "sound/배경-분위기/활기찬(도시).mp3", duration: 140 },
+    calm: { label: "고요한", src: "sound/배경-분위기/고요한(우주).mp3", duration: 155 },
+    tension: { label: "긴장되는", src: "sound/배경-분위기/긴장되는(4음테마).mp3", duration: 94 },
+    bright: { label: "밝은", src: "sound/배경-분위기/밝은(아침).mp3", duration: 44 },
+    cuteSchool: { label: "귀여운", src: "sound/배경-분위기/귀여운(학교).mp3", duration: 104 },
+    soaringField: { label: "벅차오르는", src: "sound/배경-분위기/벅차오르는(초원).mp3", duration: 168 },
+    sadDawn: { label: "슬픈", src: "sound/배경-분위기/슬픈(새벽).mp3", duration: 132 },
+    sereneLake: { label: "잔잔한", src: "sound/배경-분위기/잔잔한(호수).mp3", duration: 154 },
+    energetic: { label: "활기찬", src: "sound/배경-분위기/활기찬(도시).mp3", duration: 140 },
     // 소리풍경 — 강·도시·숲·학교 환경 소리. 앞 60초 mono 96k 압축(원본 wav/flac은 deploy 트리 밖 보관).
     river: { label: "강", src: "sound/배경-소리풍경/강.mp3", duration: 60 },
     city: { label: "도시", src: "sound/배경-소리풍경/도시.mp3", duration: 47 },
@@ -92,14 +92,14 @@
   // 선생님이 추가로 올린 음원은 studio.js에서 이 배열에 동적으로 push 됩니다.
   // group: 2단계 카드 묶음 라벨. studio.js renderAtmospheres 가 group 순서대로 소제목을 붙여 보여 준다.
   const atmospheres = [
-    { id: "calm", label: "고요한(우주)", group: "분위기", padType: "ambient", detail: "넓고 고요한 우주 배경", color: "#7fa6a0", backgroundId: "calm", effectIds: [] },
-    { id: "tension", label: "긴장되는(4음테마)", group: "분위기", padType: "drone", detail: "짧은 4음 동기의 긴장감", color: "#9c6b7a", backgroundId: "tension", effectIds: [] },
-    { id: "bright", label: "밝은(아침)", group: "분위기", padType: "synth", detail: "아침처럼 맑고 밝은 배경", color: "#c89a4e", backgroundId: "bright", effectIds: [] },
-    { id: "cuteSchool", label: "귀여운(학교)", group: "분위기", padType: "synth", detail: "귀여운 학교 색감", color: "#d09b61", backgroundId: "cuteSchool", effectIds: [] },
-    { id: "soaringField", label: "벅차오르는(초원)", group: "분위기", padType: "string", detail: "초원처럼 넓게 차오르는 느낌", color: "#7d9f5f", backgroundId: "soaringField", effectIds: [] },
-    { id: "sadDawn", label: "슬픈(새벽)", group: "분위기", padType: "string", detail: "새벽빛의 차분한 슬픔", color: "#687b9e", backgroundId: "sadDawn", effectIds: [] },
-    { id: "sereneLake", label: "잔잔한(호수)", group: "분위기", padType: "ambient", detail: "호수처럼 잔잔한 흐름", color: "#5f98a0", backgroundId: "sereneLake", effectIds: [] },
-    { id: "energetic", label: "활기찬(도시)", group: "분위기", padType: "synth", detail: "도시의 활기와 움직임", color: "#d3814f", backgroundId: "energetic", effectIds: [] },
+    { id: "calm", label: "고요한", group: "분위기", padType: "ambient", detail: "넓고 고요한 우주 배경", color: "#7fa6a0", backgroundId: "calm", effectIds: [] },
+    { id: "tension", label: "긴장되는", group: "분위기", padType: "drone", detail: "짧은 4음 동기의 긴장감", color: "#9c6b7a", backgroundId: "tension", effectIds: [] },
+    { id: "bright", label: "밝은", group: "분위기", padType: "synth", detail: "아침처럼 맑고 밝은 배경", color: "#c89a4e", backgroundId: "bright", effectIds: [] },
+    { id: "cuteSchool", label: "귀여운", group: "분위기", padType: "synth", detail: "귀여운 학교 색감", color: "#d09b61", backgroundId: "cuteSchool", effectIds: [] },
+    { id: "soaringField", label: "벅차오르는", group: "분위기", padType: "string", detail: "초원처럼 넓게 차오르는 느낌", color: "#7d9f5f", backgroundId: "soaringField", effectIds: [] },
+    { id: "sadDawn", label: "슬픈", group: "분위기", padType: "string", detail: "새벽빛의 차분한 슬픔", color: "#687b9e", backgroundId: "sadDawn", effectIds: [] },
+    { id: "sereneLake", label: "잔잔한", group: "분위기", padType: "ambient", detail: "호수처럼 잔잔한 흐름", color: "#5f98a0", backgroundId: "sereneLake", effectIds: [] },
+    { id: "energetic", label: "활기찬", group: "분위기", padType: "synth", detail: "도시의 활기와 움직임", color: "#d3814f", backgroundId: "energetic", effectIds: [] },
     // 소리풍경 — 강·도시·숲·학교 (연속 배경 앰비언스)
     { id: "river", label: "강", group: "소리풍경", padType: "ambient", detail: "흐르는 강물 소리", color: "#5a86a8", backgroundId: "river", effectIds: [] },
     { id: "city", label: "도시", group: "소리풍경", padType: "synth", detail: "도시의 거리 소음", color: "#7d7a86", backgroundId: "city", effectIds: [] },
