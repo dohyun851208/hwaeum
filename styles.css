@@ -1648,10 +1648,14 @@ p {
   outline: none;
   border-bottom: 1px solid var(--accent);
 }
-.placard-meta {
-  color: var(--muted);
-  font-size: 0.86rem;
-  font-weight: 600;
+.placard-tags {
+  color: var(--accent);
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.placard-tags.is-empty {
+  display: none;
 }
 .reflection-fields {
   display: grid;
@@ -2016,8 +2020,8 @@ p {
   body[data-step="2"] .placard-title {
     font-size: 1.45rem;
   }
-  body[data-step="2"] .placard-meta {
-    font-size: 0.95rem;
+  body[data-step="2"] .placard-tags {
+    font-size: 0.98rem;
   }
   body[data-step="2"] .actions-row {
     gap: 9px;

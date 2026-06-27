@@ -1988,24 +1988,17 @@
     const ctx = cv.getContext("2d")
 
     function finish() {
-      const padH = 210
       const tags = hashtagText(state.hashtags)
+      const padH = tags ? 190 : 140
       ctx.fillStyle = "rgba(20,26,26,0.82)"
       ctx.fillRect(0, size - padH, size, padH)
       ctx.fillStyle = "#fbf6ec"
       ctx.font = "700 52px Georgia, serif"
       ctx.fillText(fitCanvasLine(ctx, state.title || "무제", size - 96), 48, size - padH + 64)
-      ctx.font = "500 30px 'Segoe UI', sans-serif"
-      ctx.fillStyle = "rgba(251,246,236,0.78)"
-      ctx.fillText(
-        fitCanvasLine(ctx, state.atmosphere.label + " · " + state.style.label + " · " + state.instrument.label, size - 96),
-        48,
-        size - padH + 110
-      )
       if (tags) {
-        ctx.font = "800 28px 'Segoe UI', sans-serif"
+        ctx.font = "800 30px 'Segoe UI', sans-serif"
         ctx.fillStyle = "rgba(251,246,236,0.92)"
-        ctx.fillText(fitCanvasLine(ctx, tags, size - 96), 48, size - padH + 158)
+        ctx.fillText(fitCanvasLine(ctx, tags, size - 96), 48, size - padH + 118)
       }
       // 재생 글리프
       ctx.fillStyle = "rgba(251,246,236,0.92)"
