@@ -663,6 +663,44 @@ test("live drawing preview loops long sample tones from the stable region, inclu
   assertStableLoop(ctx.created.buffers[0], 2.35, 0.05)
 })
 
+test("live drawing preview ignores mapped offsets outside the loaded buffer", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, {
+    sampleMode: "phrase",
+    sampleMap: [{ midi: 60, offset: 170.988, duration: 2.4, cents: 0 }],
+  })
+
+  engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
+})
+
+test("note preview ignores mapped offsets outside the loaded buffer", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, {
+    sampleMode: "phrase",
+    sampleMap: [{ midi: 60, offset: 170.988, duration: 2.4, cents: 0 }],
+  })
+
+  engine._previewSample(ctx, plan, { duration: 2.4 }, { time: 0, duration: 0.2, midi: 60, velocity: 0.7 }, 0)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
+})
+
 test("resolvePlan applies instrument playback transposition per drawn voice", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()

@@ -410,12 +410,12 @@
     const total = audioBufferDuration(buffer)
     if (!(total > 0)) return { offset: 0, duration: 0 }
     const fallback = clamp(Number(fallbackOffset) || 0, 0, Math.max(0, total - 0.01))
-    const segmentOffset = segment && Number(segment.offset)
-    const hasSegmentOffset = isFinite(segmentOffset) && segmentOffset >= 0 && segmentOffset < total - 0.01
+    const segmentOffset = segment ? Number(segment.offset) : NaN
+    const hasSegmentOffset = !!segment && isFinite(segmentOffset) && segmentOffset >= 0 && segmentOffset < total - 0.01
     const offset = hasSegmentOffset ? segmentOffset : fallback
     const remaining = Math.max(0, total - offset)
-    const segmentDuration = segment && Number(segment.duration)
-    const duration = isFinite(segmentDuration) && segmentDuration > 0.01 && segmentDuration <= remaining + 0.02
+    const segmentDuration = segment ? Number(segment.duration) : NaN
+    const duration = !!segment && isFinite(segmentDuration) && segmentDuration > 0.01 && segmentDuration <= remaining + 0.02
       ? Math.min(segmentDuration, remaining)
       : remaining
     return { offset: offset, duration: Math.max(0, duration) }
@@ -1190,7 +1190,7 @@
   }
 
   AudioEngine.prototype.phraseOffset = function (buffer, note) {
-    const maxOffset = Math.max(0, buffer.duration - 2.4)
+    const maxOffset = Math.max(0, audioBufferDuration(buffer) - 2.4)
     if (maxOffset === 0) return 0
     const seed = Math.sin((note.time + 1) * 41.73 + note.midi * 5.91) * 10000
     return (seed - Math.floor(seed)) * maxOffset
@@ -1334,8 +1334,11 @@
     const targetGain = livePreviewTargetGain(plan, 0.7 * 0.85)
     const multi = isMultiSample(plan.melodyAsset)
     const segment = nearestSampleSegment(plan.melodyAsset, midi)
-    const offset = multi ? 0 : segment ? segment.offset : Math.min(0.05, Math.max(0, buffer.duration * 0.08))
-    const segmentDur = multi ? buffer.duration : segment ? segment.duration : buffer.duration - offset
+    const fallbackOffset = segment ? 0 : Math.min(0.05, Math.max(0, audioBufferDuration(buffer) * 0.08))
+    const sourceBounds = multi ? { offset: 0, duration: audioBufferDuration(buffer) } : sampleSegmentBounds(buffer, segment, fallbackOffset)
+    const offset = sourceBounds.offset
+    const segmentDur = sourceBounds.duration
+    if (!(segmentDur > 0.01)) return null
     const baseRate = segmentPlaybackRate(plan.melodyAsset, midi, segment)
 
     env.gain.setValueAtTime(0.0001, start)
@@ -1689,8 +1692,11 @@
     const env = ctx.createGain()
     const segment = nearestSampleSegment(asset, note.midi)
     const baseRate = segmentPlaybackRate(asset, note.midi, segment)
-    const offset = multi ? 0 : segment ? segment.offset : asset.sampleMode === "phrase" ? this.phraseOffset(buffer, note) : 0
-    const usableSourceDur = multi ? buffer.duration : segment ? segment.duration : buffer.duration - offset
+    const fallbackOffset = segment ? 0 : asset.sampleMode === "phrase" ? this.phraseOffset(buffer, note) : 0
+    const sourceBounds = multi ? { offset: 0, duration: audioBufferDuration(buffer) } : sampleSegmentBounds(buffer, segment, fallbackOffset)
+    const offset = sourceBounds.offset
+    const usableSourceDur = sourceBounds.duration
+    if (!(usableSourceDur > 0.01)) return
     src.buffer = buffer
     src.playbackRate.setValueAtTime(baseRate, start)
     env.gain.setValueAtTime(0, start)
