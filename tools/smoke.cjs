@@ -404,6 +404,19 @@ check("키보드 2 안내 문구는 짧게 표시", window.document.getElementBy
 window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "1", bubbles: true }))
 check("키보드 1로 펜 모드 복귀", SD.draw.eraseMode === false, SD.draw.eraseMode)
 check("키보드 1 안내 문구는 짧게 표시", window.document.getElementById("exportStatus").textContent === "펜(키보드1)", window.document.getElementById("exportStatus").textContent)
+const originalPlayForSpace = SD.engine.play
+let spacePlayCalls = 0
+SD.engine.play = () => {
+  spacePlayCalls += 1
+  return Promise.resolve("synth")
+}
+window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))
+check("스페이스바로 상단 재생 버튼 동작", spacePlayCalls === 1, spacePlayCalls)
+window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", repeat: true, bubbles: true }))
+check("스페이스바 길게 누름은 반복 토글하지 않음", spacePlayCalls === 1, spacePlayCalls)
+window.document.getElementById("shareChannelInput").dispatchEvent(new window.KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }))
+check("입력칸 스페이스바는 재생 단축키로 쓰지 않음", spacePlayCalls === 1, spacePlayCalls)
+SD.engine.play = originalPlayForSpace
 window.document.getElementById("clearBtn").click()
 window.document.querySelector(".compose-instrument:not(.active)")?.click()
 check("지우개 모드에서 악기 선택 시 그리기 모드로 복귀", SD.draw.eraseMode === false, SD.draw.eraseMode)

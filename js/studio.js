@@ -1995,10 +1995,17 @@
     return tag === "input" || tag === "textarea" || tag === "select" || !!target.isContentEditable
   }
 
-  function handleToolShortcut(event) {
-    if (!event || event.defaultPrevented || state.step !== DRAWING_STEP) return
+  function handleKeyboardShortcut(event) {
+    if (!event || event.defaultPrevented || event.repeat) return
     if (event.ctrlKey || event.metaKey || event.altKey) return
     if (isTypingTarget(event.target)) return
+    if (event.key === " " || event.code === "Space" || event.key === "Spacebar") {
+      event.preventDefault()
+      pulseControl(el.playBtn)
+      toggleTransport()
+      return
+    }
+    if (state.step !== DRAWING_STEP) return
     if (event.key === "1") {
       event.preventDefault()
       activatePenTool(true)
@@ -3075,7 +3082,7 @@
       if (draw.eraseMode) activatePenTool(true)
       else activateEraserTool(true)
     })
-    document.addEventListener("keydown", handleToolShortcut)
+    document.addEventListener("keydown", handleKeyboardShortcut)
     if (el.undoBtn) {
       el.undoBtn.addEventListener("click", () => {
         if (!draw.undo()) return
