@@ -29,6 +29,14 @@
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v))
   }
+  function audioBufferDuration(buffer) {
+    const duration = buffer && Number(buffer.duration)
+    if (isFinite(duration) && duration > 0) return duration
+    const length = buffer && Number(buffer.length)
+    const sampleRate = buffer && Number(buffer.sampleRate)
+    if (isFinite(length) && isFinite(sampleRate) && length > 0 && sampleRate > 0) return length / sampleRate
+    return 0
+  }
 
   function isWesternInstrument(instrument) {
     return !!(instrument && instrument.group === "서양")
@@ -161,15 +169,20 @@
   function createCrossfadedSustainBuffer(ctx, buffer, offset, duration) {
     if (!ctx || typeof ctx.createBuffer !== "function") return null
     if (!buffer || typeof buffer.getChannelData !== "function" || !buffer.sampleRate || !buffer.numberOfChannels) return null
-    const region = refineSustainLoopRegion(sampleSustainLoopRegion(offset || 0, duration), offset || 0, duration, buffer)
+    const total = audioBufferDuration(buffer)
+    if (!(total > 0)) return null
+    const safeOffset = clamp(Number(offset) || 0, 0, Math.max(0, total - 0.01))
+    const safeDuration = Math.min(Math.max(0, Number(duration) || 0), Math.max(0, total - safeOffset))
+    if (!(safeDuration > 0.08)) return null
+    const region = refineSustainLoopRegion(sampleSustainLoopRegion(safeOffset, safeDuration), safeOffset, safeDuration, buffer)
     if (!region) return null
     const sampleRate = buffer.sampleRate
-    const sourceLength = buffer.length || Math.round((buffer.duration || 0) * sampleRate)
-    const startFrame = clamp(Math.floor((offset || 0) * sampleRate), 0, Math.max(0, sourceLength - 1))
-    const endFrame = clamp(Math.ceil(((offset || 0) + duration) * sampleRate), startFrame + 1, sourceLength)
+    const sourceLength = buffer.length || Math.round(total * sampleRate)
+    const startFrame = clamp(Math.floor(safeOffset * sampleRate), 0, Math.max(0, sourceLength - 1))
+    const endFrame = clamp(Math.ceil((safeOffset + safeDuration) * sampleRate), startFrame + 1, sourceLength)
     const outLength = endFrame - startFrame
-    const loopStartFrame = clamp(Math.round((region.start - (offset || 0)) * sampleRate), 0, Math.max(0, outLength - 2))
-    const loopEndFrame = clamp(Math.round((region.end - (offset || 0)) * sampleRate), loopStartFrame + 2, outLength)
+    const loopStartFrame = clamp(Math.round((region.start - safeOffset) * sampleRate), 0, Math.max(0, outLength - 2))
+    const loopEndFrame = clamp(Math.round((region.end - safeOffset) * sampleRate), loopStartFrame + 2, outLength)
     const loopFrames = loopEndFrame - loopStartFrame
     const fadeFrames = Math.floor(Math.min(0.08 * sampleRate, loopFrames * 0.25))
     if (fadeFrames < 8) return null
@@ -196,7 +209,14 @@
     }
   }
   function preparePlaybackSustain(ctx, source, offset, duration) {
-    const baked = createCrossfadedSustainBuffer(ctx, source && source.buffer, offset || 0, duration)
+    const total = audioBufferDuration(source && source.buffer)
+    const safeOffset = total > 0 ? clamp(Number(offset) || 0, 0, Math.max(0, total - 0.01)) : 0
+    const fallbackDuration = total > 0 ? Math.max(0, total - safeOffset) : 0
+    const requestedDuration = Number(duration)
+    const safeDuration = isFinite(requestedDuration) && requestedDuration > 0
+      ? Math.min(requestedDuration, fallbackDuration)
+      : fallbackDuration
+    const baked = createCrossfadedSustainBuffer(ctx, source && source.buffer, safeOffset, safeDuration)
     if (baked) {
       source.buffer = baked.buffer
       source.loop = true
@@ -204,10 +224,10 @@
       source.loopEnd = baked.loopEnd
       return baked
     }
-    if (applySustainLoop(source, offset, duration)) {
-      return { buffer: source.buffer, offset: offset || 0, duration: duration, loopStart: source.loopStart, loopEnd: source.loopEnd }
+    if (safeDuration > 0.01 && applySustainLoop(source, safeOffset, safeDuration)) {
+      return { buffer: source.buffer, offset: safeOffset, duration: safeDuration, loopStart: source.loopStart, loopEnd: source.loopEnd }
     }
-    return { buffer: source.buffer, offset: offset || 0, duration: duration }
+    return { buffer: source.buffer, offset: safeOffset, duration: safeDuration }
   }
   // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
   // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
@@ -385,6 +405,20 @@
   function sampleBufferFor(sampleBuffers, segment, fallback) {
     if (sampleBuffers && segment && sampleBuffers[segment.midi]) return sampleBuffers[segment.midi]
     return fallback
+  }
+  function sampleSegmentBounds(buffer, segment, fallbackOffset) {
+    const total = audioBufferDuration(buffer)
+    if (!(total > 0)) return { offset: 0, duration: 0 }
+    const fallback = clamp(Number(fallbackOffset) || 0, 0, Math.max(0, total - 0.01))
+    const segmentOffset = segment && Number(segment.offset)
+    const hasSegmentOffset = isFinite(segmentOffset) && segmentOffset >= 0 && segmentOffset < total - 0.01
+    const offset = hasSegmentOffset ? segmentOffset : fallback
+    const remaining = Math.max(0, total - offset)
+    const segmentDuration = segment && Number(segment.duration)
+    const duration = isFinite(segmentDuration) && segmentDuration > 0.01 && segmentDuration <= remaining + 0.02
+      ? Math.min(segmentDuration, remaining)
+      : remaining
+    return { offset: offset, duration: Math.max(0, duration) }
   }
 
   function backgroundRange(plan, buffer) {
@@ -907,8 +941,11 @@
       if (!srcBuffer) continue
       const env = ctx.createGain()
       const baseRate = segmentPlaybackRate(asset, first.midi, segment)
-      const offset = multi ? 0 : segment ? segment.offset : samplePhrase ? Math.min(0.05, Math.max(0, srcBuffer.duration * 0.08)) : 0
-      const usableSourceDur = multi ? srcBuffer.duration : segment ? segment.duration : srcBuffer.duration - offset
+      const fallbackOffset = segment ? 0 : samplePhrase ? Math.min(0.05, Math.max(0, audioBufferDuration(srcBuffer) * 0.08)) : 0
+      const sourceBounds = multi ? { offset: 0, duration: audioBufferDuration(srcBuffer) } : sampleSegmentBounds(srcBuffer, segment, fallbackOffset)
+      const offset = sourceBounds.offset
+      const usableSourceDur = sourceBounds.duration
+      if (!(usableSourceDur > 0.01)) continue
       const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
       const src = ctx.createBufferSource()
       src.buffer = srcBuffer
@@ -960,7 +997,8 @@
         if (!srcBuffer) continue
         const env = ctx.createGain()
         const baseRate = segmentPlaybackRate(asset, first.midi, segment)
-        const usableSourceDur = srcBuffer.duration
+        const usableSourceDur = audioBufferDuration(srcBuffer)
+        if (!(usableSourceDur > 0.01)) continue
         const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
         const src = ctx.createBufferSource()
         src.buffer = srcBuffer
@@ -1005,8 +1043,11 @@
       const srcBuffer = buffer
       if (!srcBuffer) continue
       const baseRate = segmentPlaybackRate(asset, first.midi, segment)
-      const offset = segment ? segment.offset : samplePhrase ? this.phraseOffset(srcBuffer, first) : 0
-      const usableSourceDur = segment ? segment.duration : srcBuffer.duration - offset
+      const fallbackOffset = segment ? 0 : samplePhrase ? this.phraseOffset(srcBuffer, first) : 0
+      const sourceBounds = sampleSegmentBounds(srcBuffer, segment, fallbackOffset)
+      const offset = sourceBounds.offset
+      const usableSourceDur = sourceBounds.duration
+      if (!(usableSourceDur > 0.01)) continue
       const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
       const src = ctx.createBufferSource()
       src.buffer = srcBuffer

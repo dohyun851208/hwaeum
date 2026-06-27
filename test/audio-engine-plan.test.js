@@ -313,6 +313,34 @@ test("stroke sample playback uses live drawing glide timing", () => {
   assert.equal(target[3], 0.09)
 })
 
+test("stroke sample playback ignores mapped offsets outside the loaded buffer", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, {
+    sampleMode: "phrase",
+    sampleMap: [{ midi: 60, offset: 170.988, duration: 2.4, cents: 0 }],
+  })
+
+  engine.scheduleSampleStrokes(
+    ctx,
+    dest,
+    plan,
+    [{ start: 0, end: 0.2, duration: 0.2, events: [{ time: 0, midi: 60, uiMidi: 60 }] }],
+    { melody: { duration: 2.4 }, melodySamples: null },
+    0,
+    noop,
+  )
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
+})
+
 test("scheduleSampleMelody loops a long single phrase sample from its stable region until the drawn note ends", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
@@ -330,6 +358,26 @@ test("scheduleSampleMelody loops a long single phrase sample from its stable reg
   assertStableLoop(ctx.created.buffers[0], 2.4)
   assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
   assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 5)
+})
+
+test("sample melody playback ignores mapped offsets outside the loaded buffer", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 0.2, midi: 60, velocity: 0.7 }],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, {
+    sampleMode: "phrase",
+    sampleMap: [{ midi: 60, offset: 170.988, duration: 2.4, cents: 0 }],
+  })
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
 })
 
 test("scheduleSampleMelody snaps sustained sample loops to nearby zero crossings", () => {
