@@ -28,6 +28,8 @@
   const PIXABAY_MUSIC_URL = "https://pixabay.com/music/"
   const INSTRUMENT_GROUPS = ["서양", "국악"]
   const DEFAULT_INSTRUMENT_FAMILY = "그 밖의 악기"
+  const PEN_TOOL_STATUS = "펜(키보드1)"
+  const ERASER_TOOL_STATUS = "지우개(키보드2)"
   const CUSTOM_BG_COPYRIGHT_NOTICE =
     "저작권 안내: 다른 사람이 만든 음악은 허락 없이 사용할 수 없어요. 직접 만든 음원이나 사용 허락을 받은 음원만 올려 주세요."
 
@@ -1965,7 +1967,45 @@
     }
     el.clearBtn.classList.toggle("active", on)
     el.clearBtn.setAttribute("aria-pressed", on ? "true" : "false")
-    if (on) el.exportStatus.textContent = "지우개로 선과 효과음 도장을 지울 수 있습니다."
+    if (on) el.exportStatus.textContent = ERASER_TOOL_STATUS
+  }
+
+  function clearEffectStampSelection() {
+    if (!state.effectStampId) return
+    state.effectStampId = null
+    renderEffects()
+    renderEffectStamps()
+  }
+
+  function activatePenTool(announce) {
+    clearEffectStampSelection()
+    setEraser(false)
+    if (announce) el.exportStatus.textContent = PEN_TOOL_STATUS
+  }
+
+  function activateEraserTool(announce) {
+    setEraser(true)
+    engine.stop()
+    if (announce) el.exportStatus.textContent = ERASER_TOOL_STATUS
+  }
+
+  function isTypingTarget(target) {
+    if (!target) return false
+    const tag = (target.tagName || "").toLowerCase()
+    return tag === "input" || tag === "textarea" || tag === "select" || !!target.isContentEditable
+  }
+
+  function handleToolShortcut(event) {
+    if (!event || event.defaultPrevented || state.step !== DRAWING_STEP) return
+    if (event.ctrlKey || event.metaKey || event.altKey) return
+    if (isTypingTarget(event.target)) return
+    if (event.key === "1") {
+      event.preventDefault()
+      activatePenTool(true)
+    } else if (event.key === "2") {
+      event.preventDefault()
+      activateEraserTool(true)
+    }
   }
 
   function syncUndoButton() {
@@ -3028,18 +3068,14 @@
 
     if (el.penBtn) {
       el.penBtn.addEventListener("click", () => {
-        setEraser(false)
-        el.exportStatus.textContent = "펜 모드 — 캔버스에 선을 그릴 수 있어요."
+        activatePenTool(true)
       })
     }
     el.clearBtn.addEventListener("click", () => {
-      const on = !draw.eraseMode
-      setEraser(on)
-      if (on) engine.stop()
-      el.exportStatus.textContent = on
-        ? "지우개 모드 — 캔버스를 드래그하면 선의 일부를 지웁니다. 다시 누르면 그리기로 돌아갑니다."
-        : "그리기 모드로 돌아왔어요."
+      if (draw.eraseMode) activatePenTool(true)
+      else activateEraserTool(true)
     })
+    document.addEventListener("keydown", handleToolShortcut)
     if (el.undoBtn) {
       el.undoBtn.addEventListener("click", () => {
         if (!draw.undo()) return
