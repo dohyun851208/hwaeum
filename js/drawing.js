@@ -725,7 +725,7 @@
     const px = this.pixelRatio || 1
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
-    ctx.lineWidth = 24 * px
+    ctx.lineWidth = 19.2 * px
     ctx.globalAlpha = 0.6
     // 획마다 그 획의 악기 색으로 — 오케스트라에서 어떤 줄이 어떤 악기인지 한눈에
     for (let si = 0; si < this.strokes.length; si++) {
@@ -736,7 +736,7 @@
         // 점 하나짜리 획은 작은 점으로 표시
         if (stroke.length === 1) {
           ctx.beginPath()
-          ctx.arc(this._timeToX(stroke[0].x), stroke[0].y * H, 12.8 * px, 0, Math.PI * 2)
+          ctx.arc(this._timeToX(stroke[0].x), stroke[0].y * H, 10.24 * px, 0, Math.PI * 2)
           ctx.fillStyle = color
           ctx.fill()
         }
@@ -800,13 +800,13 @@
       ctx.lineCap = "round"
       ctx.lineJoin = "round"
       ctx.globalAlpha = 0.2
-      ctx.lineWidth = Math.max(5 * px, rowH * 0.16)
+      ctx.lineWidth = Math.max(4 * px, rowH * 0.128)
       ctx.beginPath()
       ctx.moveTo(x1, y)
       ctx.lineTo(x2, y)
       ctx.stroke()
       ctx.globalAlpha = 0.95
-      ctx.lineWidth = Math.max(2 * px, rowH * 0.075)
+      ctx.lineWidth = Math.max(1.6 * px, rowH * 0.06)
       ctx.beginPath()
       ctx.moveTo(x1, y)
       ctx.lineTo(x2, y)
