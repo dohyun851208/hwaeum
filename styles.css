@@ -2392,43 +2392,44 @@ p {
   }
 }
 body[data-step="2"] .instrument-strip .compose-instrument {
-  width: auto;
+  width: 100%;
   min-width: 0;
-  min-height: 64px;
-  padding: 5px 4px 6px;
-  border-radius: 11px;
+  min-height: 56px;
+  padding: 3px 2px 4px;
+  border-radius: 9px;
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 3px;
+  gap: 2px;
   text-align: center;
 }
 body[data-step="2"] .instrument-strip .compose-instrument img {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   object-fit: contain;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  gap: 6px;
   max-height: none;
   overflow: visible;
-  padding: 1px 2px 4px 0;
+  padding: 0;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-group {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  gap: 6px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 5px;
   align-items: center;
   min-width: 0;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-group-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(50px, 54px));
+  justify-content: start;
+  gap: 5px;
   min-width: 0;
   overflow: visible;
 }
@@ -2441,15 +2442,15 @@ body[data-step="2"] .instrument-strip .compose-instrument-group-head {
   align-items: center;
   justify-content: center;
   align-self: stretch;
-  min-height: 64px;
-  padding: 0 5px;
-  border-radius: 10px;
+  min-height: 56px;
+  padding: 0 4px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.56);
   color: var(--muted);
   text-align: center;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-group-head strong {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 900;
   line-height: 1.1;
   word-break: keep-all;
@@ -2460,14 +2461,14 @@ body[data-step="2"] .instrument-strip .compose-instrument-family-head {
 body[data-step="2"] .instrument-strip .compose-instrument-text {
   display: block;
   max-width: 100%;
-  line-height: 1.15;
+  line-height: 1.08;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-text strong {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
   word-break: keep-all;
-  font-size: 0.64rem;
+  font-size: 0.6rem;
   font-weight: 850;
 }
 @media (max-width: 720px) {
