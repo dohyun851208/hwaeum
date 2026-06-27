@@ -121,7 +121,7 @@ check("신디 선택지 제거", window.SDStudioData.instruments.every((instrume
 check("스타일 선택 카드 제거", qc("#styleGrid") === 0, qc("#styleGrid"))
 check("연주 형태 토글 제거", qc("[data-mode]") === 0, qc("[data-mode]"))
 check("믹스 선택 UI 제거", qc("#versionList") === 0 && !window.document.body.textContent.includes("믹스"), qc("#versionList"))
-check("단계 탭 4개", qc("[data-step-jump]") === 4)
+check("단계 탭 5개", qc("[data-step-jump]") === 5)
 check("국악 음원 출처 표기", window.document.getElementById("audioModeNote").textContent.includes("국립국악원"))
 
 const groupTabs = Array.from(window.document.querySelectorAll("#instrumentGroups .group-tab"))
@@ -301,6 +301,18 @@ const pitchLabelText = Array.from(window.document.querySelectorAll("#pitchLabels
   .join("|")
 check("음높이 고정 라벨 표시", pitchLabelText.length > 0, pitchLabelText)
 const canvasWrap = window.document.querySelector(".canvas-wrap")
+const timelineDuration = SD.getStateSummary().duration
+check(
+  "드로잉 타임라인은 2.5초 칸 폭 고정",
+  canvasWrap.dataset.segmentWidth === "240" &&
+    canvasWrap.style.getPropertyValue("--timeline-width") === Math.ceil(56 + timelineDuration * 96) + "px",
+  canvasWrap.dataset.segmentWidth + "/" + canvasWrap.style.getPropertyValue("--timeline-width"),
+)
+check(
+  "드로잉 타임라인 라벨은 2.5초 간격",
+  qc("#paletteLabels .palette-label") === Math.ceil(timelineDuration / 2.5),
+  qc("#paletteLabels .palette-label"),
+)
 canvasWrap.scrollLeft = 360
 canvasWrap.dispatchEvent(new window.Event("scroll"))
 check(

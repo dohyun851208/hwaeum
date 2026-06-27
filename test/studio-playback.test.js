@@ -29,3 +29,19 @@ test("main playback can start without a drawn melody so background music can pla
   assert.doesNotMatch(playBody, /requireDrawn\(\)/)
   assert.match(saveTakeBody, /requireDrawn\(\)/, "empty-canvas checks should remain on take saving")
 })
+
+test("background range pause keeps its current position for resume", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const pauseBody = functionBody(source, "pauseBgPlayer")
+  const playBody = functionBody(source, "playBgPlayer")
+  const toggleBody = functionBody(source, "toggleBgPlay")
+
+  assert.match(source, /let bgPausedAt = null/)
+  assert.match(pauseBody, /const pausedAt = bgPlayer\.currentTime/)
+  assert.match(pauseBody, /if \(keepPosition && bgTimeInSelectedRange\(pausedAt\)\)/)
+  assert.match(pauseBody, /bgPausedAt = pausedAt/)
+  assert.match(playBody, /const startAt = bgTimeInSelectedRange\(bgPausedAt\) \? bgPausedAt : state\.bgOffset/)
+  assert.match(playBody, /bgPlayer\.currentTime = startAt/)
+  assert.match(playBody, /bgPausedAt = null/)
+  assert.match(toggleBody, /else pauseBgPlayer\(true\)/)
+})

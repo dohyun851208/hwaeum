@@ -6,7 +6,7 @@
     <meta name="google-signin-client_id" content="" />
     <title>화음(畵音) · 그림으로 만드는 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260627-grid-lines" />
+    <link rel="stylesheet" href="./styles.css?v=20260627-haegeum-grid" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body data-step="0">
@@ -44,6 +44,7 @@
         <button class="step" type="button" data-step-jump="1"><span>2</span><strong>배경/악기</strong></button>
         <button class="step" type="button" data-step-jump="2"><span>3</span><strong>드로잉</strong></button>
         <button class="step" type="button" data-step-jump="3"><span>4</span><strong>완성</strong></button>
+        <button class="step" type="button" data-step-jump="4"><span>5</span><strong>공유</strong></button>
       </nav>
 
       <main class="stage">
@@ -218,7 +219,19 @@
               <button class="btn small" id="exportDrawingImageBtn" type="button">드로잉 이미지(PNG)</button>
               <button class="btn small" id="exportDrawingVideoBtn" type="button">드로잉 영상(WebM)</button>
               <button class="btn small" id="exportCoverBtn" type="button">커버 이미지(PNG)</button>
-              <button class="btn small" id="shareBtn" type="button">공유 링크 복사</button>
+              <button class="btn small" id="shareBtn" type="button">레시피 링크 복사</button>
+            </div>
+            <div class="share-publish-panel" aria-label="학급 채널 공유">
+              <div>
+                <strong>학급 채널에 공유</strong>
+                <span class="muted">완성 음악과 표지를 작게 압축해서 올립니다.</span>
+              </div>
+              <label class="share-channel-field" for="shareChannelInput">
+                <span>채널 번호</span>
+                <input id="shareChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="예: 3021" />
+              </label>
+              <button class="btn small primary" id="publishShareBtn" type="button">채널에 공유하기</button>
+              <button class="btn small" id="openShareStepBtn" type="button">공유 탭 보기</button>
             </div>
             <p class="upload-status" id="exportStatus" aria-live="polite"></p>
 
@@ -236,6 +249,35 @@
           </section>
           <div class="screen-actions">
             <button class="btn" type="button" data-step-prev>이전</button>
+            <button class="btn primary" type="button" data-step-next>공유 탭으로</button>
+          </div>
+        </section>
+
+        <!-- 5단계: 공유 -->
+        <section class="screen share-screen" data-screen="4" aria-label="5단계 공유">
+          <div class="screen-head">
+            <p class="eyebrow">Step 5</p>
+            <h2>학급 채널의 음악을 봅니다</h2>
+            <p class="lead">채널 번호를 적으면 같은 채널에 공유된 그림 음악을 볼 수 있습니다. 내 작품은 직접 지울 수 있고, 관리자는 PIN으로 지울 수 있습니다.</p>
+          </div>
+          <section class="panel share-board">
+            <div class="share-toolbar">
+              <label class="share-channel-field" for="channelBrowseInput">
+                <span>채널 번호</span>
+                <input id="channelBrowseInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="예: 3021" />
+              </label>
+              <button class="btn primary" id="loadChannelBtn" type="button">채널 열기</button>
+              <label class="share-channel-field admin-pin-field" for="shareAdminPinInput">
+                <span>관리자 PIN</span>
+                <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자만" />
+              </label>
+            </div>
+            <p class="upload-status" id="shareStatus" aria-live="polite"></p>
+            <div class="shared-works-list" id="sharedWorksList"></div>
+            <p class="muted shared-empty" id="sharedEmpty">채널 번호를 입력하고 열기를 누르면 공유된 음악이 여기에 모입니다.</p>
+          </section>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>완성으로</button>
           </div>
         </section>
       </main>
@@ -249,10 +291,11 @@
     <script src="./js/manifest.js?v=20260627-stamp-png"></script>
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
-    <script src="./js/audio-engine.js?v=20260626-grid-credit-stop"></script>
-    <script src="./js/drawing.js?v=20260627-grid-lines"></script>
+    <script src="./js/audio-engine.js?v=20260627-gugak-tone-match"></script>
+    <script src="./js/drawing.js?v=20260627-haegeum-grid"></script>
     <script src="./js/takes.js?v=20260624-reflect-limit"></script>
+    <script src="./js/share-store.js?v=20260627-channel-share"></script>
     <script src="./js/auth.js?v=20260627-google-login" defer></script>
-    <script src="./js/studio.js?v=20260627-bg-range-duration" defer></script>
+    <script src="./js/studio.js?v=20260627-haegeum-grid" defer></script>
   </body>
 </html>

@@ -162,7 +162,25 @@ test("scheduleSampleMelody sustains contiguous notes as one connected sample phr
   assert.ok(ctx.created.buffers[0].playbackRate.events.length >= 3)
 })
 
-test("multi-sample melody schedules each note with its own instrument sample buffer", () => {
+test("scheduleSampleMelody loops a long single phrase sample until the drawn note ends", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 5, midi: 60, velocity: 0.7 }],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].loop, true)
+  assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 5)
+})
+
+test("multi-sample melody sustains contiguous notes as one connected phrase", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -173,6 +191,75 @@ test("multi-sample melody schedules each note with its own instrument sample buf
       { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
       { time: 0.5, duration: 0.5, midi: 62, velocity: 0.7 },
       { time: 1, duration: 0.5, midi: 64, velocity: 0.7 },
+    ],
+  )
+  const c4 = { duration: 1.2, id: "viola_C4" }
+  const d4 = { duration: 1.2, id: "viola_D4" }
+  const e4 = { duration: 1.2, id: "viola_E4" }
+
+  engine.scheduleSampleMelody(
+    ctx,
+    dest,
+    plan,
+    plan.notes,
+    { melody: { duration: 1.2, id: "fallback" }, melodySamples: { 60: c4, 62: d4, 64: e4 } },
+    0,
+    noop,
+  )
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.deepEqual(ctx.created.buffers[0].buffer, c4)
+  assert.ok(ctx.created.buffers[0].playbackRate.events.some((event) => event[0] === "target"))
+})
+
+test("haegeum connected notes glide smoothly without re-triggering the grace bend", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "haegeum", style: "gugak", version: "balanced", mode: "melody" },
+    [
+      { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
+      { time: 0.5, duration: 0.5, midi: 62, velocity: 0.7 },
+      { time: 1, duration: 0.5, midi: 64, velocity: 0.7 },
+    ],
+  )
+  const c4 = { duration: 2.4, id: "haegeum_C4" }
+
+  engine.scheduleSampleMelody(
+    ctx,
+    dest,
+    plan,
+    plan.notes,
+    { melody: { duration: 2.4, id: "fallback" }, melodySamples: { 60: c4 } },
+    0,
+    noop,
+  )
+
+  const rateEvents = ctx.created.buffers[0].playbackRate.events
+  const targets = rateEvents.filter((event) => event[0] === "target")
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.ok(targets.length >= 2, "connected haegeum notes should glide on the same sample source")
+  assert.ok(targets.every((event) => event[3] === 0.12), "haegeum uses a slower full-playback glide")
+  assert.equal(
+    rateEvents.some((event) => event[0] === "set" && Math.abs(event[2] - 0.5) < 1e-6),
+    false,
+    "connected haegeum note changes should not re-trigger the starting grace bend",
+  )
+})
+
+test("multi-sample melody keeps separate strokes as separate sample starts", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "viola", style: "bright", version: "balanced", mode: "melody" },
+    [
+      { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
+      { time: 1.2, duration: 0.5, midi: 62, velocity: 0.7 },
+      { time: 2.4, duration: 0.5, midi: 64, velocity: 0.7 },
     ],
   )
   const c4 = { duration: 1.2, id: "viola_C4" }
@@ -219,6 +306,86 @@ test("멀티샘플 악기는 드로잉 중 비동기 재시작 없이 피치만 
 
   assert.equal(restarted, false, "멀티샘플 미리듣기는 음 경계마다 재시작하면 안 됨")
   assert.ok(rateParam.events.some((e) => e[0] === "target"), "playbackRate 를 글라이드해야 함")
+})
+
+test("haegeum live drawing preview uses a slower pitch glide", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const recipe = { duration: 30, atmosphere: "calm", instrument: "haegeum", style: "gugak", version: "balanced", mode: "melody" }
+  const plan = engine.resolvePlan(recipe, [])
+  const rateParam = makeParam()
+  engine.ensureContext = () => ctx
+  engine.livePreview = {
+    kind: "sample",
+    signature: engine._liveSignature(plan),
+    sampleMidi: plan.melodyAsset.baseMidi,
+    rateParam: rateParam,
+  }
+
+  engine.liveDrawingMove(recipe, 0.4)
+
+  const target = rateParam.events.find((event) => event[0] === "target")
+  assert.ok(target, "haegeum live preview should glide instead of restarting")
+  assert.equal(target[3], 0.09)
+})
+
+test("live drawing preview uses the full-playback melody gain target", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "violin", style: "bright", version: "balanced", mode: "melody" },
+    [],
+  )
+
+  engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
+
+  const target = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
+  assert.ok(target >= 0.9, "드로잉 중 미리듣기 음량이 전체 재생 선율 기준보다 작다")
+  assert.ok(target <= 0.95, "마스터 리미터 없는 프리뷰는 클리핑 방지 상한을 지켜야 한다")
+})
+
+test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도 같은 출력 목표를 쓴다", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const previewCtx = makeAudioContext()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 1.2, midi: 60, velocity: 0.7 }],
+  )
+
+  engine._createSampleLivePreview(previewCtx, plan, { duration: 2.4 }, 0.5)
+
+  const previewTarget = previewCtx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
+  const previousDrawingTarget = plan.version.melodyGain * (0.7 * 0.85) * 0.85
+  assert.ok(Math.abs(previewTarget - previousDrawingTarget * 1.3) < 1e-9)
+
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
+
+  const phrasePeak = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
+  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.85
+  assert.ok(Math.abs(playbackOutputTarget - previewTarget) < 1e-9)
+
+  const toneFilter = ctx.created.filters.find((filter) => filter.frequency.events.some((event) => event[1] === 2300))
+  assert.ok(toneFilter, "전체 재생도 드로잉 미리듣기와 같은 국악 샘플 필터를 써야 한다")
+  assert.ok(toneFilter.Q.events.some((event) => event[1] === 0.9))
+})
+
+test("live drawing preview loops long sample tones, including gayageum", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [],
+  )
+
+  engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
+
+  assert.equal(ctx.created.buffers[0].loop, true)
 })
 
 test("resolvePlan applies instrument playback transposition per drawn voice", () => {

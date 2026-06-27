@@ -13,6 +13,14 @@
   const EFFECT_GAIN = 0.15
   const BACKGROUND_OUTPUT_GAIN = 1.5
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
+  const LIVE_PREVIEW_MAX_GAIN = 0.95
+  const MASTER_OUTPUT_GAIN = 0.85
+  const GUGAK_DRAWING_GAIN_BOOST = 1.3
+  const NOTE_GLIDE_SECONDS = 0.035
+  const LIVE_NOTE_GLIDE_SECONDS = 0.025
+  const HAEGEUM_NOTE_GLIDE_SECONDS = 0.12
+  const HAEGEUM_LIVE_NOTE_GLIDE_SECONDS = 0.09
+  const HAEGEUM_PHRASE_ATTACK_SECONDS = 0.06
 
   function midiToFreq(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12)
@@ -24,6 +32,9 @@
   function isWesternInstrument(instrument) {
     return !!(instrument && instrument.group === "서양")
   }
+  function isGugakInstrument(instrument) {
+    return !!(instrument && instrument.group === "국악")
+  }
 
   function backgroundOutputGain(plan) {
     return ((plan && plan.version && plan.version.padGain) || 0) * BACKGROUND_OUTPUT_GAIN
@@ -34,8 +45,50 @@
     return base * (isWesternInstrument(instrument || (plan && plan.instrument)) ? WESTERN_MELODY_OUTPUT_GAIN : 1)
   }
 
+  function livePreviewTargetGain(plan, noteEnvPeak) {
+    const boost = isGugakInstrument(plan && plan.instrument) ? GUGAK_DRAWING_GAIN_BOOST : 1
+    const outputGain = melodyOutputGain(plan, plan && plan.instrument) * noteEnvPeak * MASTER_OUTPUT_GAIN * boost
+    return clamp(outputGain, 0.12, LIVE_PREVIEW_MAX_GAIN * boost)
+  }
+
+  function melodyPlaybackEnvPeak(plan, noteEnvPeak) {
+    if (!isGugakInstrument(plan && plan.instrument)) return noteEnvPeak
+    const outputGain = melodyOutputGain(plan, plan && plan.instrument)
+    if (!(outputGain > 0)) return noteEnvPeak
+    return livePreviewTargetGain(plan, noteEnvPeak) / (outputGain * MASTER_OUTPUT_GAIN)
+  }
+
   function previewOutputGain(plan) {
     return isWesternInstrument(plan && plan.instrument) ? WESTERN_MELODY_OUTPUT_GAIN : 1
+  }
+  function isHaegeumPlan(plan) {
+    return !!(plan && plan.instrument && plan.instrument.id === "haegeum")
+  }
+  function noteGlideSeconds(plan) {
+    return isHaegeumPlan(plan) ? HAEGEUM_NOTE_GLIDE_SECONDS : NOTE_GLIDE_SECONDS
+  }
+  function liveNoteGlideSeconds(plan) {
+    return isHaegeumPlan(plan) ? HAEGEUM_LIVE_NOTE_GLIDE_SECONDS : LIVE_NOTE_GLIDE_SECONDS
+  }
+  function phraseAttackSeconds(plan) {
+    return isHaegeumPlan(plan) ? HAEGEUM_PHRASE_ATTACK_SECONDS : NOTE_GLIDE_SECONDS
+  }
+  function configureSampleToneFilter(filter, plan, when) {
+    const isGugak = isGugakInstrument(plan && plan.instrument)
+    filter.type = "lowpass"
+    filter.frequency.setValueAtTime(isGugak ? 2300 : 2600, when)
+    filter.Q.setValueAtTime(isGugak ? 0.9 : 0.65, when)
+  }
+  function connectGugakSampleTone(ctx, source, env, plan, when) {
+    if (!isGugakInstrument(plan && plan.instrument) || typeof ctx.createBiquadFilter !== "function") {
+      source.connect(env)
+      return null
+    }
+    const filter = ctx.createBiquadFilter()
+    configureSampleToneFilter(filter, plan, when)
+    source.connect(filter)
+    filter.connect(env)
+    return filter
   }
   // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
   // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
@@ -205,8 +258,8 @@
   }
 
   // 연속으로 그린 음들은 하나의 프레이즈 엔벨로프로 감싸, 경계마다 다시 타격되지 않게 한다.
-  function applyPhraseEnv(env, peak, phraseStart, phraseDuration) {
-    const attack = Math.min(0.035, phraseDuration * 0.25)
+  function applyPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack) {
+    const attack = Math.min(maxAttack || NOTE_GLIDE_SECONDS, phraseDuration * 0.25)
     const release = Math.min(0.18, Math.max(0.08, phraseDuration * 0.2))
     const phraseEndTime = phraseStart + phraseDuration
     const holdEnd = Math.max(phraseStart + attack + 0.005, phraseEndTime - release)
@@ -617,40 +670,54 @@
     const sampleBuffers = instBuffers.melodySamples
     const multi = isMultiSample(asset)
     const samplePhrase = asset.sampleMode === "phrase"
+    const glideSeconds = noteGlideSeconds(plan)
+    const attackSeconds = phraseAttackSeconds(plan)
     if (multi) {
-      for (const note of notes) {
-        const noteStart = start + note.time
-        const segment = nearestSampleSegment(asset, note.midi)
+      const phrases = contiguousPhrases(notes)
+      for (const phraseNotes of phrases) {
+        const first = phraseNotes[0]
+        const last = phraseNotes[phraseNotes.length - 1]
+        const phraseStart = start + first.time
+        const phraseDuration = phraseEnd(phraseNotes) - first.time
+        const phraseStop = start + last.time + last.duration
+        const segment = nearestSampleSegment(asset, first.midi)
         const srcBuffer = sampleBufferFor(sampleBuffers, segment, buffer)
         if (!srcBuffer) continue
-        const baseRate = segmentPlaybackRate(asset, note.midi, segment)
-        if (asset.tremoloAfter != null && note.duration >= asset.tremoloAfter) {
-          this.scheduleSampleTremolo(ctx, dest, note, srcBuffer, baseRate, start, register)
-          continue
-        }
         const src = ctx.createBufferSource()
         const env = ctx.createGain()
+        const baseRate = segmentPlaybackRate(asset, first.midi, segment)
         const usableSourceDur = srcBuffer.duration
-        const needSustain = note.duration * baseRate > usableSourceDur * 0.85
+        const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
         src.buffer = srcBuffer
-        src.playbackRate.setValueAtTime(baseRate, noteStart)
-        this.applySigimsae(src, null, baseRate, note, plan, noteStart)
+        src.playbackRate.setValueAtTime(baseRate, phraseStart)
+        for (let k = 1; k < phraseNotes.length; k++) {
+          const note = phraseNotes[k]
+          const noteStart = start + note.time
+          const nextRate = segmentPlaybackRate(asset, note.midi, segment)
+          src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
+        }
+        for (let k = 0; k < phraseNotes.length; k++) {
+          const note = phraseNotes[k]
+          this.applySigimsae(src, null, segmentPlaybackRate(asset, note.midi, segment), note, plan, start + note.time, {
+            skipGrace: isHaegeumPlan(plan) && k > 0,
+          })
+        }
         if (needSustain && usableSourceDur > 0.25) {
           src.loop = true
           src.loopStart = Math.min(0.12, usableSourceDur * 0.2)
           src.loopEnd = Math.max(usableSourceDur - Math.min(0.08, usableSourceDur * 0.1), src.loopStart + 0.15)
         }
-        applyPhraseEnv(env, note.velocity * 0.85, noteStart, note.duration)
-        src.connect(env)
+        applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
+        connectGugakSampleTone(ctx, src, env, plan, phraseStart)
         env.connect(dest)
         register(src)
         if (src.loop) {
-          src.start(noteStart, 0)
+          src.start(phraseStart, 0)
         } else {
-          const srcDur = Math.max(0.05, Math.min(usableSourceDur, note.duration * baseRate + 0.18))
-          src.start(noteStart, 0, srcDur)
+          const srcDur = Math.max(0.05, Math.min(usableSourceDur, phraseDuration * baseRate + 0.18))
+          src.start(phraseStart, 0, srcDur)
         }
-        src.stop(noteStart + note.duration + 0.18)
+        src.stop(phraseStop + 0.18)
       }
       return
     }
@@ -664,8 +731,7 @@
       const src = ctx.createBufferSource()
       const env = ctx.createGain()
       const segment = nearestSampleSegment(asset, first.midi)
-      // 멀티샘플이면 프레이즈 첫 음에 가장 가까운 실제 녹음을 쓰고, 나머지는 거기서 미세 피치시프트.
-      const srcBuffer = multi ? sampleBufferFor(sampleBuffers, segment, buffer) : buffer
+      const srcBuffer = buffer
       const baseRate = segmentPlaybackRate(asset, first.midi, segment)
       src.buffer = srcBuffer
       src.playbackRate.setValueAtTime(baseRate, phraseStart)
@@ -673,24 +739,25 @@
         const note = notes[k]
         const noteStart = start + note.time
         const nextRate = segmentPlaybackRate(asset, note.midi, segment)
-        src.playbackRate.setTargetAtTime(nextRate, noteStart, 0.035)
+        src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
       }
-      for (const note of notes) {
-        this.applySigimsae(src, null, segmentPlaybackRate(asset, note.midi, segment), note, plan, start + note.time)
+      for (let k = 0; k < notes.length; k++) {
+        const note = notes[k]
+        this.applySigimsae(src, null, segmentPlaybackRate(asset, note.midi, segment), note, plan, start + note.time, {
+          skipGrace: isHaegeumPlan(plan) && k > 0,
+        })
       }
-      const offset = multi ? 0 : segment ? segment.offset : samplePhrase ? this.phraseOffset(srcBuffer, first) : 0
-      const usableSourceDur = multi ? srcBuffer.duration : segment ? segment.duration : srcBuffer.duration - offset
+      const offset = segment ? segment.offset : samplePhrase ? this.phraseOffset(srcBuffer, first) : 0
+      const usableSourceDur = segment ? segment.duration : srcBuffer.duration - offset
       const needSustain = phraseDuration * baseRate > usableSourceDur * 0.85
-      // 발현(뜯는) 악기인 가야금은 길게 끌어도 한 번 뜯고 자연 감쇠해야 한다.
-      // 구간을 루프하면 "띵~띵~띵" 다시 뜯는 소리가 되므로 지속음 루프에서 제외한다.
-      const plucked = plan.instrument && plan.instrument.id === "gayageum"
-      if (needSustain && usableSourceDur > 0.25 && !plucked) {
+      // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지도록 안정 구간을 루프한다.
+      if (needSustain && usableSourceDur > 0.25) {
         src.loop = true
         src.loopStart = offset + Math.min(0.12, usableSourceDur * 0.2)
         src.loopEnd = offset + Math.max(usableSourceDur - Math.min(0.08, usableSourceDur * 0.1), src.loopStart - offset + 0.15)
       }
-      applyPhraseEnv(env, first.velocity * 0.85, phraseStart, phraseDuration)
-      src.connect(env)
+      applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
+      connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
       register(src)
       if (src.loop) {
@@ -705,6 +772,8 @@
 
   AudioEngine.prototype.scheduleSynthMelody = function (ctx, dest, plan, notes, start, register) {
     const voice = synthVoiceFor(plan.instrument)
+    const glideSeconds = noteGlideSeconds(plan)
+    const attackSeconds = phraseAttackSeconds(plan)
     const phrases = contiguousPhrases(notes)
     for (const notes of phrases) {
       const first = notes[0]
@@ -719,16 +788,19 @@
       osc.frequency.setValueAtTime(midiToFreq(first.midi), phraseStart)
       for (let k = 1; k < notes.length; k++) {
         const note = notes[k]
-        osc.frequency.setTargetAtTime(midiToFreq(note.midi), start + note.time, 0.035)
+        osc.frequency.setTargetAtTime(midiToFreq(note.midi), start + note.time, glideSeconds)
       }
-      for (const note of notes) {
-        this.applySigimsae(null, osc, midiToFreq(note.midi), note, plan, start + note.time)
+      for (let k = 0; k < notes.length; k++) {
+        const note = notes[k]
+        this.applySigimsae(null, osc, midiToFreq(note.midi), note, plan, start + note.time, {
+          skipGrace: isHaegeumPlan(plan) && k > 0,
+        })
       }
       filter.type = "lowpass"
       filter.frequency.setValueAtTime(voice.cutoff, phraseStart)
       filter.Q.setValueAtTime(voice.Q, phraseStart)
       // 합성 선율은 실제 샘플(0.85)보다 작게 들려 묻히므로 피크를 끌어올림.
-      applyPhraseEnv(env, first.velocity * 0.78, phraseStart, phraseDuration)
+      applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.78), phraseStart, phraseDuration, attackSeconds)
       osc.connect(filter)
       filter.connect(env)
       env.connect(dest)
@@ -760,7 +832,7 @@
   }
 
   // 시김새: source(샘플) 또는 osc(합성)에 피치 자동화 적용
-  AudioEngine.prototype.applySigimsae = function (source, osc, baseValue, note, plan, t0) {
+  AudioEngine.prototype.applySigimsae = function (source, osc, baseValue, note, plan, t0, options) {
     const durationBeats = note.duration / 0.5
     const segs = Core.sigimsaeFor({ gugak: plan.gugak, durationBeats: durationBeats })
     if (!segs.length) return
@@ -768,6 +840,7 @@
     for (const seg of segs) {
       const at = t0 + clamp(seg.at, 0, 0.95) * noteLen
       if (seg.type === "grace") {
+        if (options && options.skipGrace) continue
         // 꺾음: 짧게 위로 꺾었다가 본음으로
         if (source) {
           const up = baseValue * Math.pow(2, seg.semitones / 12)
@@ -948,8 +1021,7 @@
     const source = ctx.createBufferSource()
     const env = ctx.createGain()
     const filter = ctx.createBiquadFilter()
-    const isGugak = plan.instrument.group === "국악"
-    const targetGain = (isGugak ? 0.34 : 0.3) * previewOutputGain(plan) // 그리는 중 선율을 배경 위로 더 또렷하게
+    const targetGain = livePreviewTargetGain(plan, 0.7 * 0.85)
     const multi = isMultiSample(plan.melodyAsset)
     const segment = nearestSampleSegment(plan.melodyAsset, midi)
     const offset = multi ? 0 : segment ? segment.offset : Math.min(0.05, Math.max(0, buffer.duration * 0.08))
@@ -957,14 +1029,12 @@
 
     source.buffer = buffer
     source.playbackRate.setValueAtTime(segmentPlaybackRate(plan.melodyAsset, midi, segment), start)
-    if (buffer.duration > 0.45 && segmentDur > 0.45 && plan.instrument.id !== "gayageum") {
+    if (buffer.duration > 0.45 && segmentDur > 0.45) {
       source.loop = true
       source.loopStart = offset + Math.min(0.18, Math.max(0.04, segmentDur * 0.18))
       source.loopEnd = offset + Math.max(source.loopStart - offset + 0.18, segmentDur - Math.min(0.08, segmentDur * 0.12))
     }
-    filter.type = "lowpass"
-    filter.frequency.setValueAtTime(isGugak ? 2300 : 2600, start)
-    filter.Q.setValueAtTime(isGugak ? 0.9 : 0.65, start)
+    configureSampleToneFilter(filter, plan, start)
     env.gain.setValueAtTime(0.0001, start)
     env.gain.linearRampToValueAtTime(targetGain, start + 0.035)
 
@@ -1002,9 +1072,7 @@
     const filter = ctx.createBiquadFilter()
     const lfo = ctx.createOscillator()
     const lfoGain = ctx.createGain()
-    const isGugak = plan.instrument.group === "국악"
-    const isElectronic = plan.instrument.group === "전자"
-    const targetGain = (isElectronic ? 0.2 : isGugak ? 0.26 : 0.24) * previewOutputGain(plan) // 그리는 중 선율을 배경 위로 더 또렷하게
+    const targetGain = livePreviewTargetGain(plan, 0.7 * 0.78)
     const voice = synthVoiceFor(plan.instrument)
 
     osc.type = voice.waveform
@@ -1099,6 +1167,7 @@
         return
       }
       const now = ctx.currentTime
+      const liveGlideSeconds = liveNoteGlideSeconds(plan)
       if (self.livePreview.kind === "sample") {
         if (isMultiSample(plan.melodyAsset)) {
           // 멀티샘플(서양 선율): 드로잉 중엔 시작 시 불러온 한 음을 기준으로 피치만 매끄럽게 글라이드.
@@ -1111,7 +1180,7 @@
                 : midi
           const nextRate = Math.pow(2, (midi - baseMidi) / 12)
           self.livePreview.rateParam.cancelScheduledValues(now)
-          self.livePreview.rateParam.setTargetAtTime(nextRate, now, 0.025)
+          self.livePreview.rateParam.setTargetAtTime(nextRate, now, liveGlideSeconds)
         } else {
           const nextSegment = nearestSampleSegment(plan.melodyAsset, midi)
           const nextSampleMidi = nextSegment ? nextSegment.midi : null
@@ -1122,12 +1191,12 @@
           }
           const nextRate = segmentPlaybackRate(plan.melodyAsset, midi, nextSegment)
           self.livePreview.rateParam.cancelScheduledValues(now)
-          self.livePreview.rateParam.setTargetAtTime(nextRate, now, 0.025)
+          self.livePreview.rateParam.setTargetAtTime(nextRate, now, liveGlideSeconds)
         }
       } else {
         const nextFreq = midiToFreq(midi)
         self.livePreview.osc.frequency.cancelScheduledValues(now)
-        self.livePreview.osc.frequency.setTargetAtTime(nextFreq, now, 0.025)
+        self.livePreview.osc.frequency.setTargetAtTime(nextFreq, now, liveGlideSeconds)
       }
     }
     if (ctx.state === "suspended") return ctx.resume().then(run)
@@ -1451,7 +1520,7 @@
     }
     const start = ctx.currentTime + 0.05
     const master = ctx.createGain()
-    master.gain.setValueAtTime(0.85, start)
+    master.gain.setValueAtTime(MASTER_OUTPUT_GAIN, start)
     connectMasterToOutput(ctx, master, ctx.destination, start)
     this.master = master
     const usedReal = this.schedule(ctx, master, plan, buffers, start, register)
@@ -1487,14 +1556,15 @@
     const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext
     const offline = new OAC(2, length, sampleRate)
     const master = offline.createGain()
-    master.gain.setValueAtTime(0.85, 0)
+    master.gain.setValueAtTime(MASTER_OUTPUT_GAIN, 0)
     connectMasterToOutput(offline, master, offline.destination, 0)
     const noop = function () {}
     this.schedule(offline, master, plan, buffers, 0, noop)
     return await offline.startRendering()
   }
 
-  AudioEngine.prototype.exportCompressedAudio = async function (recipe, notes, filename) {
+  AudioEngine.prototype.renderCompressedAudioBlob = async function (recipe, notes, options) {
+    options = options || {}
     const mimeType = supportedCompressedAudioMime()
     if (!mimeType) throw new Error("Compressed WebM audio recording is not supported")
     const ctx = this.ensureContext()
@@ -1508,7 +1578,9 @@
     source.buffer = rendered
     source.connect(dest)
     const chunks = []
-    const recorder = new root.MediaRecorder(dest.stream, { mimeType })
+    const recorderOptions = { mimeType: mimeType }
+    if (options.audioBitsPerSecond) recorderOptions.audioBitsPerSecond = options.audioBitsPerSecond
+    const recorder = new root.MediaRecorder(dest.stream, recorderOptions)
     let stopTimer = 0
     let stopped = false
     const stopRecorder = function () {
@@ -1542,7 +1614,11 @@
       dest.stream.getTracks().forEach((track) => track.stop())
     }
     if (!chunks.length) throw new Error("Compressed audio is empty")
-    const blob = new Blob(chunks, { type: mimeType })
+    return new Blob(chunks, { type: mimeType })
+  }
+
+  AudioEngine.prototype.exportCompressedAudio = async function (recipe, notes, filename) {
+    const blob = await this.renderCompressedAudioBlob(recipe, notes)
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url

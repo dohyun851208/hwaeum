@@ -38,7 +38,9 @@ function makeContext() {
     lineCap: "butt",
     lineJoin: "miter",
     clearRect() {},
-    fillRect() {},
+    fillRect(x, y, w, h) {
+      this.calls.push(["fillRect", x, y, w, h, this.fillStyle])
+    },
     beginPath() {},
     moveTo(x, y) {
       this.calls.push(["moveTo", x, y])
@@ -134,6 +136,9 @@ test("renderGrid draws pitch-row cells with timeline vertical lines", () => {
   ctx.calls.length = 0
   draw.renderGrid()
 
+  const fills = ctx.calls.filter((call) => call[0] === "fillRect")
+  assert.equal(fills.length, 2, "grid should only fill the paper and pitch-label gutter without row shading")
+
   const verticals = []
   for (let i = 0; i < ctx.calls.length - 1; i++) {
     const a = ctx.calls[i]
@@ -150,10 +155,14 @@ test("renderGrid draws pitch-row cells with timeline vertical lines", () => {
       horizontals.push(a[2])
     }
   }
-  assert.equal(verticals.length, 31, "30 second drawing grid should show one vertical line per second")
+  assert.equal(verticals.length, 13, "30 second drawing grid should show one vertical line every 2.5 seconds")
   assert.ok(verticals.every((x) => x >= 0 && x <= draw.canvas.width), "vertical lines should stay inside the canvas")
   assert.ok(verticals[0] > 0, "0초 세로선은 음높이 라벨 뒤에서 시작해야 한다")
   assert.ok(Math.abs(verticals[0] - draw._timelineLeft()) <= 1, "0초 세로선은 라벨 폭만큼 이동해야 한다")
+  assert.ok(
+    Math.abs(verticals[1] - verticals[0] - (draw._timelineWidth() * 2.5) / 30) <= 1,
+    "첫 번째 시간 칸은 2.5초 폭이어야 한다",
+  )
   assert.equal(horizontals.length, rowCount + 1, "pitch rows should draw one boundary line around each row")
 })
 

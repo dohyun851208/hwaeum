@@ -21,8 +21,6 @@ test-results
 output
 tools
 *.md
-package.json
-package-lock.json
 *.bat
 .server.pid
 project.json

@@ -8,6 +8,8 @@
 ;(function (root) {
   "use strict"
   const Core = root.MusicCore
+  const TIMELINE_GRID_SECONDS = 2.5
+  const PITCH_LABEL_GUTTER_CSS_PX = 56
 
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v))
@@ -624,32 +626,31 @@
     // 화첩 종이 배경
     ctx.fillStyle = "#fbf6ec"
     ctx.fillRect(0, 0, W, H)
-    ctx.fillStyle = "rgba(251,246,236,0.9)"
+    ctx.fillStyle = "#fbf6ec"
     ctx.fillRect(0, 0, labelGutter, H)
 
     // 음높이 칸: 그릴 수 있는 음마다 한 칸. 각 음이 줄 위가 아니라 칸 안(중앙)에 들어가도록 경계선을 그린다.
     const st = this.getState()
     const rows = drawableScaleFor(st.style, st.melodyAsset)
     const rowCount = rows.length
-    for (let i = 0; i < rowCount; i++) {
-      const bounds = pitchRowBoundsY(i, rowCount, H)
-      // 모든 칸이 실제로 소리나는 음 → 밝게(연주 가능 표시). 한 칸 걸러 미세하게 농담을 줘 구분.
-      ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.22)"
-      ctx.fillRect(labelGutter, bounds.top, W - labelGutter, Math.max(0, bounds.bottom - bounds.top))
-    }
-
     const gridLineWidth = Math.max(1, Math.round(px))
     const duration = Math.max(1, Number(st.duration) || 30)
     ctx.lineWidth = gridLineWidth
-    for (let t = 0; t <= duration; t++) {
+    const drawVerticalLine = function (t) {
       const x = labelGutter + ((W - labelGutter) * t) / duration
       const crispX = crispLinePosition(x, gridLineWidth, 0, W)
-      ctx.strokeStyle = t % 5 === 0 ? "rgba(32,41,42,0.14)" : "rgba(32,41,42,0.06)"
+      ctx.strokeStyle = "rgba(32,41,42,0.09)"
       ctx.beginPath()
       ctx.moveTo(crispX, 0)
       ctx.lineTo(crispX, H)
       ctx.stroke()
     }
+    let lastGridTime = 0
+    for (let t = 0; t <= duration + 0.0001; t += TIMELINE_GRID_SECONDS) {
+      lastGridTime = Math.min(t, duration)
+      drawVerticalLine(lastGridTime)
+    }
+    if (Math.abs(lastGridTime - duration) > 0.0001) drawVerticalLine(duration)
 
     ctx.strokeStyle = "rgba(32,41,42,0.09)"
     for (let i = 0; i <= rowCount; i++) {
@@ -663,7 +664,7 @@
 
   DrawingCanvas.prototype._pitchLabelGutter = function () {
     const px = this.pixelRatio || 1
-    return Math.min(68 * px, Math.max(48 * px, this.canvas.width * 0.055))
+    return PITCH_LABEL_GUTTER_CSS_PX * px
   }
 
   DrawingCanvas.prototype.pitchLabelGutterCssPx = function () {
@@ -693,13 +694,8 @@
     const labelGutter = this._pitchLabelGutter()
     const fontSize = Math.max(10, Math.round(12 * px))
     if (typeof ctx.save === "function") ctx.save()
-    ctx.fillStyle = "rgba(251,246,236,0.92)"
+    ctx.fillStyle = "#fbf6ec"
     ctx.fillRect(0, 0, labelGutter, H)
-    for (let i = 0; i < rows.length; i++) {
-      const bounds = pitchRowBoundsY(i, rows.length, H)
-      ctx.fillStyle = i % 2 ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.22)"
-      ctx.fillRect(0, bounds.top, labelGutter, Math.max(0, bounds.bottom - bounds.top))
-    }
     const gridLineWidth = Math.max(1, Math.round(px))
     ctx.strokeStyle = "rgba(32,41,42,0.09)"
     ctx.lineWidth = gridLineWidth

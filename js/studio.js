@@ -6,10 +6,13 @@
   "use strict"
   const Core = window.MusicCore
   const D = window.SDStudioData
+  const ShareStore = window.HwaeumShareStore || null
 
   const engine = new window.AudioEngine()
   const takes = new window.TakesStore("sda.takes")
-  const SEGMENT_SECONDS = 10
+  const SEGMENT_SECONDS = 2.5
+  const TIMELINE_PIXELS_PER_SECOND = 96
+  const TIMELINE_LABEL_GUTTER_PX = 56
   const DEFAULT_DURATION_SECONDS = 30
   const MIN_DURATION_SECONDS = 1
   const DEFAULT_COVER_SRC = "./assets/default-cover.png"
@@ -17,6 +20,8 @@
   const TAKE_NAME_MAX = 24
   const DRAWING_STEP = 2
   const COMPLETE_STEP = 3
+  const SHARE_STEP = 4
+  const SHARE_AUDIO_BITS_PER_SECOND = 64000
   const DEFAULT_STYLE_ID = "bright" // 기본 음계 = C장조(서양 악기는 파(F)도 난다)
   const GUGAK_STYLE_ID = "gugak" // 국악기만 5음(펜타토닉)+시김새 — 파(F)·시(B) 없음
   const CUSTOM_BG_MAX_BYTES = 50 * 1024 * 1024
@@ -91,6 +96,9 @@
     hashtags: "",
     activeTakeId: null, // 완성 화면에서 지금 보고 있는 시도(테이크)
     adminMode: loadAdminMode(),
+    sharedChannel: ShareStore ? ShareStore.loadChannel() : "",
+    sharedWorks: [],
+    sharedLoading: false,
   }
 
   // 배경 미리듣기 — Web Audio 합주 엔진과 독립된 단순 재생기
@@ -104,6 +112,7 @@
   bgPlayer.preload = "auto"
   bgPlayer.volume = 0.825
   let bgRAF = null
+  let bgPausedAt = null
 
   // 악기 연주곡 감상 — 배경 미리듣기와 동일한 독립 재생기(한 번에 하나만)
   const examplePreview = new Audio()
@@ -175,6 +184,15 @@
     exportDrawingVideoBtn: $("exportDrawingVideoBtn"),
     exportCoverBtn: $("exportCoverBtn"),
     shareBtn: $("shareBtn"),
+    shareChannelInput: $("shareChannelInput"),
+    publishShareBtn: $("publishShareBtn"),
+    openShareStepBtn: $("openShareStepBtn"),
+    channelBrowseInput: $("channelBrowseInput"),
+    loadChannelBtn: $("loadChannelBtn"),
+    shareAdminPinInput: $("shareAdminPinInput"),
+    shareStatus: $("shareStatus"),
+    sharedWorksList: $("sharedWorksList"),
+    sharedEmpty: $("sharedEmpty"),
     exportStatus: $("exportStatus"),
     takesList: $("takesList"),
     takesCount: $("takesCount"),
@@ -313,21 +331,24 @@
     return Math.max(1, Math.ceil(state.duration / SEGMENT_SECONDS))
   }
 
-  function canvasWrap() {
-    return el.canvas.parentElement
+  function timelineLabelTimes() {
+    const duration = Math.max(MIN_DURATION_SECONDS, state.duration || DEFAULT_DURATION_SECONDS)
+    const times = []
+    for (let t = SEGMENT_SECONDS; t < duration - 0.0001; t += SEGMENT_SECONDS) times.push(round3(t))
+    times.push(round3(duration))
+    return times
   }
 
-  function availableTimelineWidth() {
-    const wrap = canvasWrap()
-    if (!wrap) return 960
-    return Math.max(320, Math.floor(wrap.clientWidth))
+  function canvasWrap() {
+    return el.canvas.parentElement
   }
 
   function syncTimelineWidth(resetScroll) {
     const wrap = canvasWrap()
     if (!wrap) return
-    const segmentWidth = Math.max(availableTimelineWidth(), window.matchMedia("(max-width: 720px)").matches ? 520 : 960)
-    const width = segmentWidth * paletteCount()
+    const segmentWidth = Math.round(TIMELINE_PIXELS_PER_SECOND * SEGMENT_SECONDS)
+    const duration = Math.max(MIN_DURATION_SECONDS, state.duration || DEFAULT_DURATION_SECONDS)
+    const width = Math.ceil(TIMELINE_LABEL_GUTTER_PX + duration * TIMELINE_PIXELS_PER_SECOND)
     wrap.style.setProperty("--timeline-width", width + "px")
     wrap.dataset.segmentWidth = String(segmentWidth)
     wrap.dataset.segments = String(paletteCount())
@@ -1193,16 +1214,16 @@
   // --- 팔레트 라벨 ---
 
   function renderPaletteLabels() {
-    const count = paletteCount()
+    const duration = Math.max(MIN_DURATION_SECONDS, state.duration || DEFAULT_DURATION_SECONDS)
+    const times = timelineLabelTimes()
     el.paletteLabels.innerHTML = ""
-    for (let i = 1; i <= count; i++) {
+    times.forEach((time, index) => {
       const d = document.createElement("div")
-      d.className = "palette-label" + (i === count ? " palette-label-end" : "")
-      d.style.left = Math.round(timelineCssX(i / count)) + "px"
-      const time = Math.min(i * SEGMENT_SECONDS, state.duration)
+      d.className = "palette-label" + (index === times.length - 1 ? " palette-label-end" : "")
+      d.style.left = Math.round(timelineCssX(time / duration)) + "px"
       d.innerHTML = "<span>" + secondsLabel(time) + "</span>"
       el.paletteLabels.appendChild(d)
-    }
+    })
   }
 
   function renderPitchAxisLabels() {
@@ -1671,6 +1692,25 @@
     return state.bgEndOffset
   }
 
+  function bgTimeInSelectedRange(time) {
+    const t = Number(time)
+    if (!isFinite(t)) return false
+    const end = selectedBgEnd()
+    return t >= state.bgOffset && t < end - 0.02
+  }
+
+  function bgPlayheadProgress(time) {
+    const end = selectedBgEnd()
+    const segment = Math.max(0.1, end - state.bgOffset)
+    return Math.max(0, Math.min(1, (Number(time) - state.bgOffset) / segment))
+  }
+
+  function positionBgPlayhead(time, follow) {
+    if (!el.playhead) return
+    el.playhead.hidden = false
+    positionPlayhead(bgPlayheadProgress(time), { follow: !!follow })
+  }
+
   function syncBgPlayerUI() {
     normalizeBgRange(true)
     const total = bgDuration()
@@ -1721,6 +1761,7 @@
   // 드로잉 진입/배경 변경 시: 현재 배경 mp3를 걸고 bgOffset 지점에서 정지 대기
   function setupBgPlayer(keepRange) {
     pauseBgPlayer()
+    bgPausedAt = null
     const src = bgSrcFor(state.atmosphere)
     if (!src) {
       bgPlayer.removeAttribute("src")
@@ -1740,14 +1781,21 @@
     syncBgPlayerUI()
   }
 
-  function pauseBgPlayer() {
+  function pauseBgPlayer(keepPosition) {
+    const pausedAt = bgPlayer.currentTime
     try {
       bgPlayer.pause()
     } catch (e) {}
     if (bgRAF) cancelAnimationFrame(bgRAF)
     bgRAF = null
-    if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
-    else if (el.playhead) el.playhead.hidden = true
+    if (keepPosition && bgTimeInSelectedRange(pausedAt)) {
+      bgPausedAt = pausedAt
+      if (state.step === DRAWING_STEP) positionBgPlayhead(bgPausedAt, false)
+    } else {
+      bgPausedAt = null
+      if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
+      else if (el.playhead) el.playhead.hidden = true
+    }
     syncBgPlayerUI()
   }
 
@@ -1757,9 +1805,11 @@
     stopExamplePreview()
     engine.stop() // 전체 재생과 겹치지 않게
     normalizeBgRange(true)
+    const startAt = bgTimeInSelectedRange(bgPausedAt) ? bgPausedAt : state.bgOffset
     try {
-      bgPlayer.currentTime = state.bgOffset
+      bgPlayer.currentTime = startAt
     } catch (e) {}
+    bgPausedAt = null
     const p = bgPlayer.play()
     if (p && p.catch) p.catch((e) => console.warn("배경음악 재생 실패", e))
     if (el.playhead) el.playhead.hidden = false
@@ -1769,7 +1819,7 @@
 
   function toggleBgPlay() {
     if (bgPlayer.paused) playBgPlayer()
-    else pauseBgPlayer()
+    else pauseBgPlayer(true)
   }
 
   function bgTick() {
@@ -1803,6 +1853,7 @@
     state.bgOffset = clampNumber(value, 0, Math.max(0, total - gap))
     state.bgEndOffset =
       isFinite(previousEnd) && previousEnd > state.bgOffset + gap ? previousEnd : defaultBgEnd(total, state.bgOffset)
+    bgPausedAt = null
     normalizeBgRange(true)
     try {
       bgPlayer.currentTime = state.bgOffset
@@ -1828,6 +1879,7 @@
       try {
         bgPlayer.currentTime = state.bgOffset
       } catch (e) {}
+      bgPausedAt = null
       showSelectedPlayhead(false)
     }
     syncBgPlayerUI()
@@ -2294,18 +2346,19 @@
   }
 
   function drawSnapshotTimeLabels(ctx, w, h) {
-    const count = paletteCount()
+    const duration = Math.max(MIN_DURATION_SECONDS, state.duration || DEFAULT_DURATION_SECONDS)
+    const times = timelineLabelTimes()
     const fontSize = Math.max(18, Math.round(w * 0.013))
     ctx.save()
     ctx.font = "800 " + fontSize + "px 'Segoe UI', sans-serif"
     ctx.textBaseline = "middle"
     ctx.textAlign = "center"
-    for (let i = 1; i <= count; i++) {
-      const text = secondsLabel(Math.min(i * SEGMENT_SECONDS, state.duration))
+    times.forEach((time) => {
+      const text = secondsLabel(time)
       const metrics = ctx.measureText(text)
       const pillW = Math.max(48, metrics.width + 18)
       const pillH = fontSize + 14
-      const x = Math.max(pillW / 2 + 8, Math.min(w - pillW / 2 - 8, snapshotTimelineX(w, i / count)))
+      const x = Math.max(pillW / 2 + 8, Math.min(w - pillW / 2 - 8, snapshotTimelineX(w, time / duration)))
       const y = Math.max(pillH / 2 + 8, fontSize + 8)
       ctx.fillStyle = "rgba(251,246,236,0.92)"
       roundCanvasRect(ctx, x - pillW / 2, y - pillH / 2, pillW, pillH, pillH / 2)
@@ -2314,7 +2367,7 @@
       ctx.stroke()
       ctx.fillStyle = "rgba(31,38,38,0.72)"
       ctx.fillText(text, x, y)
-    }
+    })
     ctx.restore()
   }
 

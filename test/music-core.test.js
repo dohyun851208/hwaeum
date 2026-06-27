@@ -76,6 +76,15 @@ test("autocompleteMelody: 위아래 가장자리도 선율 음으로 만든다",
   assert.ok(notes.every((n) => n.midi === 79))
 })
 
+test("autocompleteMelody: 가로로 길게 그은 선은 끊기지 않는 긴 한 음이다", () => {
+  const path = [{ x: 0, y: 0.5 }, { x: 1, y: 0.5 }]
+  const notes = core.autocompleteMelody(path, { durationSec: 30, style: C_MAJOR })
+
+  assert.strictEqual(notes.length, 1)
+  assert.strictEqual(notes[0].time, 0)
+  assert.ok(Math.abs(notes[0].duration - 30) < 1e-6)
+})
+
 test("autocompleteMelody keeps un-drawn timeline sections empty", () => {
   const path = [{ x: 0, y: 0.6 }, { x: 0.25, y: 0.3 }]
   const notes = core.autocompleteMelody(path, { durationSec: 20, style: C_MAJOR })
