@@ -505,8 +505,32 @@ test("full playback background starts with the first beat and is cut at the reci
   assert.equal(padSource.loop, false)
   assert.deepEqual(padSource.startCalls[0], [start, 0])
   assert.equal(padSource.stopCalls[0][0], start + plan.duration + 0.05)
+  assert.equal(padGain.gain.events[1][1], plan.version.padGain * 1.5, "배경음악은 기존 padGain 기준 1.5배로 재생")
   assert.ok(padGain.gain.events[0][1] > 0, "배경 gain 이 0에서 시작하면 초반에 선율만 들린다")
   assert.ok(padGain.gain.events[1][2] <= start + 0.5, "배경 fade-in 이 길면 선율 뒤에야 배경이 들린다")
+})
+
+test("서양 악기 선율만 1.5배로 키우고 국악기 선율은 기존 크기를 유지한다", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const note = { time: 0, duration: 0.5, midi: 60, velocity: 0.7 }
+  const gainSetValuesFor = function (instrumentId) {
+    const ctx = makeAudioContext()
+    const dest = makeNode()
+    const plan = engine.resolvePlan(
+      { duration: 30, atmosphere: "calm", instrument: instrumentId, style: "bright", version: "balanced", mode: "melody" },
+      [note],
+    )
+    engine.schedule(ctx, dest, plan, { pad: null, melody: null, effects: [], byInstrument: {} }, 0, noop)
+    return ctx.created.gains.flatMap((gain) => gain.gain.events.filter((event) => event[0] === "set").map((event) => event[1]))
+  }
+
+  const westernValues = gainSetValuesFor("violin")
+  const gugakValues = gainSetValuesFor("sogeum")
+
+  assert.ok(westernValues.includes(1.68 * 1.5), "서양 악기 선율 gain 이 1.5배여야 한다")
+  assert.ok(gugakValues.includes(1.68), "국악기 선율 gain 은 기존 값을 써야 한다")
+  assert.equal(gugakValues.includes(1.68 * 1.5), false, "국악기 선율에는 1.5배 증폭을 적용하지 않는다")
 })
 
 test("seekPlan starts playback from the selected timeline time", () => {

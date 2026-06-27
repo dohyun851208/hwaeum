@@ -101,7 +101,7 @@ check(
   "배경 하위 범주 표시",
   Array.from(window.document.querySelectorAll("#atmosphereGrid .atmosphere-group-label"))
     .map((node) => node.textContent.trim())
-    .join("|") === "분위기|소리풍경|리듬장단",
+    .join("|") === "분위기|소리풍경|리듬장단|내가 찾은 음악",
   Array.from(window.document.querySelectorAll("#atmosphereGrid .atmosphere-group-label"))
     .map((node) => node.textContent.trim())
     .join("|"),
@@ -303,6 +303,10 @@ check("효과음 버튼 클릭 시 도장 선택", SD.getStateSummary().effectSt
 check("효과음 도장 선택 시 음원 미리 준비", warmedEffectId === "wind1", warmedEffectId)
 const canvas = window.document.getElementById("drawingCanvas")
 canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500 })
+const timelineClientX = (progress) => {
+  const labelWidth = SD.draw.pitchLabelGutterCssPx()
+  return labelWidth + progress * (1000 - labelWidth)
+}
 let previewEffectId = ""
 const originalPreviewEffect = SD.engine.previewEffect
 SD.engine.previewEffect = (effect) => {
@@ -310,7 +314,7 @@ SD.engine.previewEffect = (effect) => {
   return Promise.resolve(true)
 }
 const stampEvent = new window.Event("pointerdown", { bubbles: true, cancelable: true })
-Object.defineProperty(stampEvent, "clientX", { value: 250 })
+Object.defineProperty(stampEvent, "clientX", { value: timelineClientX(0.25) })
 Object.defineProperty(stampEvent, "clientY", { value: 300 })
 canvas.dispatchEvent(stampEvent)
 check("캔버스 클릭 시 효과음 도장 추가", SD.buildRecipe().effectStamps.length === 1, SD.buildRecipe().effectStamps.length)
@@ -321,7 +325,7 @@ firstEffect.click()
 check("효과음 버튼 재클릭 시 도장 선택 해제", SD.getStateSummary().effectStampId === null, SD.getStateSummary().effectStampId)
 window.document.getElementById("clearBtn").click()
 const eraseStampEvent = new window.Event("pointerdown", { bubbles: true, cancelable: true })
-Object.defineProperty(eraseStampEvent, "clientX", { value: 250 })
+Object.defineProperty(eraseStampEvent, "clientX", { value: timelineClientX(0.25) })
 Object.defineProperty(eraseStampEvent, "clientY", { value: 300 })
 canvas.dispatchEvent(eraseStampEvent)
 check("지우개로 효과음 도장 삭제", SD.buildRecipe().effectStamps.length === 0, SD.buildRecipe().effectStamps.length)

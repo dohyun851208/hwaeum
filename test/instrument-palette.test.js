@@ -18,6 +18,8 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
+const GUGAK_PALETTE_MIDI = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76]
+
 test("서양 악기 목록은 목관, 금관, 현악기 순서를 유지한다", () => {
   const data = loadManifest()
 
@@ -47,17 +49,33 @@ test("악기별 실제 재생 음역 규칙을 manifest에 선언한다", () => 
   assert.equal(data.melodies.frenchHorn.playbackTranspose, -12)
   assert.equal(data.melodies.cello.playbackTranspose, -12)
   assert.equal(data.melodies.doubleBass.playbackTranspose, -24)
-  assert.deepEqual(plain(data.melodies.sogeum.playableMidi), [67, 69, 72, 74, 76, 79])
-  assert.deepEqual(plain(data.melodies.ajaeng.playableMidi), [55, 57, 60, 62, 64, 67, 69])
+  for (const id of ["sogeum", "daegeum", "haegeum", "gayageum", "ajaeng"]) {
+    assert.deepEqual(plain(data.melodies[id].playableMidi), GUGAK_PALETTE_MIDI, id)
+  }
 })
 
-test("팔레트 스타일은 무음 줄 없이 기본 음역 G3부터 G5까지를 쓴다", () => {
+test("팔레트 스타일은 무음 줄 없이 정해진 기본 음역을 쓴다", () => {
   const data = loadManifest()
 
   for (const style of data.styles) {
     assert.equal(style.lowMidi, 55, style.label)
-    assert.equal(style.highMidi, 79, style.label)
     assert.equal(style.silentEdgeRows || 0, 0, style.label)
+    if (style.id === "gugak") {
+      assert.equal(style.highMidi, 76, style.label)
+    } else {
+      assert.equal(style.highMidi, 79, style.label)
+    }
+  }
+})
+
+test("국악 팔레트는 악기와 무관하게 G-A-C-D-E-G-A-C-D-E 순서다", () => {
+  const data = loadManifest()
+  const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+  const labels = (midis) => Array.from(midis, (midi) => names[((midi % 12) + 12) % 12])
+  const expectedLabels = ["G", "A", "C", "D", "E", "G", "A", "C", "D", "E"]
+
+  for (const id of ["sogeum", "daegeum", "haegeum", "gayageum", "ajaeng"]) {
+    assert.deepEqual(labels(data.melodies[id].playableMidi), expectedLabels, id)
   }
 })
 

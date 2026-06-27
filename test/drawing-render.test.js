@@ -152,7 +152,22 @@ test("renderGrid draws pitch-row cells with timeline vertical lines", () => {
   }
   assert.equal(verticals.length, 31, "30 second drawing grid should show one vertical line per second")
   assert.ok(verticals.every((x) => x >= 0 && x <= draw.canvas.width), "vertical lines should stay inside the canvas")
+  assert.ok(verticals[0] > 0, "0초 세로선은 음높이 라벨 뒤에서 시작해야 한다")
+  assert.ok(Math.abs(verticals[0] - draw._timelineLeft()) <= 1, "0초 세로선은 라벨 폭만큼 이동해야 한다")
   assert.equal(horizontals.length, rowCount + 1, "pitch rows should draw one boundary line around each row")
+})
+
+test("pointer x positions use the timeline area after the pitch labels", () => {
+  const DrawingCanvas = loadDrawing()
+  const ctx = makeContext()
+  const draw = new DrawingCanvas(makeCanvas(ctx), {
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+  })
+  const labelWidth = draw.pitchLabelGutterCssPx()
+
+  assert.equal(draw._point({ clientX: 0, clientY: 180 }).x, 0)
+  assert.equal(draw._point({ clientX: labelWidth, clientY: 180 }).x, 0)
+  assert.equal(draw._point({ clientX: 900, clientY: 180 }).x, 1)
 })
 
 test("sticky pitch axis exposes note names without octave numbers", () => {

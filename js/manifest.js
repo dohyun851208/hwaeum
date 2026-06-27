@@ -41,6 +41,10 @@
     synth: { label: "Synth Pad", src: null, fallbackWave: "square" },
   }
 
+  // 국악 드로잉 팔레트는 악기마다 다르게 줄이지 않고 10칸으로 통일한다.
+  // 화면 라벨: G-A-C-D-E-G-A-C-D-E
+  const GUGAK_PALETTE_MIDI = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76]
+
   // 선율 악기 (sound/선율-서양, sound/선율-국악) — 단일음/구절 샘플
   const melodies = {
     // 서양 선율 — 음마다 실제 녹음(멀티샘플). baseMidi/lowMidi/highMidi/sampleMap 은 sample-maps-western.js 가 채운다.
@@ -53,12 +57,11 @@
     oboe: { label: "오보에", group: "서양", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_E5.mp3", sampleMode: "multi", baseMidi: 76, lowMidi: 58, highMidi: 94, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth" },
     flute: { label: "플루트", group: "서양", src: "sound/선율-서양(필하모니아)/관/flute/flute_A5.mp3", sampleMode: "multi", baseMidi: 81, lowMidi: 60, highMidi: 101, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sine" },
     frenchHorn: { label: "호른", group: "서양", src: "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_Gs3.mp3", sampleMode: "multi", baseMidi: 56, lowMidi: 34, highMidi: 77, playbackTranspose: -12, minRate: 0.55, maxRate: 1.72, waveform: "triangle" },
-    sogeum: { label: "소금", group: "국악", src: "sound/선율-국악(국립국악원)/관/소금.mp3", baseMidi: 72, lowMidi: 64, highMidi: 84, playableMidi: [67, 69, 72, 74, 76, 79], minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
-    daegeum: { label: "대금", group: "국악", src: "sound/선율-국악(국립국악원)/관/정악대금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: [60, 62, 64, 67, 69, 72, 74, 76, 79], minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
-    haegeum: { label: "해금", group: "국악", src: "sound/선율-국악(국립국악원)/현/해금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: [57, 60, 62, 64, 67, 69, 72, 74, 76, 79], minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
-    // 25현 가야금: 팔레트(G3~G5) 전체를 연주 — playableMidi 제한 없음(어느 줄에 그려도 소리남).
-    gayageum: { label: "가야금", group: "국악", src: "sound/선율-국악(국립국악원)/현/가야금.mp3", baseMidi: 60, lowMidi: 48, highMidi: 72, minRate: 0.55, maxRate: 1.72, waveform: "triangle", sampleMode: "phrase" },
-    ajaeng: { label: "산조아쟁", group: "국악", src: "sound/선율-국악(국립국악원)/현/산조아쟁.mp3", baseMidi: 48, lowMidi: 40, highMidi: 60, playableMidi: [55, 57, 60, 62, 64, 67, 69], minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
+    sogeum: { label: "소금", group: "국악", src: "sound/선율-국악(국립국악원)/관/소금.mp3", baseMidi: 72, lowMidi: 64, highMidi: 84, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
+    daegeum: { label: "대금", group: "국악", src: "sound/선율-국악(국립국악원)/관/정악대금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
+    haegeum: { label: "해금", group: "국악", src: "sound/선율-국악(국립국악원)/현/해금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
+    gayageum: { label: "가야금", group: "국악", src: "sound/선율-국악(국립국악원)/현/가야금.mp3", baseMidi: 60, lowMidi: 48, highMidi: 72, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.55, maxRate: 1.72, waveform: "triangle", sampleMode: "phrase" },
+    ajaeng: { label: "산조아쟁", group: "국악", src: "sound/선율-국악(국립국악원)/현/산조아쟁.mp3", baseMidi: 48, lowMidi: 40, highMidi: 60, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
   }
 
   // 자연 효과음 (sound/효과-자연음(유자레코즈)) + 도장 효과음 (sound/효과음-도장)
@@ -169,8 +172,8 @@
   // 음계(선율 스타일). gugak: true 인 항목은 시김새를 적용.
   // 으뜸음을 도(C, 60)로 통일해 "음계의 성격(장/단/온음/펜타)"이 실제로 다르게 들리도록 한다.
   // (예전엔 C장조·A단조·D도리안이 모두 흰건반 같은 집합이라 동일하게 들렸음)
-  // 팔레트 기본 음역은 G3..G5로 통일한다.
-  // 캔버스 맨 아래는 G3, 맨 위는 G5로 바로 대응한다.
+  // 서양 팔레트 기본 음역은 G3..G5로 통일한다.
+  // 국악풍은 다섯 국악기 모두 G-A-C-D-E-G-A-C-D-E 10칸으로 통일한다.
   // 음 간격이 넓어져, 자유롭게 그려도 "연결된" 선율로 들린다.
   // 기본값(맨 앞)은 펜타토닉 — 반음이 없어 어떤 순서로 그려도 어울려 "틀린 음"이 안 난다(칸딘스키 뮤직랩 방식).
   const styles = [
@@ -178,7 +181,7 @@
     { id: "bright", label: "밝음", scaleName: "C Major", root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 55, highMidi: 79, detail: "장음계 — 밝고 안정적", gugak: false },
     { id: "calm", label: "차분함", scaleName: "C Minor", root: 60, intervals: [0, 2, 3, 5, 7, 8, 10], lowMidi: 55, highMidi: 79, detail: "단음계 — 어둡고 차분", gugak: false },
     { id: "mystic", label: "신비로움", scaleName: "C Whole Tone", root: 60, intervals: [0, 2, 4, 6, 8, 10], lowMidi: 55, highMidi: 79, detail: "온음음계 — 몽환적·붕 뜬 느낌", gugak: false },
-    { id: "gugak", label: "국악풍", scaleName: "G Pentatonic + 시김새", root: 55, intervals: [0, 2, 5, 7, 9], lowMidi: 55, highMidi: 79, detail: "전통 5음계 — 꺾음·흘러내림·떠는음", gugak: true },
+    { id: "gugak", label: "국악풍", scaleName: "G Pentatonic + 시김새", root: 55, intervals: [0, 2, 5, 7, 9], lowMidi: 55, highMidi: 76, detail: "전통 5음계 — 꺾음·흘러내림·떠는음", gugak: true },
   ]
 
   // 믹스 변형 — 한 시도(테이크)를 다른 균형으로 들어보는 옵션

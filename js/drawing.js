@@ -370,8 +370,10 @@
 
   DrawingCanvas.prototype._point = function (e) {
     const r = this.canvas.getBoundingClientRect()
+    const labelGutter = typeof this.pitchLabelGutterCssPx === "function" ? this.pitchLabelGutterCssPx() : 0
+    const timelineWidth = Math.max(1, r.width - labelGutter)
     return {
-      x: clamp((e.clientX - r.left) / r.width, 0, 1),
+      x: clamp((e.clientX - r.left - labelGutter) / timelineWidth, 0, 1),
       y: clamp((e.clientY - r.top) / r.height, 0, 1),
     }
   }
@@ -668,6 +670,18 @@
     return this._pitchLabelGutter() / (this.pixelRatio || 1)
   }
 
+  DrawingCanvas.prototype._timelineLeft = function () {
+    return this._pitchLabelGutter()
+  }
+
+  DrawingCanvas.prototype._timelineWidth = function () {
+    return Math.max(1, this.canvas.width - this._timelineLeft())
+  }
+
+  DrawingCanvas.prototype._timeToX = function (ratio) {
+    return this._timelineLeft() + clamp(ratio || 0, 0, 1) * this._timelineWidth()
+  }
+
   DrawingCanvas.prototype.renderPitchLabels = function () {
     const ctx = this.ctx
     if (typeof ctx.fillText !== "function") return
@@ -697,12 +711,12 @@
       ctx.stroke()
     }
     ctx.font = "700 " + fontSize + "px sans-serif"
-    ctx.textAlign = "right"
+    ctx.textAlign = "center"
     ctx.textBaseline = "middle"
     ctx.fillStyle = "rgba(31,38,38,0.74)"
     for (let i = 0; i < rows.length; i++) {
       const y = pitchRowCenterY(i, rows.length, H)
-      ctx.fillText(soundingLabel(rows[i], asset), labelGutter - 9 * px, clamp(y, fontSize, H - fontSize))
+      ctx.fillText(soundingLabel(rows[i], asset), labelGutter / 2, clamp(y, fontSize, H - fontSize))
     }
     if (typeof ctx.restore === "function") ctx.restore()
   }
@@ -726,15 +740,15 @@
         // 점 하나짜리 획은 작은 점으로 표시
         if (stroke.length === 1) {
           ctx.beginPath()
-          ctx.arc(stroke[0].x * W, stroke[0].y * H, 12.8 * px, 0, Math.PI * 2)
+          ctx.arc(this._timeToX(stroke[0].x), stroke[0].y * H, 12.8 * px, 0, Math.PI * 2)
           ctx.fillStyle = color
           ctx.fill()
         }
         continue
       }
       ctx.beginPath()
-      ctx.moveTo(stroke[0].x * W, stroke[0].y * H)
-      for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x * W, stroke[i].y * H)
+      ctx.moveTo(this._timeToX(stroke[0].x), stroke[0].y * H)
+      for (let i = 1; i < stroke.length; i++) ctx.lineTo(this._timeToX(stroke[i].x), stroke[i].y * H)
       ctx.stroke()
     }
     ctx.globalAlpha = 1
@@ -769,7 +783,7 @@
       // 리듬: 하단에 타격 막대
       ctx.fillStyle = this.accent
       for (const h of this.hits) {
-        const x = (h.time / st.duration) * W
+        const x = this._timeToX(h.time / st.duration)
         const barH = (20 + (h.velocity || 0.7) * 60) * px
         ctx.fillRect(x - 3 * px, H - barH, 6 * px, barH)
       }
@@ -777,9 +791,10 @@
     }
     const rows = drawableScaleFor(st.style, st.melodyAsset)
     const rowH = H / Math.max(1, rows.length)
+    const timelineWidth = this._timelineWidth()
     for (const n of this.notes) {
-      const x = (n.time / st.duration) * W
-      const w = Math.max(6 * px, (n.duration / st.duration) * W - 3 * px)
+      const x = this._timeToX(n.time / st.duration)
+      const w = Math.max(6 * px, (n.duration / st.duration) * timelineWidth - 3 * px)
       const y = this._pitchToY(n.midi, rows)
       const instrumentId = this._instrumentForNote(n)
       const color = this._colorFor(instrumentId)

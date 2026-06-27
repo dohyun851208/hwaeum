@@ -11,12 +11,31 @@
   const Core = root.MusicCore
   const Data = root.SDStudioData
   const EFFECT_GAIN = 0.15
+  const BACKGROUND_OUTPUT_GAIN = 1.5
+  const WESTERN_MELODY_OUTPUT_GAIN = 1.5
 
   function midiToFreq(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12)
   }
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v))
+  }
+
+  function isWesternInstrument(instrument) {
+    return !!(instrument && instrument.group === "서양")
+  }
+
+  function backgroundOutputGain(plan) {
+    return ((plan && plan.version && plan.version.padGain) || 0) * BACKGROUND_OUTPUT_GAIN
+  }
+
+  function melodyOutputGain(plan, instrument) {
+    const base = ((plan && plan.version && plan.version.melodyGain) || 0)
+    return base * (isWesternInstrument(instrument || (plan && plan.instrument)) ? WESTERN_MELODY_OUTPUT_GAIN : 1)
+  }
+
+  function previewOutputGain(plan) {
+    return isWesternInstrument(plan && plan.instrument) ? WESTERN_MELODY_OUTPUT_GAIN : 1
   }
   // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
   // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
@@ -464,7 +483,6 @@
   // 핵심: 주어진 컨텍스트/목적지에 전체 합주를 스케줄 (라이브/오프라인 공용)
   AudioEngine.prototype.schedule = function (ctx, dest, plan, buffers, start, register) {
     const dur = plan.duration
-    const v = plan.version
     let usedReal = false
 
     // 1) 배경 패드 — bgOffset(사용자가 캔버스 아래 플레이어로 고른 지점)부터 깐다
@@ -478,9 +496,10 @@
       src.loopStart = bgRange.start
       src.loopEnd = bgRange.end
       src.loop = bgRange.length < dur || buffers.pad.duration < bgPlaybackOffset + dur
-      g.gain.setValueAtTime(v.padGain * 0.35, start)
-      g.gain.linearRampToValueAtTime(v.padGain, start + 0.35)
-      g.gain.setValueAtTime(v.padGain, start + Math.max(1.2, dur - 1.5))
+      const padGain = backgroundOutputGain(plan)
+      g.gain.setValueAtTime(padGain * 0.35, start)
+      g.gain.linearRampToValueAtTime(padGain, start + 0.35)
+      g.gain.setValueAtTime(padGain, start + Math.max(1.2, dur - 1.5))
       g.gain.linearRampToValueAtTime(0, start + dur)
       src.connect(g)
       g.connect(dest)
@@ -528,10 +547,10 @@
     })
 
     // 3) 선율 또는 리듬 — 오케스트라: voice(획)마다 그 악기로 따로 스케줄해 동시에 울린다
-    const melodyGain = ctx.createGain()
-    melodyGain.gain.setValueAtTime(v.melodyGain, start)
-    melodyGain.connect(dest)
     if (plan.mode === "rhythm") {
+      const melodyGain = ctx.createGain()
+      melodyGain.gain.setValueAtTime(melodyOutputGain(plan, plan.instrument), start)
+      melodyGain.connect(dest)
       this.scheduleRhythm(ctx, melodyGain, plan, buffers, start, register)
     } else {
       const self = this
@@ -555,6 +574,9 @@
           melodyAsset: asset,
           gugak: va ? va.gugak : plan.gugak,
         })
+        const melodyGain = ctx.createGain()
+        melodyGain.gain.setValueAtTime(melodyOutputGain(voicePlan, inst), start)
+        melodyGain.connect(dest)
         if (instBuffers.melody) {
           self.scheduleSampleMelody(ctx, melodyGain, voicePlan, voiceNotes, instBuffers, start, register)
           usedReal = true
@@ -793,9 +815,10 @@
   AudioEngine.prototype.scheduleSynthPad = function (ctx, dest, plan, start, register) {
     const dur = plan.duration
     const padGain = ctx.createGain()
-    padGain.gain.setValueAtTime(plan.version.padGain * 0.35, start)
-    padGain.gain.linearRampToValueAtTime(plan.version.padGain, start + 0.45)
-    padGain.gain.setValueAtTime(plan.version.padGain, start + Math.max(1.6, dur - 1.5))
+    const targetGain = backgroundOutputGain(plan)
+    padGain.gain.setValueAtTime(targetGain * 0.35, start)
+    padGain.gain.linearRampToValueAtTime(targetGain, start + 0.45)
+    padGain.gain.setValueAtTime(targetGain, start + Math.max(1.6, dur - 1.5))
     padGain.gain.linearRampToValueAtTime(0, start + dur)
     padGain.connect(dest)
     const base = plan.style.root - 12
@@ -926,7 +949,7 @@
     const env = ctx.createGain()
     const filter = ctx.createBiquadFilter()
     const isGugak = plan.instrument.group === "국악"
-    const targetGain = isGugak ? 0.34 : 0.3 // 그리는 중 선율을 배경 위로 더 또렷하게
+    const targetGain = (isGugak ? 0.34 : 0.3) * previewOutputGain(plan) // 그리는 중 선율을 배경 위로 더 또렷하게
     const multi = isMultiSample(plan.melodyAsset)
     const segment = nearestSampleSegment(plan.melodyAsset, midi)
     const offset = multi ? 0 : segment ? segment.offset : Math.min(0.05, Math.max(0, buffer.duration * 0.08))
@@ -981,7 +1004,7 @@
     const lfoGain = ctx.createGain()
     const isGugak = plan.instrument.group === "국악"
     const isElectronic = plan.instrument.group === "전자"
-    const targetGain = isElectronic ? 0.2 : isGugak ? 0.26 : 0.24 // 그리는 중 선율을 배경 위로 더 또렷하게
+    const targetGain = (isElectronic ? 0.2 : isGugak ? 0.26 : 0.24) * previewOutputGain(plan) // 그리는 중 선율을 배경 위로 더 또렷하게
     const voice = synthVoiceFor(plan.instrument)
 
     osc.type = voice.waveform
@@ -1162,7 +1185,7 @@
     src.loopStart = bgRange.start
     src.loopEnd = bgRange.end
     g.gain.setValueAtTime(0.0001, now)
-    g.gain.linearRampToValueAtTime(plan.version.padGain, now + 0.4) // 빠른 페이드인 → 바로 들리게
+    g.gain.linearRampToValueAtTime(backgroundOutputGain(plan), now + 0.4) // 빠른 페이드인 → 바로 들리게
     src.connect(g)
     g.connect(ctx.destination)
     src.start(now, bgRange.start)
@@ -1173,7 +1196,7 @@
     const now = ctx.currentTime + 0.02
     const padGain = ctx.createGain()
     padGain.gain.setValueAtTime(0.0001, now)
-    padGain.gain.linearRampToValueAtTime(plan.version.padGain, now + 0.5) // 빠른 페이드인 → 바로 들리게
+    padGain.gain.linearRampToValueAtTime(backgroundOutputGain(plan), now + 0.5) // 빠른 페이드인 → 바로 들리게
     padGain.connect(ctx.destination)
     const base = plan.style.root - 12
     const iv = plan.style.intervals
@@ -1264,7 +1287,7 @@
     filter.frequency.setValueAtTime(voice.cutoff, start)
     filter.Q.setValueAtTime(voice.Q, start)
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(note.velocity * 0.24, start + 0.012)
+    env.gain.linearRampToValueAtTime(note.velocity * 0.24 * previewOutputGain(plan), start + 0.012)
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
     osc.connect(filter)
     filter.connect(env)
@@ -1286,7 +1309,7 @@
     src.buffer = buffer
     src.playbackRate.setValueAtTime(baseRate, start)
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(note.velocity * 0.34, start + 0.012)
+    env.gain.linearRampToValueAtTime(note.velocity * 0.34 * previewOutputGain(plan), start + 0.012)
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
     src.connect(env)
     env.connect(ctx.destination)

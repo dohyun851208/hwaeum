@@ -15,6 +15,7 @@
 - `specs/2026-06-15-sound-drawing-atelier-design.md` — 초기 설계 명세
 - `plans/2026-06-15-sound-drawing-atelier.md` — 초기 구현 계획
 - `decisions/2026-06-15-music-library-choice.md` — Tone.js + Tonal.js 채택 근거
+- `decisions/2026-06-27-unified-gugak-palette.md` — 국악기 드로잉 팔레트 통일
 
 ## 작성 규칙
 

@@ -5,6 +5,7 @@ const core = require("../js/music-core.js")
 const C_MAJOR = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11] }
 const C_MAJOR_LIMITED = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 60, highMidi: 72 }
 const G3_G5 = { root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 55, highMidi: 79 }
+const GUGAK_COMMON = { root: 55, intervals: [0, 2, 5, 7, 9], lowMidi: 55, highMidi: 76 }
 
 // --- Task 1: scale / pitch / time resampling ---
 
@@ -34,6 +35,10 @@ test("quantizePitch: G3..G5 축의 맨 위와 맨 아래도 음을 만든다", (
   assert.strictEqual(core.quantizePitch(1, G3_G5), 55)
   assert.strictEqual(core.quantizePitch(0.01, G3_G5), 79)
   assert.strictEqual(core.quantizePitch(0.99, G3_G5), 55)
+})
+
+test("buildScale: 국악 공통 팔레트는 G-A-C-D-E-G-A-C-D-E 10칸이다", () => {
+  assert.deepStrictEqual(core.buildScale(GUGAK_COMMON), [55, 57, 60, 62, 64, 67, 69, 72, 74, 76])
 })
 
 test("resampleByTime: 그리는 속도와 무관 — 점 밀도가 달라도 같은 결과", () => {

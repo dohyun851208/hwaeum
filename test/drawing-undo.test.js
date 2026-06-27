@@ -121,7 +121,8 @@ test("undo restores a stroke split by the eraser", () => {
   draw.setStrokes(original, ["flute"])
   draw.clearUndoHistory()
   draw.setEraseMode(true)
-  canvas.dispatch("pointerdown", { clientX: 20, clientY: 10 })
+  const labelWidth = draw.pitchLabelGutterCssPx()
+  canvas.dispatch("pointerdown", { clientX: labelWidth + 0.2 * (canvas.clientWidth - labelWidth), clientY: 10 })
   canvas.dispatch("pointerup", {})
 
   assert.notDeepEqual(plain(draw.getStrokes()), original)

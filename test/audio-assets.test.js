@@ -211,13 +211,13 @@ test("국악 샘플맵은 cents 보정 후 연주 음을 정확한 음높이로 
   const compensatedRate = (seg, midi) => Math.pow(2, (midi - (seg.midi + (seg.cents || 0) / 100)) / 12)
   const centsOff = (a, b) => 1200 * Math.log2(a / b)
 
-  // 각 악기의 실제 연주 가능 음(playableMidi 없으면 G3~G5 전 음역)을 cents 보정해 음정 오차를 잰다.
+  // 각 악기의 드로잉 팔레트 음을 cents 보정해 음정 오차를 잰다.
   const targets = {
     sogeum: data.melodies.sogeum.playableMidi,
     daegeum: data.melodies.daegeum.playableMidi,
     haegeum: data.melodies.haegeum.playableMidi,
     ajaeng: data.melodies.ajaeng.playableMidi,
-    gayageum: Array.from({ length: 79 - 55 + 1 }, (_, i) => 55 + i), // G3~G5 전체
+    gayageum: data.melodies.gayageum.playableMidi,
   }
   for (const [id, midis] of Object.entries(targets)) {
     const asset = data.melodies[id]
@@ -230,7 +230,7 @@ test("국악 샘플맵은 cents 보정 후 연주 음을 정확한 음높이로 
   }
 })
 
-test("25현 가야금은 팔레트 전 음역을 연주한다(playableMidi 제한 없음)", () => {
+test("25현 가야금도 공통 국악 팔레트를 연주한다", () => {
   const data = loadManifest()
-  assert.equal(data.melodies.gayageum.playableMidi, undefined)
+  assert.deepEqual(Array.from(data.melodies.gayageum.playableMidi), [55, 57, 60, 62, 64, 67, 69, 72, 74, 76])
 })

@@ -86,7 +86,7 @@
   // [bgOffset, bgEndOffset] 구간을 반복하고, 그 구간 길이가 최종 곡 길이가 된다.
   const bgPlayer = new Audio()
   bgPlayer.preload = "auto"
-  bgPlayer.volume = 0.55
+  bgPlayer.volume = 0.825
   let bgRAF = null
 
   // 악기 연주곡 감상 — 배경 미리듣기와 동일한 독립 재생기(한 번에 하나만)
@@ -260,6 +260,10 @@
     return Math.max(min, Math.min(max, n))
   }
 
+  function clampUnit(value) {
+    return Math.max(0, Math.min(1, Number(value) || 0))
+  }
+
   function cleanText(value, max) {
     return String(value || "")
       .replace(/\s+/g, " ")
@@ -319,6 +323,26 @@
     const wrap = canvasWrap()
     if (!wrap) return
     wrap.style.setProperty("--canvas-scroll-left", Math.max(0, wrap.scrollLeft || 0) + "px")
+  }
+
+  function canvasTimelineGeometry() {
+    const r = el.canvas.getBoundingClientRect()
+    const width = el.canvas.clientWidth || r.width || 1
+    const labelWidth =
+      draw && typeof draw.pitchLabelGutterCssPx === "function"
+        ? Math.min(Math.max(0, draw.pitchLabelGutterCssPx()), Math.max(0, width - 1))
+        : 0
+    return { rect: r, labelWidth: labelWidth, width: Math.max(1, width - labelWidth) }
+  }
+
+  function timelineCssX(progress) {
+    const g = canvasTimelineGeometry()
+    return g.labelWidth + clampUnit(progress) * g.width
+  }
+
+  function timelineProgressFromClientX(clientX) {
+    const g = canvasTimelineGeometry()
+    return clampUnit((clientX - g.rect.left - g.labelWidth) / g.width)
   }
 
   // 저장/공유용 다운샘플 — 절대 x(시간 위치)를 보존하도록 균등 인덱스로 솎는다.
@@ -1005,7 +1029,7 @@
       if (!effect) return
       const mark = document.createElement("span")
       mark.className = "effect-stamp"
-      mark.style.left = Math.max(0, Math.min(1, stamp.x || 0)) * 100 + "%"
+      mark.style.left = Math.round(timelineCssX(stamp.x || 0)) + "px"
       mark.style.top = Math.max(0.04, Math.min(0.96, stamp.y == null ? 0.5 : stamp.y)) * 100 + "%"
       mark.title = effect.label
       if (effect.image) {
@@ -1023,10 +1047,12 @@
   function canvasPointFromEvent(e) {
     const r = el.canvas.getBoundingClientRect()
     if (!r.width || !r.height) return null
+    const g = canvasTimelineGeometry()
     return {
-      x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+      x: timelineProgressFromClientX(e.clientX),
       y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)),
       rect: r,
+      timelineWidth: g.width,
     }
   }
 
@@ -1056,7 +1082,7 @@
     let bestIndex = -1
     let bestDist = Infinity
     state.effectStamps.forEach((stamp, index) => {
-      const dx = (Math.max(0, Math.min(1, stamp.x || 0)) - point.x) * point.rect.width
+      const dx = (Math.max(0, Math.min(1, stamp.x || 0)) - point.x) * point.timelineWidth
       const dy = (Math.max(0, Math.min(1, stamp.y == null ? 0.5 : stamp.y)) - point.y) * point.rect.height
       const dist = dx * dx + dy * dy
       if (dist < bestDist) {
@@ -1119,7 +1145,7 @@
     for (let i = 1; i <= count; i++) {
       const d = document.createElement("div")
       d.className = "palette-label" + (i === count ? " palette-label-end" : "")
-      d.style.left = (i / count) * 100 + "%"
+      d.style.left = Math.round(timelineCssX(i / count)) + "px"
       const time = Math.min(i * SEGMENT_SECONDS, state.duration)
       d.innerHTML = "<span>" + secondsLabel(time) + "</span>"
       el.paletteLabels.appendChild(d)
@@ -1372,8 +1398,7 @@
   }
 
   function playheadProgressFromEvent(e) {
-    const r = el.canvas.getBoundingClientRect()
-    return clampPlayheadProgress((e.clientX - r.left) / Math.max(1, r.width))
+    return clampPlayheadProgress(timelineProgressFromClientX(e.clientX))
   }
 
   function syncPlayheadValue(progress) {
@@ -1389,8 +1414,7 @@
     const wrap = canvasWrap()
     if (!wrap || !el.playhead) return
     const prog = Math.max(0, Math.min(1, progress))
-    const cw = el.canvas.clientWidth || el.canvas.getBoundingClientRect().width
-    const left = el.canvas.offsetLeft + prog * cw
+    const left = el.canvas.offsetLeft + timelineCssX(prog)
     el.playhead.style.left = left + "px"
     syncPlayheadValue(prog)
     const view = wrap.clientWidth
@@ -2228,7 +2252,7 @@
       const metrics = ctx.measureText(text)
       const pillW = Math.max(48, metrics.width + 18)
       const pillH = fontSize + 14
-      const x = Math.max(pillW / 2 + 8, Math.min(w - pillW / 2 - 8, (i / count) * w))
+      const x = Math.max(pillW / 2 + 8, Math.min(w - pillW / 2 - 8, snapshotTimelineX(w, i / count)))
       const y = Math.max(pillH / 2 + 8, fontSize + 8)
       ctx.fillStyle = "rgba(251,246,236,0.92)"
       roundCanvasRect(ctx, x - pillW / 2, y - pillH / 2, pillW, pillH, pillH / 2)
@@ -2246,7 +2270,7 @@
       const effect = D.effects[stamp.id]
       if (!effect) return
       const size = Math.max(44, Math.min(76, Math.round(w * 0.04)))
-      const x = Math.max(size / 2, Math.min(w - size / 2, (stamp.x || 0) * w))
+      const x = Math.max(size / 2, Math.min(w - size / 2, snapshotTimelineX(w, stamp.x || 0)))
       const y = Math.max(size / 2, Math.min(h - size / 2, (stamp.y == null ? 0.5 : stamp.y) * h))
       ctx.save()
       ctx.translate(x, y)
@@ -2276,7 +2300,7 @@
 
   function drawSnapshotPlayhead(ctx, w, h, progress) {
     if (progress == null) return
-    const x = Math.max(0, Math.min(1, progress)) * w
+    const x = snapshotTimelineX(w, progress)
     ctx.save()
     ctx.strokeStyle = "rgba(185,67,54,0.92)"
     ctx.lineWidth = Math.max(3, Math.round(w * 0.0025))
@@ -2289,6 +2313,12 @@
     ctx.arc(x, Math.max(18, h * 0.055), Math.max(8, Math.round(w * 0.007)), 0, Math.PI * 2)
     ctx.fill()
     ctx.restore()
+  }
+
+  function snapshotTimelineX(width, progress) {
+    const labelWidth =
+      draw && typeof draw._timelineLeft === "function" ? Math.min(Math.max(0, draw._timelineLeft()), Math.max(0, width - 1)) : 0
+    return labelWidth + clampUnit(progress) * Math.max(1, width - labelWidth)
   }
 
   async function renderDrawingSnapshotCanvas(options) {
