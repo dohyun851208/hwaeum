@@ -94,6 +94,7 @@ function metadataFromInput(input) {
   const raw = input && typeof input === "object" ? input : {}
   return {
     title: cleanText(raw.title, MAX_TITLE_LENGTH),
+    composerName: cleanText(raw.composerName, 40),
     backgroundReason: cleanText(raw.backgroundReason, MAX_TEXT_LENGTH),
     melodyIntent: cleanText(raw.melodyIntent, MAX_TEXT_LENGTH),
     hashtags: Array.isArray(raw.hashtags) ? raw.hashtags.map((tag) => cleanText(tag, 24)).filter(Boolean).slice(0, 3) : [],

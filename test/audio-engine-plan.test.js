@@ -631,7 +631,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine._createSampleLivePreview(previewCtx, plan, { duration: 2.4 }, 0.5)
 
   const previewTarget = previewCtx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const previousDrawingTarget = plan.version.melodyGain * (0.7 * 0.85) * 0.85
+  const previousDrawingTarget = plan.version.melodyGain * (0.7 * 0.85) * 0.70
   assert.ok(Math.abs(previewTarget - previousDrawingTarget * 1.3) < 1e-9)
 
   const ctx = makeAudioContext()
@@ -639,7 +639,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
   const phrasePeak = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.85
+  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.70
   assert.ok(Math.abs(playbackOutputTarget - previewTarget) < 1e-9)
 
   const toneFilter = ctx.created.filters.find((filter) => filter.frequency.events.some((event) => event[1] === 2300))

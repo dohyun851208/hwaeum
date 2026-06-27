@@ -14,7 +14,7 @@
   const BACKGROUND_OUTPUT_GAIN = 1.5
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
   const LIVE_PREVIEW_MAX_GAIN = 0.95
-  const MASTER_OUTPUT_GAIN = 0.85
+  const MASTER_OUTPUT_GAIN = 0.70
   const GUGAK_DRAWING_GAIN_BOOST = 1.3
   const NOTE_GLIDE_SECONDS = 0.035
   const LIVE_NOTE_GLIDE_SECONDS = 0.025
@@ -36,6 +36,49 @@
     const sampleRate = buffer && Number(buffer.sampleRate)
     if (isFinite(length) && isFinite(sampleRate) && length > 0 && sampleRate > 0) return length / sampleRate
     return 0
+  }
+
+  function finiteOr(value, fallback) {
+    const n = Number(value)
+    return isFinite(n) ? n : fallback
+  }
+
+  function safeBufferOffset(buffer, offset) {
+    const total = audioBufferDuration(buffer)
+    if (!(total > 0)) return 0
+    return clamp(finiteOr(offset, 0), 0, Math.max(0, total - 0.001))
+  }
+
+  function safeBufferDuration(buffer, offset, duration) {
+    const total = audioBufferDuration(buffer)
+    const safeOffset = safeBufferOffset(buffer, offset)
+    const remaining = Math.max(0, total - safeOffset)
+    const requested = finiteOr(duration, remaining)
+    if (!(remaining > 0.001)) return 0
+    return clamp(requested, 0.001, remaining)
+  }
+
+  function disconnectQuietly() {
+    for (let i = 0; i < arguments.length; i += 1) {
+      const node = arguments[i]
+      if (!node) continue
+      try {
+        node.disconnect()
+      } catch (e) {}
+    }
+  }
+
+  function stopQuietly(node, when) {
+    if (!node) return
+    try {
+      node.stop(Math.max(0, finiteOr(when, 0)))
+    } catch (e) {}
+  }
+
+  function warnScheduleFallback(label, error, detail) {
+    try {
+      console.warn(label, error, detail || {})
+    } catch (e) {}
   }
 
   function isWesternInstrument(instrument) {
@@ -542,7 +585,12 @@
   }
 
   AudioEngine.prototype.emitState = function () {
-    if (this.onState) this.onState(this.isPlaying, this.isPaused)
+    if (!this.onState) return
+    try {
+      this.onState(this.isPlaying, this.isPaused)
+    } catch (e) {
+      console.error("재생 상태 UI 갱신 실패", e)
+    }
   }
 
   // 디코드된 AudioBuffer는 컨텍스트 간 공유 가능(같은 sampleRate면 안전).
@@ -789,23 +837,48 @@
       const src = ctx.createBufferSource()
       const g = ctx.createGain()
       src.buffer = buffers.pad
+
       const bgRange = backgroundRange(plan, buffers.pad)
-      const bgPlaybackOffset =
-        bgRange.length > 0 ? bgRange.start + ((plan.playbackOffset || 0) % bgRange.length) : bgRange.start
-      src.loopStart = bgRange.start
-      src.loopEnd = bgRange.end
-      src.loop = bgRange.length < dur || buffers.pad.duration < bgPlaybackOffset + dur
+      const realStart = safeBufferOffset(buffers.pad, bgRange.start)
+      const realEnd = Math.max(realStart + 0.001, safeBufferOffset(buffers.pad, bgRange.end))
+      const realLength = Math.max(0.001, realEnd - realStart)
+
+      const playbackOffset = finiteOr(plan.playbackOffset, 0)
+      const rel = ((playbackOffset % realLength) + realLength) % realLength
+      const bgPlaybackOffset = safeBufferOffset(buffers.pad, realStart + rel)
+
+      src.loopStart = realStart
+      src.loopEnd = realEnd
+      src.loop = realLength < dur || audioBufferDuration(buffers.pad) < bgPlaybackOffset + dur
+
       const padGain = backgroundOutputGain(plan)
+      const fadeInEnd = start + Math.min(0.35, Math.max(0.01, dur * 0.25))
+      const fadeOutStart = start + Math.max(0.01, dur - Math.min(1.5, dur * 0.35))
+
       g.gain.setValueAtTime(padGain * 0.35, start)
-      g.gain.linearRampToValueAtTime(padGain, start + 0.35)
-      g.gain.setValueAtTime(padGain, start + Math.max(1.2, dur - 1.5))
+      g.gain.linearRampToValueAtTime(padGain, fadeInEnd)
+      g.gain.setValueAtTime(padGain, fadeOutStart)
       g.gain.linearRampToValueAtTime(0, start + dur)
+
       src.connect(g)
       g.connect(dest)
-      register(src)
-      src.start(start, bgPlaybackOffset)
-      src.stop(start + dur + 0.05)
-      usedReal = true
+
+      try {
+        src.start(start, bgPlaybackOffset)
+        src.stop(start + dur + 0.05)
+        register(src)
+        usedReal = true
+      } catch (e) {
+        warnScheduleFallback("배경 음원 스케줄 실패 — 합성 패드로 대체", e, {
+          bgStart: realStart,
+          bgEnd: realEnd,
+          bgPlaybackOffset: bgPlaybackOffset,
+          bufferDuration: audioBufferDuration(buffers.pad),
+          duration: dur,
+        })
+        disconnectQuietly(src, g)
+        this.scheduleSynthPad(ctx, dest, plan, start, register)
+      }
     } else {
       this.scheduleSynthPad(ctx, dest, plan, start, register)
     }
@@ -888,9 +961,24 @@
         melodyGain.gain.setValueAtTime(melodyOutputGain(voicePlan, inst), start)
         melodyGain.connect(dest)
         if (instBuffers.melody) {
-          if (voiceStrokes.length) self.scheduleSampleStrokes(ctx, melodyGain, voicePlan, voiceStrokes, instBuffers, start, register)
-          else self.scheduleSampleMelody(ctx, melodyGain, voicePlan, voiceNotes, instBuffers, start, register)
-          usedReal = true
+          try {
+            if (voiceStrokes.length) {
+              self.scheduleSampleStrokes(ctx, melodyGain, voicePlan, voiceStrokes, instBuffers, start, register)
+            } else {
+              self.scheduleSampleMelody(ctx, melodyGain, voicePlan, voiceNotes, instBuffers, start, register)
+            }
+            usedReal = true
+          } catch (e) {
+            warnScheduleFallback("악기 샘플 스케줄 실패 — 합성 선율로 대체", e, {
+              instrument: inst.id,
+              voice: key,
+              noteCount: voiceNotes.length,
+              strokeCount: voiceStrokes.length,
+            })
+            if (voiceNotes.length) {
+              self.scheduleSynthMelody(ctx, melodyGain, voicePlan, voiceNotes, start, register)
+            }
+          }
         } else if (voiceNotes.length) {
           self.scheduleSynthMelody(ctx, melodyGain, voicePlan, voiceNotes, start, register)
         }
@@ -965,14 +1053,25 @@
       applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
-      register(src)
-      if (src.loop) {
-        src.start(phraseStart, startOffset)
-      } else {
-        const srcDur = Math.max(0.05, Math.min(startSourceDur, phraseDuration * baseRate + 0.18))
-        src.start(phraseStart, startOffset, srcDur)
+
+      try {
+        if (src.loop) {
+          src.start(phraseStart, safeBufferOffset(src.buffer, startOffset))
+        } else {
+          const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, startOffset, Math.min(startSourceDur, phraseDuration * baseRate + 0.18)))
+          src.start(phraseStart, safeBufferOffset(src.buffer, startOffset), srcDur)
+        }
+        src.stop(phraseStop + 0.18)
+        register(src)
+      } catch (e) {
+        warnScheduleFallback("획 샘플 시작 실패", e, {
+          instrument: plan.instrument && plan.instrument.id,
+          offset: startOffset,
+          sourceDuration: startSourceDur,
+          bufferDuration: audioBufferDuration(src.buffer),
+        })
+        disconnectQuietly(src, env)
       }
-      src.stop(phraseStop + 0.18)
     }
   }
 
@@ -1020,14 +1119,25 @@
         applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
         connectGugakSampleTone(ctx, src, env, plan, phraseStart)
         env.connect(dest)
-        register(src)
-        if (src.loop) {
-          src.start(phraseStart, startOffset)
-        } else {
-          const srcDur = Math.max(0.05, Math.min(startSourceDur, phraseDuration * baseRate + 0.18))
-          src.start(phraseStart, startOffset, srcDur)
+
+        try {
+          if (src.loop) {
+            src.start(phraseStart, safeBufferOffset(src.buffer, startOffset))
+          } else {
+            const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, startOffset, Math.min(startSourceDur, phraseDuration * baseRate + 0.18)))
+            src.start(phraseStart, safeBufferOffset(src.buffer, startOffset), srcDur)
+          }
+          src.stop(phraseStop + 0.18)
+          register(src)
+        } catch (e) {
+          warnScheduleFallback("획 샘플 시작 실패", e, {
+            instrument: plan.instrument && plan.instrument.id,
+            offset: startOffset,
+            sourceDuration: startSourceDur,
+            bufferDuration: audioBufferDuration(src.buffer),
+          })
+          disconnectQuietly(src, env)
         }
-        src.stop(phraseStop + 0.18)
       }
       return
     }
@@ -1070,14 +1180,25 @@
       applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
-      register(src)
-      if (src.loop) {
-        src.start(phraseStart, startOffset)
-      } else {
-        const srcDur = Math.max(0.05, Math.min(startSourceDur, phraseDuration * baseRate + 0.18))
-        src.start(phraseStart, startOffset, srcDur)
+
+      try {
+        if (src.loop) {
+          src.start(phraseStart, safeBufferOffset(src.buffer, startOffset))
+        } else {
+          const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, startOffset, Math.min(startSourceDur, phraseDuration * baseRate + 0.18)))
+          src.start(phraseStart, safeBufferOffset(src.buffer, startOffset), srcDur)
+        }
+        src.stop(phraseStop + 0.18)
+        register(src)
+      } catch (e) {
+        warnScheduleFallback("획 샘플 시작 실패", e, {
+          instrument: plan.instrument && plan.instrument.id,
+          offset: startOffset,
+          sourceDuration: startSourceDur,
+          bufferDuration: audioBufferDuration(src.buffer),
+        })
+        disconnectQuietly(src, env)
       }
-      src.stop(phraseStop + 0.18)
     }
   }
 

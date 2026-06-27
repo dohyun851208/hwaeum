@@ -1047,10 +1047,15 @@ p {
 
 /* 캔버스 */
 .drawing-workspace {
+  position: relative;
   display: grid;
-  grid-template-columns: clamp(180px, 14vw, 240px) minmax(0, 1fr);
+  grid-template-columns: clamp(260px, 21vw, 380px) minmax(0, 1fr);
   align-items: stretch;
   min-width: 0;
+  transition: grid-template-columns 180ms ease;
+}
+.drawing-workspace.reference-collapsed {
+  grid-template-columns: 56px minmax(0, 1fr);
 }
 .drawing-reference {
   min-width: 0;
@@ -1058,6 +1063,11 @@ p {
   padding: 14px 0 18px 16px;
   border-right: 1px solid var(--line);
   background: rgba(251, 246, 236, 0.45);
+  overflow: hidden;
+  transition: padding 180ms ease, opacity 160ms ease;
+}
+.drawing-workspace.reference-collapsed .drawing-reference {
+  padding-left: 0;
 }
 .drawing-reference img {
   display: block;
@@ -1069,6 +1079,44 @@ p {
   border-right: 0;
   background: #fffaf0;
   object-fit: contain;
+  object-position: center;
+  transition: opacity 140ms ease, transform 180ms ease;
+}
+.drawing-workspace.reference-collapsed .drawing-reference img {
+  opacity: 0;
+  transform: scale(0.98);
+  pointer-events: none;
+}
+.drawing-reference-toggle {
+  position: absolute;
+  top: 20px;
+  left: 22px;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: rgba(251, 246, 236, 0.94);
+  color: var(--ink);
+  box-shadow: 0 8px 18px rgba(32, 41, 42, 0.14);
+  transition: transform 140ms ease, background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.drawing-reference-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+.drawing-reference-toggle:active {
+  transform: translateY(0) scale(0.96);
+}
+.drawing-reference-toggle span {
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.drawing-workspace.reference-collapsed .drawing-reference-toggle {
+  left: 8px;
 }
 .canvas-wrap {
   position: relative;
@@ -1771,6 +1819,35 @@ p {
   outline: none;
   border-bottom: 1px solid var(--accent);
 }
+.composer-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+}
+.composer-field span {
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 900;
+  opacity: 0.75;
+}
+.composer-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(251, 246, 236, 0.72);
+  color: var(--ink);
+  font: inherit;
+}
+.composer-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(251, 246, 236, 0.9);
+}
 .placard-detail {
   color: var(--ink);
   font-size: 0.95rem;
@@ -1907,13 +1984,34 @@ p {
   border-radius: 10px;
   background: var(--canvas);
 }
+.shared-work-cover-button {
+  align-self: start;
+  width: 132px;
+  height: 132px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+.shared-work-cover-button:focus-visible {
+  outline: 3px solid var(--accent-line);
+  outline-offset: 3px;
+}
+.shared-work-cover-button:hover .shared-work-cover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
 .shared-work-cover {
+  display: block;
   width: 132px;
   height: 132px;
   border-radius: 8px;
   object-fit: cover;
   border: 1px solid var(--line);
   background: #1f2a2a;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 .shared-work-main {
   display: grid;
@@ -1956,6 +2054,102 @@ p {
 }
 .shared-empty {
   margin-top: 4px;
+}
+
+.shared-viewer-open {
+  overflow: hidden;
+}
+.shared-viewer[hidden] {
+  display: none;
+}
+.shared-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(20, 24, 24, 0.76);
+  backdrop-filter: blur(4px);
+}
+.shared-viewer-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(520px, 1fr) 320px;
+  gap: 18px;
+  width: min(1180px, 96vw);
+  max-height: min(760px, 92vh);
+  padding: 18px;
+  border: 1px solid rgba(251, 246, 236, 0.28);
+  border-radius: 12px;
+  background: #fbf6ec;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.34);
+}
+.shared-viewer-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(251, 246, 236, 0.92);
+  color: var(--ink);
+  font-size: 1.35rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.shared-viewer-close:focus-visible {
+  outline: 3px solid var(--accent-line);
+  outline-offset: 3px;
+}
+.shared-viewer-stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #1f2a2a;
+}
+.shared-viewer-cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: calc(92vh - 36px);
+  object-fit: contain;
+}
+.shared-viewer-info {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px 12px 10px;
+}
+.shared-viewer-title {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.55rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.shared-viewer-meta,
+.shared-viewer-text {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.shared-viewer-audio {
+  width: 100%;
+}
+.shared-viewer-tags {
+  color: var(--accent);
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 /* 시도 목록 */
@@ -2057,9 +2251,6 @@ p {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-.take-name-save {
-  white-space: nowrap;
-}
 .take-meta span,
 .take-detail {
   display: block;
@@ -2160,10 +2351,25 @@ p {
     padding: 12px 14px 14px;
   }
   body[data-step="2"] .drawing-workspace {
-    grid-template-columns: clamp(170px, 13vw, 220px) minmax(0, 1fr);
+    grid-template-columns: clamp(280px, 22vw, 420px) minmax(0, 1fr);
+  }
+  body[data-step="2"] .drawing-workspace.reference-collapsed {
+    grid-template-columns: 54px minmax(0, 1fr);
   }
   body[data-step="2"] .drawing-reference {
     padding: 12px 0 14px 14px;
+  }
+  body[data-step="2"] .drawing-workspace.reference-collapsed .drawing-reference {
+    padding-left: 0;
+  }
+  body[data-step="2"] .drawing-reference-toggle {
+    top: 18px;
+    left: 20px;
+    width: 38px;
+    height: 38px;
+  }
+  body[data-step="2"] .drawing-workspace.reference-collapsed .drawing-reference-toggle {
+    left: 8px;
   }
   body[data-step="2"] .drawing-reference img {
     height: clamp(360px, 48vh, 560px);

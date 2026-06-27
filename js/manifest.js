@@ -59,9 +59,10 @@
     frenchHorn: { label: "호른", group: "서양", src: "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_Gs3.mp3", sampleMode: "multi", baseMidi: 56, lowMidi: 34, highMidi: 77, playbackTranspose: -12, minRate: 0.55, maxRate: 1.72, waveform: "triangle" },
     sogeum: { label: "소금", group: "국악", src: "sound/선율-국악(국립국악원)/관/소금.mp3", baseMidi: 72, lowMidi: 64, highMidi: 84, playableMidi: GUGAK_PALETTE_MIDI, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
     daegeum: { label: "대금", group: "국악", src: "sound/선율-국악(국립국악원)/관/정악대금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
+    danso: { label: "단소", group: "국악", src: "sound/선율-국악(국립국악원)/관/단소.mp3", baseMidi: 80, lowMidi: 68, highMidi: 89, playableMidi: GUGAK_PALETTE_MIDI, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
     haegeum: { label: "해금", group: "국악", src: "sound/선율-국악(국립국악원)/현/해금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
     gayageum: { label: "가야금", group: "국악", src: "sound/선율-국악(국립국악원)/현/가야금.mp3", baseMidi: 60, lowMidi: 48, highMidi: 72, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.55, maxRate: 1.72, waveform: "triangle", sampleMode: "phrase" },
-    ajaeng: { label: "산조아쟁", group: "국악", src: "sound/선율-국악(국립국악원)/현/산조아쟁.mp3", baseMidi: 48, lowMidi: 40, highMidi: 60, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
+    ajaeng: { label: "아쟁", group: "국악", src: "sound/선율-국악(국립국악원)/현/산조아쟁.mp3", baseMidi: 48, lowMidi: 40, highMidi: 60, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
   }
 
   // 자연 효과음 (sound/효과-자연음(유자레코즈)) + 도장 효과음 (sound/효과음-도장)
@@ -146,6 +147,17 @@
       exampleLabel: "아리랑",
     },
     {
+      id: "danso",
+      group: "국악",
+      family: "관악기",
+      label: "단소",
+      detail: "맑고 투명한 관악 소리",
+      waveform: "sine",
+      image: "./assets/instruments/danso.jpg",
+      example: "sound/감상-연주곡(국립국악원)/단소-꼭두각시.mp3",
+      exampleLabel: "꼭두각시",
+    },
+    {
       id: "haegeum",
       group: "국악",
       family: "현악기",
@@ -167,7 +179,7 @@
       id: "ajaeng",
       group: "국악",
       family: "현악기",
-      label: "산조아쟁",
+      label: "아쟁",
       detail: "거칠고 깊은 현악",
       waveform: "sawtooth",
       image: "./assets/instruments/ajaeng.jpg",

@@ -6,7 +6,7 @@
     <meta name="google-signin-client_id" content="" />
     <title>화음 스튜디오 · 그림으로 만드는 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260627-drawing-reference" />
+    <link rel="stylesheet" href="./styles.css?v=20260627-drawing-reference-toggle" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body data-step="0">
@@ -132,7 +132,18 @@
                   <button class="btn small" id="resetComposeBtn" type="button">초기화</button>
                 </div>
               </div>
-              <div class="drawing-workspace">
+              <div class="drawing-workspace" id="drawingWorkspace">
+                <button
+                  class="drawing-reference-toggle"
+                  id="drawingReferenceToggle"
+                  type="button"
+                  aria-controls="drawingReference"
+                  aria-expanded="true"
+                  aria-label="그림 접기"
+                  title="그림 접기"
+                >
+                  <span aria-hidden="true">◀</span>
+                </button>
                 <figure class="drawing-reference" id="drawingReference">
                   <img id="drawingReferenceImg" src="./assets/default-cover.png" alt="올린 그림" />
                 </figure>
@@ -199,6 +210,10 @@
             </div>
             <div class="placard">
               <input id="titleInput" class="placard-title" type="text" value="무제" aria-label="작품 제목" maxlength="24" />
+              <label class="composer-field" for="composerInput">
+                <span>작곡가</span>
+                <input id="composerInput" type="text" maxlength="24" placeholder="나의 이름" aria-label="작곡가 이름" />
+              </label>
               <p class="placard-detail" id="placardDetail"></p>
               <p class="placard-tags" id="placardMeta"></p>
             </div>
@@ -295,11 +310,11 @@
     <script src="./js/manifest.js?v=20260627-stamp-png"></script>
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
-    <script src="./js/audio-engine.js?v=20260627-safe-sample-offsets"></script>
+    <script src="./js/audio-engine.js?v=20260627-schedule-fallback"></script>
     <script src="./js/drawing.js?v=20260627-haegeum-grid"></script>
     <script src="./js/takes.js?v=20260627-take-title"></script>
     <script src="./js/share-store.js?v=20260627-channel-share"></script>
     <script src="./js/auth.js?v=20260627-google-login" defer></script>
-    <script src="./js/studio.js?v=20260627-fullplay-transport" defer></script>
+    <script src="./js/studio.js?v=20260627-fullplay-playback-fallback" defer></script>
   </body>
 </html>

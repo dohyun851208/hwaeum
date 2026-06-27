@@ -54,7 +54,6 @@ test("TakesStore loads saved attempts oldest first", () => {
   )
 })
 
-
 test("TakesStore setTitle updates the visible name and recipe title", () => {
   const { TakesStore } = loadTakesStore()
   const takes = new TakesStore("sda.takes")
@@ -64,4 +63,15 @@ test("TakesStore setTitle updates the visible name and recipe title", () => {
   const saved = takes.get(take.id)
   assert.equal(saved.name, "새 제목")
   assert.equal(saved.recipe.title, "새 제목")
+})
+
+test("TakesStore keeps the recipe picture for later restore", () => {
+  const { TakesStore } = loadTakesStore()
+  const takes = new TakesStore("sda.takes")
+  const picture = "data:image/png;base64,cGlj"
+  const take = takes.add({ duration: 30, picture, pictureName: "그림" }, "그림 작품")
+
+  const saved = takes.get(take.id)
+  assert.equal(saved.recipe.picture, picture)
+  assert.equal(saved.recipe.pictureName, "그림")
 })

@@ -18,6 +18,10 @@
   const DEFAULT_COVER_SRC = "./assets/default-cover.png"
   const ADMIN_STORAGE_KEY = "sda.adminMode"
   const TAKE_NAME_MAX = 24
+  const COMPOSER_NAME_MAX = 24
+  const PICTURE_NAME_MAX = 80
+  const RECIPE_PICTURE_MAX_EDGE = 960
+  const RECIPE_PICTURE_JPEG_QUALITY = 0.82
   const DRAWING_STEP = 2
   const COMPLETE_STEP = 3
   const SHARE_STEP = 4
@@ -84,7 +88,10 @@
     version: defaultVersion(),
     mode: "melody",
     pic: null,
+    picName: "",
+    recipePicture: "",
     title: "무제",
+    composerName: "",
     step: 0,
     group: "서양",
     effectIds: [], // 옛 레시피 호환용: 자동 배치 효과
@@ -99,10 +106,12 @@
     hashtags: "",
     activeTakeId: null, // 완성 화면에서 지금 보고 있는 시도(테이크)
     playingTakeId: null, // 완성 화면 시도 목록에서 지금 재생/일시정지 중인 시도
+    sharedRecipeLoaded: false, // 레시피 링크로 불러온 곡은 로컬 시도 목록을 섞어 보이지 않는다.
     adminMode: loadAdminMode(),
     sharedChannel: ShareStore ? ShareStore.loadChannel() : "",
     sharedWorks: [],
     sharedLoading: false,
+    drawingReferenceCollapsed: false,
   }
 
   // 배경 미리듣기 — Web Audio 합주 엔진과 독립된 단순 재생기
@@ -141,6 +150,9 @@
     picChip: $("picChip"),
     picThumb: $("picThumb"),
     picStatus: $("picStatus"),
+    drawingWorkspace: $("drawingWorkspace"),
+    drawingReference: $("drawingReference"),
+    drawingReferenceToggle: $("drawingReferenceToggle"),
     drawingReferenceImg: $("drawingReferenceImg"),
     atmosphereGrid: $("atmosphereGrid"),
     bgUploadInput: $("bgUploadInput"),
@@ -176,6 +188,7 @@
     frameImg: $("frameImg"),
     frameCanvas: $("frameCanvas"),
     titleInput: $("titleInput"),
+    composerInput: $("composerInput"),
     placardMeta: $("placardMeta"),
     placardDetail: $("placardDetail"),
     bgReasonInput: $("bgReasonInput"),
@@ -316,6 +329,11 @@
       .slice(0, max)
   }
 
+  function normalizePictureData(value) {
+    const data = String(value || "")
+    return /^data:image\/[a-z0-9.+-]+;base64,/i.test(data) ? data : ""
+  }
+
   function normalizeHashtags(value) {
     const raw = Array.isArray(value) ? value.join(" ") : String(value || "")
     const seen = {}
@@ -371,6 +389,28 @@
     const wrap = canvasWrap()
     if (!wrap) return
     wrap.style.setProperty("--canvas-scroll-left", Math.max(0, wrap.scrollLeft || 0) + "px")
+  }
+
+  function syncDrawingReferenceToggle() {
+    const collapsed = !!state.drawingReferenceCollapsed
+    if (el.drawingWorkspace) el.drawingWorkspace.classList.toggle("reference-collapsed", collapsed)
+    if (el.drawingReference) el.drawingReference.setAttribute("aria-hidden", collapsed ? "true" : "false")
+    if (!el.drawingReferenceToggle) return
+    const label = collapsed ? "그림 펼치기" : "그림 접기"
+    const icon = el.drawingReferenceToggle.querySelector("span")
+    if (icon) icon.textContent = collapsed ? "▶" : "◀"
+    el.drawingReferenceToggle.setAttribute("aria-expanded", String(!collapsed))
+    el.drawingReferenceToggle.setAttribute("aria-label", label)
+    el.drawingReferenceToggle.title = label
+  }
+
+  function setDrawingReferenceCollapsed(collapsed, skipRefresh) {
+    state.drawingReferenceCollapsed = !!collapsed
+    syncDrawingReferenceToggle()
+    if (skipRefresh || state.step !== DRAWING_STEP) return
+    window.requestAnimationFrame(function () {
+      refreshTimeline(false)
+    })
   }
 
   function canvasTimelineGeometry() {
@@ -469,6 +509,9 @@
     const built = buildStrokesAndInstruments()
     return {
       title: cleanText(state.title || "무제", 24) || "무제",
+      composerName: cleanText(state.composerName, COMPOSER_NAME_MAX),
+      picture: normalizePictureData(state.recipePicture || state.pic),
+      pictureName: cleanText(state.picName || "그림", PICTURE_NAME_MAX),
       duration: state.duration,
       bgOffset: recipeBgOffset(),
       bgEndOffset: recipeBgEndOffset(),
@@ -1142,6 +1185,18 @@
     }
   }
 
+  function buildSharedRecipe() {
+    const recipe = buildRecipe()
+    return Object.assign({}, recipe, {
+      title: "무제",
+      backgroundReason: "",
+      melodyIntent: "",
+      hashtags: [],
+      composerName: cleanText(state.composerName, COMPOSER_NAME_MAX),
+      shareMode: "drawing",
+    })
+  }
+
   function stampEffectAtPointer(e) {
     const effect = D.effects[state.effectStampId]
     if (!state.effectStampId || !effect) return false
@@ -1324,6 +1379,9 @@
   }
 
   function syncReflectionInputs() {
+    if (el.composerInput && el.composerInput.value !== state.composerName) {
+      el.composerInput.value = state.composerName
+    }
     if (el.bgReasonInput && el.bgReasonInput.value !== state.backgroundReason) {
       el.bgReasonInput.value = state.backgroundReason
     }
@@ -1337,18 +1395,78 @@
 
   // --- 그림 업로드 / 표지 ---
 
+  let pictureCompressSeq = 0
+
+  function compactPictureForRecipe(dataUrl) {
+    const normalized = normalizePictureData(dataUrl)
+    if (!normalized) return Promise.resolve("")
+    return new Promise(function (resolve) {
+      const done = function (value) {
+        resolve(normalizePictureData(value) || normalized)
+      }
+      const img = new Image()
+      let settled = false
+      const finish = function (value) {
+        if (settled) return
+        settled = true
+        done(value)
+      }
+      const timer = setTimeout(function () {
+        finish(normalized)
+      }, 3000)
+      img.onload = function () {
+        clearTimeout(timer)
+        try {
+          const srcW = img.naturalWidth || img.width || RECIPE_PICTURE_MAX_EDGE
+          const srcH = img.naturalHeight || img.height || RECIPE_PICTURE_MAX_EDGE
+          const scale = Math.min(1, RECIPE_PICTURE_MAX_EDGE / Math.max(srcW, srcH))
+          if (scale >= 1 && normalized.length < 280000) {
+            finish(normalized)
+            return
+          }
+          const canvas = document.createElement("canvas")
+          canvas.width = Math.max(1, Math.round(srcW * scale))
+          canvas.height = Math.max(1, Math.round(srcH * scale))
+          const ctx = canvas.getContext("2d")
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          finish(canvas.toDataURL("image/jpeg", RECIPE_PICTURE_JPEG_QUALITY))
+        } catch (e) {
+          finish(normalized)
+        }
+      }
+      img.onerror = function () {
+        clearTimeout(timer)
+        finish(normalized)
+      }
+      img.src = normalized
+    })
+  }
+
+  function rememberRecipePicture(dataUrl) {
+    const normalized = normalizePictureData(dataUrl)
+    state.recipePicture = normalized
+    const seq = ++pictureCompressSeq
+    compactPictureForRecipe(normalized).then(function (compacted) {
+      if (seq === pictureCompressSeq && compacted) state.recipePicture = compacted
+    })
+  }
+
   function setPicture(dataUrl, name) {
-    state.pic = dataUrl
-    el.dropPreview.src = dataUrl
+    const normalized = normalizePictureData(dataUrl)
+    if (!normalized) return
+    state.pic = normalized
+    state.picName = cleanText(name || "그림", PICTURE_NAME_MAX)
+    rememberRecipePicture(normalized)
+    el.dropPreview.src = normalized
     el.dropPreview.hidden = false
     el.dropEmpty.style.display = "none"
-    el.picThumb.src = dataUrl
+    el.picThumb.src = normalized
     el.picChip.hidden = false
-    if (el.drawingReferenceImg) el.drawingReferenceImg.src = dataUrl
-    el.frameImg.src = dataUrl
+    if (el.drawingReferenceImg) el.drawingReferenceImg.src = normalized
+    el.frameImg.src = normalized
     el.frameImg.style.display = "block"
     el.frameCanvas.style.display = "none"
-    el.picStatus.textContent = (name || "그림") + " 적용됨"
+    el.picStatus.textContent = state.picName + " 적용됨"
     el.picStatus.classList.remove("error")
   }
 
@@ -1938,8 +2056,20 @@
     engine.play(recipe, notesFor(recipe), { startOffset: selectedPlaybackStartSec() }).catch(function (e) {
       state.playingTakeId = null
       renderTakes()
+
+      const message =
+        e && (e.name || e.message)
+          ? [e.name, e.message].filter(Boolean).join(": ")
+          : String(e)
+
       el.statusText.textContent = "재생 오류"
-      console.error(e)
+      el.exportStatus.textContent = "재생 오류: " + message
+      console.error("전체곡 재생 실패", e, {
+        recipe: recipe,
+        state: window.SoundDrawing && window.SoundDrawing.getStateSummary
+          ? window.SoundDrawing.getStateSummary()
+          : null,
+      })
     })
   }
 
@@ -2089,6 +2219,20 @@
     updateReadouts()
   }
 
+  function refreshTimelineAfterLayout() {
+    const run = function () {
+      if (state.step !== DRAWING_STEP) return
+      refreshTimeline(false)
+    }
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(run)
+      })
+    } else {
+      setTimeout(run, 0)
+    }
+  }
+
   function clearAppUndoHistory() {
     appUndoStack.length = 0
     syncTrackedDrawUndoDepth()
@@ -2200,13 +2344,10 @@
     input.maxLength = TAKE_NAME_MAX
     input.placeholder = "작품 제목"
     input.setAttribute("aria-label", index + "번 작품 제목")
-    const saveB = document.createElement("button")
-    saveB.type = "button"
-    saveB.className = "btn tiny take-name-save"
-    saveB.textContent = "저장"
-    saveB.title = "작품 제목 저장"
-    const saveTitle = function () {
+    const commitTitle = function () {
       const nextTitle = input.value.trim() || "무제"
+      const currentTitle = take.name || (take.recipe && take.recipe.title) || "무제"
+      if (nextTitle === currentTitle) return
       takes.setTitle(take.id, nextTitle)
       if (state.activeTakeId === take.id) {
         state.title = nextTitle
@@ -2221,21 +2362,26 @@
     })
     input.addEventListener("keydown", function (event) {
       event.stopPropagation()
-      if (event.key === "Enter") saveTitle()
+      if (event.key === "Enter") {
+        event.preventDefault()
+        commitTitle()
+      }
     })
-    saveB.addEventListener("click", function (event) {
+    input.addEventListener("change", function (event) {
       event.stopPropagation()
-      saveTitle()
+      commitTitle()
     })
     row.appendChild(input)
-    row.appendChild(saveB)
     meta.appendChild(row)
   }
 
   function renderTakes() {
-    const items = takes.list()
+    const items = state.sharedRecipeLoaded ? [] : takes.list()
     el.takesList.innerHTML = ""
     el.takesEmpty.style.display = items.length ? "none" : "block"
+    el.takesEmpty.textContent = state.sharedRecipeLoaded
+      ? "공유 링크로 불러온 곡입니다. 저장하면 내 시도에 추가됩니다."
+      : "드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요."
     el.takesCount.textContent = items.length ? items.length + "개" : ""
     items.forEach((t, idx) => {
       const atmos = D.atmospheres.find((a) => a.id === t.recipe.atmosphere) || D.atmospheres[0]
@@ -2310,23 +2456,83 @@
       tools.appendChild(playB)
       tools.appendChild(pauseB)
       tools.appendChild(delB)
+
+      // 시도별 저장·공유 버튼: 음악 저장 · 이미지 저장 · 레시피 링크 복사 · 채널에 공유하기
+      const actions = document.createElement("div")
+      actions.className = "take-actions"
+      actions.appendChild(makeTakeActionButton("음악 저장", "이 시도의 음악을 WebM으로 저장", () => exportTakeAudio(t)))
+      actions.appendChild(makeTakeActionButton("이미지 저장", "이 시도의 커버 이미지를 PNG로 저장", () => exportTakeImage(t)))
+      actions.appendChild(makeTakeActionButton("레시피 링크 복사", "드로잉 화면에서 열리는 레시피 링크 복사", () => copyTakeRecipeLink(t)))
+      actions.appendChild(makeTakeActionButton("채널에 공유하기", "채널 번호를 입력해 학급 채널에 공유", () => publishTake(t)))
+
       wrap.appendChild(cv)
       wrap.appendChild(meta)
       wrap.appendChild(tools)
+      wrap.appendChild(actions)
       el.takesList.appendChild(wrap)
     })
+  }
+
+  function makeTakeActionButton(label, title, handler) {
+    const btn = document.createElement("button")
+    btn.type = "button"
+    btn.className = "btn tiny take-action"
+    btn.textContent = label
+    btn.title = title
+    btn.addEventListener("click", function (event) {
+      event.stopPropagation()
+      handler()
+    })
+    return btn
+  }
+
+  // 시도별 액션: 먼저 그 시도의 레시피를 현재 상태로 불러온 뒤(selectTake) 기존 내보내기/공유 로직을 재사용한다.
+  function exportTakeAudio(t) {
+    selectTake(t)
+    exportAudio()
+  }
+
+  function exportTakeImage(t) {
+    selectTake(t)
+    exportCover()
+  }
+
+  function copyTakeRecipeLink(t) {
+    selectTake(t)
+    shareLink()
+  }
+
+  function publishTake(t) {
+    selectTake(t)
+    if (!ShareStore) {
+      el.exportStatus.textContent = "공유 모듈을 불러오지 못했어요."
+      el.exportStatus.classList.add("error")
+      return
+    }
+    const asked = typeof prompt === "function" ? prompt("공유할 채널 번호를 입력하세요. (예: 3021)", state.sharedChannel || "") : null
+    if (asked === null) return // 취소
+    const channel = ShareStore.normalizeChannel(asked)
+    if (!channel) {
+      el.exportStatus.textContent = "채널 번호를 다시 확인해 주세요."
+      el.exportStatus.classList.add("error")
+      return
+    }
+    el.exportStatus.classList.remove("error")
+    publishSharedWork(channel)
   }
 
   function saveTake() {
     if (!requireDrawn()) return
     const take = takes.add(buildRecipe(), state.title)
     state.activeTakeId = take.id
+    state.sharedRecipeLoaded = false
     renderTakes()
     el.exportStatus.textContent = "시도를 저장했어요. 아래에서 골라 비교해 들어보세요."
   }
 
   // 시도 카드 클릭 → 그 시도의 결과(제목·분위기·악기·해시태그·그린 음)를 완성 화면에 불러온다.
   function selectTake(t) {
+    state.sharedRecipeLoaded = false
     state.activeTakeId = t.id
     const title = t.name || (t.recipe && t.recipe.title) || ""
     if (title) {
@@ -2341,11 +2547,15 @@
   // --- 레시피 불러오기 ---
 
   function loadRecipe(recipe) {
+    recipe = recipe || {}
     const loadedTitle = cleanText((recipe && recipe.title) || "", 24)
     if (loadedTitle) {
       state.title = loadedTitle
       if (el.titleInput) el.titleInput.value = loadedTitle
     }
+    state.composerName = cleanText(recipe.composerName || recipe.composer || "", COMPOSER_NAME_MAX)
+    const loadedPicture = normalizePictureData(recipe && recipe.picture)
+    if (loadedPicture) setPicture(loadedPicture, recipe.pictureName || "불러온 그림")
     state.duration = normalizeDuration(recipe.duration || DEFAULT_DURATION_SECONDS)
     state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || D.atmospheres[0]
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
@@ -2411,6 +2621,7 @@
     const inst = state.instrument || D.instruments[0]
     return {
       title: state.title || "무제",
+      composerName: cleanText(state.composerName, COMPOSER_NAME_MAX),
       backgroundReason: cleanText(state.backgroundReason, 180),
       melodyIntent: cleanText(state.melodyIntent, 180),
       hashtags: normalizeHashtags(state.hashtags),
@@ -2478,6 +2689,180 @@
     return d.toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
   }
 
+  const sharedViewer = {
+    root: null,
+    cover: null,
+    title: null,
+    meta: null,
+    background: null,
+    melody: null,
+    tags: null,
+    audio: null,
+    closeBtn: null,
+    lastFocus: null,
+  }
+
+  function optionalViewerText(node, label, value) {
+    if (!node) return
+    const text = cleanText(value || "", 180)
+    node.hidden = !text
+    node.textContent = text ? label + ": " + text : ""
+  }
+
+  function pauseSharedAudioExcept(except) {
+    document.querySelectorAll(".shared-work-tools audio, .shared-viewer audio").forEach(function (audio) {
+      if (audio !== except && !audio.paused) audio.pause()
+    })
+  }
+
+  function closeSharedViewer() {
+    if (!sharedViewer.root || sharedViewer.root.hidden) return
+    if (sharedViewer.audio) {
+      sharedViewer.audio.pause()
+      sharedViewer.audio.removeAttribute("src")
+      sharedViewer.audio.load()
+    }
+    sharedViewer.root.hidden = true
+    el.body.classList.remove("shared-viewer-open")
+    const focusTarget = sharedViewer.lastFocus
+    sharedViewer.lastFocus = null
+    if (focusTarget && document.contains(focusTarget) && typeof focusTarget.focus === "function") {
+      focusTarget.focus({ preventScroll: true })
+    }
+  }
+
+  function handleSharedViewerKeydown(event) {
+    if (event.key === "Escape" && sharedViewer.root && !sharedViewer.root.hidden) {
+      event.preventDefault()
+      closeSharedViewer()
+    }
+  }
+
+  function ensureSharedViewer() {
+    if (sharedViewer.root) return sharedViewer
+
+    const root = document.createElement("div")
+    root.className = "shared-viewer"
+    root.hidden = true
+    root.setAttribute("role", "dialog")
+    root.setAttribute("aria-modal", "true")
+    root.setAttribute("aria-labelledby", "sharedViewerTitle")
+    root.addEventListener("click", function (event) {
+      if (event.target === root) closeSharedViewer()
+    })
+
+    const panel = document.createElement("div")
+    panel.className = "shared-viewer-panel"
+    panel.addEventListener("click", function (event) {
+      event.stopPropagation()
+    })
+
+    const closeBtn = document.createElement("button")
+    closeBtn.type = "button"
+    closeBtn.className = "shared-viewer-close"
+    closeBtn.setAttribute("aria-label", "크게 보기 닫기")
+    closeBtn.textContent = "×"
+    closeBtn.addEventListener("click", closeSharedViewer)
+
+    const stage = document.createElement("figure")
+    stage.className = "shared-viewer-stage"
+    const cover = document.createElement("img")
+    cover.className = "shared-viewer-cover"
+    cover.alt = "공유 음악 표지"
+    stage.appendChild(cover)
+
+    const info = document.createElement("div")
+    info.className = "shared-viewer-info"
+    const eyebrow = document.createElement("p")
+    eyebrow.className = "eyebrow"
+    eyebrow.textContent = "학급 채널 감상"
+    const title = document.createElement("h3")
+    title.id = "sharedViewerTitle"
+    title.className = "shared-viewer-title"
+    const meta = document.createElement("p")
+    meta.className = "shared-viewer-meta"
+    const audio = document.createElement("audio")
+    audio.className = "shared-viewer-audio"
+    audio.controls = true
+    audio.preload = "auto"
+    audio.addEventListener("play", function () {
+      pauseSharedAudioExcept(audio)
+    })
+    const background = document.createElement("p")
+    background.className = "shared-viewer-text"
+    const melody = document.createElement("p")
+    melody.className = "shared-viewer-text"
+    const tags = document.createElement("p")
+    tags.className = "shared-viewer-tags"
+
+    info.appendChild(eyebrow)
+    info.appendChild(title)
+    info.appendChild(meta)
+    info.appendChild(audio)
+    info.appendChild(background)
+    info.appendChild(melody)
+    info.appendChild(tags)
+    panel.appendChild(closeBtn)
+    panel.appendChild(stage)
+    panel.appendChild(info)
+    root.appendChild(panel)
+    document.body.appendChild(root)
+    document.addEventListener("keydown", handleSharedViewerKeydown)
+
+    sharedViewer.root = root
+    sharedViewer.cover = cover
+    sharedViewer.title = title
+    sharedViewer.meta = meta
+    sharedViewer.background = background
+    sharedViewer.melody = melody
+    sharedViewer.tags = tags
+    sharedViewer.audio = audio
+    sharedViewer.closeBtn = closeBtn
+    return sharedViewer
+  }
+
+  function openSharedViewer(work) {
+    if (!work) return
+    const viewer = ensureSharedViewer()
+    const meta = work.metadata || {}
+    const files = work.files || {}
+    const title = work.title || meta.title || "무제"
+    const coverUrl = files.coverUrl || files.thumbUrl || DEFAULT_COVER_SRC
+    viewer.lastFocus = document.activeElement
+    viewer.cover.src = coverUrl
+    viewer.cover.alt = title + " 표지"
+    viewer.title.textContent = title
+    viewer.meta.textContent = [
+      meta.composerName ? "작곡가 " + meta.composerName : "",
+      meta.atmosphereLabel,
+      meta.instrumentLabel,
+      secondsLabel(meta.duration || 30),
+      formatSharedDate(work.createdAt),
+    ]
+      .filter(Boolean)
+      .join(" · ")
+    optionalViewerText(viewer.background, "배경", meta.backgroundReason)
+    optionalViewerText(viewer.melody, "선율", meta.melodyIntent)
+    if (meta.hashtags && meta.hashtags.length) {
+      viewer.tags.hidden = false
+      viewer.tags.textContent = meta.hashtags.map((tag) => (tag.charAt(0) === "#" ? tag : "#" + tag)).join(" ")
+    } else {
+      viewer.tags.hidden = true
+      viewer.tags.textContent = ""
+    }
+    viewer.audio.src = files.musicUrl || ""
+    viewer.audio.hidden = !files.musicUrl
+    pauseSharedAudioExcept(viewer.audio)
+    if (engine.isPlaying || engine.isPaused || engine.ambience) stop()
+    viewer.root.hidden = false
+    el.body.classList.add("shared-viewer-open")
+    viewer.closeBtn.focus({ preventScroll: true })
+    if (files.musicUrl) {
+      const playResult = viewer.audio.play()
+      if (playResult && typeof playResult.catch === "function") playResult.catch(function () {})
+    }
+  }
+
   function renderSharedWorks() {
     if (!el.sharedWorksList || !el.sharedEmpty) return
     el.sharedWorksList.innerHTML = ""
@@ -2497,11 +2882,20 @@
       card.className = "shared-work"
       card.id = "work-" + work.id
 
+      const coverButton = document.createElement("button")
+      coverButton.type = "button"
+      coverButton.className = "shared-work-cover-button"
+      coverButton.title = "크게 보며 듣기"
+      coverButton.setAttribute("aria-label", (work.title || meta.title || "공유 음악") + " 크게 보며 듣기")
       const img = document.createElement("img")
       img.className = "shared-work-cover"
       img.src = files.thumbUrl || files.coverUrl || DEFAULT_COVER_SRC
       img.alt = (work.title || meta.title || "공유 음악") + " 표지"
-      card.appendChild(img)
+      coverButton.appendChild(img)
+      coverButton.addEventListener("click", function () {
+        openSharedViewer(work)
+      })
+      card.appendChild(coverButton)
 
       const main = document.createElement("div")
       main.className = "shared-work-main"
@@ -2511,7 +2905,9 @@
       main.appendChild(title)
       const detail = document.createElement("p")
       detail.className = "shared-work-meta"
-      detail.textContent = [meta.atmosphereLabel, meta.instrumentLabel, secondsLabel(meta.duration || 30)].filter(Boolean).join(" · ")
+      detail.textContent = [meta.composerName ? "작곡가 " + meta.composerName : "", meta.atmosphereLabel, meta.instrumentLabel, secondsLabel(meta.duration || 30)]
+        .filter(Boolean)
+        .join(" · ")
       main.appendChild(detail)
       if (meta.backgroundReason) {
         const p = document.createElement("p")
@@ -2543,9 +2939,20 @@
       audio.controls = true
       audio.preload = "none"
       audio.src = files.musicUrl || ""
+      audio.addEventListener("play", function () {
+        pauseSharedAudioExcept(audio)
+      })
       tools.appendChild(audio)
       const actions = document.createElement("div")
       actions.className = "shared-work-actions"
+      const viewB = document.createElement("button")
+      viewB.type = "button"
+      viewB.className = "btn tiny primary"
+      viewB.textContent = "크게 보기"
+      viewB.addEventListener("click", function () {
+        openSharedViewer(work)
+      })
+      actions.appendChild(viewB)
       const copyB = document.createElement("button")
       copyB.type = "button"
       copyB.className = "btn tiny"
@@ -2604,14 +3011,15 @@
     }
   }
 
-  async function publishSharedWork() {
+  async function publishSharedWork(channelArg) {
     if (!requireDrawn()) return
     if (!ShareStore) {
       el.exportStatus.textContent = "공유 모듈을 불러오지 못했어요."
       el.exportStatus.classList.add("error")
       return
     }
-    const channel = ShareStore.normalizeChannel(el.shareChannelInput ? el.shareChannelInput.value : state.sharedChannel)
+    const channelSource = channelArg != null ? channelArg : el.shareChannelInput ? el.shareChannelInput.value : state.sharedChannel
+    const channel = ShareStore.normalizeChannel(channelSource)
     if (!channel) {
       el.exportStatus.textContent = "공유 채널 번호를 적어 주세요."
       el.exportStatus.classList.add("error")
@@ -3064,10 +3472,10 @@
   }
 
   function shareLink() {
-    const code = Core.encodeRecipe(buildRecipe())
+    const code = Core.encodeRecipe(buildSharedRecipe())
     const url = setShareHash(code)
     const copied = function () {
-      el.exportStatus.textContent = "공유 링크를 복사했어요. 같은 사이트에서 열면 그대로 복원됩니다."
+      el.exportStatus.textContent = "공유 링크를 복사했어요. 링크를 열면 드로잉 화면에서 시작합니다."
     }
     const fallback = function () {
       if (copyViaSelection(url)) {
@@ -3129,11 +3537,16 @@
       try {
         const recipe = Core.decodeRecipe(h.slice(3))
         loadRecipe(recipe)
-        el.exportStatus.textContent = "공유 링크에서 불러왔습니다."
+        state.sharedRecipeLoaded = true
+        state.activeTakeId = null
+        state.playingTakeId = null
+        el.exportStatus.textContent = "공유 링크에서 불러왔습니다. 드로잉을 이어서 볼 수 있어요."
+        return true
       } catch (e) {
         console.warn("공유 링크 복원 실패", e)
       }
     }
+    return false
   }
 
   // --- 단계 이동 ---
@@ -3164,6 +3577,7 @@
       renderEffects()
       warmSelectedInstrument()
       setupBgPlayer()
+      refreshTimelineAfterLayout()
     } else {
       engine.stopAmbience(false)
       pauseBgPlayer()
@@ -3227,6 +3641,12 @@
     document.querySelectorAll("[data-step-prev]").forEach((b) => {
       b.addEventListener("click", () => setStep(state.step - 1))
     })
+
+    if (el.drawingReferenceToggle) {
+      el.drawingReferenceToggle.addEventListener("click", () => {
+        setDrawingReferenceCollapsed(!state.drawingReferenceCollapsed)
+      })
+    }
 
     if (el.penBtn) {
       el.penBtn.addEventListener("click", () => {
@@ -3299,15 +3719,14 @@
       })
     }
 
-    el.saveTakeBtn.addEventListener("click", saveTake)
-    el.adminModeBtn.addEventListener("click", function () {
-      setAdminMode(!state.adminMode)
-    })
+    if (el.saveTakeBtn) el.saveTakeBtn.addEventListener("click", saveTake)
+    // 완성 탭의 일괄 내보내기/공유 버튼은 제거됨 — 이제 각 시도(테이크)별 버튼이 담당.
+    // 아래 버튼들은 더 이상 마크업에 없을 수 있으므로 모두 존재 여부를 확인하고 바인딩한다.
     if (el.exportAudioBtn) el.exportAudioBtn.addEventListener("click", exportAudio)
     if (el.exportDrawingImageBtn) el.exportDrawingImageBtn.addEventListener("click", exportDrawingImage)
     if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.addEventListener("click", exportDrawingVideo)
-    el.exportCoverBtn.addEventListener("click", exportCover)
-    el.shareBtn.addEventListener("click", shareLink)
+    if (el.exportCoverBtn) el.exportCoverBtn.addEventListener("click", exportCover)
+    if (el.shareBtn) el.shareBtn.addEventListener("click", shareLink)
     if (el.publishShareBtn) el.publishShareBtn.addEventListener("click", publishSharedWork)
     if (el.openShareStepBtn) el.openShareStepBtn.addEventListener("click", () => setStep(SHARE_STEP))
     if (el.shareChannelInput) {
@@ -3329,6 +3748,11 @@
     el.titleInput.addEventListener("input", () => {
       state.title = el.titleInput.value || "무제"
     })
+    if (el.composerInput) {
+      el.composerInput.addEventListener("input", () => {
+        state.composerName = cleanText(el.composerInput.value, COMPOSER_NAME_MAX)
+      })
+    }
     if (el.bgReasonInput) {
       el.bgReasonInput.addEventListener("input", () => {
         state.backgroundReason = el.bgReasonInput.value
@@ -3386,6 +3810,7 @@
     renderComposeInstruments()
     renderOrchestraLegend()
     renderEffects()
+    syncDrawingReferenceToggle()
     syncBgPlayerUI()
     refreshTimeline(true)
     ensureFramePlayButton()
@@ -3396,9 +3821,9 @@
     syncShareInputs()
     updateReadouts()
     syncUndoButton()
-    restoreFromHash()
-    setStep(0)
-    restoreSharedChannelFromUrl()
+    const restoredRecipeLink = restoreFromHash()
+    setStep(restoredRecipeLink ? DRAWING_STEP : 0)
+    if (!restoredRecipeLink) restoreSharedChannelFromUrl()
     warmSelectedInstrument() // 기본 악기 미리 준비 + 음원 로드 상태(실제/합성)를 하단에 표시
     engine.warmAmbience(buildRecipe()).catch(function () {}) // 기본 배경음 미리 로드(드로잉 진입 시 즉시)
   }
@@ -3415,6 +3840,7 @@
         mode: state.mode,
         bgOffset: state.bgOffset,
         bgEndOffset: state.bgEndOffset,
+        composerName: state.composerName,
         backgroundReason: state.backgroundReason,
         melodyIntent: state.melodyIntent,
         hashtags: normalizeHashtags(state.hashtags),
@@ -3422,6 +3848,7 @@
         noteCount: state.mode === "rhythm" ? draw.hits.length : draw.notes.length,
         hasPicture: !!state.pic,
         takes: takes.list().length,
+        sharedRecipeLoaded: state.sharedRecipeLoaded,
         adminMode: state.adminMode,
         sharedChannel: state.sharedChannel,
         sharedWorks: state.sharedWorks.length,
@@ -3446,6 +3873,7 @@
     exportDrawingVideo: exportDrawingVideo,
     loadRecipe: loadRecipe,
     buildRecipe: buildRecipe,
+    buildSharedRecipe: buildSharedRecipe,
     setStep: setStep,
     setAdminMode: setAdminMode,
     engine: engine,

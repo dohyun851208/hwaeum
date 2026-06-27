@@ -48,20 +48,20 @@ test("서양 악기는 관악기와 현악기로 나누어 보여준다", () => 
   })
 })
 
-test("국악 악기는 요청한 다섯 악기만 지정 순서로 보여준다", () => {
+test("국악 악기는 요청한 여섯 악기만 지정 순서로 보여준다", () => {
   const data = loadManifest()
 
   const gugakLabels = data.instruments.filter((instrument) => instrument.group === "국악").map((instrument) => instrument.label)
 
-  assert.deepEqual(plain(gugakLabels), ["소금", "대금", "해금", "가야금", "산조아쟁"])
+  assert.deepEqual(plain(gugakLabels), ["소금", "대금", "단소", "해금", "가야금", "아쟁"])
 })
 
 test("국악 악기는 관악기와 현악기로 나누어 보여준다", () => {
   const data = loadManifest()
 
   assert.deepEqual(familyLabels(data, "국악"), {
-    관악기: ["소금", "대금"],
-    현악기: ["해금", "가야금", "산조아쟁"],
+    관악기: ["소금", "대금", "단소"],
+    현악기: ["해금", "가야금", "아쟁"],
   })
 })
 
@@ -196,4 +196,23 @@ test("레시피 불러오기도 배경 구간 설정과 길이를 유지한다",
   assert.match(loadRecipe, /state\.duration = normalizeDuration\(recipe\.duration \|\| DEFAULT_DURATION_SECONDS\)/)
   assert.match(loadRecipe, /state\.bgEndOffset = Math\.max\(0, Number\(recipe\.bgEndOffset\) \|\| 0\)/)
   assert.match(loadRecipe, /setupBgPlayer\(true\)/)
+})
+
+test("레시피 링크 공유는 드로잉 단계에서 시작하고 완성 탭 글을 제외한다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const start = source.indexOf("function buildSharedRecipe()")
+  const end = source.indexOf("function stampEffectAtPointer", start)
+  const buildSharedRecipe = source.slice(start, end)
+
+  assert.ok(start >= 0)
+  assert.ok(end > start)
+  assert.match(buildSharedRecipe, /title: "무제"/)
+  assert.match(buildSharedRecipe, /backgroundReason: ""/)
+  assert.match(buildSharedRecipe, /melodyIntent: ""/)
+  assert.match(buildSharedRecipe, /hashtags: \[\]/)
+  assert.match(buildSharedRecipe, /composerName: cleanText\(state\.composerName, COMPOSER_NAME_MAX\)/)
+  assert.match(source, /Core\.encodeRecipe\(buildSharedRecipe\(\)\)/)
+  assert.match(source, /const restoredRecipeLink = restoreFromHash\(\)[\s\S]*setStep\(restoredRecipeLink \? DRAWING_STEP : 0\)/)
+  assert.match(source, /state\.sharedRecipeLoaded = true/)
+  assert.match(source, /const items = state\.sharedRecipeLoaded \? \[\] : takes\.list\(\)/)
 })

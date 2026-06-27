@@ -259,7 +259,7 @@ check(
   window.document.querySelector(".tool-shortcut-hint")?.textContent === "펜(키보드1) · 지우개(키보드2)",
   window.document.querySelector(".tool-shortcut-hint")?.textContent,
 )
-check("완성 회고 입력칸 존재", qc("#bgReasonInput") === 1 && qc("#melodyIntentInput") === 1 && qc("#hashtagsInput") === 1)
+check("완성 작곡가/회고 입력칸 존재", qc("#composerInput") === 1 && qc("#bgReasonInput") === 1 && qc("#melodyIntentInput") === 1 && qc("#hashtagsInput") === 1)
 check(
   "드로잉 저장 버튼 존재",
   qc("#exportAudioBtn") === 1 && qc("#exportDrawingImageBtn") === 1,
@@ -299,6 +299,7 @@ SD.draw.setPath([
 ])
 const recipe = SD.buildRecipe()
 check("레시피 path 보존(<=121)", recipe.path.length > 1 && recipe.path.length <= 121)
+check("레시피에 업로드 그림 저장", recipe.picture === smokeImageData, recipe.picture)
 const back = window.MusicCore.decodeRecipe(window.MusicCore.encodeRecipe(recipe))
 check("레시피 코덱 왕복", JSON.stringify(back) === JSON.stringify(recipe))
 
@@ -419,6 +420,11 @@ Object.defineProperty(window.navigator, "clipboard", {
 window.document.getElementById("shareBtn").click()
 check("공유 버튼은 현재 주소에 복원 해시 생성", window.location.hash.indexOf("#r=") === 0, window.location.hash)
 check("공유 버튼은 복사할 링크 생성", copiedShareUrl.indexOf("#r=") > 0, copiedShareUrl)
+const copiedRecipeCode = copiedShareUrl.split("#r=")[1] || ""
+const copiedRecipe = copiedRecipeCode ? window.MusicCore.decodeRecipe(copiedRecipeCode) : {}
+check("공유 링크 레시피는 드로잉 공유 모드", copiedRecipe.shareMode === "drawing", copiedRecipe.shareMode)
+check("공유 링크 레시피는 그린 선을 포함", copiedRecipe.strokes && copiedRecipe.strokes.length > 0, JSON.stringify(copiedRecipe.strokes))
+check("공유 링크 레시피는 시간순 경로를 포함", copiedRecipe.path && copiedRecipe.path.length > 0, JSON.stringify(copiedRecipe.path))
 SD.setStep(2)
 window.document.getElementById("clearBtn").click()
 check("지우개 버튼으로 지우개 모드 진입", SD.draw.eraseMode === true, SD.draw.eraseMode)
@@ -486,6 +492,9 @@ SD.setStep(3)
 const titleInput = window.document.getElementById("titleInput")
 titleInput.value = "잔잔한 선"
 titleInput.dispatchEvent(new window.Event("input", { bubbles: true }))
+const composerInput = window.document.getElementById("composerInput")
+composerInput.value = "3반 김하음"
+composerInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 const bgReasonInput = window.document.getElementById("bgReasonInput")
 const melodyIntentInput = window.document.getElementById("melodyIntentInput")
 const hashtagsInput = window.document.getElementById("hashtagsInput")
@@ -497,9 +506,14 @@ hashtagsInput.value = "#잔잔함 #기대 #봄"
 hashtagsInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 const reflectionRecipe = SD.buildRecipe()
 check("레시피에 작품 제목 저장", reflectionRecipe.title === "잔잔한 선", reflectionRecipe.title)
+check("레시피에 작곡가 이름 저장", reflectionRecipe.composerName === "3반 김하음", reflectionRecipe.composerName)
 check("레시피에 배경 선택 이유 저장", reflectionRecipe.backgroundReason === "잔잔한 색과 어울리는 배경을 골랐어요.")
 check("레시피에 선율 의도 저장", reflectionRecipe.melodyIntent === "위로 올라가는 선으로 밝아지는 느낌을 표현했어요.")
 check("레시피에 해시태그 3개 저장", JSON.stringify(reflectionRecipe.hashtags) === '["잔잔함","기대","봄"]', JSON.stringify(reflectionRecipe.hashtags))
+const linkRecipe = SD.buildSharedRecipe()
+check("링크 공유용 레시피는 제목을 초기화", linkRecipe.title === "무제", linkRecipe.title)
+check("링크 공유용 레시피는 작곡가 이름을 유지", linkRecipe.composerName === "3반 김하음", linkRecipe.composerName)
+check("링크 공유용 레시피는 완성 탭 글을 비움", linkRecipe.backgroundReason === "" && linkRecipe.melodyIntent === "" && linkRecipe.hashtags.length === 0)
 
 SD.loadRecipe({
   duration: 45,
@@ -508,10 +522,16 @@ SD.loadRecipe({
   style: "bright",
   version: "balanced",
   mode: "melody",
+  picture: "data:image/png;base64,bG9hZGVk",
+  pictureName: "불러온 그림",
+  composerName: "불러온 작곡가",
   bgOffset: 2,
   bgEndOffset: 8,
   path: [],
 })
+check("loadRecipe는 그림을 상단 썸네일에 복원", window.document.getElementById("picThumb").src === "data:image/png;base64,bG9hZGVk")
+check("loadRecipe는 그림을 완성 표지에 복원", window.document.getElementById("frameImg").src === "data:image/png;base64,bG9hZGVk")
+check("loadRecipe는 작곡가 입력을 복원", window.document.getElementById("composerInput").value === "불러온 작곡가")
 check("기본 배경 loadRecipe는 구간 시작 복원", SD.buildRecipe().bgOffset === 2, SD.buildRecipe().bgOffset)
 check("기본 배경 loadRecipe는 구간 끝 복원", SD.buildRecipe().bgEndOffset === 8, SD.buildRecipe().bgEndOffset)
 check("기본 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
@@ -553,12 +573,15 @@ const savedTake = SD.takes.add(recipe, "테스트")
 check("테이크 저장됨", SD.takes.list().length === 1)
 SD.setAdminMode(false)
 check("저장된 시도 제목 입력 표시", qc(".take-name-input") === 1, qc(".take-name-input"))
+check("저장된 시도 제목 저장 버튼 제거", qc(".take-name-save") === 0, qc(".take-name-save"))
 const takeTitleInput = window.document.querySelector(".take-name-input")
-const takeTitleSave = window.document.querySelector(".take-name-save")
 takeTitleInput.value = "1번 학생 작품"
-takeTitleSave.click()
+takeTitleInput.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }))
 check("저장된 시도 제목 저장 반영", SD.takes.get(savedTake.id).name === "1번 학생 작품", SD.takes.get(savedTake.id).name)
 check("저장된 시도 레시피 제목 저장 반영", SD.takes.get(savedTake.id).recipe.title === "1번 학생 작품", SD.takes.get(savedTake.id).recipe.title)
+SD.loadRecipe(Object.assign({}, recipe, { picture: "data:image/png;base64,ZGlydHk=", pictureName: "다른 그림" }))
+window.document.querySelector(".take").click()
+check("저장된 시도 클릭 시 그림 복원", window.document.getElementById("frameImg").src === smokeImageData)
 check("저장된 시도 일시정지 버튼 표시", qc(".take-pause") === 1, qc(".take-pause"))
 check("저장된 시도는 재생 전 일시정지 비활성", window.document.querySelector(".take-pause").disabled === true)
 const originalTakePlay = SD.engine.play

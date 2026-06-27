@@ -5,6 +5,9 @@ node_modules/
 # 분석용 원본 wav(대용량)만 제외 — 다른 PC에선 sampleMap 재생성 시에만 필요(폴더 복사).
 sound/**/*.wav
 
+# hero 배경 — 앱은 최적화된 webp만 쓴다. 대용량 PNG 마스터는 로컬 보관(git 제외).
+assets/hero/*.png
+
 # OMC 오케스트레이션 상태
 .omc/
 
