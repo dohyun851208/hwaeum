@@ -2411,21 +2411,51 @@ body[data-step="2"] .instrument-strip .compose-instrument img {
   object-fit: contain;
 }
 body[data-step="2"] .instrument-strip .compose-instrument-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  max-height: 160px;
+  max-height: 168px;
   overflow-y: auto;
   padding: 1px 2px 4px 0;
   scrollbar-gutter: stable;
 }
-body[data-step="2"] .instrument-strip .compose-instrument-group,
+body[data-step="2"] .instrument-strip .compose-instrument-group {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
 body[data-step="2"] .instrument-strip .compose-instrument-group-list,
 body[data-step="2"] .instrument-strip .compose-instrument-family,
 body[data-step="2"] .instrument-strip .compose-instrument-family-list {
-  display: contents;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
-body[data-step="2"] .instrument-strip .compose-instrument-group-head,
+body[data-step="2"] .instrument-strip .compose-instrument-group-list {
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+body[data-step="2"] .instrument-strip .compose-instrument-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-height: 72px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.56);
+  color: var(--muted);
+  text-align: center;
+}
+body[data-step="2"] .instrument-strip .compose-instrument-group-head strong {
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1.1;
+  word-break: keep-all;
+}
 body[data-step="2"] .instrument-strip .compose-instrument-family-head {
   display: none;
 }
