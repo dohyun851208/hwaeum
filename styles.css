@@ -1046,6 +1046,30 @@ p {
 }
 
 /* 캔버스 */
+.drawing-workspace {
+  display: grid;
+  grid-template-columns: clamp(180px, 14vw, 240px) minmax(0, 1fr);
+  align-items: stretch;
+  min-width: 0;
+}
+.drawing-reference {
+  min-width: 0;
+  margin: 0;
+  padding: 14px 0 18px 16px;
+  border-right: 1px solid var(--line);
+  background: rgba(251, 246, 236, 0.45);
+}
+.drawing-reference img {
+  display: block;
+  width: 100%;
+  height: min(62vh, 660px);
+  min-height: 420px;
+  border-radius: 12px 0 0 12px;
+  border: 1px solid var(--line);
+  border-right: 0;
+  background: #fffaf0;
+  object-fit: contain;
+}
 .canvas-wrap {
   position: relative;
   width: 100%;
@@ -2134,6 +2158,16 @@ p {
   body[data-step="2"] .canvas-wrap {
     min-height: 0;
     padding: 12px 14px 14px;
+  }
+  body[data-step="2"] .drawing-workspace {
+    grid-template-columns: clamp(170px, 13vw, 220px) minmax(0, 1fr);
+  }
+  body[data-step="2"] .drawing-reference {
+    padding: 12px 0 14px 14px;
+  }
+  body[data-step="2"] .drawing-reference img {
+    height: clamp(360px, 48vh, 560px);
+    min-height: 360px;
   }
   body[data-step="2"] #drawingCanvas {
     height: clamp(360px, 48vh, 560px);

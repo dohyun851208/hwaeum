@@ -65,10 +65,15 @@
     for (let i = 0; i < this.items.length; i += 1) {
       if (this.items[i].id !== id) continue
       this.items[i].name = nextName
+      if (this.items[i].recipe) this.items[i].recipe.title = nextName || "무제"
       this._save()
       return true
     }
     return false
+  }
+
+  TakesStore.prototype.setTitle = function (id, title) {
+    return this.rename(id, title)
   }
 
   TakesStore.prototype.get = function (id) {

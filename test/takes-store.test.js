@@ -53,3 +53,15 @@ test("TakesStore loads saved attempts oldest first", () => {
     ["old", "new"],
   )
 })
+
+
+test("TakesStore setTitle updates the visible name and recipe title", () => {
+  const { TakesStore } = loadTakesStore()
+  const takes = new TakesStore("sda.takes")
+  const take = takes.add({ duration: 30, title: "처음 제목" }, "처음 제목")
+
+  assert.equal(takes.setTitle(take.id, "새 제목"), true)
+  const saved = takes.get(take.id)
+  assert.equal(saved.name, "새 제목")
+  assert.equal(saved.recipe.title, "새 제목")
+})

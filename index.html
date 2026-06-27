@@ -6,7 +6,7 @@
     <meta name="google-signin-client_id" content="" />
     <title>화음 스튜디오 · 그림으로 만드는 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260627-haegeum-grid" />
+    <link rel="stylesheet" href="./styles.css?v=20260627-drawing-reference" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body data-step="0">
@@ -132,12 +132,17 @@
                   <button class="btn small" id="resetComposeBtn" type="button">초기화</button>
                 </div>
               </div>
-              <div class="canvas-wrap">
-                <canvas id="drawingCanvas" width="1440" height="540" aria-label="소리를 그리는 캔버스"></canvas>
-                <div class="effect-stamp-layer" id="effectStampLayer" aria-hidden="true"></div>
-                <div class="pitch-labels" id="pitchLabels" aria-hidden="true"></div>
-                <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
-                <div class="playhead" id="playhead" role="slider" aria-label="재생 시작 위치" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" tabindex="0" hidden></div>
+              <div class="drawing-workspace">
+                <figure class="drawing-reference" id="drawingReference">
+                  <img id="drawingReferenceImg" src="./assets/default-cover.png" alt="올린 그림" />
+                </figure>
+                <div class="canvas-wrap">
+                  <canvas id="drawingCanvas" width="1440" height="540" aria-label="소리를 그리는 캔버스"></canvas>
+                  <div class="effect-stamp-layer" id="effectStampLayer" aria-hidden="true"></div>
+                  <div class="pitch-labels" id="pitchLabels" aria-hidden="true"></div>
+                  <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
+                  <div class="playhead" id="playhead" role="slider" aria-label="재생 시작 위치" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" tabindex="0" hidden></div>
+                </div>
               </div>
               <div class="bg-player" id="bgPlayer" aria-label="배경음악 위치 맞추기">
                 <span class="bg-player-label">배경 구간</span>
@@ -292,9 +297,9 @@
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
     <script src="./js/audio-engine.js?v=20260627-stroke-sustain-engine"></script>
     <script src="./js/drawing.js?v=20260627-haegeum-grid"></script>
-    <script src="./js/takes.js?v=20260624-reflect-limit"></script>
+    <script src="./js/takes.js?v=20260627-take-title"></script>
     <script src="./js/share-store.js?v=20260627-channel-share"></script>
     <script src="./js/auth.js?v=20260627-google-login" defer></script>
-    <script src="./js/studio.js?v=20260627-bg-range-duration" defer></script>
+    <script src="./js/studio.js?v=20260627-drawing-reference" defer></script>
   </body>
 </html>

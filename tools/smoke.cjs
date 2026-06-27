@@ -52,6 +52,14 @@ window.alert = (message) => {
   lastAlert = String(message)
   alertCalls += 1
 }
+const smokeImageData = "data:image/png;base64,c21va2U="
+window.FileReader = function () {
+  this.result = smokeImageData
+  this.onload = null
+}
+window.FileReader.prototype.readAsDataURL = function () {
+  if (typeof this.onload === "function") this.onload({ target: this })
+}
 // 네트워크 없음 — 음원 로드는 실패시키고(합성 폴백 경로) 동기 ReferenceError만 방지
 window.fetch = () => Promise.reject(new Error("smoke: no network"))
 window.AudioContext = function () {
@@ -123,6 +131,13 @@ check("연주 형태 토글 제거", qc("[data-mode]") === 0, qc("[data-mode]"))
 check("믹스 선택 UI 제거", qc("#versionList") === 0 && !window.document.body.textContent.includes("믹스"), qc("#versionList"))
 check("단계 탭 5개", qc("[data-step-jump]") === 5)
 check("국악 음원 출처 표기", window.document.getElementById("audioModeNote").textContent.includes("국립국악원"))
+check("드로잉 참고 그림 영역 존재", qc("#drawingReferenceImg") === 1, qc("#drawingReferenceImg"))
+
+const picInput = window.document.getElementById("picInput")
+const picFile = new window.File(["img"], "그림.png", { type: "image/png" })
+Object.defineProperty(picInput, "files", { value: [picFile], configurable: true })
+picInput.dispatchEvent(new window.Event("change"))
+check("드로잉 탭 참고 그림은 업로드 그림을 표시", window.document.getElementById("drawingReferenceImg").src === smokeImageData)
 
 const groupTabs = Array.from(window.document.querySelectorAll("#instrumentGroups .group-tab"))
 const gugakTab = groupTabs.find((tab) => tab.textContent === "국악")
@@ -468,6 +483,9 @@ check("완성곡 종료 후 드로잉 배경음 자동 재시작 없음", ambien
 SD.engine.startAmbience = originalStartAmbience
 
 SD.setStep(3)
+const titleInput = window.document.getElementById("titleInput")
+titleInput.value = "잔잔한 선"
+titleInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 const bgReasonInput = window.document.getElementById("bgReasonInput")
 const melodyIntentInput = window.document.getElementById("melodyIntentInput")
 const hashtagsInput = window.document.getElementById("hashtagsInput")
@@ -478,6 +496,7 @@ melodyIntentInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 hashtagsInput.value = "#잔잔함 #기대 #봄"
 hashtagsInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 const reflectionRecipe = SD.buildRecipe()
+check("레시피에 작품 제목 저장", reflectionRecipe.title === "잔잔한 선", reflectionRecipe.title)
 check("레시피에 배경 선택 이유 저장", reflectionRecipe.backgroundReason === "잔잔한 색과 어울리는 배경을 골랐어요.")
 check("레시피에 선율 의도 저장", reflectionRecipe.melodyIntent === "위로 올라가는 선으로 밝아지는 느낌을 표현했어요.")
 check("레시피에 해시태그 3개 저장", JSON.stringify(reflectionRecipe.hashtags) === '["잔잔함","기대","봄"]', JSON.stringify(reflectionRecipe.hashtags))
@@ -532,8 +551,14 @@ check("초기화는 드로잉만 삭제", SD.draw.getStrokes().length === 0 && S
 SD.takes.clearAll()
 const savedTake = SD.takes.add(recipe, "테스트")
 check("테이크 저장됨", SD.takes.list().length === 1)
-check("테이크 이름 수정 저장됨", SD.takes.rename(savedTake.id, "1번 학생") && SD.takes.get(savedTake.id).name === "1번 학생")
 SD.setAdminMode(false)
+check("저장된 시도 제목 입력 표시", qc(".take-name-input") === 1, qc(".take-name-input"))
+const takeTitleInput = window.document.querySelector(".take-name-input")
+const takeTitleSave = window.document.querySelector(".take-name-save")
+takeTitleInput.value = "1번 학생 작품"
+takeTitleSave.click()
+check("저장된 시도 제목 저장 반영", SD.takes.get(savedTake.id).name === "1번 학생 작품", SD.takes.get(savedTake.id).name)
+check("저장된 시도 레시피 제목 저장 반영", SD.takes.get(savedTake.id).recipe.title === "1번 학생 작품", SD.takes.get(savedTake.id).recipe.title)
 check("저장된 시도 일시정지 버튼 표시", qc(".take-pause") === 1, qc(".take-pause"))
 check("저장된 시도는 재생 전 일시정지 비활성", window.document.querySelector(".take-pause").disabled === true)
 const originalTakePlay = SD.engine.play
@@ -563,17 +588,12 @@ check("저장된 시도 재생 중 일시정지 활성", activeTakePause.disable
 activeTakePause.click()
 check("저장된 시도 일시정지 버튼 동작", takePauseCalls === 1, takePauseCalls)
 check("저장된 시도 일시정지 후 이어듣기 표시", window.document.querySelector(".take-pause").textContent === "▶")
+check("저장된 시도 재생 시 완성 제목 반영", window.document.getElementById("titleInput").value === "1번 학생 작품")
 SD.engine.play = originalTakePlay
 SD.engine.pause = originalTakePause
 SD.stop()
 SD.setAdminMode(true)
 check("관리자 모드 켜짐", SD.getStateSummary().adminMode === true)
-check("관리자 이름 입력 표시", qc(".take-name-input") === 1, qc(".take-name-input"))
-const nameInput = window.document.querySelector(".take-name-input")
-const nameSave = window.document.querySelector(".take-name-save")
-nameInput.value = "홍길동"
-nameSave.click()
-check("관리자 이름 저장 반영", SD.takes.get(savedTake.id).name === "홍길동", SD.takes.get(savedTake.id).name)
 check("localStorage 재로드 유지", new window.TakesStore("sda.takes").list().length === 1)
 const newestTake = SD.takes.add(recipe, "마지막")
 const orderedTakes = SD.takes.list()

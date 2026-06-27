@@ -141,6 +141,7 @@
     picChip: $("picChip"),
     picThumb: $("picThumb"),
     picStatus: $("picStatus"),
+    drawingReferenceImg: $("drawingReferenceImg"),
     atmosphereGrid: $("atmosphereGrid"),
     bgUploadInput: $("bgUploadInput"),
     bgUploadStatus: $("bgUploadStatus"),
@@ -467,6 +468,7 @@
   function buildRecipe() {
     const built = buildStrokesAndInstruments()
     return {
+      title: cleanText(state.title || "무제", 24) || "무제",
       duration: state.duration,
       bgOffset: recipeBgOffset(),
       bgEndOffset: recipeBgEndOffset(),
@@ -1342,6 +1344,7 @@
     el.dropEmpty.style.display = "none"
     el.picThumb.src = dataUrl
     el.picChip.hidden = false
+    if (el.drawingReferenceImg) el.drawingReferenceImg.src = dataUrl
     el.frameImg.src = dataUrl
     el.frameImg.style.display = "block"
     el.frameCanvas.style.display = "none"
@@ -2187,43 +2190,42 @@
     num.textContent = index + "번"
     row.appendChild(num)
 
-    if (state.adminMode) {
-      const input = document.createElement("input")
-      input.type = "text"
-      input.className = "take-name-input"
-      input.value = take.name || ""
-      input.maxLength = TAKE_NAME_MAX
-      input.placeholder = "이름 입력"
-      input.setAttribute("aria-label", index + "번 이름")
-      const saveB = document.createElement("button")
-      saveB.type = "button"
-      saveB.className = "btn tiny take-name-save"
-      saveB.textContent = "저장"
-      saveB.title = "이름 저장"
-      const saveName = function () {
-        takes.rename(take.id, input.value)
-        renderTakes()
-        el.exportStatus.textContent = index + "번 이름을 저장했어요."
+    const input = document.createElement("input")
+    input.type = "text"
+    input.className = "take-name-input"
+    input.value = take.name || (take.recipe && take.recipe.title) || ""
+    input.maxLength = TAKE_NAME_MAX
+    input.placeholder = "작품 제목"
+    input.setAttribute("aria-label", index + "번 작품 제목")
+    const saveB = document.createElement("button")
+    saveB.type = "button"
+    saveB.className = "btn tiny take-name-save"
+    saveB.textContent = "저장"
+    saveB.title = "작품 제목 저장"
+    const saveTitle = function () {
+      const nextTitle = input.value.trim() || "무제"
+      takes.setTitle(take.id, nextTitle)
+      if (state.activeTakeId === take.id) {
+        state.title = nextTitle
+        if (el.titleInput) el.titleInput.value = nextTitle
       }
-      // 이름 편집 컨트롤은 카드 클릭(결과 보기)으로 번지지 않게 막는다.
-      input.addEventListener("click", function (event) {
-        event.stopPropagation()
-      })
-      saveB.addEventListener("click", function (event) {
-        event.stopPropagation()
-        saveName()
-      })
-      input.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") saveName()
-      })
-      row.appendChild(input)
-      row.appendChild(saveB)
-    } else {
-      const name = document.createElement("strong")
-      name.className = "take-name"
-      name.textContent = take.name || "이름 없음"
-      row.appendChild(name)
+      renderTakes()
+      el.exportStatus.textContent = index + "번 작품 제목을 저장했어요."
     }
+    // 제목 편집 컨트롤은 카드 클릭(결과 보기)으로 번지지 않게 막는다.
+    input.addEventListener("click", function (event) {
+      event.stopPropagation()
+    })
+    input.addEventListener("keydown", function (event) {
+      event.stopPropagation()
+      if (event.key === "Enter") saveTitle()
+    })
+    saveB.addEventListener("click", function (event) {
+      event.stopPropagation()
+      saveTitle()
+    })
+    row.appendChild(input)
+    row.appendChild(saveB)
     meta.appendChild(row)
   }
 
@@ -2323,18 +2325,24 @@
   // 시도 카드 클릭 → 그 시도의 결과(제목·분위기·악기·해시태그·그린 음)를 완성 화면에 불러온다.
   function selectTake(t) {
     state.activeTakeId = t.id
-    if (t.name) {
-      state.title = t.name
-      if (el.titleInput) el.titleInput.value = t.name
+    const title = t.name || (t.recipe && t.recipe.title) || ""
+    if (title) {
+      state.title = title
+      if (el.titleInput) el.titleInput.value = title
     }
     loadRecipe(t.recipe)
     renderTakes()
-    el.exportStatus.textContent = "‘" + (t.name || "시도") + "’ 결과를 불러왔어요."
+    el.exportStatus.textContent = "‘" + (title || "시도") + "’ 결과를 불러왔어요."
   }
 
   // --- 레시피 불러오기 ---
 
   function loadRecipe(recipe) {
+    const loadedTitle = cleanText((recipe && recipe.title) || "", 24)
+    if (loadedTitle) {
+      state.title = loadedTitle
+      if (el.titleInput) el.titleInput.value = loadedTitle
+    }
     state.duration = normalizeDuration(recipe.duration || DEFAULT_DURATION_SECONDS)
     state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || D.atmospheres[0]
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
