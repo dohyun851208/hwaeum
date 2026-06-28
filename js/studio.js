@@ -1686,6 +1686,10 @@
 
   function soundDrawingProgress() {
     if (state.drawingInputMode !== DRAW_MODE_SOUND) return selectedPlayheadProgress
+    // 전체곡 재생이 켜져 있으면 그 재생을 멈추지 않고(=이미 그려둔 선율을 계속 들으며) 엔진 플레이헤드를
+    // 드로잉 시계로 쓴다. 펜 미리듣기는 본 재생과 독립 믹스라 새 음이 그 위에 얹혀 함께 들린다.
+    // (예전엔 여기서 playBgPlayer()→engine.stop()이 불려, 펜을 대는 순간 기존 선율이 끊겼다.)
+    if (engine.isPlaying && !engine.isPaused) return livePlayheadProgress()
     if (bgPlayer.paused) {
       // 배경음악(시계)이 멈춰 있으면 지금 재생바 위치를 이어받아 그 시점부터 띄운다.
       // (예전엔 무조건 bgOffset=0부터 시작해, 전체곡을 듣다가 그리면 첫 터치가 0초로 튀었다.)
@@ -1739,8 +1743,19 @@
       const prog = Math.max(0, Math.min(1, elapsed / durMs))
       playheadElapsedMs = elapsed
       positionPlayhead(prog)
-      if (prog < 1 && engine.isPlaying && !engine.isPaused) playheadRAF = requestAnimationFrame(tick)
-      else stopPlayhead()
+      // 소리모드에서 전체곡 재생 중 펜을 대면, 엔진 플레이헤드가 드로잉 시계가 된다(bgTick 대신).
+      // 매 프레임 진행도를 기록해 새 획의 시간(x)을 전진시키고, 곡 끝에서 획을 마무리한다(루프 없음).
+      const soundFlow = state.drawingInputMode === DRAW_MODE_SOUND && draw.flowActive
+      if (prog < 1 && engine.isPlaying && !engine.isPaused) {
+        if (soundFlow) draw.flowRecord(prog)
+        playheadRAF = requestAnimationFrame(tick)
+      } else {
+        if (soundFlow) {
+          draw.flowRecord(1)
+          draw.finishFlowStroke(true)
+        }
+        stopPlayhead()
+      }
     }
     if (playheadRAF) cancelAnimationFrame(playheadRAF)
     playheadRAF = requestAnimationFrame(tick)
@@ -2222,10 +2237,8 @@
     if (next === DRAW_MODE_SOUND) {
       clearEffectStampSelection()
       setEraser(false)
-      // 소리모드는 배경음악이 시계 역할을 한다. 미리 재생해 두면 첫 터치도 0초가 아니라 원하는 타이밍에 찍힌다.
-      if (bgPlayer.paused) playBgPlayer()
-      if (bgPlayer.paused) showSelectedPlayhead(false) // 배경음악이 없어 못 켜진 경우엔 정지 위치만 표시
-      if (announce) el.exportStatus.textContent = "소리모드: 배경음악이 흐르는 동안 원하는 순간에 그리면 그 타이밍에 선율이 남아요."
+      if (bgPlayer.paused) showSelectedPlayhead(false)
+      if (announce) el.exportStatus.textContent = "소리모드: 배경 재생 버튼을 누른 뒤, 원하는 순간에 그리면 그 타이밍에 선율이 남아요."
     } else if (announce) {
       el.exportStatus.textContent = "그림모드: 캔버스의 가로 위치와 선 길이대로 선율이 만들어집니다."
     }

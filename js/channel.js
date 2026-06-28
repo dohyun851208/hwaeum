@@ -30,6 +30,12 @@
     flowModeBtn: $("channelFlowModeBtn"),
     flowPrevBtn: $("channelFlowPrevBtn"),
     flowNextBtn: $("channelFlowNextBtn"),
+    flowStage: null,
+    flowCaption: null,
+    flowCount: null,
+    flowTitle: null,
+    flowMeta: null,
+    flowTags: null,
     shelves: $("channelShelves"),
     empty: $("channelEmpty"),
     viewer: $("channelViewer"),
@@ -55,6 +61,9 @@
     openedFromHash: false,
     viewMode: loadViewMode(),
     flowIndex: 0,
+    flowPosition: 0,
+    flowCards: [],
+    flowDragMoved: false,
   }
 
   function cleanText(value, max) {
@@ -142,16 +151,49 @@
 
   function setFlowIndex(index) {
     const next = clampFlowIndex(index)
-    if (state.flowIndex === next) {
+    state.flowIndex = next
+    state.flowPosition = next
+    // 카드를 이미 만들어 둔 경우엔 통째로 다시 그리지 않고 자리만 부드럽게 옮긴다.
+    // (DOM을 새로 만들면 CSS transition이 끊겨서 뚝뚝 끊겨 보인다.)
+    if (state.viewMode === VIEW_MODE_FLOW && state.flowCards.length) {
+      setFlowDragging(false)
+      layoutFlowCards(next)
+      updateFlowCaption()
       syncViewModeUI()
       return
     }
-    state.flowIndex = next
     renderShelves()
   }
 
   function shiftFlowIndex(delta) {
     setFlowIndex(state.flowIndex + delta)
+  }
+
+  function setFlowDragging(on) {
+    if (el.flowStage) el.flowStage.classList.toggle("is-dragging", !!on)
+  }
+
+  // position(소수 가능)에 맞춰 각 카드의 변형 변수만 갱신한다. 드래그 중에는
+  // position이 2.37처럼 연속값이라 커버가 손가락을 1:1로 따라온다.
+  function layoutFlowCards(position) {
+    if (!state.flowCards.length) return
+    const center = clampFlowIndex(Math.round(position))
+    state.flowCards.forEach(function (card, index) {
+      applyFlowCardStyle(card, index - position)
+      card.classList.toggle("is-center", index === center)
+    })
+  }
+
+  function updateFlowCaption() {
+    const active = state.works[state.flowIndex]
+    if (!active || !el.flowCaption) return
+    const meta = active.metadata || {}
+    el.flowCount.textContent = state.flowIndex + 1 + " / " + state.works.length
+    el.flowTitle.textContent = workTitle(active)
+    el.flowMeta.textContent = workMetaLine(active)
+    const tags = tagsText(meta.hashtags)
+    el.flowTags.hidden = !tags
+    el.flowTags.textContent = tags
   }
 
   function isTypingTarget(target) {
@@ -336,25 +378,30 @@
 
   function applyFlowCardStyle(card, offset) {
     const abs = Math.abs(offset)
-    const visible = abs <= 4
+    const sign = offset === 0 ? 0 : offset > 0 ? 1 : -1
+    const visible = abs <= 4.6
     const clamped = Math.max(-4, Math.min(4, offset))
-    const x = clamped * 148
-    const rotate = offset === 0 ? 0 : offset > 0 ? -58 : 58
+    const x = clamped * 150
+    // 회전은 가운데(0)에서 옆칸(±1)까지 부드럽게 ±58도로 차오른 뒤 그대로 유지한다.
+    const rotate = -sign * Math.min(abs, 1) * 58
     const z = -Math.min(abs, 4) * 92
     const scale = Math.max(0.66, 1 - Math.min(abs, 4) * 0.075)
-    const opacity = visible ? Math.max(0.22, 1 - abs * 0.15) : 0
-    card.style.setProperty("--flow-x", x + "px")
-    card.style.setProperty("--flow-rotate", rotate + "deg")
-    card.style.setProperty("--flow-z", z + "px")
-    card.style.setProperty("--flow-scale", String(scale.toFixed(3)))
-    card.style.setProperty("--flow-opacity", String(opacity.toFixed(2)))
-    card.style.zIndex = String(100 - Math.min(abs, 90))
+    const opacity = visible ? Math.max(0.16, 1 - abs * 0.16) : 0
+    card.style.setProperty("--flow-x", x.toFixed(1) + "px")
+    card.style.setProperty("--flow-rotate", rotate.toFixed(1) + "deg")
+    card.style.setProperty("--flow-z", z.toFixed(1) + "px")
+    card.style.setProperty("--flow-scale", scale.toFixed(3))
+    card.style.setProperty("--flow-opacity", opacity.toFixed(2))
+    card.style.zIndex = String(Math.round(100 - Math.min(abs, 90)))
     card.tabIndex = visible ? 0 : -1
-    if (!visible) card.setAttribute("aria-hidden", "true")
+    card.style.pointerEvents = visible ? "" : "none"
+    if (visible) card.removeAttribute("aria-hidden")
+    else card.setAttribute("aria-hidden", "true")
   }
 
   function renderCoverFlow() {
     state.flowIndex = clampFlowIndex(state.flowIndex)
+    state.flowPosition = state.flowIndex
     const active = state.works[state.flowIndex]
     const section = document.createElement("section")
     section.className = "channel-coverflow"
@@ -362,45 +409,42 @@
 
     const stage = document.createElement("div")
     stage.className = "channel-coverflow-stage"
-    state.works.forEach(function (work, index) {
-      const offset = index - state.flowIndex
-      const isCenter = offset === 0
+    stage.setAttribute("role", "listbox")
+    state.flowCards = state.works.map(function (work, index) {
       const card = createAlbumCard(work, index, {
-        className: "channel-flow-album" + (isCenter ? " is-center" : ""),
-        ariaLabel: workTitle(work) + (isCenter ? " 크게 보기" : " 선택"),
+        className: "channel-flow-album",
+        ariaLabel: workTitle(work) + " 선택",
         onClick: function () {
+          // 드래그로 자리를 옮긴 직후의 클릭은 무시한다(아래 click 캡처에서 막음).
           if (index === state.flowIndex) openViewer(work, { updateHash: true, play: true })
           else setFlowIndex(index)
         },
       })
-      applyFlowCardStyle(card, offset)
       stage.appendChild(card)
+      return card
     })
+    el.flowStage = stage
+    layoutFlowCards(state.flowIndex)
+    bindFlowInteractions(stage)
     section.appendChild(stage)
 
     if (active) {
-      const meta = active.metadata || {}
       const caption = document.createElement("section")
       caption.className = "channel-coverflow-caption"
       const count = document.createElement("p")
       count.className = "channel-coverflow-count"
-      count.textContent = state.flowIndex + 1 + " / " + state.works.length
       const title = document.createElement("h2")
-      title.textContent = workTitle(active)
       const detail = document.createElement("p")
       detail.className = "channel-coverflow-meta"
-      detail.textContent = workMetaLine(active)
-      const tags = tagsText(meta.hashtags)
       const tagLine = document.createElement("p")
       tagLine.className = "channel-coverflow-tags"
-      tagLine.hidden = !tags
-      tagLine.textContent = tags
       const open = document.createElement("button")
       open.type = "button"
       open.className = "channel-action-button primary"
       open.textContent = "크게 듣기"
       open.addEventListener("click", function () {
-        openViewer(active, { updateHash: true, play: true })
+        const current = state.works[state.flowIndex]
+        if (current) openViewer(current, { updateHash: true, play: true })
       })
       caption.appendChild(count)
       caption.appendChild(title)
@@ -408,9 +452,96 @@
       caption.appendChild(tagLine)
       caption.appendChild(open)
       section.appendChild(caption)
+      el.flowCaption = caption
+      el.flowCount = count
+      el.flowTitle = title
+      el.flowMeta = detail
+      el.flowTags = tagLine
+      updateFlowCaption()
     }
 
     el.shelves.appendChild(section)
+  }
+
+  // 마우스/터치 드래그·휠로 커버플로우를 굴린다.
+  function bindFlowInteractions(stage) {
+    const SPACING = 150
+    let pointerId = null
+    let startX = 0
+    let startPos = 0
+
+    function maxIndex() {
+      return Math.max(0, state.works.length - 1)
+    }
+
+    stage.addEventListener("pointerdown", function (event) {
+      if (state.works.length < 2) return
+      if (event.button != null && event.button !== 0) return
+      pointerId = event.pointerId
+      startX = event.clientX
+      startPos = state.flowPosition
+      state.flowDragMoved = false
+      setFlowDragging(true)
+      try {
+        stage.setPointerCapture(pointerId)
+      } catch (error) {}
+    })
+
+    stage.addEventListener("pointermove", function (event) {
+      if (pointerId === null || event.pointerId !== pointerId) return
+      const dx = event.clientX - startX
+      if (Math.abs(dx) > 4) state.flowDragMoved = true
+      const max = maxIndex()
+      let pos = startPos - dx / SPACING
+      // 양 끝에서는 고무줄처럼 살짝만 끌려 나가게 한다.
+      if (pos < 0) pos *= 0.35
+      else if (pos > max) pos = max + (pos - max) * 0.35
+      state.flowPosition = pos
+      layoutFlowCards(pos)
+    })
+
+    function endDrag(event) {
+      if (pointerId === null || (event && event.pointerId !== pointerId)) return
+      try {
+        stage.releasePointerCapture(pointerId)
+      } catch (error) {}
+      pointerId = null
+      setFlowIndex(Math.round(state.flowPosition))
+    }
+
+    stage.addEventListener("pointerup", endDrag)
+    stage.addEventListener("pointercancel", endDrag)
+
+    // 드래그로 자리를 옮긴 직후 발생하는 클릭(카드 열림)을 한 번 막는다.
+    stage.addEventListener(
+      "click",
+      function (event) {
+        if (state.flowDragMoved) {
+          event.preventDefault()
+          event.stopPropagation()
+          state.flowDragMoved = false
+        }
+      },
+      true,
+    )
+
+    let wheelLock = false
+    stage.addEventListener(
+      "wheel",
+      function (event) {
+        if (state.works.length < 2) return
+        const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+        if (!delta) return
+        event.preventDefault()
+        if (wheelLock) return
+        wheelLock = true
+        setTimeout(function () {
+          wheelLock = false
+        }, 200)
+        shiftFlowIndex(delta > 0 ? 1 : -1)
+      },
+      { passive: false },
+    )
   }
 
   function renderShelfView() {
@@ -427,6 +558,10 @@
 
   function renderShelves() {
     el.shelves.innerHTML = ""
+    // 카드를 새로 그리므로 옛 커버플로우 참조는 버린다.
+    state.flowCards = []
+    el.flowStage = null
+    el.flowCaption = null
     state.flowIndex = clampFlowIndex(state.flowIndex)
     updateHeader()
     syncViewModeUI()

@@ -57,6 +57,14 @@ test("background range pause keeps its current position for resume", () => {
   assert.match(toggleBody, /else pauseBgPlayer\(true\)/)
 })
 
+test("switching to sound mode does not auto-start the background player", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const modeBody = functionBody(source, "setDrawingInputMode")
+
+  assert.doesNotMatch(modeBody, /playBgPlayer\(\)/)
+  assert.match(modeBody, /배경 재생 버튼을 누른 뒤/)
+})
+
 test("sound-mode drawing resumes the clock from the current playhead, not 0", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const progressBody = functionBody(source, "soundDrawingProgress")
@@ -73,6 +81,25 @@ test("sound-mode drawing resumes the clock from the current playhead, not 0", ()
   assert.match(liveBody, /engine\.isPlaying && !engine\.isPaused && playheadStartedAt/)
   // 진행(0..1)을 배경음악 시간으로 환산하는 식은 bgPlayheadProgress와 같은 구간을 써야 한다.
   assert.match(bgTimeBody, /state\.bgOffset \+ clampPlayheadProgress\(progress\) \* segment/)
+})
+
+test("drawing during full playback keeps the song playing instead of stopping the engine", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const progressBody = functionBody(source, "soundDrawingProgress")
+  const startPlayheadBody = functionBody(source, "startPlayhead")
+
+  // 전체곡 재생 중 펜을 대도 bgPlayer로 갈아타지 말고(=playBgPlayer→engine.stop 회피)
+  // 엔진 플레이헤드를 드로잉 시계로 써야, 이미 그려둔 선율이 끊기지 않는다.
+  const engineGuard = progressBody.indexOf("engine.isPlaying && !engine.isPaused")
+  const bgPausedBranch = progressBody.indexOf("bgPlayer.paused")
+  assert.notEqual(engineGuard, -1, "재생 중 분기가 있어야 한다")
+  assert.ok(engineGuard < bgPausedBranch, "엔진 재생 분기는 bgPlayer 재개보다 먼저 와야 한다")
+  assert.match(progressBody, /if \(engine\.isPlaying && !engine\.isPaused\) return livePlayheadProgress\(\)/)
+
+  // 엔진이 시계가 되면 bgTick이 안 돌므로, 엔진 플레이헤드 틱이 직접 새 획을 기록해야 한다.
+  assert.match(startPlayheadBody, /state\.drawingInputMode === DRAW_MODE_SOUND && draw\.flowActive/)
+  assert.match(startPlayheadBody, /draw\.flowRecord\(prog\)/)
+  assert.match(startPlayheadBody, /draw\.finishFlowStroke\(true\)/)
 })
 
 test("paused playback stores the visible playhead position for later controls", () => {

@@ -1473,6 +1473,19 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
     linear-gradient(180deg, #10191d 0, #0a0d10 62%, #111719 63%, #050607 100%);
   box-shadow: 0 24px 54px rgba(63, 45, 40, 0.28);
   perspective: 1250px;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.channel-coverflow-stage.is-dragging {
+  cursor: grabbing;
+}
+
+/* 드래그 중에는 transition을 꺼서 커버가 손가락을 1:1로 따라오게 한다. */
+.channel-coverflow-stage.is-dragging .channel-flow-album {
+  transition: none;
 }
 
 .channel-coverflow-stage::before,
@@ -1510,13 +1523,14 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
     scale(var(--flow-scale, 1));
   transform-style: preserve-3d;
   opacity: var(--flow-opacity, 1);
+  will-change: transform, opacity;
   transition:
-    opacity 240ms ease,
-    transform 260ms ease;
+    opacity 320ms ease,
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .channel-coverflow .channel-flow-album.is-center {
-  bottom: 154px;
+  cursor: pointer;
 }
 
 .channel-coverflow .channel-flow-album[aria-hidden="true"] {
