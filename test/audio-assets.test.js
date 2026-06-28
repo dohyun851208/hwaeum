@@ -105,7 +105,7 @@ test("새 도장 효과음은 정리된 폴더의 음원과 이미지를 사용�
 
 test("배경/악기 화면은 선별된 배경음과 새 하위 범주를 사용한다", () => {
   const data = loadManifest()
-  const expectedGroups = ["분위기", "소리풍경", "리듬장단"]
+  const expectedGroups = ["분위기", "소리풍경", "리듬장단", "배경 없음"]
   const actualGroups = []
   for (const item of data.atmospheres) {
     if (!actualGroups.includes(item.group)) actualGroups.push(item.group)
@@ -131,8 +131,17 @@ test("배경/악기 화면은 선별된 배경음과 새 하위 범주를 사용
       "jajinSamchae",
       "jungjungmori",
       "pungnyu",
+      "none",
     ],
   )
+
+  // 배경음악 없음 — 배경 음원·padType 없이 silent 플래그만 가진다(합성 패드/앰비언스 폴백 차단용).
+  const none = data.atmospheres.find((item) => item.id === "none")
+  assert.ok(none, "배경 없음 옵션이 있어야 한다")
+  assert.equal(none.silent, true)
+  assert.equal(none.backgroundId, null)
+  assert.equal(none.padType, null)
+  assert.equal(data.backgrounds.none, undefined, "배경 없음은 배경 음원을 추가하지 않는다")
 
   for (const id of ["exotic", "peaceful", "africanRhythm", "theme4"]) {
     assert.equal(data.backgrounds[id], undefined, id + " background removed")

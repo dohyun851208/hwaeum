@@ -150,6 +150,27 @@ test("resolvePlan keeps the selected scale independent from instrument sample ra
   assert.deepEqual(core.buildScale(violin.pitchStyle), core.buildScale(bass.pitchStyle))
 })
 
+test("배경음악 없음(silent) 분위기는 합성 패드 폴백도 깔지 않는다", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const emptyBuffers = { pad: null, melody: null, melodySamples: null, effects: [], byInstrument: {} }
+  const base = { duration: 30, instrument: "violin", style: "bright", version: "balanced", mode: "melody" }
+
+  const silentPlan = engine.resolvePlan(Object.assign({}, base, { atmosphere: "none" }), [])
+  assert.equal(silentPlan.silent, true)
+  const silentCtx = makeAudioContext()
+  engine.schedule(silentCtx, makeNode(), silentPlan, emptyBuffers, 0, noop)
+  assert.equal(silentCtx.created.oscillators.length, 0, "배경 없음이면 합성 패드 오실레이터가 없어야 한다")
+  assert.equal(silentCtx.created.buffers.length, 0, "배경 없음이면 배경 버퍼 소스도 없어야 한다")
+
+  // 대조군: 일반 분위기는 배경 버퍼가 없으면 합성 패드로 폴백한다.
+  const calmPlan = engine.resolvePlan(Object.assign({}, base, { atmosphere: "calm" }), [])
+  assert.equal(calmPlan.silent, false)
+  const calmCtx = makeAudioContext()
+  engine.schedule(calmCtx, makeNode(), calmPlan, emptyBuffers, 0, noop)
+  assert.ok(calmCtx.created.oscillators.length > 0, "일반 분위기는 합성 패드가 깔려야 한다")
+})
+
 test("scheduleSynthMelody sustains contiguous notes as one connected phrase", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()

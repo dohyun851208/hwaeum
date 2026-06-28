@@ -112,6 +112,9 @@
     { id: "jajinSamchae", label: "자진삼채", group: "리듬장단", padType: "synth", detail: "빠른 자진삼채", color: "#b5532f", backgroundId: "jajinSamchae", effectIds: [] },
     { id: "jungjungmori", label: "중중모리", group: "리듬장단", padType: "synth", detail: "중중모리 장단의 흐름", color: "#a8623f", backgroundId: "jungjungmori", effectIds: [] },
     { id: "pungnyu", label: "풍류", group: "리듬장단", padType: "string", detail: "풍류 장단의 여유", color: "#8a6b4e", backgroundId: "pungnyu", effectIds: [] },
+    // 배경 없음 — 배경음악·합성 패드 없이 악기 소리만. silent:true 가 엔진의 합성 패드/앰비언스 폴백을 끈다.
+    // (backgroundId·padType 이 없어 배경 음원도, 합성 패드도 깔리지 않는다. 배열 끝에 둬 기본값(고요한, index 0)은 유지.)
+    { id: "none", label: "배경음악 없음", group: "배경 없음", padType: null, detail: "배경음악 없이 악기 소리만", color: "#8c9196", backgroundId: null, effectIds: [], silent: true },
   ]
 
   const instruments = [

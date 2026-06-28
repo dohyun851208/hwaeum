@@ -703,7 +703,7 @@
 
   // 카드 그룹 표시 순서. manifest 의 atmosphere.group 과 맞춘다. 새 group 은 이 뒤에 자동으로 붙는다.
   const STUDENT_MUSIC_GROUP = "내가 찾은 음악"
-  const ATMOSPHERE_GROUP_ORDER = ["분위기", "소리풍경", "리듬장단", STUDENT_MUSIC_GROUP]
+  const ATMOSPHERE_GROUP_ORDER = ["배경 없음", "분위기", "소리풍경", "리듬장단", STUDENT_MUSIC_GROUP]
 
   function balanceParentheticalMoodTitle(button, label) {
     const match = /^(.+?)(\(.+\))$/.exec(label || "")
@@ -1690,6 +1690,11 @@
     // 드로잉 시계로 쓴다. 펜 미리듣기는 본 재생과 독립 믹스라 새 음이 그 위에 얹혀 함께 들린다.
     // (예전엔 여기서 playBgPlayer()→engine.stop()이 불려, 펜을 대는 순간 기존 선율이 끊겼다.)
     if (engine.isPlaying && !engine.isPaused) return livePlayheadProgress()
+    // 배경음악 없음 모드 — 시계 삼을 배경음이 없으니, 소리 없이 시간만 흐르는 내부 시계로 드로잉을 진행시킨다.
+    if (!bgSrcFor(state.atmosphere)) {
+      startSilentFlowClock()
+      return clampPlayheadProgress(livePlayheadProgress())
+    }
     if (bgPlayer.paused) {
       // 배경음악(시계)이 멈춰 있으면 지금 재생바 위치를 이어받아 그 시점부터 띄운다.
       // (예전엔 무조건 bgOffset=0부터 시작해, 전체곡을 듣다가 그리면 첫 터치가 0초로 튀었다.)
@@ -1699,6 +1704,50 @@
     }
     if (bgPlayer.paused) return selectedPlayheadProgress
     return bgPlayheadProgress(bgPlayer.currentTime)
+  }
+
+  // 배경음악 없음 모드의 소리모드 시계 — 배경음(bgPlayer)이 없을 때 소리 없이 시간만 흐르게 해
+  // 새 획의 가로(시간)를 전진시킨다. 드로잉이 끝나면 스스로 멈춘다(유휴 시 rAF를 돌리지 않음).
+  let silentFlowRAF = null
+  let silentFlowStartedAt = 0
+  function silentFlowProgress() {
+    const durMs = Math.max(1, state.duration * 1000)
+    return Math.max(0, Math.min(1, (nowMs() - silentFlowStartedAt) / durMs))
+  }
+  function startSilentFlowClock() {
+    if (silentFlowRAF || typeof requestAnimationFrame !== "function") return
+    const durMs = Math.max(1, state.duration * 1000)
+    silentFlowStartedAt = nowMs() - clampPlayheadProgress(livePlayheadProgress()) * durMs
+    if (el.playhead) el.playhead.hidden = false
+    const tick = function () {
+      // 드로잉이 끝났거나, 모드가 바뀌었거나, 다른 시계(엔진·배경음)가 생기면 무음 시계는 물러난다.
+      if (
+        state.drawingInputMode !== DRAW_MODE_SOUND ||
+        !draw.flowActive ||
+        (engine.isPlaying && !engine.isPaused) ||
+        bgSrcFor(state.atmosphere)
+      ) {
+        stopSilentFlowClock()
+        return
+      }
+      const prog = silentFlowProgress()
+      positionPlayhead(prog)
+      if (prog >= 1) {
+        // 곡 끝 — 획을 마무리하고 재생바를 처음으로 되돌려 다음 획이 0초부터 다시 흐르게 한다.
+        draw.flowRecord(1)
+        draw.finishFlowStroke(true)
+        rememberPlayheadProgress(0)
+        stopSilentFlowClock()
+        return
+      }
+      draw.flowRecord(prog)
+      silentFlowRAF = requestAnimationFrame(tick)
+    }
+    silentFlowRAF = requestAnimationFrame(tick)
+  }
+  function stopSilentFlowClock() {
+    if (silentFlowRAF) cancelAnimationFrame(silentFlowRAF)
+    silentFlowRAF = null
   }
 
   function stopPlayhead() {

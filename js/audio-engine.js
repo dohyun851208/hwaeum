@@ -860,6 +860,7 @@
       style: style,
       pitchStyle: style,
       version: version,
+      silent: !!atmosphere.silent, // 배경음악 없음 — 배경 음원·합성 패드 폴백을 모두 끈다
       padAsset: padAsset,
       backgroundAsset: backgroundAsset,
       melodyAsset: melodyAsset,
@@ -990,7 +991,10 @@
     let usedReal = false
 
     // 1) 배경 패드 — bgOffset(사용자가 캔버스 아래 플레이어로 고른 지점)부터 깐다
-    if (buffers.pad) {
+    // 배경음악 없음(plan.silent)이면 배경 버퍼도 합성 패드 폴백도 깔지 않는다(악기 소리만).
+    if (plan.silent) {
+      // 배경 패드 스킵
+    } else if (buffers.pad) {
       const src = ctx.createBufferSource()
       const g = ctx.createGain()
       src.buffer = buffers.pad
@@ -1930,6 +1934,8 @@
       // 같은 배경·믹스로 이미 깔려 있으면 끊지 않는다(악기만 바꿔도 배경음 유지).
       if (self.ambience && self.ambience.signature === sig) return Promise.resolve()
       self.stopAmbience(true)
+      // 배경음악 없음(plan.silent)이면 드로잉 배경 앰비언스도 합성 패드도 깔지 않는다.
+      if (plan.silent) return Promise.resolve()
       const token = ++self.ambienceToken
       const padAsset = plan.padAsset && plan.padAsset.src ? plan.padAsset : plan.backgroundAsset
       if (padAsset && padAsset.src) {

@@ -102,6 +102,23 @@ test("drawing during full playback keeps the song playing instead of stopping th
   assert.match(startPlayheadBody, /draw\.finishFlowStroke\(true\)/)
 })
 
+test("배경음악 없는 소리모드는 소리 없는 내부 시계로 드로잉 시간을 흐르게 한다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const progressBody = functionBody(source, "soundDrawingProgress")
+  const clockBody = functionBody(source, "startSilentFlowClock")
+
+  // 배경음이 없으면 bgPlayer(시계)가 없으니, 무음 내부 시계로 갈아탄다.
+  assert.match(progressBody, /if \(!bgSrcFor\(state\.atmosphere\)\)/)
+  assert.match(progressBody, /startSilentFlowClock\(\)/)
+
+  // 무음 시계는 매 프레임 진행도를 기록(가로 전진)하고, 곡 끝에서 획을 마무리한다.
+  assert.match(clockBody, /draw\.flowRecord\(prog\)/)
+  assert.match(clockBody, /draw\.finishFlowStroke\(true\)/)
+  // 유휴 시 rAF를 돌리지 않도록, 드로잉이 끝나면 스스로 멈춰야 한다.
+  assert.match(clockBody, /!draw\.flowActive/)
+  assert.match(clockBody, /stopSilentFlowClock\(\)/)
+})
+
 test("paused playback stores the visible playhead position for later controls", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const pauseBody = functionBody(source, "pausePlayhead")
