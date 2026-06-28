@@ -28,9 +28,9 @@
     daegeum: 0.97,
     danso: 0.23,
     haegeum: 0.36,
-    // Gayageum is a plucked sample with strong attack peaks, so keep its
-    // output unboosted even though sustain-only RMS calibration recommends 1.19.
-    gayageum: 1,
+    // Gayageum keeps its raw tone path, but its plucked sample has much higher
+    // attack peaks than sustained gugak samples. Trim output instead of filtering.
+    gayageum: 0.58,
   }
   const NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB = 3
   // Per-note gain is measured inside each instrument after the instrument-level

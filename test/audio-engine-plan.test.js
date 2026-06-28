@@ -1105,7 +1105,7 @@ test("선율 gain은 서양 기준과 악기별 음량 보정을 함께 적용�
   assert.ok(hasGain(sogeumValues, 1.68 * 0.52), "sogeum gain follows measured instrument loudness calibration")
   assert.ok(hasGain(daegeumValues, 1.68 * 0.97), "daegeum gain follows measured instrument loudness calibration")
   assert.ok(hasGain(dansoValues, 1.68 * 0.23), "danso gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(gayageumValues, 1.68), "gayageum keeps an unboosted output gain because plucked attack peaks read louder than sustain RMS")
+  assert.ok(hasGain(gayageumValues, 1.68 * 0.58), "gayageum output is trimmed because plucked attack peaks read louder than sustain RMS")
   assert.ok(hasGain(haegeumValues, 1.68 * 0.36), "haegeum gain follows measured instrument loudness calibration")
   assert.equal(sogeumValues.includes(1.68 * 1.5), false, "국악기 선율에는 서양 1.5배 증폭을 적용하지 않는다")
 })

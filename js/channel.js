@@ -15,6 +15,7 @@
     menu: $("channelMenu"),
     backBtn: $("channelBackBtn"),
     adminPin: $("channelAdminPin"),
+    adminFlag: $("channelAdminFlag"),
     title: $("channelTitle"),
     count: $("channelCount"),
     form: $("channelOpenForm"),
@@ -164,6 +165,36 @@
 
   function canDeleteActive() {
     return !!state.activeWork && (workIsMine(state.activeWork) || !!state.adminPin)
+  }
+
+  const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
+  function loadStashedAdminPin() {
+    try {
+      const s = root.sessionStorage
+      return s ? (s.getItem(ADMIN_PIN_SESSION_KEY) || "").trim() : ""
+    } catch (e) {
+      return ""
+    }
+  }
+
+  function setAdminPin(pin) {
+    state.adminPin = String(pin || "").trim()
+    if (el.adminPin && el.adminPin.value !== state.adminPin) el.adminPin.value = state.adminPin
+    try {
+      const s = root.sessionStorage
+      if (s) {
+        if (state.adminPin) s.setItem(ADMIN_PIN_SESSION_KEY, state.adminPin)
+        else s.removeItem(ADMIN_PIN_SESSION_KEY)
+      }
+    } catch (e) {}
+    updateAdminIndicator()
+    if (state.activeWork && el.viewerDelete) el.viewerDelete.hidden = !canDeleteActive()
+  }
+
+  function updateAdminIndicator() {
+    const on = !!state.adminPin
+    if (el.adminFlag) el.adminFlag.hidden = !on
+    el.body.classList.toggle("channel-admin-on", on)
   }
 
   function updateHeader() {
@@ -401,8 +432,7 @@
       else location.href = studioUrl()
     })
     el.adminPin.addEventListener("input", function () {
-      state.adminPin = el.adminPin.value.trim()
-      if (state.activeWork) el.viewerDelete.hidden = !canDeleteActive()
+      setAdminPin(el.adminPin.value)
     })
     el.form.addEventListener("submit", function (event) {
       event.preventDefault()
@@ -444,6 +474,7 @@
 
   function init() {
     bind()
+    setAdminPin(loadStashedAdminPin())
     const channel = channelFromUrl()
     state.channel = channel
     if (channel) {

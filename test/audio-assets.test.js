@@ -66,6 +66,8 @@ test("instrument example audio entries point to existing project files", () => {
   assert.deepEqual(missing, [])
   assert.equal(data.instruments.find((instrument) => instrument.id === "sogeum").exampleLabel, "수제천025")
   assert.equal(data.instruments.find((instrument) => instrument.id === "danso").exampleLabel, "문덕곡 도드리(가사)")
+  assert.equal(data.instruments.find((instrument) => instrument.id === "haegeum").exampleLabel, "해금")
+  assert.equal(data.instruments.find((instrument) => instrument.id === "gayageum").exampleLabel, "가야금")
 })
 
 test("effect image entries point to existing project files", () => {

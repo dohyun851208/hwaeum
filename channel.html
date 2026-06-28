@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 도서관 · 학급 채널</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260628-channel-page" />
+    <link rel="stylesheet" href="./styles.css?v=20260628-channel-ui" />
   </head>
   <body class="channel-body">
     <div class="channel-shell">
@@ -18,13 +18,14 @@
             <label class="channel-admin-field" for="channelAdminPin">
               <span>관리자 PIN</span>
               <input id="channelAdminPin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자만" />
+              <small>PIN을 넣으면 어느 채널에서든 작품을 지울 수 있어요.</small>
             </label>
           </div>
         </div>
 
         <div class="channel-title-block">
           <p class="channel-eyebrow">화음 도서관</p>
-          <h1 id="channelTitle">학급 채널</h1>
+          <h1 id="channelTitle">학급 채널<span class="channel-admin-flag" id="channelAdminFlag" hidden>관리자 모드</span></h1>
           <p id="channelCount">채널을 불러옵니다.</p>
         </div>
 
@@ -70,6 +71,6 @@
     </div>
 
     <script src="./js/share-store.js?v=20260628-channel-page" defer></script>
-    <script src="./js/channel.js?v=20260628-channel-page" defer></script>
+    <script src="./js/channel.js?v=20260628-channel-ui" defer></script>
   </body>
 </html>

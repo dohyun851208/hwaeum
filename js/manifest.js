@@ -164,6 +164,8 @@
       detail: "흔들림이 강한 소리",
       waveform: "sawtooth",
       image: "./assets/instruments/haegeum.jpg",
+      example: "sound/감상-연주곡(국립국악원)/해금.wav",
+      exampleLabel: "해금",
     },
     {
       id: "gayageum",
@@ -173,6 +175,8 @@
       detail: "뜯는 결이 살아있는 현악",
       waveform: "triangle",
       image: "./assets/instruments/gayageum.jpg",
+      example: "sound/감상-연주곡(국립국악원)/가야금.wav",
+      exampleLabel: "가야금",
     },
   ]
 

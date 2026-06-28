@@ -219,27 +219,10 @@
         font-family: var(--sans);
         font-size: clamp(5.1rem, 8.3vw, 7.8rem);
         font-weight: 400;
-        line-height: 0.92;
-        background: linear-gradient(135deg, var(--pink), var(--violet), var(--teal));
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-        -webkit-text-fill-color: transparent;
-      }
-
-      .hashtag-row {
-        position: relative;
-        z-index: 1;
-        margin-top: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 12px;
-        color: rgba(107, 91, 91, 0.82);
-        font-size: clamp(0.88rem, 1.05vw, 1rem);
-        font-weight: 400;
-        line-height: 1.35;
+        line-height: 1.08;
+        color: var(--pink);
+        -webkit-text-fill-color: currentColor;
+        text-shadow: 0 4px 0 rgba(255, 255, 255, 0.72);
       }
 
       .album-card {
@@ -294,13 +277,6 @@
         display: grid;
         gap: 3px;
         text-shadow: 0 8px 16px rgba(0, 0, 0, 0.84);
-      }
-
-      .album-card figcaption span {
-        color: rgba(255, 248, 242, 0.78);
-        font-size: 0.72rem;
-        font-weight: 400;
-        letter-spacing: 0;
       }
 
       .album-card figcaption strong {
@@ -468,12 +444,6 @@
           font-size: clamp(4rem, 6.6vw, 5.7rem);
         }
 
-        .hashtag-row {
-          margin-top: 12px;
-          gap: 8px;
-          font-size: 0.86rem;
-        }
-
         .enter-cta {
           margin-top: 20px;
           padding: 13px 28px;
@@ -521,14 +491,8 @@
                 <strong>음악과 소리를 조화롭게</strong>
                 <span>그림으로 소리를 그리다</span>
               </span>
-              <div class="hashtag-row">
-                <span>#소리를그리다</span>
-                <span>#음악과소리</span>
-                <span>#그림BGM</span>
-                <span>#화음</span>
-              </div>
               <a class="enter-cta" href="studio.html">
-                그림으로 음악 만들기
+                화음 입장하기
                 <span class="arrow" aria-hidden="true">→</span>
               </a>
             </div>
@@ -542,7 +506,6 @@
               >
                 <img src="assets/hero/hero-night.webp" alt="" />
                 <figcaption>
-                  <span>#푸른밤</span>
                   <strong>조용한 선</strong>
                 </figcaption>
               </figure>
@@ -552,7 +515,6 @@
               >
                 <img src="assets/hero/hero-sun.webp" alt="" />
                 <figcaption>
-                  <span>#햇빛</span>
                   <strong>밝은 선율</strong>
                 </figcaption>
               </figure>
@@ -562,7 +524,6 @@
               >
                 <img src="assets/hero/hero-forest.webp" alt="" />
                 <figcaption>
-                  <span>#숲</span>
                   <strong>바람 노래</strong>
                 </figcaption>
               </figure>
@@ -572,7 +533,6 @@
               >
                 <img src="assets/hero/hero-dusk.webp" alt="" />
                 <figcaption>
-                  <span>#노을</span>
                   <strong>붉은 리듬</strong>
                 </figcaption>
               </figure>
@@ -582,7 +542,6 @@
               >
                 <img src="assets/hero/hero-gugak.webp" alt="" />
                 <figcaption>
-                  <span>#국악</span>
                   <strong>긴 숨</strong>
                 </figcaption>
               </figure>
@@ -592,7 +551,6 @@
               >
                 <img src="assets/hero/hero-harmony.webp" alt="" />
                 <figcaption>
-                  <span>#모음</span>
                   <strong>나의 30초</strong>
                 </figcaption>
               </figure>

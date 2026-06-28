@@ -209,6 +209,7 @@
     shareChannelInput: $("shareChannelInput"),
     publishShareBtn: $("publishShareBtn"),
     openShareStepBtn: $("openShareStepBtn"),
+    channelOpenForm: $("channelOpenForm"),
     channelBrowseInput: $("channelBrowseInput"),
     loadChannelBtn: $("loadChannelBtn"),
     shareAdminPinInput: $("shareAdminPinInput"),
@@ -2704,7 +2705,20 @@
       return
     }
     syncShareInputs(channel)
+    rememberAdminPin()
     window.location.href = channelPageUrl(channel, workId)
+  }
+
+  // 관리자 PIN을 채널 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 PIN이 남지 않게).
+  const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
+  function rememberAdminPin() {
+    try {
+      const s = window.sessionStorage
+      if (!s) return
+      const pin = adminPinValue()
+      if (pin) s.setItem(ADMIN_PIN_SESSION_KEY, pin)
+      else s.removeItem(ADMIN_PIN_SESSION_KEY)
+    } catch (e) {}
   }
 
   function setShareMessage(text, error) {
@@ -3834,11 +3848,13 @@
     }
     if (el.channelBrowseInput) {
       el.channelBrowseInput.addEventListener("input", () => syncShareInputs(el.channelBrowseInput.value))
-      el.channelBrowseInput.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") openChannelPage(el.channelBrowseInput.value)
-      })
     }
-    if (el.loadChannelBtn) {
+    if (el.channelOpenForm) {
+      el.channelOpenForm.addEventListener("submit", function (event) {
+        event.preventDefault()
+        openChannelPage(el.channelBrowseInput ? el.channelBrowseInput.value : state.sharedChannel)
+      })
+    } else if (el.loadChannelBtn) {
       el.loadChannelBtn.addEventListener("click", () => openChannelPage(el.channelBrowseInput ? el.channelBrowseInput.value : state.sharedChannel))
     }
     if (el.shareAdminPinInput) {
