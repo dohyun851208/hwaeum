@@ -30,7 +30,7 @@
     haegeum: 0.36,
     // Gayageum keeps its raw tone path, but its plucked sample has much higher
     // attack peaks than sustained gugak samples. Trim output instead of filtering.
-    gayageum: 0.58,
+    gayageum: 0.522,
   }
   const NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB = 3
   // Per-note gain is measured inside each instrument after the instrument-level
