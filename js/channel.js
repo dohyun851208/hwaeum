@@ -7,6 +7,9 @@
   const ShareStore = root.HwaeumShareStore
   const DEFAULT_COVER_SRC = "./assets/default-cover.png"
   const WORKS_PER_SHELF = 8
+  const VIEW_MODE_SHELF = "shelf"
+  const VIEW_MODE_FLOW = "flow"
+  const VIEW_MODE_STORAGE_KEY = "hwaeum.channelViewMode"
 
   const $ = (id) => document.getElementById(id)
   const el = {
@@ -21,7 +24,12 @@
     form: $("channelOpenForm"),
     input: $("channelInput"),
     refreshBtn: $("channelRefreshBtn"),
+    library: $("channelLibrary"),
     status: $("channelStatus"),
+    shelfModeBtn: $("channelShelfModeBtn"),
+    flowModeBtn: $("channelFlowModeBtn"),
+    flowPrevBtn: $("channelFlowPrevBtn"),
+    flowNextBtn: $("channelFlowNextBtn"),
     shelves: $("channelShelves"),
     empty: $("channelEmpty"),
     viewer: $("channelViewer"),
@@ -45,6 +53,8 @@
     activeWork: null,
     adminPin: "",
     openedFromHash: false,
+    viewMode: loadViewMode(),
+    flowIndex: 0,
   }
 
   function cleanText(value, max) {
@@ -99,6 +109,57 @@
     el.status.classList.toggle("error", !!error)
   }
 
+  function loadViewMode() {
+    try {
+      const value = root.localStorage ? root.localStorage.getItem(VIEW_MODE_STORAGE_KEY) : ""
+      return value === VIEW_MODE_FLOW ? VIEW_MODE_FLOW : VIEW_MODE_SHELF
+    } catch (e) {
+      return VIEW_MODE_SHELF
+    }
+  }
+
+  function saveViewMode(mode) {
+    try {
+      if (root.localStorage) root.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode)
+    } catch (e) {}
+  }
+
+  function clampFlowIndex(index) {
+    const max = Math.max(0, state.works.length - 1)
+    return Math.max(0, Math.min(max, Number(index) || 0))
+  }
+
+  function setViewMode(mode) {
+    const next = mode === VIEW_MODE_FLOW ? VIEW_MODE_FLOW : VIEW_MODE_SHELF
+    if (state.viewMode === next) {
+      syncViewModeUI()
+      return
+    }
+    state.viewMode = next
+    saveViewMode(next)
+    renderShelves()
+  }
+
+  function setFlowIndex(index) {
+    const next = clampFlowIndex(index)
+    if (state.flowIndex === next) {
+      syncViewModeUI()
+      return
+    }
+    state.flowIndex = next
+    renderShelves()
+  }
+
+  function shiftFlowIndex(delta) {
+    setFlowIndex(state.flowIndex + delta)
+  }
+
+  function isTypingTarget(target) {
+    if (!target || !target.tagName) return false
+    const tag = target.tagName.toLowerCase()
+    return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable
+  }
+
   function setMenuOpen(open) {
     if (!el.menu || !el.menuBtn) return
     el.menu.hidden = !open
@@ -146,6 +207,11 @@
   function coverUrl(work, large) {
     const files = (work && work.files) || {}
     return (large ? files.coverUrl || files.thumbUrl : files.thumbUrl || files.coverUrl) || DEFAULT_COVER_SRC
+  }
+
+  function shouldShowCoverPlayOverlay(work) {
+    const meta = (work && work.metadata) || {}
+    return meta.coverHasEmbeddedPlay === false
   }
 
   function musicUrl(work) {
@@ -208,14 +274,34 @@
     if (el.input && el.input.value !== channel) el.input.value = channel
   }
 
-  function createAlbumCard(work, index) {
+  function syncViewModeUI() {
+    const flow = state.viewMode === VIEW_MODE_FLOW
+    const hasWorks = state.works.length > 0
+    const canMove = flow && state.works.length > 1
+    if (el.library) el.library.classList.toggle("channel-flow-mode", flow)
+    if (el.shelfModeBtn) {
+      el.shelfModeBtn.classList.toggle("active", !flow)
+      el.shelfModeBtn.setAttribute("aria-pressed", flow ? "false" : "true")
+    }
+    if (el.flowModeBtn) {
+      el.flowModeBtn.classList.toggle("active", flow)
+      el.flowModeBtn.setAttribute("aria-pressed", flow ? "true" : "false")
+    }
+    if (el.flowPrevBtn) el.flowPrevBtn.disabled = !canMove || state.flowIndex <= 0
+    if (el.flowNextBtn) el.flowNextBtn.disabled = !canMove || state.flowIndex >= state.works.length - 1
+    if (el.body) el.body.dataset.galleryView = flow ? VIEW_MODE_FLOW : VIEW_MODE_SHELF
+    if (el.shelves) el.shelves.classList.toggle("channel-shelves-flow", flow && hasWorks)
+  }
+
+  function createAlbumCard(work, index, options) {
+    options = options || {}
     const meta = work.metadata || {}
     const button = document.createElement("button")
     button.type = "button"
-    button.className = "channel-album"
+    button.className = "channel-album" + (options.className ? " " + options.className : "")
     button.id = "work-" + work.id
     button.style.setProperty("--lift", String((index % 4) * 10) + "px")
-    button.setAttribute("aria-label", workTitle(work) + " 크게 보기")
+    button.setAttribute("aria-label", options.ariaLabel || workTitle(work) + " 크게 보기")
 
     const cover = document.createElement("span")
     cover.className = "channel-album-cover"
@@ -223,9 +309,6 @@
     img.src = coverUrl(work, false)
     img.alt = workTitle(work) + " 표지"
     img.loading = "lazy"
-    const play = document.createElement("span")
-    play.className = "channel-album-play"
-    play.textContent = "▶"
     const overlay = document.createElement("span")
     overlay.className = "channel-album-overlay"
     const title = document.createElement("strong")
@@ -236,21 +319,101 @@
     overlay.appendChild(title)
     overlay.appendChild(tags)
     cover.appendChild(img)
-    cover.appendChild(play)
+    if (shouldShowCoverPlayOverlay(work)) {
+      const play = document.createElement("span")
+      play.className = "channel-album-play"
+      play.textContent = "▶"
+      cover.appendChild(play)
+    }
     cover.appendChild(overlay)
     button.appendChild(cover)
     button.addEventListener("click", function () {
-      openViewer(work, { updateHash: true, play: true })
+      if (typeof options.onClick === "function") options.onClick(work, index)
+      else openViewer(work, { updateHash: true, play: true })
     })
     return button
   }
 
-  function renderShelves() {
-    el.shelves.innerHTML = ""
-    updateHeader()
-    el.empty.hidden = state.loading || !!state.works.length || !state.channel
-    if (state.loading || !state.works.length) return
+  function applyFlowCardStyle(card, offset) {
+    const abs = Math.abs(offset)
+    const visible = abs <= 4
+    const clamped = Math.max(-4, Math.min(4, offset))
+    const x = clamped * 148
+    const rotate = offset === 0 ? 0 : offset > 0 ? -58 : 58
+    const z = -Math.min(abs, 4) * 92
+    const scale = Math.max(0.66, 1 - Math.min(abs, 4) * 0.075)
+    const opacity = visible ? Math.max(0.22, 1 - abs * 0.15) : 0
+    card.style.setProperty("--flow-x", x + "px")
+    card.style.setProperty("--flow-rotate", rotate + "deg")
+    card.style.setProperty("--flow-z", z + "px")
+    card.style.setProperty("--flow-scale", String(scale.toFixed(3)))
+    card.style.setProperty("--flow-opacity", String(opacity.toFixed(2)))
+    card.style.zIndex = String(100 - Math.min(abs, 90))
+    card.tabIndex = visible ? 0 : -1
+    if (!visible) card.setAttribute("aria-hidden", "true")
+  }
 
+  function renderCoverFlow() {
+    state.flowIndex = clampFlowIndex(state.flowIndex)
+    const active = state.works[state.flowIndex]
+    const section = document.createElement("section")
+    section.className = "channel-coverflow"
+    section.setAttribute("aria-label", "커버플로우 보기")
+
+    const stage = document.createElement("div")
+    stage.className = "channel-coverflow-stage"
+    state.works.forEach(function (work, index) {
+      const offset = index - state.flowIndex
+      const isCenter = offset === 0
+      const card = createAlbumCard(work, index, {
+        className: "channel-flow-album" + (isCenter ? " is-center" : ""),
+        ariaLabel: workTitle(work) + (isCenter ? " 크게 보기" : " 선택"),
+        onClick: function () {
+          if (index === state.flowIndex) openViewer(work, { updateHash: true, play: true })
+          else setFlowIndex(index)
+        },
+      })
+      applyFlowCardStyle(card, offset)
+      stage.appendChild(card)
+    })
+    section.appendChild(stage)
+
+    if (active) {
+      const meta = active.metadata || {}
+      const caption = document.createElement("section")
+      caption.className = "channel-coverflow-caption"
+      const count = document.createElement("p")
+      count.className = "channel-coverflow-count"
+      count.textContent = state.flowIndex + 1 + " / " + state.works.length
+      const title = document.createElement("h2")
+      title.textContent = workTitle(active)
+      const detail = document.createElement("p")
+      detail.className = "channel-coverflow-meta"
+      detail.textContent = workMetaLine(active)
+      const tags = tagsText(meta.hashtags)
+      const tagLine = document.createElement("p")
+      tagLine.className = "channel-coverflow-tags"
+      tagLine.hidden = !tags
+      tagLine.textContent = tags
+      const open = document.createElement("button")
+      open.type = "button"
+      open.className = "channel-action-button primary"
+      open.textContent = "크게 듣기"
+      open.addEventListener("click", function () {
+        openViewer(active, { updateHash: true, play: true })
+      })
+      caption.appendChild(count)
+      caption.appendChild(title)
+      caption.appendChild(detail)
+      caption.appendChild(tagLine)
+      caption.appendChild(open)
+      section.appendChild(caption)
+    }
+
+    el.shelves.appendChild(section)
+  }
+
+  function renderShelfView() {
     for (let start = 0; start < state.works.length; start += WORKS_PER_SHELF) {
       const shelf = document.createElement("section")
       shelf.className = "channel-shelf"
@@ -260,6 +423,18 @@
       })
       el.shelves.appendChild(shelf)
     }
+  }
+
+  function renderShelves() {
+    el.shelves.innerHTML = ""
+    state.flowIndex = clampFlowIndex(state.flowIndex)
+    updateHeader()
+    syncViewModeUI()
+    el.empty.hidden = state.loading || !!state.works.length || !state.channel
+    if (state.loading || !state.works.length) return
+    if (state.viewMode === VIEW_MODE_FLOW) renderCoverFlow()
+    else renderShelfView()
+    syncViewModeUI()
   }
 
   async function loadChannel(channel, options) {
@@ -272,18 +447,23 @@
     if (!normalized) {
       state.channel = ""
       state.works = []
+      state.flowIndex = 0
       renderShelves()
       setStatus("채널 번호를 적어 주세요.", true)
       return
     }
 
+    const channelChanged = normalized !== state.channel
     state.channel = normalized
+    if (channelChanged) state.flowIndex = 0
     state.loading = true
     renderShelves()
     setStatus(normalized + " 채널을 불러오는 중입니다.", false)
     try {
       const result = await ShareStore.listChannel(normalized)
       state.works = Array.isArray(result.works) ? result.works : []
+      const focusIndex = options.focusWork ? state.works.findIndex((item) => item && item.id === options.focusWork) : -1
+      state.flowIndex = focusIndex >= 0 ? focusIndex : clampFlowIndex(state.flowIndex)
       state.loading = false
       renderShelves()
       setStatus(
@@ -295,6 +475,7 @@
     } catch (error) {
       console.error(error)
       state.works = []
+      state.flowIndex = 0
       state.loading = false
       renderShelves()
       setStatus(error.message || "공유 채널을 불러오지 못했어요.", true)
@@ -303,7 +484,10 @@
 
   function focusWork(workId) {
     if (!workId || state.openedFromHash) return
-    const work = state.works.find((item) => item && item.id === workId)
+    const index = state.works.findIndex((item) => item && item.id === workId)
+    const work = index >= 0 ? state.works[index] : null
+    if (index >= 0) state.flowIndex = index
+    if (index >= 0 && state.viewMode === VIEW_MODE_FLOW) renderShelves()
     const target = document.getElementById("work-" + workId)
     if (target) target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" })
     if (work) {
@@ -321,7 +505,7 @@
   function updateViewerPlayState() {
     if (!el.viewerAudio || !el.viewerPlay) return
     const hasMusic = !!el.viewerAudio.getAttribute("src")
-    el.viewerPlay.hidden = !hasMusic
+    el.viewerPlay.hidden = !hasMusic || !shouldShowCoverPlayOverlay(state.activeWork)
     el.viewerPlay.textContent = el.viewerAudio.paused ? "▶" : "Ⅱ"
     el.viewerPlay.setAttribute("aria-label", el.viewerAudio.paused ? "재생" : "일시정지")
   }
@@ -412,6 +596,7 @@
       return
     }
     state.openedFromHash = false
+    state.flowIndex = 0
     history.pushState(null, "", channelUrl(channel, ""))
     loadChannel(channel, { updateUrl: false })
   }
@@ -442,6 +627,26 @@
       state.openedFromHash = false
       loadChannel(state.channel)
     })
+    if (el.shelfModeBtn) {
+      el.shelfModeBtn.addEventListener("click", function () {
+        setViewMode(VIEW_MODE_SHELF)
+      })
+    }
+    if (el.flowModeBtn) {
+      el.flowModeBtn.addEventListener("click", function () {
+        setViewMode(VIEW_MODE_FLOW)
+      })
+    }
+    if (el.flowPrevBtn) {
+      el.flowPrevBtn.addEventListener("click", function () {
+        shiftFlowIndex(-1)
+      })
+    }
+    if (el.flowNextBtn) {
+      el.flowNextBtn.addEventListener("click", function () {
+        shiftFlowIndex(1)
+      })
+    }
     el.viewer.addEventListener("click", function (event) {
       if (event.target === el.viewer) closeViewer()
     })
@@ -464,6 +669,11 @@
       if (event.key === "Escape") {
         if (!el.viewer.hidden) closeViewer()
         else setMenuOpen(false)
+      }
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        if (state.viewMode !== VIEW_MODE_FLOW || !el.viewer.hidden || isTypingTarget(event.target)) return
+        event.preventDefault()
+        shiftFlowIndex(event.key === "ArrowLeft" ? -1 : 1)
       }
     })
     window.addEventListener("popstate", function () {

@@ -2686,8 +2686,16 @@
 
   // --- 학급 채널 공유 ---
 
+  function sharedChannelInputSource(value) {
+    return value == null ? state.sharedChannel : value
+  }
+
+  function normalizeSharedChannel(value) {
+    return ShareStore ? ShareStore.normalizeChannel(value || "") : String(value || "")
+  }
+
   function syncShareInputs(channel) {
-    const normalized = ShareStore ? ShareStore.normalizeChannel(channel || state.sharedChannel || "") : String(channel || state.sharedChannel || "")
+    const normalized = normalizeSharedChannel(sharedChannelInputSource(channel))
     state.sharedChannel = normalized
     if (el.shareChannelInput && el.shareChannelInput.value !== normalized) el.shareChannelInput.value = normalized
     if (el.channelBrowseInput && el.channelBrowseInput.value !== normalized) el.channelBrowseInput.value = normalized
@@ -2696,13 +2704,13 @@
   function channelPageUrl(channel, workId) {
     try {
       const url = new URL("./channel.html", location.href)
-      const normalized = ShareStore ? ShareStore.normalizeChannel(channel || state.sharedChannel || "") : String(channel || state.sharedChannel || "").trim()
+      const normalized = normalizeSharedChannel(sharedChannelInputSource(channel))
       if (normalized) url.search = "?channel=" + encodeURIComponent(normalized)
       else url.search = ""
       url.hash = workId ? "work=" + encodeURIComponent(workId) : ""
       return url.href
     } catch (e) {
-      const normalized = encodeURIComponent(String(channel || state.sharedChannel || "").trim())
+      const normalized = encodeURIComponent(String(sharedChannelInputSource(channel) || "").trim())
       return "./channel.html" + (normalized ? "?channel=" + normalized : "") + (workId ? "#work=" + encodeURIComponent(workId) : "")
     }
   }
@@ -2712,7 +2720,7 @@
       setShareMessage("공유 모듈을 불러오지 못했어요.", true)
       return
     }
-    const channel = ShareStore.normalizeChannel(channelArg || state.sharedChannel || "")
+    const channel = ShareStore.normalizeChannel(sharedChannelInputSource(channelArg) || "")
     if (!channel) {
       setShareMessage("공유 채널 번호를 적어 주세요.", true)
       return
@@ -2753,6 +2761,7 @@
       atmosphereLabel: atmos.label,
       instrumentLabel: inst.label,
       duration: state.duration,
+      coverHasEmbeddedPlay: false,
     }
   }
 
@@ -3101,7 +3110,7 @@
       setShareMessage("공유 모듈을 불러오지 못했어요.", true)
       return
     }
-    const normalized = ShareStore.normalizeChannel(channel || state.sharedChannel || "")
+    const normalized = ShareStore.normalizeChannel(sharedChannelInputSource(channel) || "")
     if (!normalized) {
       setShareMessage("공유 채널 번호를 적어 주세요.", true)
       return
@@ -3267,22 +3276,6 @@
         ctx.fillStyle = "rgba(251,246,236,0.92)"
         ctx.fillText(fitCanvasLine(ctx, tags, size - 96), 48, size - padH + 118)
       }
-      // 재생 글리프
-      ctx.fillStyle = "rgba(251,246,236,0.92)"
-      ctx.beginPath()
-      const cx = size / 2
-      const cy = (size - padH) / 2
-      ctx.arc(cx, cy, 72, 0, Math.PI * 2)
-      ctx.fillStyle = "rgba(20,26,26,0.55)"
-      ctx.fill()
-      ctx.fillStyle = "#fbf6ec"
-      ctx.beginPath()
-      ctx.moveTo(cx - 22, cy - 30)
-      ctx.lineTo(cx - 22, cy + 30)
-      ctx.lineTo(cx + 34, cy)
-      ctx.closePath()
-      ctx.fill()
-
       cv.toBlob(function (blob) {
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")

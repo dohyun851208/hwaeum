@@ -226,20 +226,6 @@
       ctx.fillText(fitCanvasLine(ctx, tags, size - Math.round(size * 0.1)), Math.round(size * 0.047), size - padH + Math.round(size * 0.12))
     }
 
-    const cx = size / 2
-    const cy = (size - padH) / 2
-    const r = Math.round(size * 0.07)
-    ctx.fillStyle = "rgba(20,26,26,0.55)"
-    ctx.beginPath()
-    ctx.arc(cx, cy, r, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = "#fbf6ec"
-    ctx.beginPath()
-    ctx.moveTo(cx - r * 0.3, cy - r * 0.42)
-    ctx.lineTo(cx - r * 0.3, cy + r * 0.42)
-    ctx.lineTo(cx + r * 0.48, cy)
-    ctx.closePath()
-    ctx.fill()
     return canvas
   }
 
