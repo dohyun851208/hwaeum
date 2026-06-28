@@ -5,25 +5,25 @@ const test = require("node:test")
 
 const projectDir = path.resolve(__dirname, "..")
 
-test("index exposes optional Google login before the studio boot code", () => {
+test("studio shell does not expose Google login UI or scripts", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
 
-  assert.match(html, /<meta name="google-signin-client_id" content="" \/>/)
-  assert.match(html, /https:\/\/accounts\.google\.com\/gsi\/client/)
-  assert.match(html, /id="authBox"[\s\S]*data-auth="guest"/)
-  assert.match(html, /id="googleButtonSlot"/)
-  assert.match(html, /id="googleLogoutBtn"/)
-  assert.match(html, /로그인 없이도 사용할 수 있어요\./)
-  assert.ok(html.indexOf("./js/auth.js") < html.indexOf("./js/studio.js"), "auth.js must load before studio.js")
+  assert.doesNotMatch(html, /google-signin-client_id/)
+  assert.doesNotMatch(html, /accounts\.google\.com\/gsi\/client/)
+  assert.doesNotMatch(html, /id="authBox"/)
+  assert.doesNotMatch(html, /id="googleButtonSlot"/)
+  assert.doesNotMatch(html, /id="googleLogoutBtn"/)
+  assert.doesNotMatch(html, /\.\/js\/auth\.js/)
+  assert.match(html, /\.\/js\/studio\.js/)
 })
 
-test("auth module uses Google Identity Services without making login required", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "auth.js"), "utf8")
+test("removed Google auth module is not present", () => {
+  assert.equal(fs.existsSync(path.join(projectDir, "js", "auth.js")), false)
+})
 
-  assert.doesNotThrow(() => new Function(source))
-  assert.match(source, /google\.accounts\.id/)
-  assert.match(source, /renderButton/)
-  assert.match(source, /SETUP_STATUS = "Google 로그인 설정이 필요해요\. 로그인 없이 사용할 수 있어요\."/)
-  assert.match(source, /SIGNED_OUT_STATUS = "로그인 없이도 사용할 수 있어요\."/)
-  assert.doesNotMatch(source, /setItem\([^)]*credential/)
+test("login-only CSS selectors are gone", () => {
+  const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+
+  assert.doesNotMatch(css, /\.auth-/)
+  assert.doesNotMatch(css, /\.google-button-slot/)
 })

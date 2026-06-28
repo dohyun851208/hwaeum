@@ -118,66 +118,6 @@ p {
   object-fit: cover;
   display: block;
 }
-.auth-box {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-height: 38px;
-}
-.auth-profile {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  max-width: 170px;
-  min-height: 34px;
-  padding: 3px 9px 3px 4px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.76);
-  color: var(--ink);
-  font-size: 0.84rem;
-  font-weight: 800;
-}
-.auth-profile[hidden],
-.auth-avatar[hidden],
-.auth-logout[hidden],
-.auth-status[hidden],
-.google-button-slot[hidden] {
-  display: none;
-}
-.auth-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--accent-soft);
-  border: 1px solid rgba(32, 41, 42, 0.08);
-}
-.auth-profile span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.google-button-slot {
-  display: flex;
-  align-items: center;
-  min-height: 34px;
-}
-.google-button-slot iframe {
-  max-width: 100%;
-}
-.auth-google-fallback {
-  white-space: nowrap;
-}
-.auth-status {
-  max-width: 148px;
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-  line-height: 1.25;
-}
 .transport {
   display: flex;
   align-items: center;

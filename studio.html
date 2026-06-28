@@ -3,11 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="google-signin-client_id" content="" />
     <title>화음 스튜디오 · 그림으로 만드는 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
     <link rel="stylesheet" href="./styles.css?v=20260627-drawing-reference-toggle" />
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -21,15 +19,6 @@
           <figure class="pic-chip" id="picChip" hidden>
             <img id="picThumb" alt="올린 그림" />
           </figure>
-          <div class="auth-box" id="authBox" data-auth="guest">
-            <div class="auth-profile" id="authProfile" hidden>
-              <img class="auth-avatar" id="authAvatar" alt="" hidden />
-              <span id="authName">Google 사용자</span>
-            </div>
-            <div class="google-button-slot" id="googleButtonSlot"></div>
-            <button class="btn tiny ghost auth-logout" id="googleLogoutBtn" type="button" hidden>로그아웃</button>
-            <span class="auth-status" id="authStatus" aria-live="polite">로그인 없이도 사용할 수 있어요.</span>
-          </div>
           <div class="transport" aria-label="재생 제어">
             <span class="status-pill" id="statusText" aria-live="polite">전체곡 대기</span>
             <button class="round-btn" id="playBtn" type="button" aria-label="전체곡 재생"><span aria-hidden="true">▶</span></button>
@@ -301,7 +290,6 @@
     <script src="./js/drawing.js?v=20260627-haegeum-grid"></script>
     <script src="./js/takes.js?v=20260627-take-title"></script>
     <script src="./js/share-store.js?v=20260627-channel-share"></script>
-    <script src="./js/auth.js?v=20260627-google-login" defer></script>
     <script src="./js/studio.js?v=20260627-fullplay-playback-fallback" defer></script>
   </body>
 </html>

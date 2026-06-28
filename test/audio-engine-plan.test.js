@@ -1050,7 +1050,7 @@ test("full playback background starts with the first beat and is cut at the reci
   assert.ok(padGain.gain.events[1][2] <= start + 0.5, "배경 fade-in 이 길면 선율 뒤에야 배경이 들린다")
 })
 
-test("서양 악기 선율만 1.5배로 키우고 국악기 선율은 기존 크기를 유지한다", () => {
+test("서양 악기 선율은 1.5배 기준에 악기별 음량 보정을 더하고 국악기는 기존 크기를 유지한다", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const note = { time: 0, duration: 0.5, midi: 60, velocity: 0.7 }
@@ -1065,10 +1065,14 @@ test("서양 악기 선율만 1.5배로 키우고 국악기 선율은 기존 크
     return ctx.created.gains.flatMap((gain) => gain.gain.events.filter((event) => event[0] === "set").map((event) => event[1]))
   }
 
-  const westernValues = gainSetValuesFor("violin")
+  const westernValues = gainSetValuesFor("flute")
+  const violinValues = gainSetValuesFor("violin")
+  const violaValues = gainSetValuesFor("viola")
   const gugakValues = gainSetValuesFor("sogeum")
 
   assert.ok(westernValues.includes(1.68 * 1.5), "서양 악기 선율 gain 이 1.5배여야 한다")
+  assert.ok(violinValues.includes(1.68 * 1.5 * 0.9), "바이올린 선율 gain 은 서양 기준에서 10% 줄어야 한다")
+  assert.ok(violaValues.includes(1.68 * 1.5 * 1.2), "비올라 선율 gain 은 서양 기준에서 20% 커져야 한다")
   assert.ok(gugakValues.includes(1.68), "국악기 선율 gain 은 기존 값을 써야 한다")
   assert.equal(gugakValues.includes(1.68 * 1.5), false, "국악기 선율에는 1.5배 증폭을 적용하지 않는다")
 })

@@ -13,6 +13,10 @@
   const EFFECT_GAIN = 0.15
   const BACKGROUND_OUTPUT_GAIN = 1.5
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
+  const INSTRUMENT_MELODY_OUTPUT_GAINS = {
+    violin: 0.9,
+    viola: 1.2,
+  }
   const LIVE_PREVIEW_MAX_GAIN = 0.95
   const MASTER_OUTPUT_GAIN = 0.70
   const GUGAK_DRAWING_GAIN_BOOST = 1.3
@@ -92,9 +96,15 @@
     return ((plan && plan.version && plan.version.padGain) || 0) * BACKGROUND_OUTPUT_GAIN
   }
 
+  function instrumentMelodyOutputGain(instrument) {
+    const id = instrument && instrument.id
+    return id && INSTRUMENT_MELODY_OUTPUT_GAINS[id] ? INSTRUMENT_MELODY_OUTPUT_GAINS[id] : 1
+  }
+
   function melodyOutputGain(plan, instrument) {
+    const inst = instrument || (plan && plan.instrument)
     const base = ((plan && plan.version && plan.version.melodyGain) || 0)
-    return base * (isWesternInstrument(instrument || (plan && plan.instrument)) ? WESTERN_MELODY_OUTPUT_GAIN : 1)
+    return base * (isWesternInstrument(inst) ? WESTERN_MELODY_OUTPUT_GAIN : 1) * instrumentMelodyOutputGain(inst)
   }
 
   function livePreviewTargetGain(plan, noteEnvPeak) {
@@ -111,7 +121,8 @@
   }
 
   function previewOutputGain(plan) {
-    return isWesternInstrument(plan && plan.instrument) ? WESTERN_MELODY_OUTPUT_GAIN : 1
+    const inst = plan && plan.instrument
+    return (isWesternInstrument(inst) ? WESTERN_MELODY_OUTPUT_GAIN : 1) * instrumentMelodyOutputGain(inst)
   }
   function isHaegeumPlan(plan) {
     return !!(plan && plan.instrument && plan.instrument.id === "haegeum")
