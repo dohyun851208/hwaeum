@@ -16,6 +16,7 @@
 - `plans/2026-06-15-sound-drawing-atelier.md` — 초기 구현 계획
 - `decisions/2026-06-15-music-library-choice.md` — Tone.js + Tonal.js 채택 근거
 - `decisions/2026-06-27-unified-gugak-palette.md` — 국악기 드로잉 팔레트 통일
+- `decisions/2026-06-28-instrument-loudness-calibration.md` — 악기별/음별 선율 음량 보정 기준
 
 ## 작성 규칙
 

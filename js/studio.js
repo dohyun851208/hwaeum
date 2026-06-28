@@ -1705,6 +1705,14 @@
       positionPlayhead(pausedProgress)
     }
   }
+  // 재생 중 라이브 위치를 '재생 시작 위치'로 굳힌다. 이 뒤에 engine.stop()을 부르면
+  // stopPlayhead()가 시작점(0초)이 아니라 이 위치를 읽어, 재생바가 제자리에 남는다.
+  function freezePlayheadAtLivePosition() {
+    if (!engine.isPlaying || engine.isPaused) return
+    const durMs = Math.max(1, state.duration * 1000)
+    if (playheadStartedAt) playheadElapsedMs = Math.max(0, Math.min(durMs, nowMs() - playheadStartedAt))
+    rememberPlayheadProgress(playheadElapsedMs / durMs)
+  }
   function startPlayhead(resume) {
     const wrap = canvasWrap()
     if (!wrap || !el.playhead || typeof requestAnimationFrame === "undefined") return
@@ -2225,6 +2233,8 @@
 
   function activateEraserTool(announce) {
     setEraser(true)
+    // 지우개로 바꿀 땐 재생은 멈추되 재생바는 제자리에 둔다(정지 버튼처럼 맨 앞으로 되돌리지 않음).
+    freezePlayheadAtLivePosition()
     engine.stop()
     if (announce) el.exportStatus.textContent = ERASER_TOOL_STATUS
   }
@@ -2669,6 +2679,34 @@
     if (el.channelBrowseInput && el.channelBrowseInput.value !== normalized) el.channelBrowseInput.value = normalized
   }
 
+  function channelPageUrl(channel, workId) {
+    try {
+      const url = new URL("./channel.html", location.href)
+      const normalized = ShareStore ? ShareStore.normalizeChannel(channel || state.sharedChannel || "") : String(channel || state.sharedChannel || "").trim()
+      if (normalized) url.search = "?channel=" + encodeURIComponent(normalized)
+      else url.search = ""
+      url.hash = workId ? "work=" + encodeURIComponent(workId) : ""
+      return url.href
+    } catch (e) {
+      const normalized = encodeURIComponent(String(channel || state.sharedChannel || "").trim())
+      return "./channel.html" + (normalized ? "?channel=" + normalized : "") + (workId ? "#work=" + encodeURIComponent(workId) : "")
+    }
+  }
+
+  function openChannelPage(channelArg, workId) {
+    if (!ShareStore) {
+      setShareMessage("공유 모듈을 불러오지 못했어요.", true)
+      return
+    }
+    const channel = ShareStore.normalizeChannel(channelArg || state.sharedChannel || "")
+    if (!channel) {
+      setShareMessage("공유 채널 번호를 적어 주세요.", true)
+      return
+    }
+    syncShareInputs(channel)
+    window.location.href = channelPageUrl(channel, workId)
+  }
+
   function setShareMessage(text, error) {
     const target = state.step === SHARE_STEP && el.shareStatus ? el.shareStatus : el.exportStatus
     if (!target) return
@@ -2693,14 +2731,7 @@
 
   function sharedWorkUrl(work) {
     if (work && work.shareUrl) return work.shareUrl
-    try {
-      const url = new URL(location.href)
-      url.search = "?shareChannel=" + encodeURIComponent((work && work.channel) || state.sharedChannel || "")
-      url.hash = work && work.id ? "work=" + encodeURIComponent(work.id) : ""
-      return url.href
-    } catch (e) {
-      return location.href
-    }
+    return channelPageUrl((work && work.channel) || state.sharedChannel || "", work && work.id)
   }
 
   function updateShareUrl(channel, workId) {
@@ -3081,7 +3112,8 @@
       el.exportStatus.classList.add("error")
       return
     }
-    const channelSource = channelArg != null ? channelArg : el.shareChannelInput ? el.shareChannelInput.value : state.sharedChannel
+    const explicitChannel = typeof channelArg === "string" || typeof channelArg === "number" ? channelArg : null
+    const channelSource = explicitChannel != null ? explicitChannel : el.shareChannelInput ? el.shareChannelInput.value : state.sharedChannel
     const channel = ShareStore.normalizeChannel(channelSource)
     if (!channel) {
       el.exportStatus.textContent = "공유 채널 번호를 적어 주세요."
@@ -3120,11 +3152,7 @@
       const work = result.work
       el.exportStatus.textContent = result.localOnly ? channel + " 채널에 이 브라우저용으로 저장했어요." : channel + " 채널에 공유했어요."
       state.sharedChannel = channel
-      state.sharedLoading = true
-      setStep(SHARE_STEP)
-      state.sharedLoading = false
-      await loadSharedChannel(channel, { focusWork: work && work.id })
-      if (work && work.id) updateShareUrl(channel, work.id)
+      window.location.href = channelPageUrl(channel, work && work.id)
     } catch (e) {
       console.error(e)
       el.exportStatus.textContent = e.message || "공유 업로드에 실패했어요."
@@ -3166,8 +3194,7 @@
     if (!channel) return false
     const focus = (location.hash || "").indexOf("#work=") === 0 ? decodeURIComponent(location.hash.slice(6)) : ""
     syncShareInputs(channel)
-    setStep(SHARE_STEP)
-    loadSharedChannel(channel, { updateUrl: false, focusWork: focus })
+    window.location.replace(channelPageUrl(channel, focus))
     return true
   }
 
@@ -3657,10 +3684,6 @@
     }
     if (state.step === SHARE_STEP) {
       syncShareInputs()
-      renderSharedWorks()
-      if (state.sharedChannel && !state.sharedLoading && !state.sharedWorks.length) {
-        loadSharedChannel(state.sharedChannel, { updateUrl: false })
-      }
     }
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -3812,11 +3835,11 @@
     if (el.channelBrowseInput) {
       el.channelBrowseInput.addEventListener("input", () => syncShareInputs(el.channelBrowseInput.value))
       el.channelBrowseInput.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") loadSharedChannel(el.channelBrowseInput.value)
+        if (event.key === "Enter") openChannelPage(el.channelBrowseInput.value)
       })
     }
     if (el.loadChannelBtn) {
-      el.loadChannelBtn.addEventListener("click", () => loadSharedChannel(el.channelBrowseInput ? el.channelBrowseInput.value : state.sharedChannel))
+      el.loadChannelBtn.addEventListener("click", () => openChannelPage(el.channelBrowseInput ? el.channelBrowseInput.value : state.sharedChannel))
     }
     if (el.shareAdminPinInput) {
       el.shareAdminPinInput.addEventListener("input", renderSharedWorks)

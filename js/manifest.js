@@ -131,8 +131,8 @@
       detail: "높고 가는 관악 소리",
       waveform: "sine",
       image: "./assets/instruments/sogeum.jpg",
-      example: "sound/감상-연주곡(국립국악원)/소금-경풍년.mp3",
-      exampleLabel: "경풍년",
+      example: "sound/감상-연주곡(국립국악원)/소금-수제천025.wav",
+      exampleLabel: "수제천025",
     },
     {
       id: "daegeum",
@@ -153,8 +153,8 @@
       detail: "맑고 투명한 관악 소리",
       waveform: "sine",
       image: "./assets/instruments/danso.jpg",
-      example: "sound/감상-연주곡(국립국악원)/단소-꼭두각시.mp3",
-      exampleLabel: "꼭두각시",
+      example: "sound/감상-연주곡(국립국악원)/단소-문덕곡 도드리(가사).wav",
+      exampleLabel: "문덕곡 도드리(가사)",
     },
     {
       id: "haegeum",

@@ -658,6 +658,8 @@ test("live drawing preview uses the full-playback melody gain target", () => {
 
   const target = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
   const expected = plan.version.melodyGain * 1.5 * 0.81 * (0.7 * 0.85) * 0.70
+  const noteGain = ctx.created.gains[1].gain.events.find((event) => event[0] === "set")[1]
+  assert.ok(Math.abs(noteGain - Math.min(0.95, expected * 1.235) / expected) < 1e-9)
   assert.ok(Math.abs(target - expected) < 1e-9, "드로잉 중 미리듣기 음량은 전체 재생 선율 기준을 따라야 한다")
   assert.ok(target <= 0.95, "마스터 리미터 없는 프리뷰는 클리핑 방지 상한을 지켜야 한다")
 })
@@ -674,7 +676,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine._createSampleLivePreview(previewCtx, plan, { duration: 2.4 }, 0.5)
 
   const previewTarget = previewCtx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const previousDrawingTarget = plan.version.melodyGain * 1.1 * (0.7 * 0.85) * 0.70
+  const previousDrawingTarget = plan.version.melodyGain * 0.52 * (0.7 * 0.85) * 0.70
   assert.ok(Math.abs(previewTarget - previousDrawingTarget * 1.3) < 1e-9)
 
   const ctx = makeAudioContext()
@@ -682,7 +684,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
   const phrasePeak = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 1.1 * 0.70
+  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.52 * 0.70
   assert.ok(Math.abs(playbackOutputTarget - previewTarget) < 1e-9)
 
   const toneFilter = ctx.created.filters.find((filter) => filter.frequency.events.some((event) => event[1] === 2300))
@@ -1076,24 +1078,82 @@ test("선율 gain은 서양 기준과 악기별 음량 보정을 함께 적용�
     return ctx.created.gains.flatMap((gain) => gain.gain.events.filter((event) => event[0] === "set").map((event) => event[1]))
   }
 
-  const westernValues = gainSetValuesFor("flute")
+  const fluteValues = gainSetValuesFor("flute")
+  const oboeValues = gainSetValuesFor("oboe")
+  const clarinetValues = gainSetValuesFor("clarinet")
+  const frenchHornValues = gainSetValuesFor("frenchHorn")
   const violinValues = gainSetValuesFor("violin")
   const violaValues = gainSetValuesFor("viola")
+  const celloValues = gainSetValuesFor("cello")
+  const doubleBassValues = gainSetValuesFor("doubleBass")
   const sogeumValues = gainSetValuesFor("sogeum")
   const daegeumValues = gainSetValuesFor("daegeum")
   const dansoValues = gainSetValuesFor("danso")
   const gayageumValues = gainSetValuesFor("gayageum")
   const haegeumValues = gainSetValuesFor("haegeum")
 
-  assert.ok(westernValues.includes(1.68 * 1.5), "서양 악기 선율 gain 이 1.5배여야 한다")
-  assert.ok(violinValues.includes(1.68 * 1.5 * 0.81), "바이올린 선율 gain 은 기존 10% 감소 상태에서 10% 더 줄어야 한다")
-  assert.ok(violaValues.includes(1.68 * 1.5 * 1.2), "비올라 선율 gain 은 서양 기준에서 20% 커져야 한다")
-  assert.ok(sogeumValues.includes(1.68 * 1.1), "소금 선율 gain 은 10% 커져야 한다")
-  assert.ok(daegeumValues.includes(1.68 * 1.2), "대금 선율 gain 은 20% 커져야 한다")
-  assert.ok(dansoValues.includes(1.68 * 0.7), "단소 선율 gain 은 30% 줄어야 한다")
-  assert.ok(gayageumValues.includes(1.68), "가야금 선율 gain 은 원음 보존을 위해 별도 감쇠를 적용하지 않는다")
-  assert.ok(haegeumValues.includes(1.68), "별도 보정 없는 국악기 선율 gain 은 기존 값을 써야 한다")
+  const hasGain = (values, expected) => values.some((value) => Math.abs(value - expected) < 1e-9)
+
+  assert.ok(hasGain(fluteValues, 1.68 * 1.5 * 1.08), "flute gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(oboeValues, 1.68 * 1.5 * 1.03), "oboe gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(clarinetValues, 1.68 * 1.5 * 0.91), "clarinet gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(frenchHornValues, 1.68 * 1.5 * 1.01), "french horn gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(violinValues, 1.68 * 1.5 * 0.81), "violin is the reference calibrated instrument gain")
+  assert.ok(hasGain(violaValues, 1.68 * 1.5 * 2.1), "viola gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(celloValues, 1.68 * 1.5 * 0.73), "cello gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(doubleBassValues, 1.68 * 1.5 * 0.34), "double bass gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(sogeumValues, 1.68 * 0.52), "sogeum gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(daegeumValues, 1.68 * 0.97), "daegeum gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(dansoValues, 1.68 * 0.23), "danso gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(gayageumValues, 1.68), "gayageum keeps an unboosted output gain because plucked attack peaks read louder than sustain RMS")
+  assert.ok(hasGain(haegeumValues, 1.68 * 0.36), "haegeum gain follows measured instrument loudness calibration")
   assert.equal(sogeumValues.includes(1.68 * 1.5), false, "국악기 선율에는 서양 1.5배 증폭을 적용하지 않는다")
+})
+
+test("gayageum note-level gain does not boost plucked sample rows", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [
+      { time: 0, duration: 0.5, midi: 62, velocity: 0.7 },
+      { time: 0.5, duration: 0.5, midi: 64, velocity: 0.7 },
+    ],
+  )
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
+
+  const gainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
+  assert.equal(ctx.created.gains.length, 1, "가야금 샘플 재생에는 줄별 증폭 gain 노드를 추가하지 않는다")
+  assert.equal(
+    gainEvents.some((event) => event[0] === "set" && Math.abs(event[1] - 1.413) < 1e-9),
+    false,
+    "가야금 D/E 줄은 원음 보존을 위해 +3dB 줄별 보정을 적용하지 않는다",
+  )
+})
+
+test("note-level melody gain is clamped to roughly +/-3 dB inside each instrument", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "violin", style: "bright", version: "balanced", mode: "melody" },
+    [
+      { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
+      { time: 0.5, duration: 0.5, midi: 62, velocity: 0.7 },
+    ],
+  )
+
+  engine.schedule(ctx, dest, plan, { pad: null, melody: { duration: 2.4 }, effects: [], byInstrument: {} }, 0, noop)
+
+  const noteGainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
+  assert.ok(noteGainEvents.some((event) => event[0] === "set" && Math.abs(event[1] - 0.708) < 1e-9))
+  assert.ok(noteGainEvents.some((event) => event[0] === "target" && Math.abs(event[1] - 1.075) < 1e-9))
+  assert.ok(0.708 >= Math.pow(10, -3 / 20) - 0.001)
+  assert.ok(1.413 <= Math.pow(10, 3 / 20) + 0.001)
 })
 
 test("seekPlan starts playback from the selected timeline time", () => {
@@ -1482,5 +1542,3 @@ test("preparePlaybackSustain 은 continuousSustainPlan 안에서만 호출된다
   // 스케줄러/미리듣기는 계산된 결과 buffer 를 한 번만 설정한다.
   assert.match(source, /\.buffer = sustain\.buffer\b/, "source.buffer 는 sustain 계획 결과로 한 번만 설정해야 한다")
 })
-
-

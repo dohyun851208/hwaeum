@@ -13,13 +13,43 @@
   const EFFECT_GAIN = 0.15
   const BACKGROUND_OUTPUT_GAIN = 1.5
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
+  // Instrument gain is calibrated from the stable sustain region of the default
+  // drawing pitch rows, with violin as the reference loudness.
   const INSTRUMENT_MELODY_OUTPUT_GAINS = {
+    flute: 1.08,
+    oboe: 1.03,
+    clarinet: 0.91,
+    frenchHorn: 1.01,
     violin: 0.81,
-    viola: 1.2,
-    sogeum: 1.1,
-    daegeum: 1.2,
-    danso: 0.7,
+    viola: 2.1,
+    cello: 0.73,
+    doubleBass: 0.34,
+    sogeum: 0.52,
+    daegeum: 0.97,
+    danso: 0.23,
+    haegeum: 0.36,
+    // Gayageum is a plucked sample with strong attack peaks, so keep its
+    // output unboosted even though sustain-only RMS calibration recommends 1.19.
     gayageum: 1,
+  }
+  const NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB = 3
+  // Per-note gain is measured inside each instrument after the instrument-level
+  // calibration above and clamped to +/-3 dB so the sample character survives.
+  const NOTE_MELODY_OUTPUT_GAINS = {
+    flute: { 55: 1.413, 57: 1.413, 59: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 65: 1.413, 67: 1.413, 69: 1.413, 71: 1.413, 72: 1.413, 74: 1.413, 76: 1.288, 77: 0.732, 79: 0.708 },
+    oboe: { 55: 1.413, 57: 1.031, 59: 1.413, 60: 1.413, 62: 0.996, 64: 0.708, 65: 1.043, 67: 0.848, 69: 1.328, 71: 1.344, 72: 1.413, 74: 1.344, 76: 0.708, 77: 0.919, 79: 1.17 },
+    clarinet: { 55: 0.969, 57: 1.165, 59: 1.248, 60: 0.936, 62: 1.22, 64: 1.413, 65: 1.307, 67: 1.413, 69: 0.958, 71: 0.825, 72: 0.844, 74: 0.77, 76: 1.015, 77: 0.904, 79: 0.854 },
+    frenchHorn: { 55: 1.413, 57: 1.413, 59: 1.413, 60: 1.413, 62: 1.413, 64: 1.341, 65: 1.141, 67: 1.017, 69: 0.938, 71: 0.917, 72: 1.413, 74: 1.413, 76: 0.754, 77: 0.856, 79: 0.708 },
+    violin: { 55: 0.835, 57: 0.959, 59: 0.915, 60: 0.708, 62: 1.075, 64: 1.37, 65: 1.015, 67: 1.235, 69: 1.413, 71: 1.075, 72: 0.915, 74: 1.323, 76: 1.413, 77: 1.126, 79: 1.075 },
+    viola: { 55: 1.327, 57: 1.413, 59: 0.708, 60: 1.116, 62: 1.413, 64: 1.282, 65: 1.169, 67: 1.405, 69: 1.297, 71: 1.413, 72: 1.253, 74: 1.104, 76: 1.169, 77: 0.828, 79: 0.708 },
+    cello: { 55: 1.127, 57: 1.413, 59: 1.413, 60: 1.309, 62: 0.96, 64: 0.708, 65: 0.708, 67: 1.309, 69: 1.413, 71: 1.413, 72: 1.077, 74: 1.14, 76: 1.208, 77: 0.96, 79: 1.413 },
+    doubleBass: { 55: 0.889, 57: 0.859, 59: 0.748, 60: 0.708, 62: 0.879, 64: 1.413, 65: 1.186, 67: 0.708, 69: 1.413, 71: 1.413, 72: 1.413, 74: 0.975, 76: 1.413, 77: 1.413, 79: 1.346 },
+    sogeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 67: 1.413, 69: 1.413, 72: 1.212, 74: 0.708, 76: 0.708 },
+    daegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 0.943, 67: 0.749, 69: 0.724, 72: 0.943, 74: 0.724, 76: 1.071 },
+    danso: { 55: 1.413, 57: 1.413, 60: 0.977, 62: 0.977, 64: 1.122, 67: 1.148, 69: 1.148, 72: 0.871, 74: 0.733, 76: 0.733 },
+    haegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.135, 64: 0.708, 67: 1.122, 69: 1.059, 72: 0.708, 74: 0.804, 76: 1.413 },
+    // Preserve gayageum sample dynamics; do not boost individual plucked rows.
+    gayageum: { 55: 1, 57: 1, 60: 1, 62: 1, 64: 1, 67: 1, 69: 1, 72: 1, 74: 1, 76: 1 },
   }
   const LIVE_PREVIEW_MAX_GAIN = 0.95
   const MASTER_OUTPUT_GAIN = 0.70
@@ -105,6 +135,29 @@
     return id && INSTRUMENT_MELODY_OUTPUT_GAINS[id] ? INSTRUMENT_MELODY_OUTPUT_GAINS[id] : 1
   }
 
+  function noteMelodyOutputGainForUiMidi(instrument, uiMidi) {
+    const id = instrument && instrument.id
+    const midi = uiMidi == null ? null : Math.round(Number(uiMidi))
+    const row = id && NOTE_MELODY_OUTPUT_GAINS[id]
+    const value = row && midi != null ? row[midi] : 1
+    const minGain = Math.pow(10, -NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB / 20)
+    const maxGain = Math.pow(10, NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB / 20)
+    return value > 0 && isFinite(value) ? clamp(value, minGain, maxGain) : 1
+  }
+
+  function noteMelodyOutputGain(plan, note) {
+    if (!note) return 1
+    const instrument = plan && plan.instrument
+    const asset = plan && plan.melodyAsset
+    const uiMidi =
+      note.uiMidi != null
+        ? note.uiMidi
+        : note.midi != null
+          ? note.midi - playbackTranspose(instrument, asset)
+          : null
+    return noteMelodyOutputGainForUiMidi(instrument, uiMidi)
+  }
+
   function melodyOutputGain(plan, instrument) {
     const inst = instrument || (plan && plan.instrument)
     const base = ((plan && plan.version && plan.version.melodyGain) || 0)
@@ -117,6 +170,12 @@
     return clamp(outputGain, 0.12, LIVE_PREVIEW_MAX_GAIN * boost)
   }
 
+  function livePreviewNoteTargetGain(plan, noteEnvPeak, uiMidi) {
+    const boost = isGugakInstrument(plan && plan.instrument) ? GUGAK_DRAWING_GAIN_BOOST : 1
+    const gain = livePreviewTargetGain(plan, noteEnvPeak) * noteMelodyOutputGainForUiMidi(plan && plan.instrument, uiMidi)
+    return clamp(gain, 0.12, LIVE_PREVIEW_MAX_GAIN * boost)
+  }
+
   function melodyPlaybackEnvPeak(plan, noteEnvPeak) {
     if (!isGugakInstrument(plan && plan.instrument)) return noteEnvPeak
     const outputGain = melodyOutputGain(plan, plan && plan.instrument)
@@ -127,6 +186,35 @@
   function previewOutputGain(plan) {
     const inst = plan && plan.instrument
     return (isWesternInstrument(inst) ? WESTERN_MELODY_OUTPUT_GAIN : 1) * instrumentMelodyOutputGain(inst)
+  }
+  function createNoteMelodyOutputGain(ctx, plan, items, start, phraseStart, glideSeconds) {
+    const list = (items || []).filter(Boolean)
+    if (!list.length || typeof ctx.createGain !== "function") return null
+    const gains = list.map(function (item) {
+      return noteMelodyOutputGain(plan, item)
+    })
+    const needsGain = gains.some(function (gain) {
+      return Math.abs(gain - 1) > 1e-6
+    })
+    if (!needsGain) return null
+    const node = ctx.createGain()
+    node.gain.setValueAtTime(gains[0], phraseStart)
+    for (let k = 1; k < list.length; k++) {
+      const at = start + list[k].time
+      if (at <= phraseStart + 1e-6) node.gain.setValueAtTime(gains[k], phraseStart)
+      else node.gain.setTargetAtTime(gains[k], at, glideSeconds || NOTE_GLIDE_SECONDS)
+    }
+    return node
+  }
+  function connectMelodyEnv(ctx, env, dest, plan, items, start, phraseStart, glideSeconds) {
+    const noteGain = createNoteMelodyOutputGain(ctx, plan, items, start, phraseStart, glideSeconds)
+    if (noteGain) {
+      env.connect(noteGain)
+      noteGain.connect(dest)
+      return noteGain
+    }
+    env.connect(dest)
+    return null
   }
   function isHaegeumPlan(plan) {
     return !!(plan && plan.instrument && plan.instrument.id === "haegeum")
@@ -1119,7 +1207,7 @@
       }
       applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
-      env.connect(dest)
+      const noteGain = connectMelodyEnv(ctx, env, dest, plan, stroke.events, start, phraseStart, glideSeconds)
 
       try {
         if (src.loop) {
@@ -1137,7 +1225,7 @@
           sourceDuration: startSourceDur,
           bufferDuration: audioBufferDuration(src.buffer),
         })
-        disconnectQuietly(src, env)
+        disconnectQuietly(src, env, noteGain)
       }
     }
   }
@@ -1181,7 +1269,7 @@
         }
         applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
         connectGugakSampleTone(ctx, src, env, plan, phraseStart)
-        env.connect(dest)
+        const noteGain = connectMelodyEnv(ctx, env, dest, plan, phraseNotes, start, phraseStart, glideSeconds)
 
         try {
           if (src.loop) {
@@ -1199,7 +1287,7 @@
             sourceDuration: startSourceDur,
             bufferDuration: audioBufferDuration(src.buffer),
           })
-          disconnectQuietly(src, env)
+          disconnectQuietly(src, env, noteGain)
         }
       }
       return
@@ -1238,7 +1326,7 @@
       }
       applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
-      env.connect(dest)
+      const noteGain = connectMelodyEnv(ctx, env, dest, plan, notes, start, phraseStart, glideSeconds)
 
       try {
         if (src.loop) {
@@ -1256,7 +1344,7 @@
           sourceDuration: startSourceDur,
           bufferDuration: audioBufferDuration(src.buffer),
         })
-        disconnectQuietly(src, env)
+        disconnectQuietly(src, env, noteGain)
       }
     }
   }
@@ -1294,7 +1382,7 @@
       applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.78), phraseStart, phraseDuration, attackSeconds, plan)
       osc.connect(filter)
       filter.connect(env)
-      env.connect(dest)
+      connectMelodyEnv(ctx, env, dest, plan, notes, start, phraseStart, glideSeconds)
       register(osc)
       osc.start(phraseStart)
       osc.stop(phraseStop + 0.18)
@@ -1489,8 +1577,12 @@
     return plan.instrument.id + "|" + plan.style.id + "|" + plan.mode
   }
 
+  AudioEngine.prototype._liveUiMidi = function (plan, normY) {
+    return Core.quantizePitch(normY, plan.pitchStyle || plan.style, plan.melodyAsset)
+  }
+
   AudioEngine.prototype._liveMidi = function (plan, normY) {
-    const uiMidi = Core.quantizePitch(normY, plan.pitchStyle || plan.style, plan.melodyAsset)
+    const uiMidi = this._liveUiMidi(plan, normY)
     return playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
   }
 
@@ -1506,12 +1598,17 @@
   }
 
   AudioEngine.prototype._createSampleLivePreview = function (ctx, plan, buffer, normY) {
-    const midi = this._liveMidi(plan, normY)
+    const uiMidi = this._liveUiMidi(plan, normY)
+    const midi = playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
     if (midi == null) return null
     const start = ctx.currentTime + 0.005
     const env = ctx.createGain()
+    const noteGain = ctx.createGain()
     let filter = null
-    const targetGain = livePreviewTargetGain(plan, 0.7 * 0.85)
+    const noteEnvPeak = 0.7 * 0.85
+    const baseTargetGain = livePreviewTargetGain(plan, noteEnvPeak)
+    const targetGain = livePreviewNoteTargetGain(plan, noteEnvPeak, uiMidi)
+    const noteGainValue = baseTargetGain > 0 ? targetGain / baseTargetGain : 1
     const multi = isMultiSample(plan.melodyAsset)
     const segment = nearestSampleSegment(plan.melodyAsset, midi)
     const fallbackOffset = segment ? 0 : Math.min(0.05, Math.max(0, audioBufferDuration(buffer) * 0.08))
@@ -1522,7 +1619,8 @@
     const baseRate = segmentPlaybackRate(plan.melodyAsset, midi, segment)
 
     env.gain.setValueAtTime(0.0001, start)
-    env.gain.linearRampToValueAtTime(targetGain, start + 0.035)
+    env.gain.linearRampToValueAtTime(baseTargetGain, start + 0.035)
+    noteGain.gain.setValueAtTime(noteGainValue, start)
 
     // 멀티샘플(서양 선율)은 원음 음색을 그대로 살리기 위해 필터 없이 source → env 직결.
     // 풀 플레이백(connectGugakSampleTone)과 동일한 신호 경로.
@@ -1532,7 +1630,8 @@
       configureSampleToneFilter(filter, plan, start)
       filter.connect(env)
     }
-    env.connect(ctx.destination)
+    env.connect(noteGain)
+    noteGain.connect(ctx.destination)
 
     // 재생 스케줄러와 똑같은 지속음 정책. source.buffer 는 "한 번만" 설정(이중 설정 시 무음).
     const sustain = continuousSustainPlan(ctx, buffer, offset, segmentDur, plan)
@@ -1548,6 +1647,9 @@
       kind: "sample",
       source: source,
       env: env,
+      noteGain: noteGain,
+      noteEnvPeak: noteEnvPeak,
+      baseTargetGain: baseTargetGain,
       filter: filter,
       rateParam: source.playbackRate,
       rateParams: [source.playbackRate],
@@ -1556,7 +1658,7 @@
       stopNodes: [source],
     }
     source.onended = function () {
-      ;[source, env, filter].forEach(function (node) {
+      ;[source, env, noteGain, filter].forEach(function (node) {
         try {
           node.disconnect()
         } catch (e) {}
@@ -1567,15 +1669,21 @@
   }
 
   AudioEngine.prototype._createSynthLivePreview = function (ctx, plan, normY) {
-    const frequency = this._liveFrequency(plan, normY)
-    if (frequency == null) return null
+    const uiMidi = this._liveUiMidi(plan, normY)
+    const midi = playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
+    if (midi == null) return null
+    const frequency = midiToFreq(midi)
     const start = ctx.currentTime + 0.005
     const osc = ctx.createOscillator()
     const env = ctx.createGain()
+    const noteGain = ctx.createGain()
     const filter = ctx.createBiquadFilter()
     const lfo = ctx.createOscillator()
     const lfoGain = ctx.createGain()
-    const targetGain = livePreviewTargetGain(plan, 0.7 * 0.78)
+    const noteEnvPeak = 0.7 * 0.78
+    const baseTargetGain = livePreviewTargetGain(plan, noteEnvPeak)
+    const targetGain = livePreviewNoteTargetGain(plan, noteEnvPeak, uiMidi)
+    const noteGainValue = baseTargetGain > 0 ? targetGain / baseTargetGain : 1
     const voice = synthVoiceFor(plan.instrument)
 
     osc.type = voice.waveform
@@ -1591,15 +1699,20 @@
     lfoGain.connect(osc.detune)
 
     env.gain.setValueAtTime(0.0001, start)
-    env.gain.linearRampToValueAtTime(targetGain, start + 0.035)
+    env.gain.linearRampToValueAtTime(baseTargetGain, start + 0.035)
+    noteGain.gain.setValueAtTime(noteGainValue, start)
     if (isGayageumPlan(plan)) env.gain.exponentialRampToValueAtTime(0.001, start + 0.72)
     osc.connect(filter)
     filter.connect(env)
-    env.connect(ctx.destination)
+    env.connect(noteGain)
+    noteGain.connect(ctx.destination)
 
     const live = {
       osc: osc,
       env: env,
+      noteGain: noteGain,
+      noteEnvPeak: noteEnvPeak,
+      baseTargetGain: baseTargetGain,
       filter: filter,
       lfo: lfo,
       lfoGain: lfoGain,
@@ -1607,7 +1720,7 @@
       stopNodes: [osc, lfo],
     }
     osc.onended = function () {
-      ;[osc, env, filter, lfo, lfoGain].forEach(function (node) {
+      ;[osc, env, noteGain, filter, lfo, lfoGain].forEach(function (node) {
         try {
           node.disconnect()
         } catch (e) {}
@@ -1662,7 +1775,8 @@
     const self = this
     const run = function () {
       const plan = self.resolvePlan(recipe, [])
-      const midi = self._liveMidi(plan, normY)
+      const uiMidi = self._liveUiMidi(plan, normY)
+      const midi = playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
       if (midi == null) {
         self.stopLivePreview(true)
         return
@@ -1673,6 +1787,13 @@
       }
       const now = ctx.currentTime
       const liveGlideSeconds = liveNoteGlideSeconds(plan)
+      if (self.livePreview.noteGain) {
+        const nextTargetGain = livePreviewNoteTargetGain(plan, self.livePreview.noteEnvPeak || 0.7 * 0.85, uiMidi)
+        const baseTargetGain = self.livePreview.baseTargetGain || 1
+        const nextGain = baseTargetGain > 0 ? nextTargetGain / baseTargetGain : 1
+        self.livePreview.noteGain.gain.cancelScheduledValues(now)
+        self.livePreview.noteGain.gain.setTargetAtTime(nextGain, now, liveGlideSeconds)
+      }
       if (self.livePreview.kind === "sample") {
         if (isMultiSample(plan.melodyAsset)) {
           // 멀티샘플(서양 선율): 드로잉 중엔 시작 시 불러온 한 음을 기준으로 피치만 매끄럽게 글라이드.
@@ -1867,7 +1988,7 @@
     filter.frequency.setValueAtTime(voice.cutoff, start)
     filter.Q.setValueAtTime(voice.Q, start)
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(note.velocity * 0.24 * previewOutputGain(plan), start + 0.012)
+    env.gain.linearRampToValueAtTime(note.velocity * 0.24 * previewOutputGain(plan) * noteMelodyOutputGain(plan, note), start + 0.012)
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
     osc.connect(filter)
     filter.connect(env)
@@ -1892,7 +2013,7 @@
     src.buffer = buffer
     src.playbackRate.setValueAtTime(baseRate, start)
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(note.velocity * 0.34 * previewOutputGain(plan), start + 0.012)
+    env.gain.linearRampToValueAtTime(note.velocity * 0.34 * previewOutputGain(plan) * noteMelodyOutputGain(plan, note), start + 0.012)
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
     src.connect(env)
     env.connect(ctx.destination)
@@ -1981,12 +2102,14 @@
     const self = this
     const run = function () {
       const plan = self.resolvePlan(recipe, [])
-      const midi = self._liveMidi(plan, normY)
+      const uiMidi = self._liveUiMidi(plan, normY)
+      const midi = playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
       if (midi == null) return
       const note = {
         time: 0,
         duration: 0.24,
         midi: midi,
+        uiMidi: uiMidi,
         velocity: 0.7,
       }
       const start = ctx.currentTime + 0.01

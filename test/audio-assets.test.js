@@ -31,6 +31,10 @@ function collectInstrumentImages(data) {
   return Array.from(data.instruments).filter((instrument) => instrument.image)
 }
 
+function collectInstrumentExamples(data) {
+  return Array.from(data.instruments).filter((instrument) => instrument.example)
+}
+
 function collectEffectImages(data) {
   return Object.entries(data.effects).filter(([, effect]) => effect.image)
 }
@@ -51,6 +55,17 @@ test("instrument image entries point to existing project files", () => {
     .filter((instrument) => !fs.existsSync(instrument.filePath))
 
   assert.deepEqual(missing, [])
+})
+
+test("instrument example audio entries point to existing project files", () => {
+  const data = loadManifest()
+  const missing = collectInstrumentExamples(data)
+    .map((instrument) => ({ id: instrument.id, example: instrument.example, filePath: path.resolve(projectDir, instrument.example) }))
+    .filter((instrument) => !fs.existsSync(instrument.filePath))
+
+  assert.deepEqual(missing, [])
+  assert.equal(data.instruments.find((instrument) => instrument.id === "sogeum").exampleLabel, "수제천025")
+  assert.equal(data.instruments.find((instrument) => instrument.id === "danso").exampleLabel, "문덕곡 도드리(가사)")
 })
 
 test("effect image entries point to existing project files", () => {

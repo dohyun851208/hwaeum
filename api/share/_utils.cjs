@@ -124,7 +124,7 @@ async function readJsonUrl(url) {
 function sharedUrl(req, workId, channel) {
   const proto = req.headers["x-forwarded-proto"] || "https"
   const host = req.headers["x-forwarded-host"] || req.headers.host || ""
-  return host ? proto + "://" + host + "/?shareChannel=" + encodeURIComponent(channel) + "#work=" + encodeURIComponent(workId) : ""
+  return host ? proto + "://" + host + "/channel.html?channel=" + encodeURIComponent(channel) + "#work=" + encodeURIComponent(workId) : ""
 }
 
 module.exports = {

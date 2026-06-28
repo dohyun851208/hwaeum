@@ -4,16 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 — 그림으로 30초 BGM 만들기</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --ink: #f8f5eb;
-        --muted: rgba(248, 245, 235, 0.62);
-        --cyan: #86c7c2;
-        --gold: #d8ad58;
-        --red: #c96657;
-        --black: #000;
-        --sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
-        --serif: "Iropke Batang", "Nanum Myeongjo", Georgia, serif;
+        --ink: #332c2a;
+        --muted: #6b5b5b;
+        --pink: #f43f5e;
+        --violet: #8b5cf6;
+        --teal: #14b8a6;
+        --cream: #fff8f2;
+        --shell: #fff1e9;
+        --panel: rgba(255, 255, 255, 0.72);
+        --sans: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+        --serif: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
       }
 
       * {
@@ -29,7 +34,7 @@
         margin: 0;
         color: var(--ink);
         font-family: var(--sans);
-        background: var(--black);
+        background: var(--shell);
         overflow: hidden;
       }
 
@@ -41,21 +46,23 @@
       .sample-shell {
         position: relative;
         min-height: 100vh;
-        background: #000;
+        background:
+          radial-gradient(circle at 1px 1px, rgba(139, 92, 246, 0.1) 1px, transparent 0) 0 0 / 34px 34px,
+          radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.92), transparent 34%),
+          linear-gradient(180deg, #fff0e7 0%, #fff8f3 56%, #fff3ea 100%);
         overflow: hidden;
       }
 
       .sample-shell::before {
         content: "";
         position: absolute;
-        inset: -22%;
+        inset: -16%;
         background:
-          radial-gradient(circle at 48% 36%, rgba(255, 255, 255, 0.16), transparent 18%),
-          radial-gradient(circle at 28% 68%, rgba(134, 199, 194, 0.12), transparent 22%),
-          radial-gradient(circle at 72% 58%, rgba(216, 173, 88, 0.12), transparent 20%),
-          #000;
-        filter: blur(4px);
-        opacity: 0.78;
+          radial-gradient(circle at 17% 25%, rgba(251, 113, 133, 0.16), transparent 22%),
+          radial-gradient(circle at 84% 28%, rgba(20, 184, 166, 0.14), transparent 20%),
+          radial-gradient(circle at 52% 78%, rgba(139, 92, 246, 0.13), transparent 24%);
+        filter: blur(2px);
+        opacity: 0.9;
       }
 
       .hero-stage-wrap {
@@ -70,10 +77,7 @@
       .hero-stage {
         position: absolute;
         inset: 0;
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 22%),
-          radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.075), transparent 28%),
-          #000;
+        background: transparent;
         transform-style: preserve-3d;
         overflow: hidden;
       }
@@ -81,18 +85,16 @@
       .hero-stage::before {
         content: "";
         position: absolute;
-        left: 11vw;
-        right: 11vw;
-        bottom: -7vh;
-        height: 36vh;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        left: 50%;
+        top: 50%;
+        width: min(86vw, 1040px);
+        height: min(74vh, 690px);
         background:
-          linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-        background-size: 60px 60px;
-        transform: rotateX(72deg) translateZ(-170px);
-        transform-origin: bottom center;
-        opacity: 0.48;
+          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.7), transparent 58%),
+          radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1), transparent 62%);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        opacity: 0.78;
       }
 
       .hero-stage::after {
@@ -100,7 +102,7 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        box-shadow: inset 0 0 170px rgba(0, 0, 0, 0.92);
+        box-shadow: inset 0 0 120px rgba(255, 255, 255, 0.4);
       }
 
       .scene {
@@ -112,10 +114,15 @@
 
       .world {
         position: absolute;
-        inset: 0;
-        z-index: 4;
-        transform-style: preserve-3d;
+        left: 50%;
+        top: 50%;
+        width: calc(min(92vw, 940px, 103.6vh));
+        aspect-ratio: 940 / 780;
+        height: auto;
+        z-index: 3;
+        transform: translate(-50%, -50%);
         pointer-events: none;
+        overflow: visible;
         --spin-deg: 0deg;
       }
 
@@ -123,16 +130,15 @@
         position: absolute;
         left: 50%;
         top: 50%;
-        width: min(920px, 76vw);
-        height: min(560px, 62vh);
-        border: 1px dashed rgba(248, 245, 235, 0.18);
+        width: 82%;
+        height: 84%;
+        border: 2px dashed rgba(139, 92, 246, 0.22);
         border-radius: 50%;
         transform: translate(-50%, -50%);
-        box-shadow:
-          0 0 44px rgba(134, 199, 194, 0.08),
-          inset 0 0 64px rgba(216, 173, 88, 0.05);
+        background: transparent;
+        box-shadow: none;
         opacity: 0;
-        animation: orbitRingFadeIn 1200ms ease 220ms forwards;
+        animation: orbitRingFadeIn 1200ms ease 180ms forwards;
       }
 
       .orbit-ring::before,
@@ -144,77 +150,95 @@
       }
 
       .orbit-ring::before {
-        inset: 9%;
-        border: 1px solid rgba(134, 199, 194, 0.12);
+        display: none;
       }
 
       .orbit-ring::after {
-        left: 50%;
-        top: 50%;
-        width: 11px;
-        height: 11px;
-        background: rgba(248, 245, 235, 0.82);
-        box-shadow: 0 0 28px rgba(248, 245, 235, 0.38);
-        transform: translate(-50%, -50%);
+        display: none;
       }
 
       .title-stack {
         position: absolute;
         left: 50%;
-        top: 44%;
-        width: min(900px, 86vw);
-        transform: translate3d(-50%, -50%, 260px);
-        transform-style: preserve-3d;
+        top: 50%;
+        width: min(500px, 48vw);
+        min-width: 420px;
+        padding: 52px 44px 46px;
+        transform: translate(-50%, -50%);
         text-align: center;
-        filter: drop-shadow(0 34px 26px rgba(0, 0, 0, 0.74));
+        background: var(--panel);
+        border: 1.5px solid rgba(255, 255, 255, 0.92);
+        border-radius: 32px;
+        box-shadow: 0 18px 56px rgba(73, 49, 40, 0.12);
+        backdrop-filter: blur(30px) saturate(1.35);
+        -webkit-backdrop-filter: blur(30px) saturate(1.35);
         z-index: 20;
         animation: titleSettle 1600ms cubic-bezier(0.18, 0.86, 0.16, 1) 120ms both;
       }
 
+      .title-stack::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.36) 48%, transparent 72%);
+        transform: translateX(-120%) skewX(-14deg);
+        animation: panelShimmer 7600ms ease-in-out 1200ms infinite;
+        pointer-events: none;
+      }
+
       .title-stack .subtitle {
         display: block;
-        color: rgba(255, 255, 255, 0.82);
-        margin-top: 16px;
-        font-size: clamp(1rem, 1.35vw, 1.28rem);
-        font-weight: 850;
+        position: relative;
+        z-index: 1;
+        color: var(--muted);
+        margin-top: 6px;
+        font-size: clamp(1rem, 1.18vw, 1.14rem);
+        font-weight: 400;
         line-height: 1.55;
         letter-spacing: 0;
       }
 
       .title-stack .subtitle strong {
         display: block;
-        color: var(--ink);
-        font-size: clamp(1.24rem, 1.8vw, 1.7rem);
-        font-weight: 950;
+        margin-bottom: 4px;
+        color: var(--pink);
+        font-size: clamp(1.3rem, 1.8vw, 1.72rem);
+        font-weight: 400;
       }
 
       .title-stack .subtitle span {
         display: block;
-        color: rgba(248, 245, 235, 0.72);
+        color: var(--muted);
       }
 
       .title-stack .name {
         display: block;
+        position: relative;
+        z-index: 1;
         font-family: var(--sans);
-        font-size: clamp(8.6rem, 13.5vw, 12.8rem);
-        font-weight: 950;
-        line-height: 0.82;
-        text-shadow:
-          0 5px 0 rgba(255, 255, 255, 0.08),
-          0 42px 34px rgba(255, 255, 255, 0.12),
-          0 0 76px rgba(134, 199, 194, 0.16);
+        font-size: clamp(5.1rem, 8.3vw, 7.8rem);
+        font-weight: 400;
+        line-height: 0.92;
+        background: linear-gradient(135deg, var(--pink), var(--violet), var(--teal));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
       }
 
       .hashtag-row {
+        position: relative;
+        z-index: 1;
         margin-top: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-wrap: wrap;
         gap: 12px;
-        color: rgba(248, 245, 235, 0.72);
+        color: rgba(107, 91, 91, 0.82);
         font-size: clamp(0.88rem, 1.05vw, 1rem);
-        font-weight: 850;
+        font-weight: 400;
         line-height: 1.35;
       }
 
@@ -225,13 +249,12 @@
         width: var(--o-size, 210px);
         aspect-ratio: 1;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        border: 1.5px solid rgba(255, 255, 255, 0.86);
         border-radius: 8px;
-        background: #171717;
+        background: #fff;
         box-shadow:
-          0 34px 64px rgba(0, 0, 0, 0.68),
-          inset 0 1px 0 rgba(255, 255, 255, 0.16);
-        transform-style: preserve-3d;
+          0 18px 36px rgba(73, 49, 40, 0.14),
+          0 4px 14px rgba(73, 49, 40, 0.08);
         transform: translate(-50%, -50%) scale(var(--o-scale, 1));
         opacity: 0;
         z-index: var(--o-z, 5);
@@ -257,8 +280,8 @@
         position: absolute;
         inset: 0;
         background:
-          linear-gradient(180deg, transparent 38%, rgba(0, 0, 0, 0.7)),
-          linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 38%);
+          linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.58)),
+          linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 40%);
         pointer-events: none;
       }
 
@@ -274,16 +297,16 @@
       }
 
       .album-card figcaption span {
-        color: rgba(248, 245, 235, 0.68);
+        color: rgba(255, 248, 242, 0.78);
         font-size: 0.72rem;
-        font-weight: 850;
+        font-weight: 400;
         letter-spacing: 0;
       }
 
       .album-card figcaption strong {
-        color: var(--ink);
+        color: #fff8f2;
         font-size: 1.08rem;
-        font-weight: 950;
+        font-weight: 400;
         line-height: 1.04;
       }
 
@@ -305,20 +328,22 @@
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        margin-top: 30px;
-        padding: 16px 36px;
-        border-radius: 999px;
-        color: #0a0a0a;
-        background: var(--ink);
+        position: relative;
+        z-index: 1;
+        margin-top: 28px;
+        padding: 16px 34px;
+        border-radius: 16px;
+        color: #fff;
+        background: linear-gradient(135deg, #fb7185, var(--pink));
         text-decoration: none;
         font-size: clamp(1rem, 1.25vw, 1.18rem);
-        font-weight: 950;
-        letter-spacing: 0.01em;
+        font-weight: 400;
+        letter-spacing: 0;
         white-space: nowrap;
         pointer-events: auto;
         box-shadow:
-          0 18px 40px rgba(0, 0, 0, 0.5),
-          0 0 0 1px rgba(255, 255, 255, 0.2);
+          0 12px 24px rgba(244, 63, 94, 0.28),
+          0 0 0 1px rgba(255, 255, 255, 0.36);
         animation: ctaBreathe 3200ms ease-in-out infinite;
         transition: transform 220ms ease, box-shadow 220ms ease;
       }
@@ -328,7 +353,7 @@
       }
 
       .enter-cta:focus-visible {
-        outline: 2px solid var(--cyan);
+        outline: 2px solid var(--teal);
         outline-offset: 4px;
       }
 
@@ -382,26 +407,81 @@
         0%,
         100% {
           box-shadow:
-            0 18px 40px rgba(0, 0, 0, 0.5),
-            0 0 0 1px rgba(255, 255, 255, 0.18),
-            0 0 20px rgba(134, 199, 194, 0);
+            0 12px 24px rgba(244, 63, 94, 0.28),
+            0 0 0 1px rgba(255, 255, 255, 0.36),
+            0 0 20px rgba(244, 63, 94, 0);
         }
         50% {
           box-shadow:
-            0 18px 44px rgba(0, 0, 0, 0.5),
-            0 0 0 1px rgba(255, 255, 255, 0.3),
-            0 0 38px rgba(216, 173, 88, 0.38);
+            0 14px 28px rgba(244, 63, 94, 0.34),
+            0 0 0 1px rgba(255, 255, 255, 0.5),
+            0 0 28px rgba(251, 113, 133, 0.24);
         }
       }
 
       @keyframes titleSettle {
         from {
-          transform: translate3d(-50%, -50%, 260px) scale(0.94);
+          transform: translate(-50%, -50%) scale(0.96);
           opacity: 0;
         }
         to {
-          transform: translate3d(-50%, -50%, 260px) scale(1);
+          transform: translate(-50%, -50%) scale(1);
           opacity: 1;
+        }
+      }
+
+      @keyframes panelShimmer {
+        0%,
+        38% {
+          transform: translateX(-120%) skewX(-14deg);
+        }
+        58%,
+        100% {
+          transform: translateX(160%) skewX(-14deg);
+        }
+      }
+
+      @media (max-width: 1440px), (max-height: 850px) {
+        .title-stack {
+          width: min(470px, 46vw);
+          min-width: 390px;
+          padding: 44px 38px 40px;
+        }
+
+        .title-stack .name {
+          font-size: clamp(4.6rem, 7.7vw, 6.9rem);
+        }
+
+        .album-card {
+          width: calc(var(--o-size, 210px) * 0.84);
+        }
+      }
+
+      @media (max-height: 780px) and (min-width: 769px) {
+        .title-stack {
+          width: min(440px, 44vw);
+          min-width: 370px;
+          padding: 34px 32px 30px;
+        }
+
+        .title-stack .name {
+          font-size: clamp(4rem, 6.6vw, 5.7rem);
+        }
+
+        .hashtag-row {
+          margin-top: 12px;
+          gap: 8px;
+          font-size: 0.86rem;
+        }
+
+        .enter-cta {
+          margin-top: 20px;
+          padding: 13px 28px;
+          font-size: 1rem;
+        }
+
+        .album-card {
+          width: calc(var(--o-size, 210px) * 0.76);
         }
       }
 
@@ -418,6 +498,17 @@
         }
       }
     </style>
+    <script>
+      (() => {
+        const params = new URLSearchParams(window.location.search);
+        const channel = params.get("shareChannel") || params.get("channel");
+        if (!channel) return;
+        const url = new URL("./channel.html", window.location.href);
+        url.search = "?channel=" + encodeURIComponent(channel);
+        url.hash = window.location.hash || "";
+        window.location.replace(url.href);
+      })();
+    </script>
   </head>
   <body>
     <div class="sample-shell">
@@ -525,9 +616,9 @@
         const BASE_FRAME_MS = 1000 / 60;
         const MAX_FRAME_SCALE = 2;
         const TRACK_SAMPLE_COUNT = 720;
-        const TRACK_POWER = 3.1;
-        const TRACK_SCALE_X = 1.08;
-        const TRACK_SCALE_Y = 1.02;
+        const TRACK_POWER = 3.2;
+        const TRACK_SCALE_X = 1.07;
+        const TRACK_SCALE_Y = 0.86;
         const TOP_TIGHTEN_PCT = 2.8;
         const DRAG_THRESHOLD_PX = 10;
         const DIRECTION_INTENT_PX = 4;
@@ -612,12 +703,12 @@
             const topWeight = Math.max(0, -point.y / radiusYPct);
             const frontWeight = (point.y + radiusYPct) / (radiusYPct * 2);
             const depth = Math.max(0, Math.min(1, frontWeight));
-            const topLiftPct = Math.pow(topWeight, 2.15) * TOP_TIGHTEN_PCT;
+            const topLiftPct = Math.pow(topWeight, 2.2) * TOP_TIGHTEN_PCT;
             const leftPct = 50 + point.x;
             const topPct = 50 + point.y - topLiftPct;
             const slideX = Math.round(Math.cos(point.vectorRadians) * slideDistance);
             const slideY = Math.round(Math.sin(point.vectorRadians) * slideDistance);
-            const scale = 0.86 + depth * 0.2;
+            const scale = 0.92 + depth * 0.12;
 
             card.style.setProperty("--o-left", `${leftPct.toFixed(3)}%`);
             card.style.setProperty("--o-top", `${topPct.toFixed(3)}%`);

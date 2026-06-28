@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>화음 도서관 · 학급 채널</title>
+    <link rel="icon" type="image/png" href="./assets/default-cover.png" />
+    <link rel="stylesheet" href="./styles.css?v=20260628-channel-page" />
+  </head>
+  <body class="channel-body">
+    <div class="channel-shell">
+      <header class="channel-topbar">
+        <div class="channel-menu-wrap">
+          <button class="channel-menu-button" id="channelMenuBtn" type="button" aria-label="메뉴 열기" aria-expanded="false">☰</button>
+          <div class="channel-menu-panel" id="channelMenu" hidden>
+            <button class="channel-menu-item" id="channelBackBtn" type="button">← 이전 화면</button>
+            <a class="channel-menu-item" href="./studio.html">＋ 새 음악 만들기</a>
+            <label class="channel-admin-field" for="channelAdminPin">
+              <span>관리자 PIN</span>
+              <input id="channelAdminPin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자만" />
+            </label>
+          </div>
+        </div>
+
+        <div class="channel-title-block">
+          <p class="channel-eyebrow">화음 도서관</p>
+          <h1 id="channelTitle">학급 채널</h1>
+          <p id="channelCount">채널을 불러옵니다.</p>
+        </div>
+
+        <form class="channel-open-form" id="channelOpenForm">
+          <label for="channelInput">채널</label>
+          <input id="channelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="예: 3021" />
+          <button class="channel-open-button" type="submit">열기</button>
+          <button class="channel-icon-button" id="channelRefreshBtn" type="button" aria-label="새로고침">↻</button>
+        </form>
+      </header>
+
+      <main class="channel-library" id="channelLibrary">
+        <p class="channel-status" id="channelStatus" aria-live="polite"></p>
+        <div class="channel-shelves" id="channelShelves"></div>
+        <div class="channel-empty" id="channelEmpty" hidden>
+          <strong>아직 이 채널에 음악이 없습니다.</strong>
+          <span>스튜디오에서 완성한 음악을 채널에 공유하면 여기에 모입니다.</span>
+        </div>
+      </main>
+    </div>
+
+    <div class="channel-viewer" id="channelViewer" role="dialog" aria-modal="true" aria-labelledby="viewerTitle" hidden>
+      <button class="channel-viewer-close" id="viewerCloseBtn" type="button" aria-label="닫기">×</button>
+      <div class="channel-viewer-panel">
+        <figure class="channel-viewer-stage">
+          <img class="channel-viewer-cover" id="viewerCover" alt="공유 음악 표지" />
+          <button class="channel-viewer-play" id="viewerPlayBtn" type="button" aria-label="재생">▶</button>
+        </figure>
+        <section class="channel-viewer-info">
+          <p class="channel-eyebrow">학급 채널 감상</p>
+          <h2 id="viewerTitle">무제</h2>
+          <p class="channel-viewer-meta" id="viewerMeta"></p>
+          <audio class="channel-viewer-audio" id="viewerAudio" controls preload="auto"></audio>
+          <p class="channel-viewer-text" id="viewerBackground" hidden></p>
+          <p class="channel-viewer-text" id="viewerMelody" hidden></p>
+          <p class="channel-viewer-tags" id="viewerTags" hidden></p>
+          <div class="channel-viewer-actions">
+            <button class="channel-action-button" id="viewerCopyBtn" type="button">링크 복사</button>
+            <button class="channel-action-button danger" id="viewerDeleteBtn" type="button" hidden>삭제</button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script src="./js/share-store.js?v=20260628-channel-page" defer></script>
+    <script src="./js/channel.js?v=20260628-channel-page" defer></script>
+  </body>
+</html>

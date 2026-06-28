@@ -296,8 +296,8 @@
 
   function localShareUrl(workId, channel) {
     try {
-      const url = new URL(root.location && root.location.href ? root.location.href : "/")
-      url.search = "?shareChannel=" + encodeURIComponent(channel)
+      const url = new URL("./channel.html", root.location && root.location.href ? root.location.href : "/")
+      url.search = "?channel=" + encodeURIComponent(channel)
       url.hash = "work=" + encodeURIComponent(workId)
       return url.href
     } catch (e) {

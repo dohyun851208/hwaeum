@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 스튜디오 · 그림으로 만드는 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260627-drawing-reference-toggle" />
+    <link rel="stylesheet" href="./styles.css?v=20260628-timeline-label-position" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -252,24 +252,18 @@
         <section class="screen share-screen" data-screen="4" aria-label="5단계 공유">
           <div class="screen-head">
             <p class="eyebrow">Step 5</p>
-            <h2>학급 채널의 음악을 봅니다</h2>
-            <p class="lead">채널 번호를 적으면 같은 채널에 공유된 그림 음악을 볼 수 있습니다. 내 작품은 직접 지울 수 있고, 관리자는 PIN으로 지울 수 있습니다.</p>
+            <h2>학급 채널을 엽니다</h2>
+            <p class="lead">채널 번호를 적으면 같은 채널에 모인 그림 음악을 도서관처럼 볼 수 있습니다.</p>
           </div>
-          <section class="panel share-board">
+          <section class="panel share-board share-gate">
             <div class="share-toolbar">
               <label class="share-channel-field" for="channelBrowseInput">
                 <span>채널 번호</span>
                 <input id="channelBrowseInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="예: 3021" />
               </label>
               <button class="btn primary" id="loadChannelBtn" type="button">채널 열기</button>
-              <label class="share-channel-field admin-pin-field" for="shareAdminPinInput">
-                <span>관리자 PIN</span>
-                <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자만" />
-              </label>
             </div>
             <p class="upload-status" id="shareStatus" aria-live="polite"></p>
-            <div class="shared-works-list" id="sharedWorksList"></div>
-            <p class="muted shared-empty" id="sharedEmpty">채널 번호를 입력하고 열기를 누르면 공유된 음악이 여기에 모입니다.</p>
           </section>
           <div class="screen-actions">
             <button class="btn" type="button" data-step-prev>완성으로</button>
@@ -287,9 +281,9 @@
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
     <script src="./js/audio-engine.js?v=20260627-schedule-fallback"></script>
-    <script src="./js/drawing.js?v=20260627-haegeum-grid"></script>
+    <script src="./js/drawing.js?v=20260628-drawing-cursor"></script>
     <script src="./js/takes.js?v=20260627-take-title"></script>
-    <script src="./js/share-store.js?v=20260627-channel-share"></script>
-    <script src="./js/studio.js?v=20260627-fullplay-playback-fallback" defer></script>
+    <script src="./js/share-store.js?v=20260628-channel-page"></script>
+    <script src="./js/studio.js?v=20260628-channel-page" defer></script>
   </body>
 </html>

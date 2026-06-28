@@ -68,6 +68,21 @@ test("paused playback stores the visible playhead position for later controls", 
   assert.match(stopBody, /playheadElapsedMs = selectedPlaybackStartSec\(\) \* 1000/)
 })
 
+test("switching to the eraser keeps the playhead in place instead of resetting to the start", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const eraserBody = functionBody(source, "activateEraserTool")
+  const freezeBody = functionBody(source, "freezePlayheadAtLivePosition")
+
+  // 재생바를 현재 위치에 굳힌 뒤에 stop 해야 시작점으로 튀지 않는다.
+  const freezeAt = eraserBody.indexOf("freezePlayheadAtLivePosition()")
+  const stopAt = eraserBody.indexOf("engine.stop()")
+  assert.notEqual(freezeAt, -1, "eraser should freeze the playhead before stopping")
+  assert.ok(freezeAt < stopAt, "freeze must happen before engine.stop() resets the playhead")
+
+  assert.match(freezeBody, /if \(!engine\.isPlaying \|\| engine\.isPaused\) return/)
+  assert.match(freezeBody, /rememberPlayheadProgress\(playheadElapsedMs \/ durMs\)/)
+})
+
 test("background range changes do not rewrite the drawing timeline duration", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const ensureBody = functionBody(source, "ensureTimelineDuration")

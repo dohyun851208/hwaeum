@@ -148,7 +148,6 @@
 
   DrawingCanvas.prototype._syncCursor = function () {
     if (this.eraseMode) this.canvas.style.cursor = "cell"
-    else if (this.flowMode) this.canvas.style.cursor = "ns-resize"
     else this.canvas.style.cursor = "crosshair"
   }
 
