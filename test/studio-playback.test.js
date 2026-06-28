@@ -57,6 +57,24 @@ test("background range pause keeps its current position for resume", () => {
   assert.match(toggleBody, /else pauseBgPlayer\(true\)/)
 })
 
+test("sound-mode drawing resumes the clock from the current playhead, not 0", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const progressBody = functionBody(source, "soundDrawingProgress")
+  const liveBody = functionBody(source, "livePlayheadProgress")
+  const bgTimeBody = functionBody(source, "bgTimeFromProgress")
+
+  // 첫 터치 때 배경음악(시계)이 멈춰 있으면, bgOffset(0)로 튀지 말고 현재 재생바 위치를 이어받아야 한다.
+  assert.match(progressBody, /if \(bgPlayer\.paused\)/)
+  assert.match(progressBody, /bgTimeFromProgress\(livePlayheadProgress\(\)\)/)
+  assert.match(progressBody, /bgPausedAt = resumeTime/, "resume time must seed playBgPlayer's start position")
+  assert.match(progressBody, /playBgPlayer\(\)/)
+
+  // 전체곡(엔진) 재생 중이면 그 진행을 읽어 와야 한다.
+  assert.match(liveBody, /engine\.isPlaying && !engine\.isPaused && playheadStartedAt/)
+  // 진행(0..1)을 배경음악 시간으로 환산하는 식은 bgPlayheadProgress와 같은 구간을 써야 한다.
+  assert.match(bgTimeBody, /state\.bgOffset \+ clampPlayheadProgress\(progress\) \* segment/)
+})
+
 test("paused playback stores the visible playhead position for later controls", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const pauseBody = functionBody(source, "pausePlayhead")

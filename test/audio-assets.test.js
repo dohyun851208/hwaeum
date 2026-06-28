@@ -62,8 +62,10 @@ test("instrument example audio entries point to existing project files", () => {
   const missing = collectInstrumentExamples(data)
     .map((instrument) => ({ id: instrument.id, example: instrument.example, filePath: path.resolve(projectDir, instrument.example) }))
     .filter((instrument) => !fs.existsSync(instrument.filePath))
+  const nonMp3 = collectInstrumentExamples(data).filter((instrument) => !/\.mp3$/i.test(instrument.example))
 
   assert.deepEqual(missing, [])
+  assert.deepEqual(nonMp3, [], "악기 감상 예시곡은 브라우저 호환을 위해 mp3를 사용한다")
   assert.equal(data.instruments.find((instrument) => instrument.id === "sogeum").exampleLabel, "수제천025")
   assert.equal(data.instruments.find((instrument) => instrument.id === "danso").exampleLabel, "문덕곡 도드리(가사)")
   assert.equal(data.instruments.find((instrument) => instrument.id === "haegeum").exampleLabel, "해금")

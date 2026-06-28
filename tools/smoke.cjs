@@ -149,14 +149,14 @@ const gugakFamilyLabels = Array.from(window.document.querySelectorAll("#instrume
 check("국악 악기 분류 제목 표시", gugakFamilyLabels === "관악기|현악기", gugakFamilyLabels)
 const examplePlay = window.document.querySelector("#instrumentGrid .example-play")
 examplePlay.click()
-check("악기 감상 중 정지 버튼 표시", window.document.getElementById("instrumentPreviewStopBtn").hidden === false)
+check("악기 감상 별도 정지 버튼 제거", window.document.getElementById("instrumentPreviewStopBtn") === null)
 check(
   "악기 감상 중 카드 아이콘은 정지",
   window.document.querySelector("#instrumentGrid .card.playing .example-play").textContent === "■",
   window.document.querySelector("#instrumentGrid .card.playing .example-play")?.textContent,
 )
-window.document.getElementById("instrumentPreviewStopBtn").click()
-check("악기 감상 정지 버튼으로 멈춤", qc("#instrumentGrid .card.playing") === 0 && window.document.getElementById("instrumentPreviewStopBtn").hidden === true)
+window.document.querySelector("#instrumentGrid .card.playing .example-play").click()
+check("악기 카드 정지 아이콘 재클릭으로 멈춤", qc("#instrumentGrid .card.playing") === 0)
 westernTab.click()
 
 // 배경 클릭 → 미리듣기 토글

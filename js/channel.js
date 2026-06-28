@@ -1,5 +1,5 @@
 /*
- * channel.js — 학급 채널을 책장처럼 보여 주는 전용 감상 화면.
+ * channel.js — 학급 채널을 갤러리처럼 보여 주는 전용 감상 화면.
  */
 ;(function (root) {
   "use strict"

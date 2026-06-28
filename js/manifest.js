@@ -131,7 +131,7 @@
       detail: "높고 가는 관악 소리",
       waveform: "sine",
       image: "./assets/instruments/sogeum.jpg",
-      example: "sound/감상-연주곡(국립국악원)/소금-수제천025.wav",
+      example: "sound/감상-연주곡(국립국악원)/소금-수제천025.mp3",
       exampleLabel: "수제천025",
     },
     {
@@ -153,7 +153,7 @@
       detail: "맑고 투명한 관악 소리",
       waveform: "sine",
       image: "./assets/instruments/danso.jpg",
-      example: "sound/감상-연주곡(국립국악원)/단소-문덕곡 도드리(가사).wav",
+      example: "sound/감상-연주곡(국립국악원)/단소-문덕곡 도드리(가사).mp3",
       exampleLabel: "문덕곡 도드리(가사)",
     },
     {
@@ -164,7 +164,7 @@
       detail: "흔들림이 강한 소리",
       waveform: "sawtooth",
       image: "./assets/instruments/haegeum.jpg",
-      example: "sound/감상-연주곡(국립국악원)/해금.wav",
+      example: "sound/감상-연주곡(국립국악원)/해금.mp3",
       exampleLabel: "해금",
     },
     {
@@ -175,7 +175,7 @@
       detail: "뜯는 결이 살아있는 현악",
       waveform: "triangle",
       image: "./assets/instruments/gayageum.jpg",
-      example: "sound/감상-연주곡(국립국악원)/가야금.wav",
+      example: "sound/감상-연주곡(국립국악원)/가야금.mp3",
       exampleLabel: "가야금",
     },
   ]

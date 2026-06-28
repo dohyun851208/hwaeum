@@ -136,7 +136,6 @@
   examplePreview.addEventListener("ended", () => {
     state.examplePreviewId = null
     renderInstruments()
-    syncExamplePreviewStop()
   })
 
   const AUDIO_MODE_READY = "실제 음원을 우선 사용하고, 없으면 합성음으로 대체합니다. 국악 음원 출처: 국립국악원."
@@ -162,7 +161,6 @@
     bgUploadStatus: $("bgUploadStatus"),
     instrumentGroups: $("instrumentGroups"),
     instrumentGrid: $("instrumentGrid"),
-    instrumentPreviewStopBtn: $("instrumentPreviewStopBtn"),
     canvas: $("drawingCanvas"),
     effectStampLayer: $("effectStampLayer"),
     pitchLabels: $("pitchLabels"),
@@ -668,11 +666,6 @@
   }
 
   // 악기 연주곡 감상 미리듣기 (국악기 카드의 ▶ 버튼)
-  function syncExamplePreviewStop() {
-    if (!el.instrumentPreviewStopBtn) return
-    el.instrumentPreviewStopBtn.hidden = !state.examplePreviewId
-  }
-
   function stopExamplePreview(announce) {
     const wasPlaying = !!state.examplePreviewId
     state.examplePreviewId = null
@@ -680,7 +673,6 @@
       examplePreview.pause()
       examplePreview.currentTime = 0
     } catch (e) {}
-    syncExamplePreviewStop()
     if (announce && wasPlaying) el.exportStatus.textContent = "악기 소리를 멈췄습니다."
   }
 
@@ -701,7 +693,7 @@
       const p = examplePreview.play()
       if (p && p.catch) p.catch((e) => console.warn("연주곡 감상 실패", e))
       state.examplePreviewId = instrument.id
-      el.exportStatus.textContent = instrument.label + " 소리를 듣는 중입니다. 정지하려면 ■ 또는 ‘악기 소리 정지’를 누르세요."
+      el.exportStatus.textContent = instrument.label + " 소리를 듣는 중입니다. 정지하려면 같은 악기의 ■ 버튼을 누르세요."
     } catch (e) {
       console.warn("연주곡 감상 실패", e)
       state.examplePreviewId = null
@@ -985,7 +977,6 @@
       section.appendChild(list)
       el.instrumentGrid.appendChild(section)
     })
-    syncExamplePreviewStop()
   }
 
   function renderVersions() {
@@ -1677,9 +1668,31 @@
     return clampPlayheadProgress(selectedPlayheadProgress) * (state.duration || 30)
   }
 
+  // 지금 화면 재생바가 가리키는 위치(0..1). 전체곡(엔진) 재생 중이면 그 진행을, 아니면 멈춘 위치를 쓴다.
+  function livePlayheadProgress() {
+    if (engine.isPlaying && !engine.isPaused && playheadStartedAt) {
+      const durMs = Math.max(1, state.duration * 1000)
+      return Math.max(0, Math.min(1, (nowMs() - playheadStartedAt) / durMs))
+    }
+    return selectedPlayheadProgress
+  }
+
+  // 재생바 진행(0..1) → 배경음악 타임라인 시간(초). bgTick/bgPlayheadProgress와 같은 구간 환산을 쓴다.
+  function bgTimeFromProgress(progress) {
+    const end = selectedBgEnd()
+    const segment = Math.max(0.1, end - state.bgOffset)
+    return state.bgOffset + clampPlayheadProgress(progress) * segment
+  }
+
   function soundDrawingProgress() {
     if (state.drawingInputMode !== DRAW_MODE_SOUND) return selectedPlayheadProgress
-    if (bgPlayer.paused) playBgPlayer()
+    if (bgPlayer.paused) {
+      // 배경음악(시계)이 멈춰 있으면 지금 재생바 위치를 이어받아 그 시점부터 띄운다.
+      // (예전엔 무조건 bgOffset=0부터 시작해, 전체곡을 듣다가 그리면 첫 터치가 0초로 튀었다.)
+      const resumeTime = bgTimeFromProgress(livePlayheadProgress())
+      if (bgTimeInSelectedRange(resumeTime)) bgPausedAt = resumeTime
+      playBgPlayer()
+    }
     if (bgPlayer.paused) return selectedPlayheadProgress
     return bgPlayheadProgress(bgPlayer.currentTime)
   }
@@ -3811,13 +3824,6 @@
         }
       })
     }
-    if (el.instrumentPreviewStopBtn) {
-      el.instrumentPreviewStopBtn.addEventListener("click", function () {
-        stopExamplePreview(true)
-        renderInstruments()
-      })
-    }
-
     el.playBtn.addEventListener("click", function () {
       pulseControl(el.playBtn)
       toggleTransport()

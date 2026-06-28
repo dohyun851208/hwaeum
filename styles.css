@@ -982,16 +982,28 @@ p {
   justify-content: flex-end;
 }
 
-/* 학급 채널 도서관 */
+/* 학급 채널 갤러리 */
 .channel-body {
+  --channel-ink: #3f2d28;
+  --channel-muted: #7c6258;
+  --channel-soft: #fff6ec;
+  --channel-panel: #fffaf4;
+  --channel-line: rgba(123, 72, 49, 0.2);
+  --channel-line-strong: rgba(123, 72, 49, 0.32);
+  --channel-accent: #c85f3d;
+  --channel-accent-dark: #8e3f2f;
+  --channel-gold: #f4b64a;
+  --channel-teal: #2d6f66;
   min-width: 1180px;
   height: 100vh;
   margin: 0;
   overflow: hidden;
-  color: #263243;
+  color: var(--channel-ink);
   font-family: var(--sans);
   background:
-    linear-gradient(180deg, #d9e7ef 0, #bfd2df 44%, #d6e2e3 100%);
+    radial-gradient(circle at 18% 12%, rgba(255, 192, 137, 0.36), transparent 28%),
+    radial-gradient(circle at 86% 24%, rgba(244, 182, 74, 0.22), transparent 24%),
+    linear-gradient(180deg, #fff1df 0, #f8d9c3 47%, #f3caa8 100%);
 }
 
 .channel-shell {
@@ -1009,9 +1021,9 @@ p {
   gap: 16px;
   min-height: 68px;
   padding: 0 22px 0 14px;
-  border-bottom: 1px solid rgba(65, 86, 105, 0.22);
-  background: rgba(250, 253, 255, 0.94);
-  box-shadow: 0 3px 12px rgba(45, 67, 88, 0.18);
+  border-bottom: 1px solid var(--channel-line);
+  background: rgba(255, 250, 244, 0.94);
+  box-shadow: 0 3px 14px rgba(116, 68, 42, 0.16);
 }
 
 .channel-menu-wrap {
@@ -1027,14 +1039,14 @@ p {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #263243;
+  color: var(--channel-ink);
   font-size: 1.5rem;
   font-weight: 900;
 }
 
 .channel-menu-button:hover,
 .channel-icon-button:hover {
-  background: rgba(38, 50, 67, 0.08);
+  background: rgba(200, 95, 61, 0.1);
 }
 
 .channel-menu-button:focus-visible,
@@ -1045,7 +1057,7 @@ p {
 .channel-viewer-close:focus-visible,
 .channel-viewer-play:focus-visible,
 .channel-album:focus-visible {
-  outline: 3px solid #1f7bd8;
+  outline: 3px solid var(--channel-teal);
   outline-offset: 3px;
 }
 
@@ -1058,10 +1070,10 @@ p {
   gap: 8px;
   width: 270px;
   padding: 12px;
-  border: 1px solid rgba(38, 50, 67, 0.16);
+  border: 1px solid var(--channel-line);
   border-radius: 8px;
-  background: #fbfcf8;
-  box-shadow: 0 18px 42px rgba(30, 45, 61, 0.22);
+  background: var(--channel-panel);
+  box-shadow: 0 18px 42px rgba(116, 68, 42, 0.2);
 }
 
 .channel-menu-panel[hidden] {
@@ -1076,7 +1088,7 @@ p {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #263243;
+  color: var(--channel-ink);
   font: inherit;
   font-weight: 900;
   text-align: left;
@@ -1084,18 +1096,18 @@ p {
 }
 
 .channel-menu-item:hover {
-  background: rgba(47, 94, 118, 0.1);
+  background: rgba(200, 95, 61, 0.1);
 }
 
 .channel-admin-field {
   display: grid;
   gap: 6px;
   padding: 10px 12px 12px;
-  border-top: 1px solid rgba(38, 50, 67, 0.12);
+  border-top: 1px solid var(--channel-line);
 }
 
 .channel-admin-field span {
-  color: #526173;
+  color: var(--channel-muted);
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -1103,10 +1115,10 @@ p {
 .channel-admin-field input,
 .channel-open-form input {
   min-height: 40px;
-  border: 1px solid rgba(38, 50, 67, 0.24);
+  border: 1px solid var(--channel-line-strong);
   border-radius: 8px;
-  background: #fff;
-  color: #263243;
+  background: #fffdf8;
+  color: var(--channel-ink);
   font: inherit;
   font-weight: 850;
 }
@@ -1117,7 +1129,7 @@ p {
 }
 
 .channel-admin-field small {
-  color: #7a8493;
+  color: var(--channel-muted);
   font-size: 0.74rem;
   font-weight: 700;
   line-height: 1.3;
@@ -1128,8 +1140,8 @@ p {
   margin-left: 10px;
   padding: 3px 10px;
   border-radius: 999px;
-  background: #f0aa28;
-  color: #2c2310;
+  background: var(--channel-gold);
+  color: #3f2d28;
   font-family: var(--sans, "Segoe UI", sans-serif);
   font-size: 0.66rem;
   font-weight: 950;
@@ -1149,7 +1161,7 @@ p {
 
 .channel-eyebrow {
   margin: 0;
-  color: #a34a34;
+  color: var(--channel-accent);
   font-size: 0.74rem;
   font-weight: 950;
   letter-spacing: 0;
@@ -1158,7 +1170,7 @@ p {
 .channel-title-block h1,
 .channel-viewer-info h2 {
   margin: 0;
-  color: #263243;
+  color: var(--channel-ink);
   font-family: var(--serif);
   line-height: 1.15;
 }
@@ -1169,7 +1181,7 @@ p {
 
 .channel-title-block p:last-child {
   margin: 0;
-  color: #657386;
+  color: var(--channel-muted);
   font-size: 0.88rem;
   font-weight: 800;
 }
@@ -1182,7 +1194,7 @@ p {
 }
 
 .channel-open-form label {
-  color: #526173;
+  color: var(--channel-muted);
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -1197,22 +1209,22 @@ p {
   min-height: 40px;
   border: 0;
   border-radius: 8px;
-  background: #f0aa28;
-  color: #263243;
+  background: var(--channel-gold);
+  color: var(--channel-ink);
   font: inherit;
   font-weight: 950;
-  box-shadow: 0 8px 18px rgba(151, 102, 29, 0.18);
+  box-shadow: 0 8px 18px rgba(151, 88, 37, 0.2);
 }
 
 .channel-action-button {
   padding: 0 14px;
-  background: #edf2ef;
+  background: #fff0e2;
   box-shadow: none;
 }
 
 .channel-action-button.danger {
-  background: #f1dfdb;
-  color: #8c2d2c;
+  background: #f7d8ce;
+  color: var(--channel-accent-dark);
 }
 
 .channel-library {
@@ -1220,21 +1232,21 @@ p {
   overflow: auto;
   padding: 46px 58px 72px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.26), transparent 140px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 100%),
-    #c6d8e5;
+    linear-gradient(180deg, rgba(255, 250, 244, 0.6), transparent 160px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px 100%),
+    linear-gradient(180deg, #f8dfca 0, #f1c39d 100%);
   background-size: auto, 120px 120px, auto;
 }
 
 .channel-status {
   min-height: 22px;
   margin: 0 0 16px;
-  color: #425469;
+  color: #6e554b;
   font-weight: 850;
 }
 
 .channel-status.error {
-  color: #a13b32;
+  color: var(--channel-accent-dark);
 }
 
 .channel-shelves {
@@ -1263,16 +1275,16 @@ p {
 .channel-shelf::before {
   bottom: 15px;
   height: 16px;
-  border-top: 1px solid rgba(72, 94, 115, 0.2);
-  border-bottom: 1px solid rgba(72, 94, 115, 0.24);
-  background: linear-gradient(180deg, rgba(244, 250, 252, 0.88), rgba(179, 202, 218, 0.76));
-  box-shadow: 0 10px 24px rgba(55, 79, 101, 0.22);
+  border-top: 1px solid rgba(136, 76, 42, 0.18);
+  border-bottom: 1px solid rgba(136, 76, 42, 0.3);
+  background: linear-gradient(180deg, rgba(255, 243, 225, 0.96), rgba(219, 144, 91, 0.78));
+  box-shadow: 0 12px 24px rgba(126, 74, 45, 0.24);
 }
 
 .channel-shelf::after {
   bottom: 0;
   height: 15px;
-  background: linear-gradient(180deg, rgba(128, 157, 179, 0.48), rgba(88, 116, 139, 0.32));
+  background: linear-gradient(180deg, rgba(158, 91, 52, 0.46), rgba(107, 62, 42, 0.34));
 }
 
 .channel-album {
@@ -1293,12 +1305,12 @@ p {
   width: 164px;
   aspect-ratio: 1;
   overflow: hidden;
-  border: 1px solid rgba(22, 31, 42, 0.18);
+  border: 1px solid rgba(88, 45, 31, 0.18);
   border-radius: 5px;
-  background: #121821;
+  background: #2f211d;
   box-shadow:
-    9px 12px 18px rgba(50, 66, 83, 0.26),
-    2px 0 0 rgba(255, 255, 255, 0.28) inset;
+    9px 12px 18px rgba(100, 58, 36, 0.26),
+    2px 0 0 rgba(255, 250, 244, 0.32) inset;
   transition:
     box-shadow 160ms ease,
     transform 160ms ease;
@@ -1307,8 +1319,8 @@ p {
 .channel-album:hover .channel-album-cover {
   transform: translateY(-5px);
   box-shadow:
-    13px 18px 24px rgba(43, 58, 74, 0.3),
-    2px 0 0 rgba(255, 255, 255, 0.28) inset;
+    13px 18px 24px rgba(100, 58, 36, 0.32),
+    2px 0 0 rgba(255, 250, 244, 0.32) inset;
 }
 
 .channel-album-cover img {
@@ -1327,7 +1339,7 @@ p {
   width: 58px;
   height: 58px;
   border-radius: 999px;
-  background: rgba(21, 31, 41, 0.64);
+  background: rgba(63, 45, 40, 0.68);
   color: #fff;
   font-size: 1.62rem;
   transform: translate(-50%, -50%);
@@ -1342,7 +1354,7 @@ p {
   gap: 6px;
   min-height: 58px;
   padding: 12px 12px 10px;
-  background: linear-gradient(180deg, transparent, rgba(13, 20, 24, 0.9) 38%, rgba(13, 20, 24, 0.94));
+  background: linear-gradient(180deg, transparent, rgba(43, 28, 24, 0.88) 38%, rgba(43, 28, 24, 0.95));
   color: #fff;
   text-align: left;
 }
@@ -1365,18 +1377,22 @@ p {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.palette-label-end span {
+  left: -6px;
+  transform: translateX(-100%);
+}
 
 .channel-empty {
   display: grid;
   place-items: center;
   gap: 8px;
   min-height: 330px;
-  color: #425469;
+  color: var(--channel-muted);
   text-align: center;
 }
 
 .channel-empty strong {
-  color: #263243;
+  color: var(--channel-ink);
   font-family: var(--serif);
   font-size: 1.5rem;
 }
@@ -1400,7 +1416,7 @@ p {
   display: grid;
   place-items: center;
   padding: 34px;
-  background: rgba(17, 24, 31, 0.76);
+  background: rgba(55, 35, 29, 0.74);
   backdrop-filter: blur(5px);
 }
 
@@ -1413,8 +1429,8 @@ p {
   height: 46px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
-  background: rgba(251, 252, 248, 0.94);
-  color: #263243;
+  background: rgba(255, 250, 244, 0.94);
+  color: var(--channel-ink);
   font-size: 1.5rem;
   font-weight: 950;
 }
@@ -1426,10 +1442,10 @@ p {
   width: min(1120px, calc(100vw - 96px));
   height: min(760px, calc(100vh - 96px));
   padding: 18px;
-  border: 1px solid rgba(250, 252, 248, 0.34);
+  border: 1px solid rgba(255, 250, 244, 0.5);
   border-radius: 10px;
-  background: #fbfcf8;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32);
+  background: var(--channel-panel);
+  box-shadow: 0 28px 80px rgba(42, 25, 19, 0.34);
 }
 
 .channel-viewer-stage {
@@ -1441,7 +1457,7 @@ p {
   margin: 0;
   overflow: hidden;
   border-radius: 8px;
-  background: #101822;
+  background: #2f211d;
 }
 
 .channel-viewer-cover {
@@ -1461,7 +1477,7 @@ p {
   height: 94px;
   border: 0;
   border-radius: 999px;
-  background: rgba(17, 24, 31, 0.68);
+  background: rgba(63, 45, 40, 0.72);
   color: #fff;
   font-size: 2.45rem;
   transform: translate(-50%, -50%);
@@ -1487,7 +1503,7 @@ p {
 .channel-viewer-meta,
 .channel-viewer-text {
   margin: 0;
-  color: #596a7d;
+  color: var(--channel-muted);
   font-size: 0.94rem;
   font-weight: 750;
   line-height: 1.55;
@@ -1505,7 +1521,7 @@ p {
 
 .channel-viewer-tags {
   margin: 0;
-  color: #a34a34;
+  color: var(--channel-accent);
   font-size: 0.96rem;
   font-weight: 950;
   line-height: 1.45;
@@ -1768,8 +1784,8 @@ p {
 .palette-label span {
   position: absolute;
   top: 0;
-  left: -6px;
-  transform: translateX(-100%);
+  left: 0;
+  transform: translateX(-50%);
   padding: 4px 9px;
   border-radius: 999px;
   background: rgba(251, 246, 236, 0.92);
