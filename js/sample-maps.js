@@ -98,14 +98,6 @@
       { midi: 74, note: "D5", offset: 202.753, duration: 0.659, detectedHz: 593.74, confidence: 0.993, cents: 19 },
       { midi: 75, note: "D#5", offset: 210.583, duration: 0.424, detectedHz: 626.13, confidence: 0.985, cents: 11 },
     ],
-    ajaeng: [
-      { midi: 43, note: "G2", offset: 0.172, duration: 2.4, detectedHz: 99.68, confidence: 0.979, cents: 29 },
-      { midi: 48, note: "C3", offset: 6.103, duration: 2.4, detectedHz: 130.67, confidence: 0.96, cents: -2 },
-      { midi: 50, note: "D3", offset: 12.844, duration: 2.4, detectedHz: 145.8, confidence: 0.986, cents: -12 },
-      { midi: 55, note: "G3", offset: 19.735, duration: 2.4, detectedHz: 194.95, confidence: 0.976, cents: -9 },
-      { midi: 60, note: "C4", offset: 27.009, duration: 2.4, detectedHz: 263.49, confidence: 0.986, cents: 12 },
-      { midi: 62, note: "D4", offset: 35.223, duration: 2.4, detectedHz: 294.94, confidence: 0.989, cents: 8 },
-    ],
     haegeum: [
       { midi: 56, note: "G#3", src: "sound/선율-국악(국립국악원)/현/haegeum/haegeum_Gs3.mp3", offset: 0.1, duration: 2.4, detectedHz: 207.65, confidence: 0.99, cents: 0 },
       { midi: 58, note: "A#3", src: "sound/선율-국악(국립국악원)/현/haegeum/haegeum_As3.mp3", offset: 3.29, duration: 2.33, detectedHz: 233.08, confidence: 0.99, cents: 0 },

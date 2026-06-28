@@ -25,10 +25,10 @@
     forest: { label: "숲", src: "sound/배경-소리풍경/숲.mp3", duration: 60 },
     school: { label: "학교", src: "sound/배경-소리풍경/학교.mp3", duration: 60 },
     // 리듬장단 — 곡 아래 깔리는 장단형 배경. 짧은 장단은 자동 루프됨.
-    rhythm: { label: "리듬", src: "sound/배경-리듬장단/리듬.mp3", duration: 60 },
-    jajinSamchae: { label: "자진삼채", src: "sound/배경-리듬장단/자진삼채.mp3", duration: 7 },
-    jungjungmori: { label: "중중모리", src: "sound/배경-리듬장단/중중모리.mp3", duration: 4 },
-    pungnyu: { label: "풍류", src: "sound/배경-리듬장단/풍류.mp3", duration: 4 },
+    rhythm: { label: "리듬", src: "sound/배경-리듬장단/리듬.mp3", duration: 429 },
+    jajinSamchae: { label: "자진삼채", src: "sound/배경-리듬장단/자진삼채.mp3", duration: 77 },
+    jungjungmori: { label: "중중모리", src: "sound/배경-리듬장단/중중모리.mp3", duration: 62 },
+    pungnyu: { label: "풍류", src: "sound/배경-리듬장단/풍류.mp3", duration: 71 },
   }
 
   // 패드 종류 — 선생님이 ambient/string/drone/choir/synth pad 음원을 추가하면 src를 채웁니다.
@@ -62,7 +62,6 @@
     danso: { label: "단소", group: "국악", src: "sound/선율-국악(국립국악원)/관/단소.mp3", baseMidi: 80, lowMidi: 68, highMidi: 89, playableMidi: GUGAK_PALETTE_MIDI, playbackTranspose: 12, minRate: 0.62, maxRate: 1.72, waveform: "sine", sampleMode: "phrase" },
     haegeum: { label: "해금", group: "국악", src: "sound/선율-국악(국립국악원)/현/해금.mp3", baseMidi: 69, lowMidi: 60, highMidi: 81, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
     gayageum: { label: "가야금", group: "국악", src: "sound/선율-국악(국립국악원)/현/가야금.mp3", baseMidi: 60, lowMidi: 48, highMidi: 72, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.55, maxRate: 1.72, waveform: "triangle", sampleMode: "phrase" },
-    ajaeng: { label: "아쟁", group: "국악", src: "sound/선율-국악(국립국악원)/현/산조아쟁.mp3", baseMidi: 48, lowMidi: 40, highMidi: 60, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.62, maxRate: 1.72, waveform: "sawtooth", sampleMode: "phrase" },
   }
 
   // 자연 효과음 (sound/효과-자연음(유자레코즈)) + 도장 효과음 (sound/효과음-도장)
@@ -174,15 +173,6 @@
       detail: "뜯는 결이 살아있는 현악",
       waveform: "triangle",
       image: "./assets/instruments/gayageum.jpg",
-    },
-    {
-      id: "ajaeng",
-      group: "국악",
-      family: "현악기",
-      label: "아쟁",
-      detail: "거칠고 깊은 현악",
-      waveform: "sawtooth",
-      image: "./assets/instruments/ajaeng.jpg",
     },
   ]
 

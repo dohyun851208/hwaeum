@@ -8,7 +8,11 @@
   const OWNER_STORAGE_KEY = "hwaeum.shareOwner"
   const CHANNEL_STORAGE_KEY = "hwaeum.shareChannel"
   const API_BASE = "/api/share"
+  const LOCAL_DB_NAME = "hwaeum.shareChannel"
+  const LOCAL_DB_VERSION = 1
+  const LOCAL_STORE_NAME = "works"
   const MAX_UPLOAD_TOTAL_BYTES = 3.5 * 1024 * 1024
+  const objectUrlCache = new Map()
 
   function storage() {
     try {
@@ -16,6 +20,72 @@
     } catch (e) {
       return null
     }
+  }
+
+  function indexedDb() {
+    try {
+      return root.indexedDB || null
+    } catch (e) {
+      return null
+    }
+  }
+
+  function openLocalDb() {
+    const idb = indexedDb()
+    if (!idb) return Promise.reject(new Error("이 브라우저에서는 로컬 채널 저장을 사용할 수 없어요."))
+    return new Promise(function (resolve, reject) {
+      const req = idb.open(LOCAL_DB_NAME, LOCAL_DB_VERSION)
+      req.onupgradeneeded = function () {
+        const db = req.result
+        if (!db.objectStoreNames.contains(LOCAL_STORE_NAME)) db.createObjectStore(LOCAL_STORE_NAME, { keyPath: "id" })
+      }
+      req.onsuccess = function () {
+        resolve(req.result)
+      }
+      req.onerror = function () {
+        reject(req.error || new Error("로컬 채널 저장소를 열지 못했어요."))
+      }
+      req.onblocked = function () {
+        reject(new Error("다른 탭에서 채널 저장소를 사용 중입니다. 잠시 뒤 다시 시도해 주세요."))
+      }
+    })
+  }
+
+  function withLocalStore(mode, action) {
+    return openLocalDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        let result
+        let settled = false
+        const finish = function (fn, value) {
+          if (settled) return
+          settled = true
+          try {
+            db.close()
+          } catch (e) {}
+          fn(value)
+        }
+        let tx
+        try {
+          tx = db.transaction(LOCAL_STORE_NAME, mode)
+          const store = tx.objectStore(LOCAL_STORE_NAME)
+          action(store, function (value) {
+            result = value
+          })
+        } catch (e) {
+          finish(reject, e)
+          return
+        }
+        tx.oncomplete = function () {
+          finish(resolve, result)
+        }
+        tx.onerror = function () {
+          finish(reject, tx.error || new Error("로컬 채널 저장에 실패했어요."))
+        }
+        tx.onabort = function () {
+          finish(reject, tx.error || new Error("로컬 채널 저장을 취소했어요."))
+        }
+      })
+    })
   }
 
   function randomId(prefix) {
@@ -217,6 +287,129 @@
     }
   }
 
+  function objectUrlFor(workId, kind, blob) {
+    if (!blob || !root.URL || !root.URL.createObjectURL) return ""
+    const key = workId + ":" + kind + ":" + (blob.size || 0) + ":" + (blob.type || "")
+    if (!objectUrlCache.has(key)) objectUrlCache.set(key, root.URL.createObjectURL(blob))
+    return objectUrlCache.get(key)
+  }
+
+  function localShareUrl(workId, channel) {
+    try {
+      const url = new URL(root.location && root.location.href ? root.location.href : "/")
+      url.search = "?shareChannel=" + encodeURIComponent(channel)
+      url.hash = "work=" + encodeURIComponent(workId)
+      return url.href
+    } catch (e) {
+      return ""
+    }
+  }
+
+  function localPublicWork(record) {
+    record = record || {}
+    const files = record.files || {}
+    const cover = files.cover || null
+    const thumb = files.thumb || null
+    const music = files.music || null
+    const coverBytes = cover ? cover.size || 0 : 0
+    const thumbBytes = thumb ? thumb.size || 0 : 0
+    const musicBytes = music ? music.size || 0 : 0
+    return {
+      id: record.id,
+      channel: record.channel,
+      title: record.title || "무제",
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      ownerId: record.ownerId,
+      metadata: record.metadata || {},
+      recipe: record.recipe || {},
+      files: {
+        coverUrl: objectUrlFor(record.id, "cover", cover),
+        thumbUrl: objectUrlFor(record.id, "thumb", thumb),
+        musicUrl: objectUrlFor(record.id, "music", music),
+        musicType: music ? music.type || "audio/webm" : "",
+        coverBytes: coverBytes,
+        thumbBytes: thumbBytes,
+        musicBytes: musicBytes,
+        totalBytes: coverBytes + thumbBytes + musicBytes,
+      },
+      shareUrl: localShareUrl(record.id, record.channel),
+      localOnly: true,
+      schemaVersion: 1,
+    }
+  }
+
+  async function publishLocalWork(payload, channel, owner) {
+    const now = new Date().toISOString()
+    const record = {
+      id: randomId("local_"),
+      channel: channel,
+      title: payload.title || "무제",
+      createdAt: now,
+      updatedAt: now,
+      ownerId: owner.id,
+      metadata: payload.metadata || {},
+      recipe: payload.recipe || {},
+      files: {
+        cover: payload.coverBlob,
+        thumb: payload.thumbBlob,
+        music: payload.musicBlob,
+      },
+    }
+    await withLocalStore("readwrite", function (store) {
+      store.put(record)
+    })
+    return { work: localPublicWork(record), localOnly: true }
+  }
+
+  async function listLocalWorks(channel) {
+    const records =
+      (await withLocalStore("readonly", function (store, setResult) {
+        const req = store.getAll()
+        req.onsuccess = function () {
+          setResult(req.result || [])
+        }
+      })) || []
+    const works = records
+      .filter(function (record) {
+        return record && record.channel === channel
+      })
+      .sort(function (a, b) {
+        return Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")
+      })
+      .map(localPublicWork)
+    return { channel: channel, works: works, localOnly: true }
+  }
+
+  async function deleteLocalWork(work, adminPin) {
+    const owner = getOwner()
+    const outcome =
+      (await withLocalStore("readwrite", function (store, setResult) {
+        const req = store.get(work.id)
+        req.onsuccess = function () {
+          const record = req.result
+          if (!record || record.channel !== work.channel) {
+            setResult({ found: false, allowed: false })
+            return
+          }
+          const allowed = record.ownerId === owner.id || !!adminPin
+          if (allowed) store.delete(record.id)
+          setResult({ found: true, allowed: allowed })
+        }
+      })) || { found: false, allowed: false }
+    if (!outcome.found) throw new Error("이미 삭제되었거나 없는 작품입니다.")
+    if (!outcome.allowed) throw new Error("이 작품을 삭제할 권한이 없어요.")
+    return { ok: true, deleted: work.id, localOnly: true }
+  }
+
+  function shouldUseLocalShare(error) {
+    if (!indexedDb()) return false
+    const status = error && Number(error.status)
+    const message = String((error && error.message) || "")
+    if (status === 404 || status === 405 || status === 501 || status === 0) return true
+    return /공유 API를 찾지 못|Failed to fetch|NetworkError|Load failed|fetch/.test(message)
+  }
+
   async function parseResponse(response) {
     const text = await response.text()
     let data = null
@@ -232,7 +425,9 @@
         : response.status === 404
           ? "공유 API를 찾지 못했어요. Vercel 배포 환경에서 확인해 주세요."
           : "공유 서버 요청에 실패했어요."
-    throw new Error(message)
+    const error = new Error(message)
+    error.status = response.status
+    throw error
   }
 
   async function postJson(path, body) {
@@ -255,7 +450,7 @@
     if (!cover || !thumb || !music) throw new Error("공유 파일을 만들지 못했어요.")
     if (total > MAX_UPLOAD_TOTAL_BYTES) throw new Error("압축 후에도 파일이 커요. 그림이나 배경음악을 더 짧고 작은 파일로 바꿔 주세요.")
 
-    return postJson("/publish", {
+    const body = {
       channel: channel,
       ownerKey: owner.key,
       ownerId: owner.id,
@@ -267,29 +462,46 @@
         thumb: await encodeBlob(thumb),
         music: await encodeBlob(music),
       },
-    })
+    }
+    try {
+      return await postJson("/publish", body)
+    } catch (error) {
+      if (!shouldUseLocalShare(error)) throw error
+      return publishLocalWork(payload, channel, owner)
+    }
   }
 
   async function listChannel(channel) {
     const normalized = rememberChannel(channel)
     if (!normalized) throw new Error("공유 채널 번호를 적어 주세요.")
-    const response = await fetch(API_BASE + "/channel?channel=" + encodeURIComponent(normalized))
-    const data = await parseResponse(response)
-    return {
-      channel: normalized,
-      works: Array.isArray(data.works) ? data.works : [],
+    try {
+      const response = await fetch(API_BASE + "/channel?channel=" + encodeURIComponent(normalized))
+      const data = await parseResponse(response)
+      return {
+        channel: normalized,
+        works: Array.isArray(data.works) ? data.works : [],
+      }
+    } catch (error) {
+      if (!shouldUseLocalShare(error)) throw error
+      return listLocalWorks(normalized)
     }
   }
 
   async function deleteWork(work, adminPin) {
     if (!work || !work.id || !work.channel) throw new Error("삭제할 작품을 찾지 못했어요.")
+    if (work.localOnly) return deleteLocalWork(work, adminPin)
     const owner = getOwner()
-    return postJson("/delete", {
-      channel: work.channel,
-      workId: work.id,
-      ownerKey: owner.key,
-      adminPin: adminPin || "",
-    })
+    try {
+      return await postJson("/delete", {
+        channel: work.channel,
+        workId: work.id,
+        ownerKey: owner.key,
+        adminPin: adminPin || "",
+      })
+    } catch (error) {
+      if (/^local_/.test(work.id || "")) return deleteLocalWork(work, adminPin)
+      throw error
+    }
   }
 
   function formatBytes(size) {

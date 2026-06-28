@@ -116,6 +116,12 @@
   function isHaegeumPlan(plan) {
     return !!(plan && plan.instrument && plan.instrument.id === "haegeum")
   }
+  function isGayageumPlan(plan) {
+    return !!(plan && plan.instrument && plan.instrument.id === "gayageum")
+  }
+  function shouldSustainSample(plan) {
+    return !isGayageumPlan(plan)
+  }
   function noteGlideSeconds(plan) {
     return isHaegeumPlan(plan) ? HAEGEUM_NOTE_GLIDE_SECONDS : NOTE_GLIDE_SECONDS
   }
@@ -278,9 +284,9 @@
   //   호출부가 반환된 buffer 를 source.buffer 에 "딱 한 번" 설정한다.
   // 기준: 샘플이 충분히 길면(원본 >0.45s, 사용 구간 >0.45s) 무조건 안정 구간을 루프 → 드로잉 중과 재생이
   //   같은 연속감. 루프는 preparePlaybackSustain(크로스페이드로 구운 버퍼)로 통일 → 이음매 잡음 제거.
-  function continuousSustainPlan(ctx, buffer, offset, usableSourceDur) {
+  function continuousSustainPlan(ctx, buffer, offset, usableSourceDur, plan) {
     const bufferDuration = audioBufferDuration(buffer)
-    if (!(bufferDuration > 0.45 && usableSourceDur > 0.45)) {
+    if (!shouldSustainSample(plan) || !(bufferDuration > 0.45 && usableSourceDur > 0.45)) {
       return { buffer: buffer, offset: offset, duration: usableSourceDur, loop: false }
     }
     // preparePlaybackSustain 의 baking/clamp/loop 로직을 그대로 재사용하되, 실제 source 가 아니라
@@ -525,7 +531,6 @@
     daegeum: { cutoff: 2200, vibratoDepth: 22 }, // 큰 시김새
     sogeum: { cutoff: 3500, vibratoDepth: 13 },
     gayageum: { cutoff: 2000, Q: 0.9, attack: 0.004, vibratoRate: 0, vibratoDepth: 0 }, // 뜯는음(비브라토 없음)
-    ajaeng: { cutoff: 1050, Q: 1.3, vibratoDepth: 18 }, // 거친 저음
     haegeum: { cutoff: 2500, Q: 1.6, vibratoDepth: 24 }, // 강한 흔들림
     synth: { cutoff: 2800, Q: 0.6 },
   }
@@ -586,6 +591,20 @@
     env.gain.linearRampToValueAtTime(peak, phraseStart + attack)
     env.gain.setValueAtTime(peak, holdEnd)
     env.gain.linearRampToValueAtTime(0.0001, phraseEndTime + 0.04)
+  }
+  function applyPluckedPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack) {
+    const attack = Math.min(maxAttack || 0.012, 0.012, Math.max(0.004, phraseDuration * 0.18))
+    const decay = Math.min(0.72, Math.max(0.09, phraseDuration * 0.55))
+    env.gain.setValueAtTime(0.0001, phraseStart)
+    env.gain.linearRampToValueAtTime(peak, phraseStart + attack)
+    env.gain.exponentialRampToValueAtTime(0.001, phraseStart + attack + decay)
+  }
+  function applyMelodyEnv(env, peak, phraseStart, phraseDuration, maxAttack, plan) {
+    if (isGayageumPlan(plan)) {
+      applyPluckedPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack)
+      return
+    }
+    applyPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack)
   }
 
   function AudioEngine() {
@@ -1068,7 +1087,7 @@
       if (!(usableSourceDur > 0.01)) continue
       // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다(획당 source 1개 + 피치 글라이드).
       // ⚠ source.buffer 는 여기서 "한 번만" 설정(이중 설정 시 브라우저 throw → 선율 무음).
-      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur)
+      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan)
       const startOffset = sustain.offset
       const startSourceDur = sustain.duration
       const src = ctx.createBufferSource()
@@ -1080,7 +1099,7 @@
         const nextRate = segmentPlaybackRate(asset, event.midi, segment)
         src.playbackRate.setTargetAtTime(nextRate, start + event.time, glideSeconds)
       }
-      applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds)
+      applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
 
@@ -1129,7 +1148,7 @@
         const usableSourceDur = audioBufferDuration(srcBuffer)
         if (!(usableSourceDur > 0.01)) continue
         // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다. source.buffer 는 한 번만 설정.
-        const sustain = continuousSustainPlan(ctx, srcBuffer, 0, usableSourceDur)
+        const sustain = continuousSustainPlan(ctx, srcBuffer, 0, usableSourceDur, plan)
         const startOffset = sustain.offset
         const startSourceDur = sustain.duration
         const src = ctx.createBufferSource()
@@ -1142,7 +1161,7 @@
           const nextRate = segmentPlaybackRate(asset, note.midi, segment)
           src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
         }
-        applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
+        applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
         connectGugakSampleTone(ctx, src, env, plan, phraseStart)
         env.connect(dest)
 
@@ -1186,7 +1205,7 @@
       if (!(usableSourceDur > 0.01)) continue
       // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다. source.buffer 는 한 번만 설정.
       // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지고, 짧게 그려도 라이브처럼 안 끊긴다.
-      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur)
+      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan)
       const startOffset = sustain.offset
       const startSourceDur = sustain.duration
       const src = ctx.createBufferSource()
@@ -1199,7 +1218,7 @@
         const nextRate = segmentPlaybackRate(asset, note.midi, segment)
         src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
       }
-      applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds)
+      applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
 
@@ -1254,7 +1273,7 @@
       filter.frequency.setValueAtTime(voice.cutoff, phraseStart)
       filter.Q.setValueAtTime(voice.Q, phraseStart)
       // 합성 선율은 실제 샘플(0.85)보다 작게 들려 묻히므로 피크를 끌어올림.
-      applyPhraseEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.78), phraseStart, phraseDuration, attackSeconds)
+      applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.78), phraseStart, phraseDuration, attackSeconds, plan)
       osc.connect(filter)
       filter.connect(env)
       env.connect(dest)
@@ -1486,6 +1505,7 @@
 
     env.gain.setValueAtTime(0.0001, start)
     env.gain.linearRampToValueAtTime(targetGain, start + 0.035)
+    if (isGayageumPlan(plan)) env.gain.exponentialRampToValueAtTime(0.001, start + 0.72)
 
     // 멀티샘플(서양 선율)은 원음 음색을 그대로 살리기 위해 필터 없이 source → env 직결.
     // 풀 플레이백(connectGugakSampleTone)과 동일한 신호 경로.
@@ -1497,7 +1517,7 @@
     env.connect(ctx.destination)
 
     // 재생 스케줄러와 똑같은 지속음 정책. source.buffer 는 "한 번만" 설정(이중 설정 시 무음).
-    const sustain = continuousSustainPlan(ctx, buffer, offset, segmentDur)
+    const sustain = continuousSustainPlan(ctx, buffer, offset, segmentDur, plan)
     const source = ctx.createBufferSource()
     source.buffer = sustain.buffer
     applySustainPlanToSource(source, sustain)
@@ -1554,6 +1574,7 @@
 
     env.gain.setValueAtTime(0.0001, start)
     env.gain.linearRampToValueAtTime(targetGain, start + 0.035)
+    if (isGayageumPlan(plan)) env.gain.exponentialRampToValueAtTime(0.001, start + 0.72)
     osc.connect(filter)
     filter.connect(env)
     env.connect(ctx.destination)

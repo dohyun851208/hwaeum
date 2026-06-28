@@ -170,13 +170,30 @@ test("scheduleSynthMelody sustains contiguous notes as one connected phrase", ()
   assert.ok(ctx.created.oscillators[0].frequency.events.length >= 3)
 })
 
-test("scheduleSampleMelody sustains contiguous notes as one connected sample phrase", () => {
+test("gayageum synth fallback decays like a plucked string instead of holding a sustained tone", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
   const dest = makeNode()
   const plan = engine.resolvePlan(
     { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 5, midi: 60, velocity: 0.7 }],
+  )
+
+  engine.scheduleSynthMelody(ctx, dest, plan, plan.notes, 0, noop)
+
+  const gainEvents = ctx.created.gains[0].gain.events
+  assert.ok(gainEvents.some((event) => event[0] === "exponential" && event[1] === 0.001))
+  assert.equal(gainEvents.some((event) => event[0] === "set" && event[1] > 0.1 && event[2] > 1), false)
+})
+
+test("scheduleSampleMelody sustains contiguous notes as one connected sample phrase", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
     [
       { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
       { time: 0.5, duration: 0.5, midi: 62, velocity: 0.7 },
@@ -347,7 +364,7 @@ test("scheduleSampleMelody loops a long single phrase sample from its stable reg
   const ctx = makeAudioContext()
   const dest = makeNode()
   const plan = engine.resolvePlan(
-    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
     [{ time: 0, duration: 5, midi: 60, velocity: 0.7 }],
   )
   plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
@@ -366,7 +383,7 @@ test("sample melody playback ignores mapped offsets outside the loaded buffer", 
   const ctx = makeAudioContext()
   const dest = makeNode()
   const plan = engine.resolvePlan(
-    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
     [{ time: 0, duration: 0.2, midi: 60, velocity: 0.7 }],
   )
   plan.melodyAsset = Object.assign({}, plan.melodyAsset, {
@@ -386,7 +403,7 @@ test("scheduleSampleMelody snaps sustained sample loops to nearby zero crossings
   const ctx = makeAudioContext()
   const dest = makeNode()
   const plan = engine.resolvePlan(
-    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
     [{ time: 0, duration: 5, midi: 60, velocity: 0.7 }],
   )
   plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
@@ -409,7 +426,7 @@ test("sustained sample playback bakes a crossfaded loop buffer when PCM data is 
   const ctx = makeAudioContext()
   const dest = makeNode()
   const plan = engine.resolvePlan(
-    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
     [{ time: 0, duration: 5, midi: 60, velocity: 0.7 }],
   )
   plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
@@ -432,6 +449,26 @@ test("sustained sample playback bakes a crossfaded loop buffer when PCM data is 
   assert.equal(source.startCalls[0][1], 0)
   const tailFrame = Math.round(source.loopEnd * source.buffer.sampleRate) - 1
   assert.notEqual(source.buffer.getChannelData(0)[tailFrame], data[tailFrame])
+})
+
+test("gayageum sample playback does not apply a sustained sample loop", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 5, midi: 60, velocity: 0.7 }],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
+
+  const source = ctx.created.buffers[0]
+  assert.equal(source.loop, false)
+  assert.equal(source.startCalls[0][1], 0)
+  assert.ok(source.startCalls[0][2] <= 2.4)
+  assert.ok(ctx.created.gains[0].gain.events.some((event) => event[0] === "exponential" && event[1] === 0.001))
 })
 
 test("gugak multi-sample long horizontal notes loop the stable region of the sample", () => {
@@ -647,7 +684,23 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   assert.ok(toneFilter.Q.events.some((event) => event[1] === 0.9))
 })
 
-test("live drawing preview loops long sample tones from the stable region, including gayageum", () => {
+test("live drawing preview loops long sample tones from the stable region for sustained instruments", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "sogeum", style: "gugak", version: "balanced", mode: "melody" },
+    [],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "phrase", sampleMap: [] })
+
+  engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assertStableLoop(ctx.created.buffers[0], 2.35, 0.05)
+})
+
+test("gayageum live drawing preview does not loop the held sample", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -660,7 +713,8 @@ test("live drawing preview loops long sample tones from the stable region, inclu
   engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
 
   assert.equal(ctx.created.buffers.length, 1)
-  assertStableLoop(ctx.created.buffers[0], 2.35, 0.05)
+  assert.equal(ctx.created.buffers[0].loop, false)
+  assert.ok(ctx.created.gains[0].gain.events.some((event) => event[0] === "exponential" && event[1] === 0.001))
 })
 
 test("live drawing preview ignores mapped offsets outside the loaded buffer", () => {

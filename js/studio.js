@@ -222,7 +222,7 @@
     violin: "#c0504d", viola: "#d18a4e", cello: "#9b5a3c", doubleBass: "#5b4a3a",
     clarinet: "#4f6fae", oboe: "#5f8d4e", flute: "#4f9bb8", frenchHorn: "#c08a3c",
     daegeum: "#2f8f86", danso: "#6aa39a", sogeum: "#3f93ad", piri: "#b5614b",
-    gayageum: "#9a6a3a", ajaeng: "#7a4a5a", haegeum: "#9c5b76",
+    gayageum: "#9a6a3a", haegeum: "#9c5b76",
   }
   function colorForInstrument(id) {
     return INSTRUMENT_COLORS[id] || (state.atmosphere && state.atmosphere.color) || "#5f8f63"
@@ -2965,7 +2965,10 @@
     try {
       const result = await ShareStore.listChannel(normalized)
       state.sharedWorks = result.works || []
-      setShareMessage(normalized + " 채널에 공유된 음악 " + state.sharedWorks.length + "개를 불러왔어요.", false)
+      setShareMessage(
+        normalized + " 채널에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.sharedWorks.length + "개를 불러왔어요.",
+        false,
+      )
       if (options.updateUrl !== false) updateShareUrl(normalized)
     } catch (e) {
       console.error(e)
@@ -3025,7 +3028,7 @@
         musicBlob: music,
       })
       const work = result.work
-      el.exportStatus.textContent = channel + " 채널에 공유했어요."
+      el.exportStatus.textContent = result.localOnly ? channel + " 채널에 이 브라우저용으로 저장했어요." : channel + " 채널에 공유했어요."
       state.sharedChannel = channel
       state.sharedLoading = true
       setStep(SHARE_STEP)

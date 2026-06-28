@@ -48,12 +48,12 @@ test("서양 악기는 관악기와 현악기로 나누어 보여준다", () => 
   })
 })
 
-test("국악 악기는 요청한 여섯 악기만 지정 순서로 보여준다", () => {
+test("국악 악기는 요청한 다섯 악기만 지정 순서로 보여준다", () => {
   const data = loadManifest()
 
   const gugakLabels = data.instruments.filter((instrument) => instrument.group === "국악").map((instrument) => instrument.label)
 
-  assert.deepEqual(plain(gugakLabels), ["소금", "대금", "단소", "해금", "가야금", "아쟁"])
+  assert.deepEqual(plain(gugakLabels), ["소금", "대금", "단소", "해금", "가야금"])
 })
 
 test("국악 악기는 관악기와 현악기로 나누어 보여준다", () => {
@@ -61,7 +61,7 @@ test("국악 악기는 관악기와 현악기로 나누어 보여준다", () => 
 
   assert.deepEqual(familyLabels(data, "국악"), {
     관악기: ["소금", "대금", "단소"],
-    현악기: ["해금", "가야금", "아쟁"],
+    현악기: ["해금", "가야금"],
   })
 })
 
@@ -83,7 +83,7 @@ test("악기별 실제 재생 음역 규칙을 manifest에 선언한다", () => 
   assert.equal(data.melodies.cello.playbackTranspose, -12)
   assert.equal(data.melodies.doubleBass.playbackTranspose, -24)
   assert.equal(data.melodies.sogeum.playbackTranspose, 12)
-  for (const id of ["sogeum", "daegeum", "haegeum", "gayageum", "ajaeng"]) {
+  for (const id of ["sogeum", "daegeum", "haegeum", "gayageum"]) {
     assert.deepEqual(plain(data.melodies[id].playableMidi), GUGAK_PALETTE_MIDI, id)
   }
 })
@@ -108,7 +108,7 @@ test("국악 팔레트는 악기와 무관하게 G-A-C-D-E-G-A-C-D-E 순서다",
   const labels = (midis) => Array.from(midis, (midi) => names[((midi % 12) + 12) % 12])
   const expectedLabels = ["G", "A", "C", "D", "E", "G", "A", "C", "D", "E"]
 
-  for (const id of ["sogeum", "daegeum", "haegeum", "gayageum", "ajaeng"]) {
+  for (const id of ["sogeum", "daegeum", "haegeum", "gayageum"]) {
     assert.deepEqual(labels(data.melodies[id].playableMidi), expectedLabels, id)
   }
 })

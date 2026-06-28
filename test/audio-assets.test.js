@@ -216,7 +216,6 @@ test("국악 샘플맵은 cents 보정 후 연주 음을 정확한 음높이로 
     sogeum: data.melodies.sogeum.playableMidi,
     daegeum: data.melodies.daegeum.playableMidi,
     haegeum: data.melodies.haegeum.playableMidi,
-    ajaeng: data.melodies.ajaeng.playableMidi,
     gayageum: data.melodies.gayageum.playableMidi,
   }
   for (const [id, midis] of Object.entries(targets)) {
