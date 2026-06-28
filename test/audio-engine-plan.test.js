@@ -468,7 +468,12 @@ test("gayageum sample playback does not apply a sustained sample loop", () => {
   assert.equal(source.loop, false)
   assert.equal(source.startCalls[0][1], 0)
   assert.ok(source.startCalls[0][2] <= 2.4)
-  assert.ok(ctx.created.gains[0].gain.events.some((event) => event[0] === "exponential" && event[1] === 0.001))
+  assert.equal(ctx.created.filters.length, 0, "가야금 샘플은 원음 보존을 위해 국악 공통 톤 필터를 거치지 않는다")
+  assert.equal(
+    ctx.created.gains[0].gain.events.some((event) => event[0] === "exponential" && event[1] === 0.001),
+    false,
+    "가야금 샘플은 원음 감쇠를 살리기 위해 추가 빠른 감쇠 엔벨로프를 걸지 않는다",
+  )
 })
 
 test("gugak multi-sample long horizontal notes loop the stable region of the sample", () => {
@@ -652,7 +657,8 @@ test("live drawing preview uses the full-playback melody gain target", () => {
   engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
 
   const target = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  assert.ok(target >= 0.9, "드로잉 중 미리듣기 음량이 전체 재생 선율 기준보다 작다")
+  const expected = plan.version.melodyGain * 1.5 * 0.81 * (0.7 * 0.85) * 0.70
+  assert.ok(Math.abs(target - expected) < 1e-9, "드로잉 중 미리듣기 음량은 전체 재생 선율 기준을 따라야 한다")
   assert.ok(target <= 0.95, "마스터 리미터 없는 프리뷰는 클리핑 방지 상한을 지켜야 한다")
 })
 
@@ -668,7 +674,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine._createSampleLivePreview(previewCtx, plan, { duration: 2.4 }, 0.5)
 
   const previewTarget = previewCtx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const previousDrawingTarget = plan.version.melodyGain * (0.7 * 0.85) * 0.70
+  const previousDrawingTarget = plan.version.melodyGain * 1.1 * (0.7 * 0.85) * 0.70
   assert.ok(Math.abs(previewTarget - previousDrawingTarget * 1.3) < 1e-9)
 
   const ctx = makeAudioContext()
@@ -676,7 +682,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
   const phrasePeak = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.70
+  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 1.1 * 0.70
   assert.ok(Math.abs(playbackOutputTarget - previewTarget) < 1e-9)
 
   const toneFilter = ctx.created.filters.find((filter) => filter.frequency.events.some((event) => event[1] === 2300))
@@ -714,7 +720,12 @@ test("gayageum live drawing preview does not loop the held sample", () => {
 
   assert.equal(ctx.created.buffers.length, 1)
   assert.equal(ctx.created.buffers[0].loop, false)
-  assert.ok(ctx.created.gains[0].gain.events.some((event) => event[0] === "exponential" && event[1] === 0.001))
+  assert.equal(ctx.created.filters.length, 0, "가야금 라이브 미리듣기도 원음 보존을 위해 필터를 거치지 않는다")
+  assert.equal(
+    ctx.created.gains[0].gain.events.some((event) => event[0] === "exponential" && event[1] === 0.001),
+    false,
+    "가야금 라이브 미리듣기는 샘플 자체의 자연 감쇠를 사용한다",
+  )
 })
 
 test("live drawing preview ignores mapped offsets outside the loaded buffer", () => {
@@ -1050,7 +1061,7 @@ test("full playback background starts with the first beat and is cut at the reci
   assert.ok(padGain.gain.events[1][2] <= start + 0.5, "배경 fade-in 이 길면 선율 뒤에야 배경이 들린다")
 })
 
-test("서양 악기 선율은 1.5배 기준에 악기별 음량 보정을 더하고 국악기는 기존 크기를 유지한다", () => {
+test("선율 gain은 서양 기준과 악기별 음량 보정을 함께 적용한다", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const note = { time: 0, duration: 0.5, midi: 60, velocity: 0.7 }
@@ -1068,13 +1079,21 @@ test("서양 악기 선율은 1.5배 기준에 악기별 음량 보정을 더하
   const westernValues = gainSetValuesFor("flute")
   const violinValues = gainSetValuesFor("violin")
   const violaValues = gainSetValuesFor("viola")
-  const gugakValues = gainSetValuesFor("sogeum")
+  const sogeumValues = gainSetValuesFor("sogeum")
+  const daegeumValues = gainSetValuesFor("daegeum")
+  const dansoValues = gainSetValuesFor("danso")
+  const gayageumValues = gainSetValuesFor("gayageum")
+  const haegeumValues = gainSetValuesFor("haegeum")
 
   assert.ok(westernValues.includes(1.68 * 1.5), "서양 악기 선율 gain 이 1.5배여야 한다")
-  assert.ok(violinValues.includes(1.68 * 1.5 * 0.9), "바이올린 선율 gain 은 서양 기준에서 10% 줄어야 한다")
+  assert.ok(violinValues.includes(1.68 * 1.5 * 0.81), "바이올린 선율 gain 은 기존 10% 감소 상태에서 10% 더 줄어야 한다")
   assert.ok(violaValues.includes(1.68 * 1.5 * 1.2), "비올라 선율 gain 은 서양 기준에서 20% 커져야 한다")
-  assert.ok(gugakValues.includes(1.68), "국악기 선율 gain 은 기존 값을 써야 한다")
-  assert.equal(gugakValues.includes(1.68 * 1.5), false, "국악기 선율에는 1.5배 증폭을 적용하지 않는다")
+  assert.ok(sogeumValues.includes(1.68 * 1.1), "소금 선율 gain 은 10% 커져야 한다")
+  assert.ok(daegeumValues.includes(1.68 * 1.2), "대금 선율 gain 은 20% 커져야 한다")
+  assert.ok(dansoValues.includes(1.68 * 0.7), "단소 선율 gain 은 30% 줄어야 한다")
+  assert.ok(gayageumValues.includes(1.68), "가야금 선율 gain 은 원음 보존을 위해 별도 감쇠를 적용하지 않는다")
+  assert.ok(haegeumValues.includes(1.68), "별도 보정 없는 국악기 선율 gain 은 기존 값을 써야 한다")
+  assert.equal(sogeumValues.includes(1.68 * 1.5), false, "국악기 선율에는 서양 1.5배 증폭을 적용하지 않는다")
 })
 
 test("seekPlan starts playback from the selected timeline time", () => {

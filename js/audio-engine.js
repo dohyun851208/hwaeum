@@ -14,8 +14,12 @@
   const BACKGROUND_OUTPUT_GAIN = 1.5
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
   const INSTRUMENT_MELODY_OUTPUT_GAINS = {
-    violin: 0.9,
+    violin: 0.81,
     viola: 1.2,
+    sogeum: 1.1,
+    daegeum: 1.2,
+    danso: 0.7,
+    gayageum: 1,
   }
   const LIVE_PREVIEW_MAX_GAIN = 0.95
   const MASTER_OUTPUT_GAIN = 0.70
@@ -149,7 +153,7 @@
     filter.Q.setValueAtTime(isGugak ? 0.9 : 0.65, when)
   }
   function connectGugakSampleTone(ctx, source, env, plan, when) {
-    if (!isGugakInstrument(plan && plan.instrument) || typeof ctx.createBiquadFilter !== "function") {
+    if (isGayageumPlan(plan) || !isGugakInstrument(plan && plan.instrument) || typeof ctx.createBiquadFilter !== "function") {
       source.connect(env)
       return null
     }
@@ -615,6 +619,9 @@
       applyPluckedPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack)
       return
     }
+    applyPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack)
+  }
+  function applySampleMelodyEnv(env, peak, phraseStart, phraseDuration, maxAttack, plan) {
     applyPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack)
   }
 
@@ -1110,7 +1117,7 @@
         const nextRate = segmentPlaybackRate(asset, event.midi, segment)
         src.playbackRate.setTargetAtTime(nextRate, start + event.time, glideSeconds)
       }
-      applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
+      applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
 
@@ -1172,7 +1179,7 @@
           const nextRate = segmentPlaybackRate(asset, note.midi, segment)
           src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
         }
-        applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
+        applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
         connectGugakSampleTone(ctx, src, env, plan, phraseStart)
         env.connect(dest)
 
@@ -1229,7 +1236,7 @@
         const nextRate = segmentPlaybackRate(asset, note.midi, segment)
         src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
       }
-      applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
+      applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
       connectGugakSampleTone(ctx, src, env, plan, phraseStart)
       env.connect(dest)
 
@@ -1503,7 +1510,7 @@
     if (midi == null) return null
     const start = ctx.currentTime + 0.005
     const env = ctx.createGain()
-    const filter = ctx.createBiquadFilter()
+    let filter = null
     const targetGain = livePreviewTargetGain(plan, 0.7 * 0.85)
     const multi = isMultiSample(plan.melodyAsset)
     const segment = nearestSampleSegment(plan.melodyAsset, midi)
@@ -1516,12 +1523,12 @@
 
     env.gain.setValueAtTime(0.0001, start)
     env.gain.linearRampToValueAtTime(targetGain, start + 0.035)
-    if (isGayageumPlan(plan)) env.gain.exponentialRampToValueAtTime(0.001, start + 0.72)
 
     // 멀티샘플(서양 선율)은 원음 음색을 그대로 살리기 위해 필터 없이 source → env 직결.
     // 풀 플레이백(connectGugakSampleTone)과 동일한 신호 경로.
-    const useFilter = !multi
+    const useFilter = !multi && !isGayageumPlan(plan)
     if (useFilter) {
+      filter = ctx.createBiquadFilter()
       configureSampleToneFilter(filter, plan, start)
       filter.connect(env)
     }

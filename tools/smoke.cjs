@@ -221,6 +221,11 @@ check(
   JSON.stringify(SD.buildRecipe().strokeInstruments),
 )
 check("오케스트라 범례 렌더(현재 악기 표시)", qc("#orchestraLegend .orchestra-current") === 1, qc("#orchestraLegend .orchestra-current"))
+check(
+  "오케스트라 범례에 선택 악기 최대 개수 표시",
+  window.document.querySelector("#orchestraLegend .orchestra-legend-label")?.textContent === "악기 줄 · 선택 악기(최대 4개)",
+  window.document.querySelector("#orchestraLegend .orchestra-legend-label")?.textContent,
+)
 // 지우개로 한 획을 둘로 쪼개도 그 획의 악기가 양쪽에 유지된다
 SD.draw.setStrokes([[{ x: 0.1, y: 0.5 }, { x: 0.3, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.7, y: 0.5 }, { x: 0.9, y: 0.5 }]], ["cello"])
 SD.draw.setEraseMode(true)

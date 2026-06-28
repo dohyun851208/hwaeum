@@ -261,6 +261,8 @@
       syncUndoButton()
     },
     onPreviewStart: (point) => {
+      // 전체곡 재생 중에는 드로잉이 재생을 끊지 않도록 라이브 미리듣기를 생략한다(음악은 계속, 그림만 그려짐).
+      if (engine.isPlaying && !engine.isPaused) return
       el.statusText.textContent = state.instrument.label + " 드로잉 중"
       el.statusText.classList.add("playing")
       el.body.dataset.livePreview = "drawing"
@@ -269,6 +271,7 @@
       })
     },
     onPreview: (point) => {
+      if (engine.isPlaying && !engine.isPaused) return
       engine.liveDrawingMove(buildRecipe(), point.y).catch(function (e) {
         console.warn("드로잉 라이브 이동 실패", e)
       })
@@ -1086,7 +1089,7 @@
     el.orchestraLegend.innerHTML = ""
     const tag = document.createElement("span")
     tag.className = "orchestra-legend-label"
-    tag.textContent = "악기 줄"
+    tag.textContent = "악기 줄 · 선택 악기(최대 4개)"
     el.orchestraLegend.appendChild(tag)
     if (!order.length) {
       const hint = document.createElement("span")
@@ -1619,6 +1622,13 @@
     return Math.max(0, Math.min(max, Number(progress) || 0))
   }
 
+  // 재생바 위치는 전체곡·배경음악이 공유하는 하나의 값이어야 한다(이 값이 '재생 시작 위치'다).
+  // 배경음악 재생/일시정지로 재생바가 움직이면 여기에도 기록해, 화면 새로고침·복원 시 처음으로 튀지 않게 한다.
+  function rememberPlayheadProgress(progress) {
+    selectedPlayheadProgress = clampPlayheadProgress(progress)
+    playheadElapsedMs = selectedPlayheadProgress * Math.max(1, state.duration * 1000)
+  }
+
   function playheadProgressFromEvent(e) {
     return clampPlayheadProgress(timelineProgressFromClientX(e.clientX))
   }
@@ -1859,7 +1869,9 @@
   function positionBgPlayhead(time, follow) {
     if (!el.playhead) return
     el.playhead.hidden = false
-    positionPlayhead(bgPlayheadProgress(time), { follow: !!follow })
+    const progress = bgPlayheadProgress(time)
+    rememberPlayheadProgress(progress)
+    positionPlayhead(progress, { follow: !!follow })
   }
 
   function syncBgPlayerUI() {
@@ -1941,6 +1953,7 @@
     bgRAF = null
     if (keepPosition && bgTimeInSelectedRange(pausedAt)) {
       bgPausedAt = pausedAt
+      rememberPlayheadProgress(bgPlayheadProgress(bgPausedAt)) // 멈춘 위치를 공유 값에 저장(화면 갱신·복원 대비)
       if (state.step === DRAWING_STEP) positionBgPlayhead(bgPausedAt, false)
     } else {
       bgPausedAt = null
@@ -1992,6 +2005,7 @@
       rel = 0
     }
     const progress = Math.max(0, Math.min(1, rel / segment))
+    rememberPlayheadProgress(progress) // 배경 재생 중에도 공유 위치를 따라가게 해, 멈춘 자리에서 이어지도록
     positionPlayhead(progress)
     if (state.drawingInputMode === DRAW_MODE_SOUND && draw.flowActive) draw.flowRecord(progress)
     if (typeof requestAnimationFrame === "function") bgRAF = requestAnimationFrame(bgTick)
