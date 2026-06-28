@@ -261,17 +261,17 @@
       syncUndoButton()
     },
     onPreviewStart: (point) => {
-      // 전체곡 재생 중에는 드로잉이 재생을 끊지 않도록 라이브 미리듣기를 생략한다(음악은 계속, 그림만 그려짐).
-      if (engine.isPlaying && !engine.isPaused) return
-      el.statusText.textContent = state.instrument.label + " 드로잉 중"
-      el.statusText.classList.add("playing")
-      el.body.dataset.livePreview = "drawing"
+      // 전체곡 재생 중에도 펜 소리는 들린다(미리듣기는 본 재생과 독립 믹스). 다만 "재생 중" 표시는 그대로 둔다.
+      if (!(engine.isPlaying && !engine.isPaused)) {
+        el.statusText.textContent = state.instrument.label + " 드로잉 중"
+        el.statusText.classList.add("playing")
+        el.body.dataset.livePreview = "drawing"
+      }
       engine.liveDrawingStart(buildRecipe(), point.y).catch(function (e) {
         console.warn("드로잉 라이브 시작 실패", e)
       })
     },
     onPreview: (point) => {
-      if (engine.isPlaying && !engine.isPaused) return
       engine.liveDrawingMove(buildRecipe(), point.y).catch(function (e) {
         console.warn("드로잉 라이브 이동 실패", e)
       })
@@ -2005,7 +2005,8 @@
       rel = 0
     }
     const progress = Math.max(0, Math.min(1, rel / segment))
-    rememberPlayheadProgress(progress) // 배경 재생 중에도 공유 위치를 따라가게 해, 멈춘 자리에서 이어지도록
+    // 재생 중에는 공유 시작 위치를 갱신하지 않는다. (갱신하면 소리모드에서 시작 위치가 곡 끝으로 밀려
+    //  전체곡 재생이 끝부터 시작 → 선율이 안 들림. 멈춘 위치 보존은 pauseBgPlayer가 담당.)
     positionPlayhead(progress)
     if (state.drawingInputMode === DRAW_MODE_SOUND && draw.flowActive) draw.flowRecord(progress)
     if (typeof requestAnimationFrame === "function") bgRAF = requestAnimationFrame(bgTick)
@@ -2139,12 +2140,27 @@
     else engine.pause()
   }
 
+  // 정지(■)는 일시정지(❚❚)와 달리 재생바를 맨 앞(0초)으로 되돌린다.
+  function resetPlayheadToStart() {
+    if (!bgPlayer.paused) pauseBgPlayer() // 배경음악(시계)도 멈춰 바가 다시 흘러가지 않게
+    bgPausedAt = null
+    try {
+      bgPlayer.currentTime = state.bgOffset
+    } catch (e) {}
+    selectedPlayheadProgress = 0
+    playheadElapsedMs = 0
+    if (!el.playhead) return
+    if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
+    else el.playhead.hidden = true
+  }
+
   function stop() {
     stopBackgroundPreview()
     stopExamplePreview()
     renderAtmospheres()
     state.playingTakeId = null
     engine.stop()
+    resetPlayheadToStart() // 정지 버튼은 재생바를 맨 앞으로 되돌린다(이어듣기용 위치는 버린다)
     renderTakes()
   }
 
@@ -2184,8 +2200,10 @@
     if (next === DRAW_MODE_SOUND) {
       clearEffectStampSelection()
       setEraser(false)
-      showSelectedPlayhead(false)
-      if (announce) el.exportStatus.textContent = "소리모드: 배경음악에 맞춰 누르고 있는 시간만큼 선율이 기록됩니다."
+      // 소리모드는 배경음악이 시계 역할을 한다. 미리 재생해 두면 첫 터치도 0초가 아니라 원하는 타이밍에 찍힌다.
+      if (bgPlayer.paused) playBgPlayer()
+      if (bgPlayer.paused) showSelectedPlayhead(false) // 배경음악이 없어 못 켜진 경우엔 정지 위치만 표시
+      if (announce) el.exportStatus.textContent = "소리모드: 배경음악이 흐르는 동안 원하는 순간에 그리면 그 타이밍에 선율이 남아요."
     } else if (announce) {
       el.exportStatus.textContent = "그림모드: 캔버스의 가로 위치와 선 길이대로 선율이 만들어집니다."
     }

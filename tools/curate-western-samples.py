@@ -9,12 +9,20 @@ curate-western-samples.py — 필하모니아 서양 선율 음원 멀티샘플 
 멀티샘플 맵(`js/sample-maps-western.js`)을 생성한다.
 
 선택 우선순위
+  - 현악기 sustained 프로필:
+      violin           = forte       + arco-normal
+      viola            = piano       + arco-normal
+      cello            = forte       + arco-normal
+      doubleBass       = mezzo-forte + arco-normal
+      위 조건 안에서 긴 지속음(15 > 1 > 05 > 025)을 고른다.
   - 주법(articulation): normal / arco-normal  (피치카토·트레몰로·트릴 등 제외)
   - 길이(duration)    : 15 > 1 > 05 > 025 > very-long  (phrase / long 제외)
   - 세기(dynamic)     : mezzo-forte > forte > mezzo-piano > piano > fortissimo > pianissimo
                         (cresc-decresc / molto-pianissimo 등 제외)
 
-실행:  python tools/curate-western-samples.py
+실행:
+  python tools/curate-western-samples.py
+  PHILHARMONIA_RAW_BASE="<원본 폴더>" python tools/curate-western-samples.py
 """
 
 import os
@@ -28,7 +36,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(HERE)                       # sound-drawing-tool/
 SONG_DIR = os.path.dirname(PROJECT_DIR)                   # baeum/song/
-RAW_BASE = os.path.join(SONG_DIR, "선율-서양(philharmonia)")
+RAW_BASE = os.environ.get("PHILHARMONIA_RAW_BASE") or os.path.join(SONG_DIR, "선율-서양(philharmonia)")
 DEST_REL = os.path.join("sound", "선율-서양(필하모니아)")
 DEST_BASE = os.path.join(PROJECT_DIR, DEST_REL)
 GENERATED_JS = os.path.join(PROJECT_DIR, "js", "sample-maps-western.js")
@@ -56,6 +64,14 @@ DYN_RANK = {
     "pianissimo": 5,
 }
 
+# 현악기는 지속음 품질을 위해 악기 안에서 세기와 주법을 고정한다.
+STRING_SUSTAIN_PROFILES = {
+    "violin": {"articulation": ["arco-normal"], "dynamic": ["forte"]},
+    "viola": {"articulation": ["arco-normal"], "dynamic": ["piano"]},
+    "cello": {"articulation": ["arco-normal"], "dynamic": ["forte"]},
+    "doubleBass": {"articulation": ["arco-normal"], "dynamic": ["mezzo-forte"]},
+}
+
 SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 NOTE_RE = re.compile(r"^([A-Ga-g])(s?)(\d)$")
 
@@ -74,12 +90,28 @@ def parse_note(token):
     return midi, pretty, token_norm
 
 
-def select_for_instrument(raw_dir):
+def rank_from_order(values):
+    return {value: idx for idx, value in enumerate(values)}
+
+
+def selection_ranks(inst_id):
+    profile = STRING_SUSTAIN_PROFILES.get(inst_id)
+    if not profile:
+        return ARTIC_RANK, DUR_RANK, DYN_RANK
+    return (
+        rank_from_order(profile["articulation"]),
+        DUR_RANK,
+        rank_from_order(profile["dynamic"]),
+    )
+
+
+def select_for_instrument(raw_dir, inst_id):
     """음(midi)마다 우선순위로 최적 파일 1개 선택. {midi: (pretty, token_norm, src_path)}"""
     best = {}  # midi -> (score_tuple, pretty, token_norm, path)
     if not os.path.isdir(raw_dir):
         print("  ! 원본 폴더 없음:", raw_dir)
         return {}
+    artic_rank, dur_rank, dyn_rank = selection_ranks(inst_id)
     for fname in os.listdir(raw_dir):
         if not fname.lower().endswith(".mp3"):
             continue
@@ -88,13 +120,13 @@ def select_for_instrument(raw_dir):
         if len(parts) < 5:
             continue
         note_tok, dur, dyn, artic = parts[1], parts[2], parts[3], parts[4]
-        if artic not in ARTIC_RANK or dur not in DUR_RANK or dyn not in DYN_RANK:
+        if artic not in artic_rank or dur not in dur_rank or dyn not in dyn_rank:
             continue
         parsed = parse_note(note_tok)
         if not parsed:
             continue
         midi, pretty, token_norm = parsed
-        score = (ARTIC_RANK[artic], DUR_RANK[dur], DYN_RANK[dyn])
+        score = (artic_rank[artic], dur_rank[dur], dyn_rank[dyn])
         cur = best.get(midi)
         if cur is None or score < cur[0]:
             best[midi] = (score, pretty, token_norm, os.path.join(raw_dir, fname))
@@ -113,7 +145,7 @@ def main():
     for raw_sub, group_kr, inst_id in INSTRUMENTS:
         raw_dir = os.path.join(RAW_BASE, *raw_sub.split("/"))
         print(f"[{inst_id}] {raw_dir}")
-        best = select_for_instrument(raw_dir)
+        best = select_for_instrument(raw_dir, inst_id)
         if not best:
             print("  (선택된 음 없음)")
             continue

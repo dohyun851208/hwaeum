@@ -24,3 +24,7 @@ Thumbs.db
 # 테스트/QA 산출물
 test-results/
 output/
+
+# 파이썬 캐시 (tools/ 스크립트)
+__pycache__/
+*.pyc

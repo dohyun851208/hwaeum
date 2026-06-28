@@ -1630,8 +1630,9 @@
     const ctx = this.ensureContext()
     const self = this
     const run = function () {
-      if (self.isPlaying) self.stop()
-      else self.stopLivePreview(true)
+      // 전체곡 재생 중에도 펜 소리가 들리도록 재생은 멈추지 않고 라이브 미리듣기만 새로 깐다.
+      // (라이브 미리듣기는 ctx.destination에 직접 연결돼 본 재생 master와 독립적으로 믹스된다.)
+      self.stopLivePreview(true)
       const token = ++self.livePreviewToken
       const plan = self.resolvePlan(recipe, [])
       const midi = self._liveMidi(plan, normY)
