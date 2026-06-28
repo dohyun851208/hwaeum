@@ -728,6 +728,7 @@
     this.ambience = null // 드로잉 화면에서 깔리는 배경음(패드)
     this.ambienceToken = 0
     this.isPaused = false // 일시정지 상태(ctx.suspend)
+    this.isStarting = false // play() preload/schedule race guard
     this.playGen = 0 // 재생 세대 토큰 — 비동기 play() 도중 stop/재요청 시 무효화용
     this.playEndsAtMs = 0 // 자동 정지 예정 시각(일시정지 잔여시간 계산용)
     this.pauseRemainingMs = 0 // 일시정지 시점의 남은 재생 시간(ms)
@@ -1501,9 +1502,10 @@
 
   AudioEngine.prototype.stop = function (options) {
     const emitState = !options || options.emitState !== false
-    const hadPlayback = this.isPlaying || this.isPaused || !!this.master || !!this.stopTimer || !!this.ambience
+    const hadPlayback = this.isPlaying || this.isPaused || this.isStarting || !!this.master || !!this.stopTimer || !!this.ambience
     this.playGen++ // 진행 중인 비동기 play() 를 무효화(로딩 중 정지가 확실히 먹히도록)
     this.isPaused = false
+    this.isStarting = false
     this.pauseRemainingMs = 0
     this.playEndsAtMs = 0
     this.stopLivePreview(true)
@@ -1745,6 +1747,10 @@
 
   AudioEngine.prototype.liveDrawingStart = function (recipe, normY) {
     const ctx = this.ensureContext()
+    if (this.isPaused) {
+      this.stopLivePreview(true)
+      return Promise.resolve()
+    }
     const self = this
     const run = function () {
       // 전체곡 재생 중에도 펜 소리가 들리도록 재생은 멈추지 않고 라이브 미리듣기만 새로 깐다.
@@ -1776,6 +1782,10 @@
 
   AudioEngine.prototype.liveDrawingMove = function (recipe, normY) {
     const ctx = this.ensureContext()
+    if (this.isPaused) {
+      this.stopLivePreview(true)
+      return Promise.resolve()
+    }
     const self = this
     const run = function () {
       const plan = self.resolvePlan(recipe, [])
@@ -2145,37 +2155,42 @@
     this.stop({ emitState: false })
     this.stopAmbience(true) // 완성곡 재생 중엔 드로잉 배경음을 끈다(중복 방지)
     const gen = ++this.playGen // 이 재생의 세대 토큰 (this.stop() 이 playGen 을 올린 뒤 새로 받음)
-    this.isPaused = false
-    this.pauseRemainingMs = 0
-    const ctx = this.ensureContext()
-    if (ctx.state === "suspended") await ctx.resume()
-    if (gen !== this.playGen) return this.lastMode // 깨우는 사이 정지/재요청됨 → 중단
-    const basePlan = this.resolvePlan(recipe, notes)
-    const plan = this.seekPlan(basePlan, options && options.startOffset)
-    const buffers = await this.preload(ctx, plan)
-    if (gen !== this.playGen) return this.lastMode // 음원 디코드 사이 정지됨 → 소리 내지 않음
-    const self = this
-    const register = function (node) {
-      self.active.push(node)
-      node.onended = function () {
-        self.active = self.active.filter((n) => n !== node)
+    this.isStarting = true
+    try {
+      this.isPaused = false
+      this.pauseRemainingMs = 0
+      const ctx = this.ensureContext()
+      if (ctx.state === "suspended") await ctx.resume()
+      if (gen !== this.playGen) return this.lastMode // 깨우는 사이 정지/재요청됨 → 중단
+      const basePlan = this.resolvePlan(recipe, notes)
+      const plan = this.seekPlan(basePlan, options && options.startOffset)
+      const buffers = await this.preload(ctx, plan)
+      if (gen !== this.playGen) return this.lastMode // 음원 디코드 사이 정지됨 → 소리 내지 않음
+      const self = this
+      const register = function (node) {
+        self.active.push(node)
+        node.onended = function () {
+          self.active = self.active.filter((n) => n !== node)
+        }
       }
+      const start = ctx.currentTime + 0.05
+      const master = ctx.createGain()
+      master.gain.setValueAtTime(MASTER_OUTPUT_GAIN, start)
+      connectMasterToOutput(ctx, master, ctx.destination, start)
+      this.master = master
+      const usedReal = this.schedule(ctx, master, plan, buffers, start, register)
+      this.lastMode = usedReal ? "real" : "synth"
+      this.isPlaying = true
+      this.emitState()
+      const self2 = this
+      this.playEndsAtMs = Date.now() + plan.duration * 1000 + 200
+      this.stopTimer = setTimeout(function () {
+        self2.stop()
+      }, plan.duration * 1000 + 200)
+      return this.lastMode
+    } finally {
+      if (gen === this.playGen) this.isStarting = false
     }
-    const start = ctx.currentTime + 0.05
-    const master = ctx.createGain()
-    master.gain.setValueAtTime(MASTER_OUTPUT_GAIN, start)
-    connectMasterToOutput(ctx, master, ctx.destination, start)
-    this.master = master
-    const usedReal = this.schedule(ctx, master, plan, buffers, start, register)
-    this.lastMode = usedReal ? "real" : "synth"
-    this.isPlaying = true
-    this.emitState()
-    const self2 = this
-    this.playEndsAtMs = Date.now() + plan.duration * 1000 + 200
-    this.stopTimer = setTimeout(function () {
-      self2.stop()
-    }, plan.duration * 1000 + 200)
-    return this.lastMode
   }
 
   // --- 오프라인 렌더 + 오디오 내보내기 ---

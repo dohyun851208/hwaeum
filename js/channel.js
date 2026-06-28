@@ -26,6 +26,14 @@
     refreshBtn: $("channelRefreshBtn"),
     library: $("channelLibrary"),
     status: $("channelStatus"),
+    viewbar: $("channelViewbar"),
+    gate: $("channelGate"),
+    gateForm: $("channelGateForm"),
+    gateInput: $("channelGateInput"),
+    gateTitle: $("channelGateTitle"),
+    nameInput: $("channelNameInput"),
+    namePass: $("channelNamePass"),
+    renameBtn: $("channelRenameBtn"),
     shelfModeBtn: $("channelShelfModeBtn"),
     flowModeBtn: $("channelFlowModeBtn"),
     flowPrevBtn: $("channelFlowPrevBtn"),
@@ -58,6 +66,9 @@
     loading: false,
     activeWork: null,
     adminPin: "",
+    channelMeta: null,
+    locked: false,
+    pass: "",
     openedFromHash: false,
     viewMode: loadViewMode(),
     flowIndex: 0,
@@ -305,15 +316,28 @@
     el.body.classList.toggle("channel-admin-on", on)
   }
 
+  function channelDisplayName() {
+    const meta = state.channelMeta || {}
+    return cleanText(meta.displayName || "", 40)
+  }
+
   function updateHeader() {
     const channel = state.channel
-    el.title.textContent = channel ? channel + " 채널" : "학급 채널"
+    const name = channelDisplayName()
+    if (el.title) {
+      el.title.textContent = channel ? name || channel + " 채널" : "학급 채널"
+      // 제목 텍스트를 새로 쓰면 관리자 배지 span이 지워지므로 다시 붙여 준다.
+      if (el.adminFlag) el.title.appendChild(el.adminFlag)
+    }
     el.count.textContent = state.loading
       ? "채널을 불러옵니다."
       : channel
-        ? "공유된 음악 " + state.works.length + "개"
+        ? state.locked
+          ? "비밀번호가 필요한 채널입니다."
+          : (name ? "#" + channel + " · " : "") + "공유된 음악 " + state.works.length + "개"
         : "채널 번호를 입력해 주세요."
     if (el.input && el.input.value !== channel) el.input.value = channel
+    if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
   }
 
   function syncViewModeUI() {
@@ -371,7 +395,7 @@
     button.appendChild(cover)
     button.addEventListener("click", function () {
       if (typeof options.onClick === "function") options.onClick(work, index)
-      else openViewer(work, { updateHash: true, play: true })
+      else openViewer(work, { updateHash: true })
     })
     return button
   }
@@ -416,7 +440,7 @@
         ariaLabel: workTitle(work) + " 선택",
         onClick: function () {
           // 드래그로 자리를 옮긴 직후의 클릭은 무시한다(아래 click 캡처에서 막음).
-          if (index === state.flowIndex) openViewer(work, { updateHash: true, play: true })
+          if (index === state.flowIndex) openViewer(work, { updateHash: true })
           else setFlowIndex(index)
         },
       })
@@ -441,10 +465,10 @@
       const open = document.createElement("button")
       open.type = "button"
       open.className = "channel-action-button primary"
-      open.textContent = "크게 듣기"
+      open.textContent = "크게 보기"
       open.addEventListener("click", function () {
         const current = state.works[state.flowIndex]
-        if (current) openViewer(current, { updateHash: true, play: true })
+        if (current) openViewer(current, { updateHash: true })
       })
       caption.appendChild(count)
       caption.appendChild(title)
@@ -565,7 +589,15 @@
     state.flowIndex = clampFlowIndex(state.flowIndex)
     updateHeader()
     syncViewModeUI()
-    el.empty.hidden = state.loading || !!state.works.length || !state.channel
+    const gated = state.locked && !!state.channel
+    if (el.gate) el.gate.hidden = !gated
+    if (el.viewbar) el.viewbar.hidden = gated
+    el.empty.hidden = gated || state.loading || !!state.works.length || !state.channel
+    if (gated) {
+      const name = channelDisplayName()
+      if (el.gateTitle) el.gateTitle.textContent = (name ? name + " 채널" : state.channel + " 채널") + " — 비밀번호가 필요해요"
+      return
+    }
     if (state.loading || !state.works.length) return
     if (state.viewMode === VIEW_MODE_FLOW) renderCoverFlow()
     else renderShelfView()
@@ -592,21 +624,28 @@
     state.channel = normalized
     if (channelChanged) state.flowIndex = 0
     state.loading = true
+    state.pass = ShareStore.loadPass ? ShareStore.loadPass(normalized) : ""
     renderShelves()
     setStatus(normalized + " 채널을 불러오는 중입니다.", false)
     try {
-      const result = await ShareStore.listChannel(normalized)
-      state.works = Array.isArray(result.works) ? result.works : []
+      const result = await ShareStore.listChannel(normalized, state.pass)
+      state.channelMeta = result.meta || null
+      state.locked = !!result.locked
+      state.works = state.locked ? [] : Array.isArray(result.works) ? result.works : []
       const focusIndex = options.focusWork ? state.works.findIndex((item) => item && item.id === options.focusWork) : -1
       state.flowIndex = focusIndex >= 0 ? focusIndex : clampFlowIndex(state.flowIndex)
       state.loading = false
       renderShelves()
-      setStatus(
-        normalized + " 채널에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.works.length + "개를 불러왔어요.",
-        false,
-      )
+      if (state.locked) {
+        setStatus(result.passError ? "2차 비밀번호가 맞지 않아요. 다시 넣어 주세요." : "선생님이 알려 준 2차 비밀번호를 넣어 주세요.", !!result.passError)
+      } else {
+        setStatus(
+          normalized + " 채널에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.works.length + "개를 불러왔어요.",
+          false,
+        )
+      }
       if (options.updateUrl !== false) history.replaceState(null, "", channelUrl(normalized, options.focusWork || ""))
-      focusWork(options.focusWork || workIdFromHash())
+      if (!state.locked) focusWork(options.focusWork || workIdFromHash())
     } catch (error) {
       console.error(error)
       state.works = []
@@ -614,6 +653,48 @@
       state.loading = false
       renderShelves()
       setStatus(error.message || "공유 채널을 불러오지 못했어요.", true)
+    }
+  }
+
+  function submitGatePass() {
+    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(el.gateInput ? el.gateInput.value : "") : ""
+    if (!pin) {
+      setStatus("2차 비밀번호(숫자)를 넣어 주세요.", true)
+      return
+    }
+    if (ShareStore && ShareStore.rememberPass) ShareStore.rememberPass(state.channel, pin)
+    state.openedFromHash = false
+    loadChannel(state.channel)
+  }
+
+  async function renameChannel() {
+    if (!ShareStore || !ShareStore.claimChannel) return
+    const channel = state.channel
+    if (!channel) {
+      setStatus("먼저 채널을 열어 주세요.", true)
+      return
+    }
+    const displayName = el.nameInput ? el.nameInput.value.trim() : ""
+    const pin = ShareStore.cleanPin(el.namePass ? el.namePass.value : "")
+    if (!state.adminPin) {
+      setStatus("이름을 바꾸려면 관리자 PIN을 넣어 주세요.", true)
+      return
+    }
+    if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
+      setStatus("채널 2차 비밀번호(숫자)를 넣어 주세요.", true)
+      return
+    }
+    try {
+      setStatus("채널 이름을 저장하는 중입니다.", false)
+      const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: state.adminPin })
+      state.channelMeta = result.channel || state.channelMeta
+      if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
+      updateHeader()
+      setMenuOpen(false)
+      setStatus("채널 이름을 저장했어요.", false)
+    } catch (error) {
+      console.error(error)
+      setStatus(error.message || "채널 이름을 저장하지 못했어요.", true)
     }
   }
 
@@ -627,7 +708,7 @@
     if (target) target.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" })
     if (work) {
       state.openedFromHash = true
-      openViewer(work, { updateHash: false, play: false })
+      openViewer(work, { updateHash: false })
     }
   }
 
@@ -668,10 +749,6 @@
     updateViewerPlayState()
     if (options.updateHash !== false) history.replaceState(null, "", channelUrl(work.channel || state.channel, work.id))
     el.viewerClose.focus({ preventScroll: true })
-    if (options.play && url) {
-      const result = el.viewerAudio.play()
-      if (result && typeof result.catch === "function") result.catch(function () {})
-    }
   }
 
   function closeViewer() {
@@ -754,6 +831,15 @@
     el.adminPin.addEventListener("input", function () {
       setAdminPin(el.adminPin.value)
     })
+    if (el.gateForm) {
+      el.gateForm.addEventListener("submit", function (event) {
+        event.preventDefault()
+        submitGatePass()
+      })
+    }
+    if (el.renameBtn) {
+      el.renameBtn.addEventListener("click", renameChannel)
+    }
     el.form.addEventListener("submit", function (event) {
       event.preventDefault()
       openInputChannel()

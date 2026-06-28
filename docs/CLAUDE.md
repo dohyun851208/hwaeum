@@ -17,6 +17,7 @@
 - `decisions/2026-06-15-music-library-choice.md` — Tone.js + Tonal.js 채택 근거
 - `decisions/2026-06-27-unified-gugak-palette.md` — 국악기 드로잉 팔레트 통일
 - `decisions/2026-06-28-instrument-loudness-calibration.md` — 악기별/음별 선율 음량 보정 기준
+- `decisions/2026-06-28-channel-secondary-password.md` — 채널 이원화(고유번호/표시이름) + 2차 비밀번호 점유
 
 ## 작성 규칙
 

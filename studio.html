@@ -260,11 +260,16 @@
               <input id="channelBrowseInput" class="channel-open-input" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="채널 번호 (예: 3021)" aria-label="채널 번호" />
               <button class="channel-open-go" id="loadChannelBtn" type="submit">열기 →</button>
             </form>
+            <p class="muted">채널을 열면 선생님이 알려 준 2차 비밀번호를 넣어 감상할 수 있어요.</p>
             <details class="channel-admin-toggle">
-              <summary>관리자로 열기</summary>
-              <div class="channel-admin-toggle-body">
-                <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 PIN" aria-label="관리자 PIN" />
-                <p class="muted">관리자 PIN을 넣고 열면 어느 채널에서든 작품을 지울 수 있어요.</p>
+              <summary>관리자: 채널 만들기 / 이름·비밀번호 설정</summary>
+              <div class="channel-admin-toggle-body channel-claim-form">
+                <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="1차 관리자 PIN (8624)" aria-label="1차 관리자 PIN" />
+                <input id="claimChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="채널 번호 (예: 77)" aria-label="만들 채널 번호" />
+                <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="채널 표시 이름 (예: 3반 봄 음악, 선택)" aria-label="채널 표시 이름" />
+                <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="2차 비밀번호 (숫자 4자리 이상)" aria-label="2차 비밀번호" />
+                <button class="btn primary" type="button" id="claimChannelBtn">채널 만들기 / 저장</button>
+                <p class="muted">관리자 PIN으로만 채널을 만들 수 있어요. 표시 이름과 2차 비밀번호를 정하면, 학생은 <strong>채널 번호 + 2차 비밀번호</strong>로 들어옵니다. 채널 번호(본질 주소)는 바뀌지 않아요.</p>
               </div>
             </details>
             <p class="upload-status" id="shareStatus" aria-live="polite"></p>
@@ -284,10 +289,10 @@
     <script src="./js/manifest.js?v=20260627-stamp-png"></script>
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
-    <script src="./js/audio-engine.js?v=20260627-schedule-fallback"></script>
+    <script src="./js/audio-engine.js?v=20260628-pause-live-preview"></script>
     <script src="./js/drawing.js?v=20260628-drawing-cursor"></script>
     <script src="./js/takes.js?v=20260627-take-title"></script>
-    <script src="./js/share-store.js?v=20260628-clean-cover"></script>
-    <script src="./js/studio.js?v=20260628-clean-cover" defer></script>
+    <script src="./js/share-store.js?v=20260628-channel-ui"></script>
+    <script src="./js/studio.js?v=20260628-channel-ui" defer></script>
   </body>
 </html>

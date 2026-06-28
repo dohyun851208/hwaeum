@@ -2883,6 +2883,49 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   margin: 0;
   font-size: 0.8rem;
 }
+.channel-claim-form button {
+  width: 200px;
+}
+.channel-claim-form #shareDisplayNameInput {
+  letter-spacing: normal;
+  font-weight: 600;
+}
+/* 채널 감상 페이지의 2차 비밀번호 게이트 */
+.channel-gate {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  max-width: 440px;
+  margin: 18px auto;
+  padding: 20px 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--canvas);
+}
+.channel-gate strong {
+  font-size: 1.05rem;
+}
+.channel-gate-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.channel-gate-form input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.channel-gate-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 .shared-works-list {
   display: grid;
   gap: 12px;

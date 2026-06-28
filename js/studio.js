@@ -211,6 +211,10 @@
     channelBrowseInput: $("channelBrowseInput"),
     loadChannelBtn: $("loadChannelBtn"),
     shareAdminPinInput: $("shareAdminPinInput"),
+    claimChannelInput: $("claimChannelInput"),
+    shareDisplayNameInput: $("shareDisplayNameInput"),
+    shareChannelPassInput: $("shareChannelPassInput"),
+    claimChannelBtn: $("claimChannelBtn"),
     shareStatus: $("shareStatus"),
     sharedWorksList: $("sharedWorksList"),
     sharedEmpty: $("sharedEmpty"),
@@ -261,7 +265,7 @@
     },
     onPreviewStart: (point) => {
       // 전체곡 재생 중에도 펜 소리는 들린다(미리듣기는 본 재생과 독립 믹스). 다만 "재생 중" 표시는 그대로 둔다.
-      if (!(engine.isPlaying && !engine.isPaused)) {
+      if (!((engine.isPlaying || engine.isStarting) && !engine.isPaused)) {
         el.statusText.textContent = state.instrument.label + " 드로잉 중"
         el.statusText.classList.add("playing")
         el.body.dataset.livePreview = "drawing"
@@ -277,7 +281,7 @@
     },
     onPreviewEnd: () => {
       engine.liveDrawingEnd()
-      if (!engine.isPlaying) {
+      if (!engine.isPlaying && !engine.isStarting) {
         el.statusText.textContent = "전체곡 대기"
         el.statusText.classList.remove("playing")
         el.body.dataset.livePreview = "idle"
@@ -724,13 +728,19 @@
     balanceParentheticalMoodTitle(b, a.label)
     b.style.setProperty("--swatch", a.color)
     b.classList.add("with-swatch", "mood-card")
-    if (state.bgPreviewId === a.id) b.classList.add("playing")
-    const play = document.createElement("span")
-    play.className = "mood-play"
-    play.setAttribute("aria-hidden", "true")
-    play.textContent = state.bgPreviewId === a.id ? "❚❚" : "▶"
-    b.appendChild(play)
-    b.title = a.label + " 배경 미리듣기"
+    // 배경음이 있는 카드에만 미리듣기(▶) 표식을 단다. "배경음악 없음"은 들을 게 없으므로 표식을 빼 혼란을 막는다.
+    const hasPreview = !!bgSrcFor(a)
+    if (hasPreview) {
+      if (state.bgPreviewId === a.id) b.classList.add("playing")
+      const play = document.createElement("span")
+      play.className = "mood-play"
+      play.setAttribute("aria-hidden", "true")
+      play.textContent = state.bgPreviewId === a.id ? "❚❚" : "▶"
+      b.appendChild(play)
+      b.title = a.label + " 배경 미리듣기"
+    } else {
+      b.title = a.label
+    }
     b.addEventListener("click", () => {
       state.atmosphere = a
       state.bgOffset = 0 // 새 배경은 처음(0초)부터
@@ -1689,7 +1699,7 @@
     // 전체곡 재생이 켜져 있으면 그 재생을 멈추지 않고(=이미 그려둔 선율을 계속 들으며) 엔진 플레이헤드를
     // 드로잉 시계로 쓴다. 펜 미리듣기는 본 재생과 독립 믹스라 새 음이 그 위에 얹혀 함께 들린다.
     // (예전엔 여기서 playBgPlayer()→engine.stop()이 불려, 펜을 대는 순간 기존 선율이 끊겼다.)
-    if (engine.isPlaying && !engine.isPaused) return livePlayheadProgress()
+    if ((engine.isPlaying || engine.isStarting) && !engine.isPaused) return livePlayheadProgress()
     // 배경음악 없음 모드 — 시계 삼을 배경음이 없으니, 소리 없이 시간만 흐르는 내부 시계로 드로잉을 진행시킨다.
     if (!bgSrcFor(state.atmosphere)) {
       startSilentFlowClock()
@@ -1704,6 +1714,13 @@
     }
     if (bgPlayer.paused) return selectedPlayheadProgress
     return bgPlayheadProgress(bgPlayer.currentTime)
+  }
+
+  function finishSoundFlowAtCurrentPoint() {
+    if (state.drawingInputMode !== DRAW_MODE_SOUND) return
+    if (!draw.flowActive) return
+    draw.flowRecord(livePlayheadProgress())
+    draw.finishFlowStroke(true)
   }
 
   // 배경음악 없음 모드의 소리모드 시계 — 배경음(bgPlayer)이 없을 때 소리 없이 시간만 흐르게 해
@@ -2174,6 +2191,7 @@
       return
     }
     if (engine.isPlaying) {
+      finishSoundFlowAtCurrentPoint()
       engine.pause()
       return
     }
@@ -2211,6 +2229,7 @@
       engine.stop({ emitState: false })
     }
     if (engine.isPlaying) {
+      finishSoundFlowAtCurrentPoint()
       engine.pause()
       return
     }
@@ -2223,7 +2242,10 @@
     stopExamplePreview()
     renderAtmospheres()
     if (engine.isPaused) engine.resume()
-    else engine.pause()
+    else {
+      finishSoundFlowAtCurrentPoint()
+      engine.pause()
+    }
   }
 
   // 정지(■)는 일시정지(❚❚)와 달리 재생바를 맨 앞(0초)으로 되돌린다.
@@ -2281,11 +2303,13 @@
 
   function setDrawingInputMode(mode, announce) {
     const next = mode === DRAW_MODE_SOUND ? DRAW_MODE_SOUND : DRAW_MODE_PICTURE
+    const bgWasPaused = bgPlayer.paused
     state.drawingInputMode = next
     draw.setFlowMode(next === DRAW_MODE_SOUND)
     if (next === DRAW_MODE_SOUND) {
       clearEffectStampSelection()
       setEraser(false)
+      if (bgWasPaused && !bgPlayer.paused) pauseBgPlayer(true)
       if (bgPlayer.paused) showSelectedPlayhead(false)
       if (announce) el.exportStatus.textContent = "소리모드: 배경 재생 버튼을 누른 뒤, 원하는 순간에 그리면 그 타이밍에 선율이 남아요."
     } else if (announce) {
@@ -2663,8 +2687,19 @@
       el.exportStatus.classList.add("error")
       return
     }
+    // 공유에는 채널 2차 비밀번호가 필요하다(선생님이 알려 준 숫자).
+    const savedPass = ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
+    const askedPass = typeof prompt === "function" ? prompt("채널 2차 비밀번호(숫자)를 입력하세요.", savedPass || "") : null
+    if (askedPass === null) return // 취소
+    const pass = ShareStore.cleanPin(askedPass)
+    if (!pass) {
+      el.exportStatus.textContent = "2차 비밀번호(숫자)를 입력해 주세요."
+      el.exportStatus.classList.add("error")
+      return
+    }
+    if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pass)
     el.exportStatus.classList.remove("error")
-    publishSharedWork(channel)
+    publishSharedWork(channel, pass)
   }
 
   function saveTake() {
@@ -2790,6 +2825,50 @@
     syncShareInputs(channel)
     rememberAdminPin()
     window.location.href = channelPageUrl(channel, workId)
+  }
+
+  // 관리자(8624)로 채널을 만들거나, 내가 점유한 채널의 표시 이름·2차 비밀번호를 고친다.
+  async function claimChannelFromForm() {
+    if (!ShareStore || !ShareStore.claimChannel) {
+      setShareMessage("공유 모듈을 불러오지 못했어요.", true)
+      return
+    }
+    const adminPin = adminPinValue()
+    const channel = ShareStore.normalizeChannel(el.claimChannelInput ? el.claimChannelInput.value : "")
+    const displayName = el.shareDisplayNameInput ? el.shareDisplayNameInput.value.trim() : ""
+    const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
+    if (!adminPin) {
+      setShareMessage("채널을 만들려면 1차 관리자 PIN(8624)을 넣어 주세요.", true)
+      return
+    }
+    if (!channel) {
+      setShareMessage("만들 채널 번호를 적어 주세요.", true)
+      return
+    }
+    if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
+      setShareMessage("2차 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 정해 주세요.", true)
+      return
+    }
+    if (el.claimChannelBtn) el.claimChannelBtn.disabled = true
+    try {
+      setShareMessage(channel + " 채널을 만드는 중입니다.", false)
+      const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: adminPin })
+      if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
+      state.sharedChannel = channel
+      if (el.channelBrowseInput) el.channelBrowseInput.value = channel
+      const name = (result.channel && result.channel.displayName) || displayName
+      setShareMessage(
+        (result.claimed === false ? channel + " 채널 설정을 저장했어요." : channel + " 채널을 만들었어요.") +
+          (name ? " 표시 이름: " + name + "." : "") +
+          (result.localOnly ? " (이 브라우저에만 저장됨)" : ""),
+        false,
+      )
+    } catch (e) {
+      console.error(e)
+      setShareMessage(e.message || "채널을 만들지 못했어요.", true)
+    } finally {
+      if (el.claimChannelBtn) el.claimChannelBtn.disabled = false
+    }
   }
 
   // 관리자 PIN을 채널 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 PIN이 남지 않게).
@@ -3182,7 +3261,7 @@
     renderSharedWorks()
     setShareMessage(normalized + " 채널을 불러오는 중입니다.", false)
     try {
-      const result = await ShareStore.listChannel(normalized)
+      const result = await ShareStore.listChannel(normalized, ShareStore.loadPass ? ShareStore.loadPass(normalized) : "")
       state.sharedWorks = result.works || []
       setShareMessage(
         normalized + " 채널에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.sharedWorks.length + "개를 불러왔어요.",
@@ -3203,7 +3282,7 @@
     }
   }
 
-  async function publishSharedWork(channelArg) {
+  async function publishSharedWork(channelArg, passArg) {
     if (!requireDrawn()) return
     if (!ShareStore) {
       el.exportStatus.textContent = "공유 모듈을 불러오지 못했어요."
@@ -3218,6 +3297,7 @@
       el.exportStatus.classList.add("error")
       return
     }
+    const pass = passArg != null ? ShareStore.cleanPin(passArg) : ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
     syncShareInputs(channel)
     const recipe = buildRecipe()
     const metadata = sharedMetadata()
@@ -3240,6 +3320,7 @@
         "공유 서버에 올리는 중입니다. 음악 " + ShareStore.formatBytes(music.size) + ", 표지 " + ShareStore.formatBytes(images.cover.size) + "."
       const result = await ShareStore.publishWork({
         channel: channel,
+        pass: pass,
         title: metadata.title,
         recipe: recipe,
         metadata: metadata,
@@ -3920,6 +4001,9 @@
     }
     if (el.shareAdminPinInput) {
       el.shareAdminPinInput.addEventListener("input", renderSharedWorks)
+    }
+    if (el.claimChannelBtn) {
+      el.claimChannelBtn.addEventListener("click", claimChannelFromForm)
     }
 
     el.titleInput.addEventListener("input", () => {

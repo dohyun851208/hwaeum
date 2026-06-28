@@ -62,6 +62,8 @@ test("switching to sound mode does not auto-start the background player", () => 
   const modeBody = functionBody(source, "setDrawingInputMode")
 
   assert.doesNotMatch(modeBody, /playBgPlayer\(\)/)
+  assert.match(modeBody, /const bgWasPaused = bgPlayer\.paused/)
+  assert.match(modeBody, /if \(bgWasPaused && !bgPlayer\.paused\) pauseBgPlayer\(true\)/)
   assert.match(modeBody, /배경 재생 버튼을 누른 뒤/)
 })
 
@@ -90,16 +92,37 @@ test("drawing during full playback keeps the song playing instead of stopping th
 
   // 전체곡 재생 중 펜을 대도 bgPlayer로 갈아타지 말고(=playBgPlayer→engine.stop 회피)
   // 엔진 플레이헤드를 드로잉 시계로 써야, 이미 그려둔 선율이 끊기지 않는다.
-  const engineGuard = progressBody.indexOf("engine.isPlaying && !engine.isPaused")
+  const engineGuard = progressBody.indexOf("(engine.isPlaying || engine.isStarting) && !engine.isPaused")
   const bgPausedBranch = progressBody.indexOf("bgPlayer.paused")
   assert.notEqual(engineGuard, -1, "재생 중 분기가 있어야 한다")
   assert.ok(engineGuard < bgPausedBranch, "엔진 재생 분기는 bgPlayer 재개보다 먼저 와야 한다")
-  assert.match(progressBody, /if \(engine\.isPlaying && !engine\.isPaused\) return livePlayheadProgress\(\)/)
+  assert.match(progressBody, /if \(\(engine\.isPlaying \|\| engine\.isStarting\) && !engine\.isPaused\) return livePlayheadProgress\(\)/)
 
   // 엔진이 시계가 되면 bgTick이 안 돌므로, 엔진 플레이헤드 틱이 직접 새 획을 기록해야 한다.
   assert.match(startPlayheadBody, /state\.drawingInputMode === DRAW_MODE_SOUND && draw\.flowActive/)
   assert.match(startPlayheadBody, /draw\.flowRecord\(prog\)/)
   assert.match(startPlayheadBody, /draw\.finishFlowStroke\(true\)/)
+})
+
+test("pausing during sound-mode flow commits the stroke at the current playhead", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const helperBody = functionBody(source, "finishSoundFlowAtCurrentPoint")
+  const playBody = functionBody(source, "play")
+  const toggleBody = functionBody(source, "toggleTransport")
+  const pauseBody = functionBody(source, "pause")
+
+  assert.match(helperBody, /state\.drawingInputMode !== DRAW_MODE_SOUND/)
+  assert.match(helperBody, /!draw\.flowActive/)
+  assert.match(helperBody, /draw\.flowRecord\(livePlayheadProgress\(\)\)/)
+  assert.match(helperBody, /draw\.finishFlowStroke\(true\)/)
+
+  for (const body of [playBody, toggleBody, pauseBody]) {
+    const finishAt = body.indexOf("finishSoundFlowAtCurrentPoint()")
+    const pauseAt = body.indexOf("engine.pause()")
+    assert.notEqual(finishAt, -1)
+    assert.notEqual(pauseAt, -1)
+    assert.ok(finishAt < pauseAt)
+  }
 })
 
 test("배경음악 없는 소리모드는 소리 없는 내부 시계로 드로잉 시간을 흐르게 한다", () => {

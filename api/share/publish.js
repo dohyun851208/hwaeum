@@ -1,13 +1,17 @@
-const { put } = require("@vercel/blob")
+const { put, list } = require("@vercel/blob")
 const {
   MAX_TOTAL_BYTES,
   cleanChannel,
+  cleanPin,
   cleanText,
   decodeFile,
   hashOwner,
+  hashPass,
+  loadChannelMeta,
   metadataFromInput,
   method,
   parseJsonBody,
+  readJsonUrl,
   safeWorkId,
   sanitizeMeta,
   send,
@@ -21,6 +25,14 @@ module.exports = async function handler(req, res) {
     const channel = cleanChannel(body.channel)
     if (!channel) return send(res, 400, { error: "공유 채널 번호를 적어 주세요." })
     if (!body.ownerKey || !body.ownerId) return send(res, 400, { error: "작품 소유자를 확인하지 못했어요." })
+
+    // 채널은 관리자가 먼저 만들어 둬야 하고, 2차 비밀번호가 맞아야 올릴 수 있다.
+    const channelMeta = await loadChannelMeta(list, readJsonUrl, channel)
+    // 409로 보낸다(404는 share-store가 'API 없음 → 로컬 폴백' 신호로 쓰므로 충돌 방지).
+    if (!channelMeta) return send(res, 409, { error: "아직 만들어지지 않은 채널이에요. 관리자가 먼저 채널을 만들어 주세요." })
+    if (channelMeta.passHash && hashPass(channel, cleanPin(body.pass)) !== channelMeta.passHash) {
+      return send(res, 403, { error: "채널 2차 비밀번호가 맞지 않아요." })
+    }
 
     const files = body.files || {}
     const cover = decodeFile(files.cover, "image/webp")

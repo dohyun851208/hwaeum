@@ -45,6 +45,44 @@ function hashAdmin(pin) {
   return cleanText(pin, 24) === ADMIN_PIN
 }
 
+// 2차 비밀번호는 숫자만. 채널 번호로 소금을 쳐서 같은 비번이라도 채널마다 해시가 달라지게 한다.
+function cleanPin(value) {
+  return String(value || "").replace(/\D/g, "").slice(0, 12)
+}
+
+function hashPass(channel, pin) {
+  return crypto.createHash("sha256").update(cleanChannel(channel) + ":" + cleanPin(pin)).digest("hex")
+}
+
+function channelMetaPathname(channel) {
+  return "share/channels/" + cleanChannel(channel) + "/channel.json"
+}
+
+// 채널 단위 레코드(channel.json)를 읽는다. 없으면 null(=아직 점유되지 않은 채널).
+async function loadChannelMeta(list, readJson, channel) {
+  const prefix = channelMetaPathname(channel)
+  const blobs = await listAll(list, { prefix, limit: 10 })
+  const hit = (blobs || []).find((blob) => blob.pathname === prefix)
+  if (!hit) return null
+  try {
+    return await readJson(hit.url)
+  } catch (e) {
+    return null
+  }
+}
+
+// 클라이언트로 보낼 땐 소유자 해시·비번 해시를 절대 내보내지 않는다.
+function sanitizeChannelMeta(meta) {
+  if (!meta || typeof meta !== "object") return null
+  return {
+    channel: meta.channel,
+    displayName: meta.displayName || "",
+    hasPass: !!meta.passHash,
+    createdAt: meta.createdAt,
+    updatedAt: meta.updatedAt,
+  }
+}
+
 function sanitizeMeta(meta) {
   if (!meta || typeof meta !== "object") return null
   const clone = JSON.parse(JSON.stringify(meta))
@@ -130,17 +168,22 @@ function sharedUrl(req, workId, channel) {
 
 module.exports = {
   MAX_TOTAL_BYTES,
+  channelMetaPathname,
   cleanChannel,
+  cleanPin,
   cleanText,
   decodeFile,
   hashAdmin,
   hashOwner,
+  hashPass,
   listAll,
+  loadChannelMeta,
   metadataFromInput,
   method,
   parseJsonBody,
   readJsonUrl,
   safeWorkId,
+  sanitizeChannelMeta,
   sanitizeMeta,
   send,
   sharedUrl,

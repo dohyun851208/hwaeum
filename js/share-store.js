@@ -9,8 +9,12 @@
   const CHANNEL_STORAGE_KEY = "hwaeum.shareChannel"
   const API_BASE = "/api/share"
   const LOCAL_DB_NAME = "hwaeum.shareChannel"
-  const LOCAL_DB_VERSION = 1
+  const LOCAL_DB_VERSION = 2
   const LOCAL_STORE_NAME = "works"
+  const LOCAL_CHANNEL_STORE_NAME = "channels"
+  const MIN_PIN_LENGTH = 4
+  // 로컬(서버 없는) 폴백에서만 쓰는 1차 관리자 PIN 검문. 배포 환경은 서버(_utils.cjs)가 진짜 검문소.
+  const LOCAL_ADMIN_PIN = "8624"
   const MAX_UPLOAD_TOTAL_BYTES = 3.5 * 1024 * 1024
   const objectUrlCache = new Map()
 
@@ -38,6 +42,7 @@
       req.onupgradeneeded = function () {
         const db = req.result
         if (!db.objectStoreNames.contains(LOCAL_STORE_NAME)) db.createObjectStore(LOCAL_STORE_NAME, { keyPath: "id" })
+        if (!db.objectStoreNames.contains(LOCAL_CHANNEL_STORE_NAME)) db.createObjectStore(LOCAL_CHANNEL_STORE_NAME, { keyPath: "channel" })
       }
       req.onsuccess = function () {
         resolve(req.result)
@@ -51,7 +56,8 @@
     })
   }
 
-  function withLocalStore(mode, action) {
+  function withLocalStore(mode, action, storeName) {
+    const name = storeName || LOCAL_STORE_NAME
     return openLocalDb().then(function (db) {
       return new Promise(function (resolve, reject) {
         let result
@@ -66,8 +72,8 @@
         }
         let tx
         try {
-          tx = db.transaction(LOCAL_STORE_NAME, mode)
-          const store = tx.objectStore(LOCAL_STORE_NAME)
+          tx = db.transaction(name, mode)
+          const store = tx.objectStore(name)
           action(store, function (value) {
             result = value
           })
@@ -128,6 +134,39 @@
   function normalizeChannel(value) {
     const digits = String(value || "").replace(/\D/g, "").slice(0, 6)
     return digits
+  }
+
+  // 2차 비밀번호는 숫자만 받는다.
+  function cleanPin(value) {
+    return String(value || "").replace(/\D/g, "").slice(0, 12)
+  }
+
+  // 입력한 2차 비밀번호를 세션에 잠깐 둔다(채널별). 새로고침해도 다시 안 묻게.
+  const PASS_SESSION_PREFIX = "hwaeum.channelPass."
+  function rememberPass(channel, pin) {
+    const normalized = normalizeChannel(channel)
+    const digits = cleanPin(pin)
+    try {
+      const s = root.sessionStorage
+      if (!s || !normalized) return digits
+      if (digits) s.setItem(PASS_SESSION_PREFIX + normalized, digits)
+      else s.removeItem(PASS_SESSION_PREFIX + normalized)
+    } catch (e) {}
+    return digits
+  }
+
+  function loadPass(channel) {
+    const normalized = normalizeChannel(channel)
+    try {
+      const s = root.sessionStorage
+      return s && normalized ? cleanPin(s.getItem(PASS_SESSION_PREFIX + normalized)) : ""
+    } catch (e) {
+      return ""
+    }
+  }
+
+  function publicLocalChannel(record) {
+    return { channel: record.channel, displayName: record.displayName || "", hasPass: !!record.pass }
   }
 
   function rememberChannel(channel) {
@@ -325,7 +364,52 @@
     }
   }
 
-  async function publishLocalWork(payload, channel, owner) {
+  async function getLocalChannel(channel) {
+    return (
+      (await withLocalStore(
+        "readonly",
+        function (store, setResult) {
+          const req = store.get(channel)
+          req.onsuccess = function () {
+            setResult(req.result || null)
+          }
+        },
+        LOCAL_CHANNEL_STORE_NAME,
+      )) || null
+    )
+  }
+
+  async function claimLocalChannel(channel, pin, displayName, owner, adminPin) {
+    if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) {
+      throw new Error("채널을 만들려면 1차 관리자 PIN이 필요해요.")
+    }
+    const existing = await getLocalChannel(channel)
+    if (existing && existing.ownerId && existing.ownerId !== owner.id) {
+      throw new Error("이미 다른 선생님이 점유한 채널이에요. 다른 번호를 써 주세요.")
+    }
+    const now = new Date().toISOString()
+    const record = {
+      channel: channel,
+      displayName: displayName || (existing && existing.displayName) || "",
+      ownerId: owner.id,
+      pass: pin,
+      createdAt: (existing && existing.createdAt) || now,
+      updatedAt: now,
+    }
+    await withLocalStore(
+      "readwrite",
+      function (store) {
+        store.put(record)
+      },
+      LOCAL_CHANNEL_STORE_NAME,
+    )
+    return { channel: publicLocalChannel(record), claimed: !existing, localOnly: true }
+  }
+
+  async function publishLocalWork(payload, channel, owner, pin) {
+    const channelRecord = await getLocalChannel(channel)
+    if (!channelRecord) throw new Error("아직 만들어지지 않은 채널이에요. 관리자가 먼저 채널을 만들어 주세요.")
+    if (channelRecord.pass && pin !== channelRecord.pass) throw new Error("채널 2차 비밀번호가 맞지 않아요.")
     const now = new Date().toISOString()
     const record = {
       id: randomId("local_"),
@@ -348,7 +432,12 @@
     return { work: localPublicWork(record), localOnly: true }
   }
 
-  async function listLocalWorks(channel) {
+  async function listLocalWorks(channel, pin) {
+    const channelRecord = await getLocalChannel(channel)
+    const meta = channelRecord ? publicLocalChannel(channelRecord) : null
+    if (channelRecord && channelRecord.pass && pin !== channelRecord.pass) {
+      return { channel: channel, meta: meta, locked: true, passError: !!pin, works: [], localOnly: true }
+    }
     const records =
       (await withLocalStore("readonly", function (store, setResult) {
         const req = store.getAll()
@@ -364,7 +453,7 @@
         return Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")
       })
       .map(localPublicWork)
-    return { channel: channel, works: works, localOnly: true }
+    return { channel: channel, meta: meta, locked: false, passError: false, works: works, localOnly: true }
   }
 
   async function deleteLocalWork(work, adminPin) {
@@ -425,9 +514,33 @@
     return parseResponse(response)
   }
 
+  async function claimChannel(options) {
+    options = options || {}
+    const channel = normalizeChannel(options.channel)
+    if (!channel) throw new Error("공유 채널 번호를 적어 주세요.")
+    const pin = cleanPin(options.pin)
+    if (pin.length < MIN_PIN_LENGTH) throw new Error("2차 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 정해 주세요.")
+    const owner = getOwner()
+    const body = {
+      channel: channel,
+      ownerKey: owner.key,
+      ownerId: owner.id,
+      adminPin: String(options.adminPin || ""),
+      displayName: options.displayName || "",
+      pass: pin,
+    }
+    try {
+      return await postJson("/channel-claim", body)
+    } catch (error) {
+      if (!shouldUseLocalShare(error)) throw error
+      return claimLocalChannel(channel, pin, options.displayName || "", owner, options.adminPin)
+    }
+  }
+
   async function publishWork(payload) {
     const channel = rememberChannel(payload.channel)
     if (!channel) throw new Error("공유 채널 번호를 적어 주세요.")
+    const pin = cleanPin(payload.pass)
     const owner = getOwner()
     const cover = payload.coverBlob
     const thumb = payload.thumbBlob
@@ -440,6 +553,7 @@
       channel: channel,
       ownerKey: owner.key,
       ownerId: owner.id,
+      pass: pin,
       title: payload.title || "무제",
       recipe: payload.recipe,
       metadata: payload.metadata || {},
@@ -453,23 +567,28 @@
       return await postJson("/publish", body)
     } catch (error) {
       if (!shouldUseLocalShare(error)) throw error
-      return publishLocalWork(payload, channel, owner)
+      return publishLocalWork(payload, channel, owner, pin)
     }
   }
 
-  async function listChannel(channel) {
+  async function listChannel(channel, pass) {
     const normalized = rememberChannel(channel)
     if (!normalized) throw new Error("공유 채널 번호를 적어 주세요.")
+    const pin = cleanPin(pass)
     try {
-      const response = await fetch(API_BASE + "/channel?channel=" + encodeURIComponent(normalized))
+      const url = API_BASE + "/channel?channel=" + encodeURIComponent(normalized) + (pin ? "&pass=" + encodeURIComponent(pin) : "")
+      const response = await fetch(url)
       const data = await parseResponse(response)
       return {
         channel: normalized,
+        meta: data.channel || null,
+        locked: !!data.locked,
+        passError: !!data.passError,
         works: Array.isArray(data.works) ? data.works : [],
       }
     } catch (error) {
       if (!shouldUseLocalShare(error)) throw error
-      return listLocalWorks(normalized)
+      return listLocalWorks(normalized, pin)
     }
   }
 
@@ -499,12 +618,17 @@
   root.HwaeumShareStore = {
     getOwner: getOwner,
     normalizeChannel: normalizeChannel,
+    cleanPin: cleanPin,
     rememberChannel: rememberChannel,
     loadChannel: loadChannel,
+    rememberPass: rememberPass,
+    loadPass: loadPass,
     createImageBlobs: createImageBlobs,
+    claimChannel: claimChannel,
     publishWork: publishWork,
     listChannel: listChannel,
     deleteWork: deleteWork,
     formatBytes: formatBytes,
+    MIN_PIN_LENGTH: MIN_PIN_LENGTH,
   }
 })(window)
