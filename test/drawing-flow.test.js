@@ -116,6 +116,26 @@ test("flow mode records time from progress while pointer controls only pitch", (
   assert.ok(draw.notes.length > 0)
 })
 
+test("flow mode starts the stroke at the supplied playback progress", () => {
+  const DrawingCanvas = loadDrawing()
+  const draw = new DrawingCanvas(makeCanvas(), {
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+    getFlowProgress: () => 0.4,
+  })
+
+  draw.setFlowMode(true)
+  draw._startFlowStroke({ x: 0.8, y: 0.3 })
+  draw.flowY = 0.6
+  draw.flowRecord(0.5)
+
+  assert.deepEqual(
+    Array.from(draw.strokes[0], (point) => point.x),
+    [0.4, 0.5],
+  )
+  assert.equal(draw.strokes[0][0].y, 0.3)
+  assert.equal(draw.strokes[0][1].y, 0.6)
+})
+
 test("turning flow mode off closes the active preview without notifying flow end twice", () => {
   const DrawingCanvas = loadDrawing()
   const events = []

@@ -107,6 +107,7 @@
     this.onPreviewEnd = opts.onPreviewEnd || function () {}
     this.onFlowStart = opts.onFlowStart || function () {}
     this.onFlowEnd = opts.onFlowEnd || function () {}
+    this.getFlowProgress = opts.getFlowProgress || function () { return 0 }
     this.accent = opts.accent || "#5f8f63"
     this.strokes = [] // 정규화 다중 획: [ [{x,y}...], ... ]
     this.strokeInstruments = [] // 각 획의 악기 id(획과 1:1, 지우개로 쪼개져도 유지) — 오케스트라용
@@ -145,9 +146,15 @@
     this.render()
   }
 
+  DrawingCanvas.prototype._syncCursor = function () {
+    if (this.eraseMode) this.canvas.style.cursor = "cell"
+    else if (this.flowMode) this.canvas.style.cursor = "ns-resize"
+    else this.canvas.style.cursor = "crosshair"
+  }
+
   DrawingCanvas.prototype.setEraseMode = function (on) {
     this.eraseMode = !!on
-    this.canvas.style.cursor = this.eraseMode ? "cell" : "crosshair"
+    this._syncCursor()
   }
 
   // 따라 그리기: 가로(시간)는 studio의 시계가 기록하고, 펜은 세로(음높이)만 조절한다.
@@ -155,11 +162,10 @@
     this.flowMode = !!on
     if (this.flowMode) {
       this._stopAutoScroll()
-      this.canvas.style.cursor = "ns-resize"
     } else {
       this.finishFlowStroke(false)
-      this.canvas.style.cursor = this.eraseMode ? "cell" : "crosshair"
     }
+    this._syncCursor()
   }
 
   DrawingCanvas.prototype.setAccent = function (color) {
@@ -210,8 +216,9 @@
     this._pushUndo()
     this.isDrawing = true
     this.flowActive = true
+    const flowProgress = clamp(this.getFlowProgress(), 0, 1)
     this.flowY = clamp(p && p.y != null ? p.y : this.flowY, 0, 1)
-    this.currentStroke = [{ x: 0, y: this.flowY }]
+    this.currentStroke = [{ x: flowProgress, y: this.flowY }]
     this.strokes.push(this.currentStroke)
     this.strokeInstruments.push(active)
     this._previewStart(this.currentStroke[0])
@@ -423,14 +430,14 @@
       try {
         self.canvas.setPointerCapture(e.pointerId)
       } catch (err) {}
-      if (self.flowMode) {
-        self._startFlowStroke(p)
-        return
-      }
       if (self.eraseMode) {
         self.pendingUndoSnapshot = self._snapshot()
         if (self._eraseAt(p)) self._commitPendingUndo()
         self.render()
+        return
+      }
+      if (self.flowMode) {
+        self._startFlowStroke(p)
         return
       }
       // 악기 제한: 새 악기로 줄을 시작하려는데 이미 한도(기본 4개)면 막는다(줄을 지우면 자리가 생김)
@@ -456,7 +463,7 @@
       if (!self.isDrawing) return
       self._lastClientX = e.clientX
       self._lastClientY = e.clientY
-      if (self.flowMode) {
+      if (self.flowMode && !self.eraseMode) {
         if (self.flowActive) {
           const fp = self._point(e)
           self.flowY = fp.y

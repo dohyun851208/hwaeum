@@ -12,7 +12,8 @@
 
 ## ⚠️ 가장 중요한 제약 (먼저 읽기)
 
-1. **빌드/번들러 없음.** `index.html`이 `js/*.js`를 `<script type="module">`로 직접 부릅니다.
+1. **빌드/번들러 없음.** 앱 본체 `studio.html`이 `js/*.js`를 `<script type="module">`로 직접 부릅니다.
+   (`index.html`은 3D 히어로 **랜딩 페이지** — "그림으로 음악 만들기" 버튼이 `studio.html`로 보냅니다.)
    트랜스파일·번들 단계가 없으니 브라우저가 바로 이해하는 코드만 씁니다.
    (`package.json`의 `"type": "commonjs"`는 **Node 테스트 전용**입니다.)
 2. **`file://`(파일 더블클릭)에서는 음원 fetch가 막힙니다.** 반드시 **로컬 서버로** 여세요.
@@ -28,7 +29,7 @@
 ```powershell
 # 가장 쉬움: 이 폴더의 "웹으로 열기.bat" 더블클릭 (서버 + 브라우저 자동)
 
-npm run serve     # python -m http.server 4173  → http://localhost:4173/index.html
+npm run serve     # python -m http.server 4173  → http://localhost:4173/ (랜딩) · /studio.html (앱)
 npm test          # node --test, 순수 로직 단위 테스트 (의존성 없음)
 
 npm i jsdom ; node tools/smoke.cjs   # 통합 스모크 (선택, 오디오/캔버스는 스텁)
@@ -44,7 +45,8 @@ npm i jsdom ; node tools/smoke.cjs   # 통합 스모크 (선택, 오디오/캔�
 ```
 화음/  (sound-drawing-tool/)
 ├── CLAUDE.md / AGENTS.md  프로젝트 정체성·제약·전체 아키텍처 (Claude=CLAUDE.md · Codex=AGENTS.md, 동일 내용)
-├── index.html           4단계 위저드 마크업
+├── index.html           3D 히어로 랜딩 페이지(자족형 inline CSS+JS) → studio.html로 진입
+├── studio.html          4단계 위저드 마크업 (앱 본체, js/*.js 로드)
 ├── styles.css           갤러리·아틀리에 디자인 + 무드 틴팅(CSS 변수)
 │
 ├── js/                  ◀ 코드 레이어. 모듈별 책임은 js/CLAUDE.md 참고

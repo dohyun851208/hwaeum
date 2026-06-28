@@ -1036,6 +1036,8 @@ p {
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .tool-shortcut-hint {
   color: var(--muted);
@@ -1043,6 +1045,29 @@ p {
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
+}
+.draw-mode-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(32, 41, 42, 0.05);
+}
+.draw-mode-tab {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+  white-space: nowrap;
+}
+.draw-mode-tab.active {
+  background: var(--canvas);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 
 /* 캔버스 */

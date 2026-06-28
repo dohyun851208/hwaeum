@@ -6,7 +6,7 @@ const test = require("node:test")
 const projectDir = path.resolve(__dirname, "..")
 
 test("index exposes optional Google login before the studio boot code", () => {
-  const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
+  const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
 
   assert.match(html, /<meta name="google-signin-client_id" content="" \/>/)
   assert.match(html, /https:\/\/accounts\.google\.com\/gsi\/client/)

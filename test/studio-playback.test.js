@@ -57,6 +57,17 @@ test("background range pause keeps its current position for resume", () => {
   assert.match(toggleBody, /else pauseBgPlayer\(true\)/)
 })
 
+test("paused playback stores the visible playhead position for later controls", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const pauseBody = functionBody(source, "pausePlayhead")
+  const stopBody = functionBody(source, "stopPlayhead")
+
+  assert.match(pauseBody, /const pausedProgress = Math\.max\(0, Math\.min\(1, playheadElapsedMs \/ durMs\)\)/)
+  assert.match(pauseBody, /selectedPlayheadProgress = clampPlayheadProgress\(pausedProgress\)/)
+  assert.match(pauseBody, /positionPlayhead\(pausedProgress\)/)
+  assert.match(stopBody, /playheadElapsedMs = selectedPlaybackStartSec\(\) \* 1000/)
+})
+
 test("background range changes do not rewrite the drawing timeline duration", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const ensureBody = functionBody(source, "ensureTimelineDuration")

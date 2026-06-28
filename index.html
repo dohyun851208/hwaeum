@@ -3,301 +3,769 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="google-signin-client_id" content="" />
-    <title>화음 스튜디오 · 그림으로 만드는 BGM</title>
-    <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260627-drawing-reference-toggle" />
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <title>화음 — 그림으로 30초 BGM 만들기</title>
+    <style>
+      :root {
+        --ink: #f8f5eb;
+        --muted: rgba(248, 245, 235, 0.62);
+        --cyan: #86c7c2;
+        --gold: #d8ad58;
+        --red: #c96657;
+        --black: #000;
+        --sans: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+        --serif: "Iropke Batang", "Nanum Myeongjo", Georgia, serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: var(--sans);
+        background: var(--black);
+        overflow: hidden;
+      }
+
+      a {
+        color: inherit;
+        font: inherit;
+      }
+
+      .sample-shell {
+        position: relative;
+        min-height: 100vh;
+        background: #000;
+        overflow: hidden;
+      }
+
+      .sample-shell::before {
+        content: "";
+        position: absolute;
+        inset: -22%;
+        background:
+          radial-gradient(circle at 48% 36%, rgba(255, 255, 255, 0.16), transparent 18%),
+          radial-gradient(circle at 28% 68%, rgba(134, 199, 194, 0.12), transparent 22%),
+          radial-gradient(circle at 72% 58%, rgba(216, 173, 88, 0.12), transparent 20%),
+          #000;
+        filter: blur(4px);
+        opacity: 0.78;
+      }
+
+      .hero-stage-wrap {
+        position: relative;
+        z-index: 2;
+        width: 100vw;
+        height: 100vh;
+        perspective: 1500px;
+        overflow: hidden;
+      }
+
+      .hero-stage {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 22%),
+          radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.075), transparent 28%),
+          #000;
+        transform-style: preserve-3d;
+        overflow: hidden;
+      }
+
+      .hero-stage::before {
+        content: "";
+        position: absolute;
+        left: 11vw;
+        right: 11vw;
+        bottom: -7vh;
+        height: 36vh;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+        background-size: 60px 60px;
+        transform: rotateX(72deg) translateZ(-170px);
+        transform-origin: bottom center;
+        opacity: 0.48;
+      }
+
+      .hero-stage::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        box-shadow: inset 0 0 170px rgba(0, 0, 0, 0.92);
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        transform-style: preserve-3d;
+        transform: translateZ(0);
+      }
+
+      .world {
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        transform-style: preserve-3d;
+        pointer-events: none;
+        --spin-deg: 0deg;
+      }
+
+      .orbit-ring {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: min(920px, 76vw);
+        height: min(560px, 62vh);
+        border: 1px dashed rgba(248, 245, 235, 0.18);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow:
+          0 0 44px rgba(134, 199, 194, 0.08),
+          inset 0 0 64px rgba(216, 173, 88, 0.05);
+        opacity: 0;
+        animation: orbitRingFadeIn 1200ms ease 220ms forwards;
+      }
+
+      .orbit-ring::before,
+      .orbit-ring::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+      }
+
+      .orbit-ring::before {
+        inset: 9%;
+        border: 1px solid rgba(134, 199, 194, 0.12);
+      }
+
+      .orbit-ring::after {
+        left: 50%;
+        top: 50%;
+        width: 11px;
+        height: 11px;
+        background: rgba(248, 245, 235, 0.82);
+        box-shadow: 0 0 28px rgba(248, 245, 235, 0.38);
+        transform: translate(-50%, -50%);
+      }
+
+      .title-stack {
+        position: absolute;
+        left: 50%;
+        top: 44%;
+        width: min(900px, 86vw);
+        transform: translate3d(-50%, -50%, 260px);
+        transform-style: preserve-3d;
+        text-align: center;
+        filter: drop-shadow(0 34px 26px rgba(0, 0, 0, 0.74));
+        z-index: 20;
+        animation: titleSettle 1600ms cubic-bezier(0.18, 0.86, 0.16, 1) 120ms both;
+      }
+
+      .title-stack .subtitle {
+        display: block;
+        color: rgba(255, 255, 255, 0.82);
+        margin-top: 16px;
+        font-size: clamp(1rem, 1.35vw, 1.28rem);
+        font-weight: 850;
+        line-height: 1.55;
+        letter-spacing: 0;
+      }
+
+      .title-stack .subtitle strong {
+        display: block;
+        color: var(--ink);
+        font-size: clamp(1.24rem, 1.8vw, 1.7rem);
+        font-weight: 950;
+      }
+
+      .title-stack .subtitle span {
+        display: block;
+        color: rgba(248, 245, 235, 0.72);
+      }
+
+      .title-stack .name {
+        display: block;
+        font-family: var(--sans);
+        font-size: clamp(8.6rem, 13.5vw, 12.8rem);
+        font-weight: 950;
+        line-height: 0.82;
+        text-shadow:
+          0 5px 0 rgba(255, 255, 255, 0.08),
+          0 42px 34px rgba(255, 255, 255, 0.12),
+          0 0 76px rgba(134, 199, 194, 0.16);
+      }
+
+      .hashtag-row {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        color: rgba(248, 245, 235, 0.72);
+        font-size: clamp(0.88rem, 1.05vw, 1rem);
+        font-weight: 850;
+        line-height: 1.35;
+      }
+
+      .album-card {
+        position: absolute;
+        left: var(--o-left, 50%);
+        top: var(--o-top, 50%);
+        width: var(--o-size, 210px);
+        aspect-ratio: 1;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 8px;
+        background: #171717;
+        box-shadow:
+          0 34px 64px rgba(0, 0, 0, 0.68),
+          inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        transform-style: preserve-3d;
+        transform: translate(-50%, -50%) scale(var(--o-scale, 1));
+        opacity: 0;
+        z-index: var(--o-z, 5);
+        pointer-events: auto;
+        user-select: none;
+        -webkit-user-drag: none;
+        cursor: grab;
+        will-change: left, top, transform, opacity;
+        animation:
+          cardSlideIn 940ms cubic-bezier(0.16, 1, 0.3, 1) var(--o-delay, 0ms) forwards,
+          cardFloat var(--o-dur, 7200ms) ease-in-out calc(var(--o-delay, 0ms) + 940ms) infinite;
+      }
+
+      .album-card img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+      }
+
+      .album-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(180deg, transparent 38%, rgba(0, 0, 0, 0.7)),
+          linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 38%);
+        pointer-events: none;
+      }
+
+      .album-card figcaption {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 14px;
+        z-index: 2;
+        display: grid;
+        gap: 3px;
+        text-shadow: 0 8px 16px rgba(0, 0, 0, 0.84);
+      }
+
+      .album-card figcaption span {
+        color: rgba(248, 245, 235, 0.68);
+        font-size: 0.72rem;
+        font-weight: 850;
+        letter-spacing: 0;
+      }
+
+      .album-card figcaption strong {
+        color: var(--ink);
+        font-size: 1.08rem;
+        font-weight: 950;
+        line-height: 1.04;
+      }
+
+      .hero-stage.is-orbit-interactive {
+        cursor: grab;
+        user-select: none;
+      }
+
+      .hero-stage.is-orbit-dragging {
+        cursor: grabbing;
+      }
+
+      .hero-stage.is-orbit-dragging .album-card {
+        cursor: grabbing;
+        animation-play-state: paused;
+      }
+
+      .enter-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 30px;
+        padding: 16px 36px;
+        border-radius: 999px;
+        color: #0a0a0a;
+        background: var(--ink);
+        text-decoration: none;
+        font-size: clamp(1rem, 1.25vw, 1.18rem);
+        font-weight: 950;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+        pointer-events: auto;
+        box-shadow:
+          0 18px 40px rgba(0, 0, 0, 0.5),
+          0 0 0 1px rgba(255, 255, 255, 0.2);
+        animation: ctaBreathe 3200ms ease-in-out infinite;
+        transition: transform 220ms ease, box-shadow 220ms ease;
+      }
+
+      .enter-cta:hover {
+        transform: translateY(-2px);
+      }
+
+      .enter-cta:focus-visible {
+        outline: 2px solid var(--cyan);
+        outline-offset: 4px;
+      }
+
+      .enter-cta .arrow {
+        transition: transform 220ms ease;
+      }
+
+      .enter-cta:hover .arrow {
+        transform: translateX(5px);
+      }
+
+      @keyframes orbitRingFadeIn {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.92);
+        }
+        100% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      @keyframes cardSlideIn {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) translate(var(--o-slide-x, 0), var(--o-slide-y, 0)) scale(0.74);
+          filter: blur(3px);
+        }
+        100% {
+          opacity: var(--o-opacity, 0.94);
+          transform: translate(-50%, -50%) scale(var(--o-scale, 1));
+          filter: blur(0);
+        }
+      }
+
+      @keyframes cardFloat {
+        0%,
+        100% {
+          opacity: var(--o-opacity, 0.94);
+          transform: translate(-50%, -50%) scale(var(--o-scale, 1)) translateY(0) rotate(0deg);
+        }
+        33% {
+          transform: translate(-50%, -50%) scale(var(--o-scale, 1)) translateY(calc(-1 * var(--o-range, 8px))) rotate(0.7deg);
+        }
+        66% {
+          transform: translate(-50%, -50%) scale(var(--o-scale, 1)) translateY(var(--o-range, 8px)) rotate(-0.7deg);
+        }
+      }
+
+      @keyframes ctaBreathe {
+        0%,
+        100% {
+          box-shadow:
+            0 18px 40px rgba(0, 0, 0, 0.5),
+            0 0 0 1px rgba(255, 255, 255, 0.18),
+            0 0 20px rgba(134, 199, 194, 0);
+        }
+        50% {
+          box-shadow:
+            0 18px 44px rgba(0, 0, 0, 0.5),
+            0 0 0 1px rgba(255, 255, 255, 0.3),
+            0 0 38px rgba(216, 173, 88, 0.38);
+        }
+      }
+
+      @keyframes titleSettle {
+        from {
+          transform: translate3d(-50%, -50%, 260px) scale(0.94);
+          opacity: 0;
+        }
+        to {
+          transform: translate3d(-50%, -50%, 260px) scale(1);
+          opacity: 1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .album-card,
+        .orbit-ring,
+        .title-stack,
+        .enter-cta {
+          animation: none;
+        }
+
+        .album-card {
+          opacity: var(--o-opacity, 0.94);
+        }
+      }
+    </style>
   </head>
-  <body data-step="0">
-    <div class="atelier">
-      <!-- 상단 바 -->
-      <header class="topbar">
-        <div class="brand">
-          <p class="eyebrow">화음 스튜디오</p>
-          <h1>그림으로 음악을 그리다</h1>
-        </div>
-        <div class="topbar-right">
-          <figure class="pic-chip" id="picChip" hidden>
-            <img id="picThumb" alt="올린 그림" />
-          </figure>
-          <div class="auth-box" id="authBox" data-auth="guest">
-            <div class="auth-profile" id="authProfile" hidden>
-              <img class="auth-avatar" id="authAvatar" alt="" hidden />
-              <span id="authName">Google 사용자</span>
-            </div>
-            <div class="google-button-slot" id="googleButtonSlot"></div>
-            <button class="btn tiny ghost auth-logout" id="googleLogoutBtn" type="button" hidden>로그아웃</button>
-            <span class="auth-status" id="authStatus" aria-live="polite">로그인 없이도 사용할 수 있어요.</span>
-          </div>
-          <div class="transport" aria-label="재생 제어">
-            <span class="status-pill" id="statusText" aria-live="polite">전체곡 대기</span>
-            <button class="round-btn" id="playBtn" type="button" aria-label="전체곡 재생"><span aria-hidden="true">▶</span></button>
-            <button class="round-btn ghost" id="stopBtn" type="button" aria-label="정지"><span aria-hidden="true">■</span></button>
-          </div>
-        </div>
-      </header>
-
-      <!-- 단계 표시 -->
-      <nav class="steps" aria-label="제작 단계">
-        <button class="step active" type="button" data-step-jump="0"><span>1</span><strong>그림</strong></button>
-        <button class="step" type="button" data-step-jump="1"><span>2</span><strong>배경/악기</strong></button>
-        <button class="step" type="button" data-step-jump="2"><span>3</span><strong>드로잉</strong></button>
-        <button class="step" type="button" data-step-jump="3"><span>4</span><strong>완성</strong></button>
-        <button class="step" type="button" data-step-jump="4"><span>5</span><strong>공유</strong></button>
-      </nav>
-
-      <main class="stage">
-        <!-- 1단계: 그림 -->
-        <section class="screen active" data-screen="0" aria-label="1단계 그림">
-          <div class="screen-head">
-            <p class="eyebrow">Step 1</p>
-            <h2>그림을 올립니다</h2>
-            <p class="lead">이 그림을 보면서 배경과 악기를 고르게 됩니다. 그림은 위쪽에 계속 표시됩니다.</p>
-          </div>
-          <div class="setup-grid">
-            <label class="dropframe" id="dropframe" for="picInput">
-              <img id="dropPreview" alt="" hidden />
-              <div class="dropframe-empty" id="dropEmpty">
-                <span class="dropframe-icon" aria-hidden="true">🖼</span>
-                <strong>그림 올리기</strong>
-                <span class="muted">클릭해서 이미지 선택 (jpg, png 등)</span>
+  <body>
+    <div class="sample-shell">
+      <main class="hero-stage-wrap">
+        <section class="hero-stage" aria-label="화음 메인">
+          <div class="scene">
+            <div class="title-stack">
+              <span class="name">화음</span>
+              <span class="subtitle">
+                <strong>음악과 소리를 조화롭게</strong>
+                <span>그림으로 소리를 그리다</span>
+              </span>
+              <div class="hashtag-row">
+                <span>#소리를그리다</span>
+                <span>#음악과소리</span>
+                <span>#그림BGM</span>
+                <span>#화음</span>
               </div>
-              <input id="picInput" type="file" accept="image/*" />
-            </label>
-            <div class="setup-side">
-              <h3>나만의 BGM</h3>
-              <p class="muted">배경음악 구간 길이에 맞춰 팔레트가 늘어납니다.</p>
-              <p class="upload-status" id="picStatus">그림을 올리면 표지로 사용됩니다.</p>
-            </div>
-          </div>
-          <div class="screen-actions">
-            <span class="muted">그림을 올린 뒤 다음으로</span>
-            <button class="btn primary" type="button" data-step-next>다음 · 소리 조합</button>
-          </div>
-        </section>
-
-        <!-- 2단계: 배경 / 악기 -->
-        <section class="screen sound-palette-screen" data-screen="1" aria-label="2단계 배경, 악기">
-          <div class="screen-head">
-            <p class="eyebrow">Step 2</p>
-            <h2>배경과 악기를 맞춥니다</h2>
-            <p class="lead">아래로 스크롤하면서 배경음악과 연주 악기를 골라보세요. 각 카드를 눌러 바로 들어보고 조합을 바꿀 수 있습니다.</p>
-          </div>
-          <div class="sound-choice-flow">
-            <section class="choice-section" aria-labelledby="atmosphereTitle">
-              <div class="choice-section-head">
-                <p class="eyebrow">Atmosphere</p>
-                <h3 id="atmosphereTitle">배경</h3>
-                <p class="muted">카드를 누르면 배경 음악을 미리 들어볼 수 있어요. 고른 배경이 곡 전체의 바탕이 됩니다.</p>
-              </div>
-              <div class="card-grid" id="atmosphereGrid"></div>
-              <input id="bgUploadInput" type="file" accept="audio/*" hidden />
-              <p class="upload-status" id="bgUploadStatus" aria-live="polite"></p>
-            </section>
-
-            <section class="choice-section" aria-labelledby="instrumentTitle">
-              <div class="choice-section-head">
-                <p class="eyebrow">Instrument</p>
-                <h3 id="instrumentTitle">악기</h3>
-                <p class="muted">서양 악기와 국악기 중에서 고르면 드로잉 소리가 그 음색으로 연주됩니다.</p>
-              </div>
-              <div class="instrument-toolbar">
-                <div class="group-tabs" id="instrumentGroups"></div>
-                <button class="btn tiny instrument-preview-stop" id="instrumentPreviewStopBtn" type="button" hidden>악기 소리 정지</button>
-              </div>
-              <div class="card-grid" id="instrumentGrid"></div>
-            </section>
-          </div>
-          <div class="screen-actions">
-            <button class="btn" type="button" data-step-prev>이전</button>
-            <button class="btn primary" type="button" data-step-next>드로잉으로 이동</button>
-          </div>
-        </section>
-
-        <!-- 3단계: 드로잉 -->
-        <section class="screen compose drawing-screen" data-screen="2" aria-label="3단계 드로잉">
-          <div class="compose-grid drawing-only">
-            <section class="panel draw-panel">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Draw the sound</p>
-                  <h2>그림 위에 소리를 그립니다</h2>
-                </div>
-                <div class="panel-tools">
-                  <span class="tool-shortcut-hint">펜(키보드1) · 지우개(키보드2)</span>
-                  <button class="btn small active" id="penBtn" type="button" aria-pressed="true">펜</button>
-                  <button class="btn small" id="clearBtn" type="button" aria-pressed="false">지우개</button>
-                  <button class="btn small" id="undoBtn" type="button" disabled>되돌리기</button>
-                  <button class="btn small" id="resetComposeBtn" type="button">초기화</button>
-                </div>
-              </div>
-              <div class="drawing-workspace" id="drawingWorkspace">
-                <button
-                  class="drawing-reference-toggle"
-                  id="drawingReferenceToggle"
-                  type="button"
-                  aria-controls="drawingReference"
-                  aria-expanded="true"
-                  aria-label="그림 접기"
-                  title="그림 접기"
-                >
-                  <span aria-hidden="true">◀</span>
-                </button>
-                <figure class="drawing-reference" id="drawingReference">
-                  <img id="drawingReferenceImg" src="./assets/default-cover.png" alt="올린 그림" />
-                </figure>
-                <div class="canvas-wrap">
-                  <canvas id="drawingCanvas" width="1440" height="540" aria-label="소리를 그리는 캔버스"></canvas>
-                  <div class="effect-stamp-layer" id="effectStampLayer" aria-hidden="true"></div>
-                  <div class="pitch-labels" id="pitchLabels" aria-hidden="true"></div>
-                  <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
-                  <div class="playhead" id="playhead" role="slider" aria-label="재생 시작 위치" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" tabindex="0" hidden></div>
-                </div>
-              </div>
-              <div class="bg-player" id="bgPlayer" aria-label="배경음악 위치 맞추기">
-                <span class="bg-player-label">배경 구간</span>
-                <div class="bg-range-panel">
-                  <button class="bg-play-btn" id="bgPlayBtn" type="button" aria-label="배경음악만 재생" title="배경음악만 재생"><span aria-hidden="true">▶</span></button>
-                  <div class="bg-range" aria-label="배경음악 선택 구간">
-                    <input class="bg-seek" id="bgSeek" type="range" min="0" max="100" value="0" step="1" aria-label="배경음악 시작 위치" />
-                    <span class="bg-range-dash" aria-hidden="true">~</span>
-                    <input class="bg-seek bg-end-seek" id="bgEndSeek" type="range" min="0" max="100" value="30" step="1" aria-label="배경음악 끝 위치" />
-                  </div>
-                </div>
-                <div class="bg-time-inputs" aria-label="배경음악 구간 시간">
-                  <label class="bg-time-field" for="bgStartInput"><span>시작</span><input id="bgStartInput" type="text" inputmode="numeric" autocomplete="off" value="0:00" /></label>
-                  <label class="bg-time-field" for="bgEndInput"><span>끝</span><input id="bgEndInput" type="text" inputmode="numeric" autocomplete="off" value="0:30" /></label>
-                </div>
-                <span class="bg-time" id="bgTime">0:00 ~ 0:00 / 0:00</span>
-              </div>
-              <div class="readouts">
-                <div><span class="k">악기</span><strong id="scaleReadout">바이올린</strong></div>
-                <div><span class="k">그림</span><strong id="rhythmReadout">그린 선</strong></div>
-                <div><span class="k">소리 수</span><strong id="noteReadout">0</strong></div>
-                <div><span class="k">길이</span><strong id="durReadout">30초</strong></div>
-              </div>
-              <div class="orchestra-legend" id="orchestraLegend" aria-live="polite"></div>
-              <div class="version-row">
-                <div class="compose-control-strip instrument-strip">
-                  <span class="mode-label">악기</span>
-                  <div class="compose-instrument-list" id="composeInstrumentList"></div>
-                </div>
-                <div class="compose-control-strip effect-strip">
-                  <span class="mode-label">효과음</span>
-                  <div class="effect-list" id="effectList"></div>
-                </div>
-              </div>
-            </section>
-          </div>
-          <div class="screen-actions">
-            <button class="btn" type="button" data-step-prev>이전</button>
-            <button class="btn" type="button" data-step-next>완성으로</button>
-          </div>
-        </section>
-
-        <!-- 4단계: 완성 -->
-        <section class="screen completion-screen" data-screen="3" aria-label="4단계 완성">
-          <div class="screen-head">
-            <p class="eyebrow">Step 4</p>
-            <h2>완성한 그림 음악을 저장합니다</h2>
-            <p class="lead">표지와 제목을 확인하고, 시도를 저장하거나 압축 음악과 커버 이미지를 내보낼 수 있습니다.</p>
-          </div>
-          <section class="panel gallery-panel completion-gallery">
-            <div class="frame" id="frame">
-              <img id="frameImg" alt="완성 표지" />
-              <canvas id="frameCanvas" width="640" height="640" aria-hidden="true"></canvas>
-            </div>
-            <div class="placard">
-              <input id="titleInput" class="placard-title" type="text" placeholder="제목" aria-label="작품 제목" maxlength="24" />
-              <label class="composer-field" for="composerInput">
-                <span>작곡가</span>
-                <input id="composerInput" type="text" maxlength="24" placeholder="나의 이름" aria-label="작곡가 이름" />
-              </label>
-              <p class="placard-detail" id="placardDetail"></p>
-              <p class="placard-tags" id="placardMeta"></p>
-            </div>
-            <div class="reflection-fields">
-              <label class="reflection-field" for="bgReasonInput">
-                <span>배경음악을 고른 이유</span>
-                <textarea id="bgReasonInput" rows="3" maxlength="180" placeholder="그림 배경과 어울린다고 생각한 이유를 적어보세요."></textarea>
-              </label>
-              <label class="reflection-field" for="melodyIntentInput">
-                <span>선율을 표현한 의도</span>
-                <textarea id="melodyIntentInput" rows="3" maxlength="180" placeholder="선의 움직임, 높낮이, 악기로 표현하고 싶은 느낌을 적어보세요."></textarea>
-              </label>
-              <label class="hashtag-field" for="hashtagsInput">
-                <span>나의 음악 해시태그 2~3개</span>
-                <input id="hashtagsInput" type="text" maxlength="60" placeholder="#따뜻함 #긴장감 #봄" aria-describedby="hashtagHelp" />
-                <small id="hashtagHelp">띄어쓰기나 쉼표로 구분하면 최대 3개까지 저장됩니다.</small>
-              </label>
+              <a class="enter-cta" href="studio.html">
+                그림으로 음악 만들기
+                <span class="arrow" aria-hidden="true">→</span>
+              </a>
             </div>
 
-            <div class="actions-row">
-              <button class="btn small primary" id="saveTakeBtn" type="button">이 시도 저장</button>
-            </div>
-            <p class="upload-status" id="exportStatus" aria-live="polite"></p>
+            <div class="world" aria-hidden="true">
+              <div class="orbit-ring"></div>
 
-            <div class="takes">
-              <div class="takes-head">
-                <div class="takes-title">
-                  <h3>내 시도</h3>
-                  <span class="muted" id="takesCount"></span>
-                </div>
-              </div>
-              <div class="takes-list" id="takesList"></div>
-              <p class="muted takes-empty" id="takesEmpty">드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요.</p>
+              <figure
+                class="album-card night"
+                style="--o-size: 244px; --o-delay: 180ms; --o-dur: 7600ms; --o-range: 8px; --o-opacity: 0.96;"
+              >
+                <img src="assets/hero/hero-night.webp" alt="" />
+                <figcaption>
+                  <span>#푸른밤</span>
+                  <strong>조용한 선</strong>
+                </figcaption>
+              </figure>
+              <figure
+                class="album-card sun"
+                style="--o-size: 190px; --o-delay: 260ms; --o-dur: 6800ms; --o-range: 7px; --o-opacity: 0.9;"
+              >
+                <img src="assets/hero/hero-sun.webp" alt="" />
+                <figcaption>
+                  <span>#햇빛</span>
+                  <strong>밝은 선율</strong>
+                </figcaption>
+              </figure>
+              <figure
+                class="album-card forest"
+                style="--o-size: 226px; --o-delay: 340ms; --o-dur: 8000ms; --o-range: 9px; --o-opacity: 0.94;"
+              >
+                <img src="assets/hero/hero-forest.webp" alt="" />
+                <figcaption>
+                  <span>#숲</span>
+                  <strong>바람 노래</strong>
+                </figcaption>
+              </figure>
+              <figure
+                class="album-card dusk"
+                style="--o-size: 204px; --o-delay: 420ms; --o-dur: 7000ms; --o-range: 8px; --o-opacity: 0.92;"
+              >
+                <img src="assets/hero/hero-dusk.webp" alt="" />
+                <figcaption>
+                  <span>#노을</span>
+                  <strong>붉은 리듬</strong>
+                </figcaption>
+              </figure>
+              <figure
+                class="album-card gugak"
+                style="--o-size: 194px; --o-delay: 500ms; --o-dur: 7400ms; --o-range: 9px; --o-opacity: 0.92;"
+              >
+                <img src="assets/hero/hero-gugak.webp" alt="" />
+                <figcaption>
+                  <span>#국악</span>
+                  <strong>긴 숨</strong>
+                </figcaption>
+              </figure>
+              <figure
+                class="album-card playlist"
+                style="--o-size: 214px; --o-delay: 580ms; --o-dur: 8200ms; --o-range: 7px; --o-opacity: 0.94;"
+              >
+                <img src="assets/hero/hero-harmony.webp" alt="" />
+                <figcaption>
+                  <span>#모음</span>
+                  <strong>나의 30초</strong>
+                </figcaption>
+              </figure>
             </div>
-          </section>
-          <div class="screen-actions">
-            <button class="btn" type="button" data-step-prev>이전</button>
-            <button class="btn primary" type="button" data-step-next>공유 탭으로</button>
-          </div>
-        </section>
-
-        <!-- 5단계: 공유 -->
-        <section class="screen share-screen" data-screen="4" aria-label="5단계 공유">
-          <div class="screen-head">
-            <p class="eyebrow">Step 5</p>
-            <h2>학급 채널의 음악을 봅니다</h2>
-            <p class="lead">채널 번호를 적으면 같은 채널에 공유된 그림 음악을 볼 수 있습니다. 내 작품은 직접 지울 수 있고, 관리자는 PIN으로 지울 수 있습니다.</p>
-          </div>
-          <section class="panel share-board">
-            <div class="share-toolbar">
-              <label class="share-channel-field" for="channelBrowseInput">
-                <span>채널 번호</span>
-                <input id="channelBrowseInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="예: 3021" />
-              </label>
-              <button class="btn primary" id="loadChannelBtn" type="button">채널 열기</button>
-              <label class="share-channel-field admin-pin-field" for="shareAdminPinInput">
-                <span>관리자 PIN</span>
-                <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자만" />
-              </label>
-            </div>
-            <p class="upload-status" id="shareStatus" aria-live="polite"></p>
-            <div class="shared-works-list" id="sharedWorksList"></div>
-            <p class="muted shared-empty" id="sharedEmpty">채널 번호를 입력하고 열기를 누르면 공유된 음악이 여기에 모입니다.</p>
-          </section>
-          <div class="screen-actions">
-            <button class="btn" type="button" data-step-prev>완성으로</button>
           </div>
         </section>
       </main>
-
-      <footer class="foot">
-        <span class="muted" id="audioModeNote">실제 음원을 우선 사용하고, 없으면 합성음으로 대체합니다. 국악 음원 출처: 국립국악원.</span>
-      </footer>
     </div>
+    <script>
+      (() => {
+        const heroStage = document.querySelector(".hero-stage");
+        const world = document.querySelector(".world");
+        const orbitRing = world?.querySelector(".orbit-ring");
+        const cards = world ? Array.from(world.querySelectorAll(".album-card")) : [];
+        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-    <script src="./js/music-core.js?v=20260624-reflect-limit"></script>
-    <script src="./js/manifest.js?v=20260627-stamp-png"></script>
-    <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
-    <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
-    <script src="./js/audio-engine.js?v=20260627-schedule-fallback"></script>
-    <script src="./js/drawing.js?v=20260627-haegeum-grid"></script>
-    <script src="./js/takes.js?v=20260627-take-title"></script>
-    <script src="./js/share-store.js?v=20260627-channel-share"></script>
-    <script src="./js/auth.js?v=20260627-google-login" defer></script>
-    <script src="./js/studio.js?v=20260627-fullplay-playback-fallback" defer></script>
+        if (!heroStage || !world || !orbitRing || cards.length === 0) return;
+
+        const IDLE_SPEED = 0.018;
+        const DRAG_SPEED = 0.18;
+        const BASE_FRAME_MS = 1000 / 60;
+        const MAX_FRAME_SCALE = 2;
+        const TRACK_SAMPLE_COUNT = 720;
+        const TRACK_POWER = 3.1;
+        const TRACK_SCALE_X = 1.08;
+        const TRACK_SCALE_Y = 1.02;
+        const TOP_TIGHTEN_PCT = 2.8;
+        const DRAG_THRESHOLD_PX = 10;
+        const DIRECTION_INTENT_PX = 4;
+        const TANGENT_FALLBACK_RADIUS_PX = 56;
+
+        let angle = -18;
+        let direction = 1;
+        let velocity = IDLE_SPEED;
+        let targetVelocity = IDLE_SPEED;
+        let rafId = null;
+        let lastFrameTime = null;
+        let activePointerId = null;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let lastPointerX = 0;
+        let lastPointerY = 0;
+        let isDragging = false;
+        let trackSamples = [];
+
+        function buildTrackSamples(radiusXPct, radiusYPct) {
+          const samples = [];
+          const exponent = 2 / TRACK_POWER;
+
+          for (let sampleIndex = 0; sampleIndex <= TRACK_SAMPLE_COUNT; sampleIndex += 1) {
+            const progress = sampleIndex / TRACK_SAMPLE_COUNT;
+            const angleDeg = -90 + progress * 360;
+            const radians = angleDeg * Math.PI / 180;
+            const cosValue = Math.cos(radians);
+            const sinValue = Math.sin(radians);
+            const x = Math.sign(cosValue) * Math.pow(Math.abs(cosValue), exponent) * radiusXPct;
+            const y = Math.sign(sinValue) * Math.pow(Math.abs(sinValue), exponent) * radiusYPct;
+            const previous = samples[samples.length - 1];
+            const length = previous ? previous.length + Math.hypot(x - previous.x, y - previous.y) : 0;
+
+            samples.push({ progress, x, y, length });
+          }
+
+          return samples;
+        }
+
+        function getTrackPoint(progress) {
+          if (!trackSamples.length) return null;
+
+          const wrappedProgress = ((progress % 1) + 1) % 1;
+          const totalLength = trackSamples[trackSamples.length - 1].length;
+          const targetLength = wrappedProgress * totalLength;
+
+          for (let index = 1; index < trackSamples.length; index += 1) {
+            const previous = trackSamples[index - 1];
+            const next = trackSamples[index];
+            if (targetLength > next.length) continue;
+
+            const segmentLength = next.length - previous.length || 1;
+            const ratio = (targetLength - previous.length) / segmentLength;
+            const x = previous.x + (next.x - previous.x) * ratio;
+            const y = previous.y + (next.y - previous.y) * ratio;
+            return { x, y, vectorRadians: Math.atan2(y, x) };
+          }
+
+          const last = trackSamples[trackSamples.length - 1];
+          return { x: last.x, y: last.y, vectorRadians: Math.atan2(last.y, last.x) };
+        }
+
+        function syncOrbitLayout() {
+          const worldWidth = world.clientWidth;
+          const worldHeight = world.clientHeight;
+          const ringWidth = orbitRing.offsetWidth;
+          const ringHeight = orbitRing.offsetHeight;
+          if (!worldWidth || !worldHeight || !ringWidth || !ringHeight) return;
+
+          const radiusXPct = ((ringWidth / 2) * TRACK_SCALE_X / worldWidth) * 100;
+          const radiusYPct = ((ringHeight / 2) * TRACK_SCALE_Y / worldHeight) * 100;
+          const orbitOffset = (((angle % 360) + 360) % 360) / 360;
+          const slideDistance = 118;
+
+          trackSamples = buildTrackSamples(radiusXPct, radiusYPct);
+
+          cards.forEach((card, index) => {
+            const point = getTrackPoint(orbitOffset + index / cards.length);
+            if (!point) return;
+
+            const topWeight = Math.max(0, -point.y / radiusYPct);
+            const frontWeight = (point.y + radiusYPct) / (radiusYPct * 2);
+            const depth = Math.max(0, Math.min(1, frontWeight));
+            const topLiftPct = Math.pow(topWeight, 2.15) * TOP_TIGHTEN_PCT;
+            const leftPct = 50 + point.x;
+            const topPct = 50 + point.y - topLiftPct;
+            const slideX = Math.round(Math.cos(point.vectorRadians) * slideDistance);
+            const slideY = Math.round(Math.sin(point.vectorRadians) * slideDistance);
+            const scale = 0.86 + depth * 0.2;
+
+            card.style.setProperty("--o-left", `${leftPct.toFixed(3)}%`);
+            card.style.setProperty("--o-top", `${topPct.toFixed(3)}%`);
+            card.style.setProperty("--o-slide-x", `${slideX}px`);
+            card.style.setProperty("--o-slide-y", `${slideY}px`);
+            card.style.setProperty("--o-scale", scale.toFixed(3));
+            card.style.setProperty("--o-z", String(5 + Math.round(depth * 12)));
+          });
+        }
+
+        function render() {
+          world.style.setProperty("--spin-deg", `${angle}deg`);
+          syncOrbitLayout();
+        }
+
+        function resolveDirectionFromPointerDelta(deltaX, deltaY, clientX, clientY) {
+          const ringRect = orbitRing.getBoundingClientRect();
+          const centerX = ringRect.left + ringRect.width / 2;
+          const centerY = ringRect.top + ringRect.height / 2;
+          const radialX = clientX - centerX;
+          const radialY = clientY - centerY;
+          const radialLength = Math.hypot(radialX, radialY);
+
+          if (radialLength < TANGENT_FALLBACK_RADIUS_PX) {
+            if (Math.abs(deltaX) < DIRECTION_INTENT_PX) return 0;
+            return deltaX > 0 ? 1 : -1;
+          }
+
+          const normalizedRadialX = radialX / radialLength;
+          const normalizedRadialY = radialY / radialLength;
+          const clockwiseTangentX = -normalizedRadialY;
+          const clockwiseTangentY = normalizedRadialX;
+          const tangentIntent = deltaX * clockwiseTangentX + deltaY * clockwiseTangentY;
+
+          if (Math.abs(tangentIntent) < DIRECTION_INTENT_PX) return 0;
+          return tangentIntent > 0 ? 1 : -1;
+        }
+
+        function setOrbitDirection(nextDirection, speed = DRAG_SPEED) {
+          direction = nextDirection >= 0 ? 1 : -1;
+          targetVelocity = speed * direction;
+        }
+
+        function tick(timestamp) {
+          if (lastFrameTime === null) lastFrameTime = timestamp;
+          const elapsedMs = Math.max(0, timestamp - lastFrameTime);
+          lastFrameTime = timestamp;
+          const frameScale = Math.min(MAX_FRAME_SCALE, elapsedMs / BASE_FRAME_MS);
+
+          velocity += (targetVelocity - velocity) * 0.1;
+          angle += velocity * frameScale;
+          render();
+          rafId = requestAnimationFrame(tick);
+        }
+
+        function startOrbit() {
+          if (reducedMotion.matches || rafId !== null) return;
+          lastFrameTime = null;
+          rafId = requestAnimationFrame(tick);
+        }
+
+        function stopOrbit() {
+          if (rafId !== null) cancelAnimationFrame(rafId);
+          rafId = null;
+          lastFrameTime = null;
+        }
+
+        function handlePointerDown(event) {
+          if (event.target?.closest("a, button, input, textarea, select")) return;
+
+          activePointerId = event.pointerId;
+          dragStartX = event.clientX;
+          dragStartY = event.clientY;
+          lastPointerX = event.clientX;
+          lastPointerY = event.clientY;
+          isDragging = true;
+          heroStage.classList.add("is-orbit-dragging");
+
+          try {
+            heroStage.setPointerCapture(event.pointerId);
+          } catch (_) {}
+        }
+
+        function handlePointerMove(event) {
+          if (!isDragging || event.pointerId !== activePointerId) return;
+
+          const stepDeltaX = event.clientX - lastPointerX;
+          const stepDeltaY = event.clientY - lastPointerY;
+          const deltaX = event.clientX - dragStartX;
+          const deltaY = event.clientY - dragStartY;
+          lastPointerX = event.clientX;
+          lastPointerY = event.clientY;
+          if (stepDeltaX === 0 && stepDeltaY === 0) return;
+
+          const stepDirection = resolveDirectionFromPointerDelta(stepDeltaX, stepDeltaY, event.clientX, event.clientY);
+          if (stepDirection !== 0 && stepDirection !== direction) {
+            setOrbitDirection(stepDirection);
+            dragStartX = event.clientX;
+            dragStartY = event.clientY;
+            startOrbit();
+            return;
+          }
+
+          if (Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX) return;
+
+          const dragDirection = resolveDirectionFromPointerDelta(deltaX, deltaY, event.clientX, event.clientY);
+          if (dragDirection === 0) return;
+
+          setOrbitDirection(dragDirection);
+          dragStartX = event.clientX;
+          dragStartY = event.clientY;
+          startOrbit();
+        }
+
+        function clearPointerState(event) {
+          if (event && activePointerId !== null && event.pointerId !== activePointerId) return;
+
+          isDragging = false;
+          activePointerId = null;
+          dragStartX = 0;
+          dragStartY = 0;
+          lastPointerX = 0;
+          lastPointerY = 0;
+          targetVelocity = IDLE_SPEED * direction;
+          heroStage.classList.remove("is-orbit-dragging");
+        }
+
+        heroStage.classList.add("is-orbit-interactive");
+        world.classList.add("is-ready");
+        heroStage.addEventListener("pointerdown", handlePointerDown);
+        heroStage.addEventListener("pointermove", handlePointerMove);
+        heroStage.addEventListener("pointerup", clearPointerState);
+        heroStage.addEventListener("pointercancel", clearPointerState);
+        heroStage.addEventListener("lostpointercapture", clearPointerState);
+        window.addEventListener("resize", render);
+
+        reducedMotion.addEventListener?.("change", () => {
+          if (reducedMotion.matches) {
+            stopOrbit();
+            render();
+            return;
+          }
+          startOrbit();
+        });
+
+        render();
+        startOrbit();
+      })();
+    </script>
   </body>
 </html>

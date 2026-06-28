@@ -166,7 +166,7 @@ test("detected sample maps provide playable note segments for gugak melody asset
 })
 
 test("index loads detected sample maps before the audio engine", () => {
-  const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
+  const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   assert.ok(html.indexOf("./js/manifest.js") < html.indexOf("./js/sample-maps.js"))
   assert.ok(html.indexOf("./js/sample-maps.js") < html.indexOf("./js/sample-maps-western.js"))
   assert.ok(html.indexOf("./js/sample-maps-western.js") < html.indexOf("./js/audio-engine.js"))

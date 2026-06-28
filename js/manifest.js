@@ -25,10 +25,10 @@
     forest: { label: "숲", src: "sound/배경-소리풍경/숲.mp3", duration: 60 },
     school: { label: "학교", src: "sound/배경-소리풍경/학교.mp3", duration: 60 },
     // 리듬장단 — 곡 아래 깔리는 장단형 배경. 짧은 장단은 자동 루프됨.
-    rhythm: { label: "리듬", src: "sound/배경-리듬장단/리듬.mp3", duration: 429 },
-    jajinSamchae: { label: "자진삼채", src: "sound/배경-리듬장단/자진삼채.mp3", duration: 77 },
-    jungjungmori: { label: "중중모리", src: "sound/배경-리듬장단/중중모리.mp3", duration: 62 },
-    pungnyu: { label: "풍류", src: "sound/배경-리듬장단/풍류.mp3", duration: 71 },
+    rhythm: { label: "리듬", src: "sound/배경-리듬장단/리듬-교체본.mp3", duration: 429 },
+    jajinSamchae: { label: "자진삼채", src: "sound/배경-리듬장단/자진삼채-연결.mp3", duration: 77 },
+    jungjungmori: { label: "중중모리", src: "sound/배경-리듬장단/중중모리-연결.mp3", duration: 62 },
+    pungnyu: { label: "풍류", src: "sound/배경-리듬장단/풍류-연결.mp3", duration: 71 },
   }
 
   // 패드 종류 — 선생님이 ambient/string/drone/choir/synth pad 음원을 추가하면 src를 채웁니다.

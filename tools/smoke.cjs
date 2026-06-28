@@ -14,7 +14,7 @@ const { JSDOM } = require("jsdom")
 const root = path.resolve(__dirname, "..")
 const read = (p) => fs.readFileSync(path.join(root, p), "utf8")
 
-let html = read("index.html").replace(/<script[\s\S]*?<\/script>/g, "")
+let html = read("studio.html").replace(/<script[\s\S]*?<\/script>/g, "")
 
 const dom = new JSDOM(html, {
   runScripts: "outside-only",
@@ -253,6 +253,11 @@ check(
 check("레시피에 bgOffset 포함(기본 0)", SD.buildRecipe().bgOffset === 0, SD.buildRecipe().bgOffset)
 check("레시피에 bgEndOffset 포함(기본 0)", SD.buildRecipe().bgEndOffset === 0, SD.buildRecipe().bgEndOffset)
 check("업로드 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
+check("드로잉 방식 토글 존재", qc("#drawModePictureBtn") === 1 && qc("#drawModeSoundBtn") === 1)
+window.document.getElementById("drawModeSoundBtn").click()
+check("소리모드 버튼으로 드로잉 방식 전환", SD.getStateSummary().drawingInputMode === "sound", SD.getStateSummary().drawingInputMode)
+window.document.getElementById("drawModePictureBtn").click()
+check("그림모드 버튼으로 드로잉 방식 복귀", SD.getStateSummary().drawingInputMode === "picture", SD.getStateSummary().drawingInputMode)
 check("펜 버튼 존재", qc("#penBtn") === 1, qc("#penBtn"))
 check(
   "드로잉 도구 단축키 안내문구 표시",

@@ -20,7 +20,8 @@ python -m http.server 4173      # 이 폴더(sound-drawing-tool)에서 실행
 브라우저에서(데스크탑·마우스 환경 기준):
 
 ```text
-http://localhost:4173/index.html
+http://localhost:4173/            # 3D 히어로 랜딩 (여기서 "그림으로 음악 만들기" 클릭)
+http://localhost:4173/studio.html # 앱(위저드) 바로 열기
 ```
 
 > 끄려면 서버 창에서 Ctrl+C. 음원이 정상 로드되면 하단에 "실제 음원을 우선 사용…", 실패하면 ⚠ 경고가 표시됩니다.
@@ -46,7 +47,8 @@ http://localhost:4173/index.html
 ## 파일 구조
 
 ```
-index.html         5단계 위저드 마크업
+index.html         3D 히어로 랜딩 페이지(자족형 inline CSS+JS) → studio.html로 진입
+studio.html        4단계 위저드 마크업 (앱 본체)
 styles.css         갤러리·아틀리에 디자인 + 무드 틴팅(CSS 변수)
 js/music-core.js   순수 로직: 음계·피치 보정·시간 재샘플링·리듬·시김새·레시피 코덱·WAV 인코딩
 js/manifest.js     음원·배경·악기·음계 데이터  ← 음원 추가/교체는 주로 여기만 수정

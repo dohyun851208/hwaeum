@@ -136,7 +136,7 @@ test("배경음악 구간 선택은 src가 있는 배경 음원에 열린다", (
 })
 
 test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", () => {
-  const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
+  const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
 
   assert.doesNotMatch(html, /id="composePlay"/)
@@ -145,7 +145,7 @@ test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", (
 })
 
 test("완성 화면 그림에는 재생 버튼이 있고 음악 저장은 WebM만 사용한다", () => {
-  const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
+  const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const engine = fs.readFileSync(path.join(projectDir, "js", "audio-engine.js"), "utf8")
 
@@ -163,7 +163,7 @@ test("완성 화면 그림에는 재생 버튼이 있고 음악 저장은 WebM�
 })
 
 test("드로잉 화면에서 믹스 선택 UI를 제거한다", () => {
-  const html = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
+  const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
 
   assert.doesNotMatch(html, /id="versionList"/)

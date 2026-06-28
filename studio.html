@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="google-signin-client_id" content="" />
+    <title>화음 스튜디오 · 그림으로 만드는 BGM</title>
+    <link rel="icon" type="image/png" href="./assets/default-cover.png" />
+    <link rel="stylesheet" href="./styles.css?v=20260627-drawing-reference-toggle" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  </head>
+  <body data-step="0">
+    <div class="atelier">
+      <!-- 상단 바 -->
+      <header class="topbar">
+        <div class="brand">
+          <p class="eyebrow">화음 스튜디오</p>
+          <h1>그림으로 음악을 그리다</h1>
+        </div>
+        <div class="topbar-right">
+          <figure class="pic-chip" id="picChip" hidden>
+            <img id="picThumb" alt="올린 그림" />
+          </figure>
+          <div class="auth-box" id="authBox" data-auth="guest">
+            <div class="auth-profile" id="authProfile" hidden>
+              <img class="auth-avatar" id="authAvatar" alt="" hidden />
+              <span id="authName">Google 사용자</span>
+            </div>
+            <div class="google-button-slot" id="googleButtonSlot"></div>
+            <button class="btn tiny ghost auth-logout" id="googleLogoutBtn" type="button" hidden>로그아웃</button>
+            <span class="auth-status" id="authStatus" aria-live="polite">로그인 없이도 사용할 수 있어요.</span>
+          </div>
+          <div class="transport" aria-label="재생 제어">
+            <span class="status-pill" id="statusText" aria-live="polite">전체곡 대기</span>
+            <button class="round-btn" id="playBtn" type="button" aria-label="전체곡 재생"><span aria-hidden="true">▶</span></button>
+            <button class="round-btn ghost" id="stopBtn" type="button" aria-label="정지"><span aria-hidden="true">■</span></button>
+          </div>
+        </div>
+      </header>
+
+      <!-- 단계 표시 -->
+      <nav class="steps" aria-label="제작 단계">
+        <button class="step active" type="button" data-step-jump="0"><span>1</span><strong>그림</strong></button>
+        <button class="step" type="button" data-step-jump="1"><span>2</span><strong>배경/악기</strong></button>
+        <button class="step" type="button" data-step-jump="2"><span>3</span><strong>드로잉</strong></button>
+        <button class="step" type="button" data-step-jump="3"><span>4</span><strong>완성</strong></button>
+        <button class="step" type="button" data-step-jump="4"><span>5</span><strong>공유</strong></button>
+      </nav>
+
+      <main class="stage">
+        <!-- 1단계: 그림 -->
+        <section class="screen active" data-screen="0" aria-label="1단계 그림">
+          <div class="screen-head">
+            <p class="eyebrow">Step 1</p>
+            <h2>그림을 올립니다</h2>
+            <p class="lead">이 그림을 보면서 배경과 악기를 고르게 됩니다. 그림은 위쪽에 계속 표시됩니다.</p>
+          </div>
+          <div class="setup-grid">
+            <label class="dropframe" id="dropframe" for="picInput">
+              <img id="dropPreview" alt="" hidden />
+              <div class="dropframe-empty" id="dropEmpty">
+                <span class="dropframe-icon" aria-hidden="true">🖼</span>
+                <strong>그림 올리기</strong>
+                <span class="muted">클릭해서 이미지 선택 (jpg, png 등)</span>
+              </div>
+              <input id="picInput" type="file" accept="image/*" />
+            </label>
+            <div class="setup-side">
+              <h3>나만의 BGM</h3>
+              <p class="muted">배경음악 구간 길이에 맞춰 팔레트가 늘어납니다.</p>
+              <p class="upload-status" id="picStatus">그림을 올리면 표지로 사용됩니다.</p>
+            </div>
+          </div>
+          <div class="screen-actions">
+            <span class="muted">그림을 올린 뒤 다음으로</span>
+            <button class="btn primary" type="button" data-step-next>다음 · 소리 조합</button>
+          </div>
+        </section>
+
+        <!-- 2단계: 배경 / 악기 -->
+        <section class="screen sound-palette-screen" data-screen="1" aria-label="2단계 배경, 악기">
+          <div class="screen-head">
+            <p class="eyebrow">Step 2</p>
+            <h2>배경과 악기를 맞춥니다</h2>
+            <p class="lead">아래로 스크롤하면서 배경음악과 연주 악기를 골라보세요. 각 카드를 눌러 바로 들어보고 조합을 바꿀 수 있습니다.</p>
+          </div>
+          <div class="sound-choice-flow">
+            <section class="choice-section" aria-labelledby="atmosphereTitle">
+              <div class="choice-section-head">
+                <p class="eyebrow">Atmosphere</p>
+                <h3 id="atmosphereTitle">배경</h3>
+                <p class="muted">카드를 누르면 배경 음악을 미리 들어볼 수 있어요. 고른 배경이 곡 전체의 바탕이 됩니다.</p>
+              </div>
+              <div class="card-grid" id="atmosphereGrid"></div>
+              <input id="bgUploadInput" type="file" accept="audio/*" hidden />
+              <p class="upload-status" id="bgUploadStatus" aria-live="polite"></p>
+            </section>
+
+            <section class="choice-section" aria-labelledby="instrumentTitle">
+              <div class="choice-section-head">
+                <p class="eyebrow">Instrument</p>
+                <h3 id="instrumentTitle">악기</h3>
+                <p class="muted">서양 악기와 국악기 중에서 고르면 드로잉 소리가 그 음색으로 연주됩니다.</p>
+              </div>
+              <div class="instrument-toolbar">
+                <div class="group-tabs" id="instrumentGroups"></div>
+                <button class="btn tiny instrument-preview-stop" id="instrumentPreviewStopBtn" type="button" hidden>악기 소리 정지</button>
+              </div>
+              <div class="card-grid" id="instrumentGrid"></div>
+            </section>
+          </div>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>이전</button>
+            <button class="btn primary" type="button" data-step-next>드로잉으로 이동</button>
+          </div>
+        </section>
+
+        <!-- 3단계: 드로잉 -->
+        <section class="screen compose drawing-screen" data-screen="2" aria-label="3단계 드로잉">
+          <div class="compose-grid drawing-only">
+            <section class="panel draw-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Draw the sound</p>
+                  <h2>그림 위에 소리를 그립니다</h2>
+                </div>
+                <div class="panel-tools">
+                  <div class="draw-mode-tabs" role="group" aria-label="드로잉 방식">
+                    <button class="draw-mode-tab active" id="drawModePictureBtn" type="button" aria-pressed="true">그림모드</button>
+                    <button class="draw-mode-tab" id="drawModeSoundBtn" type="button" aria-pressed="false">소리모드</button>
+                  </div>
+                  <span class="tool-shortcut-hint">펜(키보드1) · 지우개(키보드2)</span>
+                  <button class="btn small active" id="penBtn" type="button" aria-pressed="true">펜</button>
+                  <button class="btn small" id="clearBtn" type="button" aria-pressed="false">지우개</button>
+                  <button class="btn small" id="undoBtn" type="button" disabled>되돌리기</button>
+                  <button class="btn small" id="resetComposeBtn" type="button">초기화</button>
+                </div>
+              </div>
+              <div class="drawing-workspace" id="drawingWorkspace">
+                <button
+                  class="drawing-reference-toggle"
+                  id="drawingReferenceToggle"
+                  type="button"
+                  aria-controls="drawingReference"
+                  aria-expanded="true"
+                  aria-label="그림 접기"
+                  title="그림 접기"
+                >
+                  <span aria-hidden="true">◀</span>
+                </button>
+                <figure class="drawing-reference" id="drawingReference">
+                  <img id="drawingReferenceImg" src="./assets/default-cover.png" alt="올린 그림" />
+                </figure>
+                <div class="canvas-wrap">
+                  <canvas id="drawingCanvas" width="1440" height="540" aria-label="소리를 그리는 캔버스"></canvas>
+                  <div class="effect-stamp-layer" id="effectStampLayer" aria-hidden="true"></div>
+                  <div class="pitch-labels" id="pitchLabels" aria-hidden="true"></div>
+                  <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
+                  <div class="playhead" id="playhead" role="slider" aria-label="재생 시작 위치" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" tabindex="0" hidden></div>
+                </div>
+              </div>
+              <div class="bg-player" id="bgPlayer" aria-label="배경음악 위치 맞추기">
+                <span class="bg-player-label">배경 구간</span>
+                <div class="bg-range-panel">
+                  <button class="bg-play-btn" id="bgPlayBtn" type="button" aria-label="배경음악만 재생" title="배경음악만 재생"><span aria-hidden="true">▶</span></button>
+                  <div class="bg-range" aria-label="배경음악 선택 구간">
+                    <input class="bg-seek" id="bgSeek" type="range" min="0" max="100" value="0" step="1" aria-label="배경음악 시작 위치" />
+                    <span class="bg-range-dash" aria-hidden="true">~</span>
+                    <input class="bg-seek bg-end-seek" id="bgEndSeek" type="range" min="0" max="100" value="30" step="1" aria-label="배경음악 끝 위치" />
+                  </div>
+                </div>
+                <div class="bg-time-inputs" aria-label="배경음악 구간 시간">
+                  <label class="bg-time-field" for="bgStartInput"><span>시작</span><input id="bgStartInput" type="text" inputmode="numeric" autocomplete="off" value="0:00" /></label>
+                  <label class="bg-time-field" for="bgEndInput"><span>끝</span><input id="bgEndInput" type="text" inputmode="numeric" autocomplete="off" value="0:30" /></label>
+                </div>
+                <span class="bg-time" id="bgTime">0:00 ~ 0:00 / 0:00</span>
+              </div>
+              <div class="readouts">
+                <div><span class="k">악기</span><strong id="scaleReadout">바이올린</strong></div>
+                <div><span class="k">그림</span><strong id="rhythmReadout">그린 선</strong></div>
+                <div><span class="k">소리 수</span><strong id="noteReadout">0</strong></div>
+                <div><span class="k">길이</span><strong id="durReadout">30초</strong></div>
+              </div>
+              <div class="orchestra-legend" id="orchestraLegend" aria-live="polite"></div>
+              <div class="version-row">
+                <div class="compose-control-strip instrument-strip">
+                  <span class="mode-label">악기</span>
+                  <div class="compose-instrument-list" id="composeInstrumentList"></div>
+                </div>
+                <div class="compose-control-strip effect-strip">
+                  <span class="mode-label">효과음</span>
+                  <div class="effect-list" id="effectList"></div>
+                </div>
+              </div>
+            </section>
+          </div>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>이전</button>
+            <button class="btn" type="button" data-step-next>완성으로</button>
+          </div>
+        </section>
+
+        <!-- 4단계: 완성 -->
+        <section class="screen completion-screen" data-screen="3" aria-label="4단계 완성">
+          <div class="screen-head">
+            <p class="eyebrow">Step 4</p>
+            <h2>완성한 그림 음악을 저장합니다</h2>
+            <p class="lead">표지와 제목을 확인하고, 시도를 저장하거나 압축 음악과 커버 이미지를 내보낼 수 있습니다.</p>
+          </div>
+          <section class="panel gallery-panel completion-gallery">
+            <div class="frame" id="frame">
+              <img id="frameImg" alt="완성 표지" />
+              <canvas id="frameCanvas" width="640" height="640" aria-hidden="true"></canvas>
+            </div>
+            <div class="placard">
+              <input id="titleInput" class="placard-title" type="text" placeholder="제목" aria-label="작품 제목" maxlength="24" />
+              <label class="composer-field" for="composerInput">
+                <span>작곡가</span>
+                <input id="composerInput" type="text" maxlength="24" placeholder="나의 이름" aria-label="작곡가 이름" />
+              </label>
+              <p class="placard-detail" id="placardDetail"></p>
+              <p class="placard-tags" id="placardMeta"></p>
+            </div>
+            <div class="reflection-fields">
+              <label class="reflection-field" for="bgReasonInput">
+                <span>배경음악을 고른 이유</span>
+                <textarea id="bgReasonInput" rows="3" maxlength="180" placeholder="그림 배경과 어울린다고 생각한 이유를 적어보세요."></textarea>
+              </label>
+              <label class="reflection-field" for="melodyIntentInput">
+                <span>선율을 표현한 의도</span>
+                <textarea id="melodyIntentInput" rows="3" maxlength="180" placeholder="선의 움직임, 높낮이, 악기로 표현하고 싶은 느낌을 적어보세요."></textarea>
+              </label>
+              <label class="hashtag-field" for="hashtagsInput">
+                <span>나의 음악 해시태그 2~3개</span>
+                <input id="hashtagsInput" type="text" maxlength="60" placeholder="#따뜻함 #긴장감 #봄" aria-describedby="hashtagHelp" />
+                <small id="hashtagHelp">띄어쓰기나 쉼표로 구분하면 최대 3개까지 저장됩니다.</small>
+              </label>
+            </div>
+
+            <div class="actions-row">
+              <button class="btn small primary" id="saveTakeBtn" type="button">이 시도 저장</button>
+            </div>
+            <p class="upload-status" id="exportStatus" aria-live="polite"></p>
+
+            <div class="takes">
+              <div class="takes-head">
+                <div class="takes-title">
+                  <h3>내 시도</h3>
+                  <span class="muted" id="takesCount"></span>
+                </div>
+              </div>
+              <div class="takes-list" id="takesList"></div>
+              <p class="muted takes-empty" id="takesEmpty">드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요.</p>
+            </div>
+          </section>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>이전</button>
+            <button class="btn primary" type="button" data-step-next>공유 탭으로</button>
+          </div>
+        </section>
+
+        <!-- 5단계: 공유 -->
+        <section class="screen share-screen" data-screen="4" aria-label="5단계 공유">
+          <div class="screen-head">
+            <p class="eyebrow">Step 5</p>
+            <h2>학급 채널의 음악을 봅니다</h2>
+            <p class="lead">채널 번호를 적으면 같은 채널에 공유된 그림 음악을 볼 수 있습니다. 내 작품은 직접 지울 수 있고, 관리자는 PIN으로 지울 수 있습니다.</p>
+          </div>
+          <section class="panel share-board">
+            <div class="share-toolbar">
+              <label class="share-channel-field" for="channelBrowseInput">
+                <span>채널 번호</span>
+                <input id="channelBrowseInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="예: 3021" />
+              </label>
+              <button class="btn primary" id="loadChannelBtn" type="button">채널 열기</button>
+              <label class="share-channel-field admin-pin-field" for="shareAdminPinInput">
+                <span>관리자 PIN</span>
+                <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자만" />
+              </label>
+            </div>
+            <p class="upload-status" id="shareStatus" aria-live="polite"></p>
+            <div class="shared-works-list" id="sharedWorksList"></div>
+            <p class="muted shared-empty" id="sharedEmpty">채널 번호를 입력하고 열기를 누르면 공유된 음악이 여기에 모입니다.</p>
+          </section>
+          <div class="screen-actions">
+            <button class="btn" type="button" data-step-prev>완성으로</button>
+          </div>
+        </section>
+      </main>
+
+      <footer class="foot">
+        <span class="muted" id="audioModeNote">실제 음원을 우선 사용하고, 없으면 합성음으로 대체합니다. 국악 음원 출처: 국립국악원.</span>
+      </footer>
+    </div>
+
+    <script src="./js/music-core.js?v=20260624-reflect-limit"></script>
+    <script src="./js/manifest.js?v=20260627-stamp-png"></script>
+    <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
+    <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
+    <script src="./js/audio-engine.js?v=20260627-schedule-fallback"></script>
+    <script src="./js/drawing.js?v=20260627-haegeum-grid"></script>
+    <script src="./js/takes.js?v=20260627-take-title"></script>
+    <script src="./js/share-store.js?v=20260627-channel-share"></script>
+    <script src="./js/auth.js?v=20260627-google-login" defer></script>
+    <script src="./js/studio.js?v=20260627-fullplay-playback-fallback" defer></script>
+  </body>
+</html>

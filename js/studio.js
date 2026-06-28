@@ -34,6 +34,8 @@
   const DEFAULT_INSTRUMENT_FAMILY = "그 밖의 악기"
   const PEN_TOOL_STATUS = "펜(키보드1)"
   const ERASER_TOOL_STATUS = "지우개(키보드2)"
+  const DRAW_MODE_PICTURE = "picture"
+  const DRAW_MODE_SOUND = "sound"
   const APP_UNDO_MAX = 30
   const CUSTOM_BG_COPYRIGHT_NOTICE =
     "저작권 안내: 다른 사람이 만든 음악은 허락 없이 사용할 수 없어요. 직접 만든 음원이나 사용 허락을 받은 음원만 올려 주세요."
@@ -97,6 +99,7 @@
     effectIds: [], // 옛 레시피 호환용: 자동 배치 효과
     effectStamps: [], // 새 방식: 캔버스에 찍은 효과음 도장 [{ id, x, y }]
     effectStampId: null,
+    drawingInputMode: DRAW_MODE_PICTURE,
     bgPreviewId: null, // 현재 미리듣기 중인 배경 id
     examplePreviewId: null, // 현재 감상 재생 중인 악기 id
     bgOffset: 0, // 배경음악을 이 지점(초)부터 — 캔버스 가로축이 [bgOffset, bgOffset+길이]에 대응, 최종 곡에도 반영
@@ -172,6 +175,8 @@
     bgStartInput: $("bgStartInput"),
     bgEndInput: $("bgEndInput"),
     bgTime: $("bgTime"),
+    drawModePictureBtn: $("drawModePictureBtn"),
+    drawModeSoundBtn: $("drawModeSoundBtn"),
     penBtn: $("penBtn"),
     clearBtn: $("clearBtn"),
     undoBtn: $("undoBtn"),
@@ -248,6 +253,7 @@
       el.exportStatus.textContent = "악기는 한 곡에 최대 " + max + "개까지예요. 줄을 지우면 다른 악기를 더할 수 있어요."
     },
     getState: () => ({ duration: state.duration, style: state.style, mode: state.mode, melodyAsset: D.melodies[state.instrument.id] || null }),
+    getFlowProgress: () => soundDrawingProgress(),
     onChange: () => {
       recordDrawUndoAction()
       updateReadouts()
@@ -274,6 +280,14 @@
         el.statusText.classList.remove("playing")
         el.body.dataset.livePreview = "idle"
       }
+    },
+    onFlowStart: () => {
+      if (state.drawingInputMode !== DRAW_MODE_SOUND) return
+      el.exportStatus.textContent = "소리모드 녹음 중입니다. 손을 떼면 들은 타이밍대로 악보에 남아요."
+    },
+    onFlowEnd: () => {
+      if (state.drawingInputMode !== DRAW_MODE_SOUND) return
+      el.exportStatus.textContent = "소리모드 선율을 악보에 남겼어요."
     },
     accent: state.atmosphere.color,
   })
@@ -1652,6 +1666,13 @@
     return clampPlayheadProgress(selectedPlayheadProgress) * (state.duration || 30)
   }
 
+  function soundDrawingProgress() {
+    if (state.drawingInputMode !== DRAW_MODE_SOUND) return selectedPlayheadProgress
+    if (bgPlayer.paused) playBgPlayer()
+    if (bgPlayer.paused) return selectedPlayheadProgress
+    return bgPlayheadProgress(bgPlayer.currentTime)
+  }
+
   function stopPlayhead() {
     if (playheadRAF) cancelAnimationFrame(playheadRAF)
     playheadRAF = null
@@ -1667,9 +1688,11 @@
     playheadRAF = null
     const durMs = Math.max(1, state.duration * 1000)
     if (playheadStartedAt) playheadElapsedMs = Math.max(0, Math.min(durMs, nowMs() - playheadStartedAt))
+    const pausedProgress = Math.max(0, Math.min(1, playheadElapsedMs / durMs))
+    selectedPlayheadProgress = clampPlayheadProgress(pausedProgress)
     if (el.playhead) {
       el.playhead.hidden = false
-      positionPlayhead(playheadElapsedMs / durMs)
+      positionPlayhead(pausedProgress)
     }
   }
   function startPlayhead(resume) {
@@ -1959,12 +1982,18 @@
     const segment = Math.max(0.1, end - state.bgOffset)
     let rel = bgPlayer.currentTime - state.bgOffset
     if (bgPlayer.currentTime >= end || bgPlayer.currentTime + 0.001 < state.bgOffset) {
+      if (state.drawingInputMode === DRAW_MODE_SOUND && draw.flowActive) {
+        draw.flowRecord(1)
+        draw.finishFlowStroke(true)
+      }
       try {
         bgPlayer.currentTime = state.bgOffset
       } catch (e) {}
       rel = 0
     }
-    positionPlayhead(Math.max(0, Math.min(1, rel / segment)))
+    const progress = Math.max(0, Math.min(1, rel / segment))
+    positionPlayhead(progress)
+    if (state.drawingInputMode === DRAW_MODE_SOUND && draw.flowActive) draw.flowRecord(progress)
     if (typeof requestAnimationFrame === "function") bgRAF = requestAnimationFrame(bgTick)
   }
 
@@ -2119,6 +2148,34 @@
     el.clearBtn.classList.toggle("active", on)
     el.clearBtn.setAttribute("aria-pressed", on ? "true" : "false")
     if (on) el.exportStatus.textContent = ERASER_TOOL_STATUS
+  }
+
+  function syncDrawingInputModeUI() {
+    const soundMode = state.drawingInputMode === DRAW_MODE_SOUND
+    el.body.dataset.drawInputMode = soundMode ? DRAW_MODE_SOUND : DRAW_MODE_PICTURE
+    if (el.drawModePictureBtn) {
+      el.drawModePictureBtn.classList.toggle("active", !soundMode)
+      el.drawModePictureBtn.setAttribute("aria-pressed", soundMode ? "false" : "true")
+    }
+    if (el.drawModeSoundBtn) {
+      el.drawModeSoundBtn.classList.toggle("active", soundMode)
+      el.drawModeSoundBtn.setAttribute("aria-pressed", soundMode ? "true" : "false")
+    }
+  }
+
+  function setDrawingInputMode(mode, announce) {
+    const next = mode === DRAW_MODE_SOUND ? DRAW_MODE_SOUND : DRAW_MODE_PICTURE
+    state.drawingInputMode = next
+    draw.setFlowMode(next === DRAW_MODE_SOUND)
+    if (next === DRAW_MODE_SOUND) {
+      clearEffectStampSelection()
+      setEraser(false)
+      showSelectedPlayhead(false)
+      if (announce) el.exportStatus.textContent = "소리모드: 배경음악에 맞춰 누르고 있는 시간만큼 선율이 기록됩니다."
+    } else if (announce) {
+      el.exportStatus.textContent = "그림모드: 캔버스의 가로 위치와 선 길이대로 선율이 만들어집니다."
+    }
+    syncDrawingInputModeUI()
   }
 
   function clearEffectStampSelection() {
@@ -2280,6 +2337,7 @@
 
   function resetCompose() {
     engine.stop()
+    draw.finishFlowStroke(false)
     setEraser(false)
     draw.clear(false)
     draw.clearUndoHistory()
@@ -3545,6 +3603,8 @@
     })
     tabs.forEach((t, idx) => t.classList.toggle("active", idx === state.step))
     if (state.step === DRAWING_STEP) {
+      draw.setFlowMode(state.drawingInputMode === DRAW_MODE_SOUND)
+      syncDrawingInputModeUI()
       refreshTimeline(true)
       renderComposeInstruments()
       renderEffects()
@@ -3552,6 +3612,7 @@
       setupBgPlayer()
       refreshTimelineAfterLayout()
     } else {
+      draw.setFlowMode(false)
       engine.stopAmbience(false)
       pauseBgPlayer()
       if (!engine.isPlaying && engine.isPaused) engine.stop()
@@ -3618,6 +3679,17 @@
     if (el.drawingReferenceToggle) {
       el.drawingReferenceToggle.addEventListener("click", () => {
         setDrawingReferenceCollapsed(!state.drawingReferenceCollapsed)
+      })
+    }
+
+    if (el.drawModePictureBtn) {
+      el.drawModePictureBtn.addEventListener("click", () => {
+        setDrawingInputMode(DRAW_MODE_PICTURE, true)
+      })
+    }
+    if (el.drawModeSoundBtn) {
+      el.drawModeSoundBtn.addEventListener("click", () => {
+        setDrawingInputMode(DRAW_MODE_SOUND, true)
       })
     }
 
@@ -3784,6 +3856,7 @@
     renderOrchestraLegend()
     renderEffects()
     syncDrawingReferenceToggle()
+    syncDrawingInputModeUI()
     syncBgPlayerUI()
     refreshTimeline(true)
     ensureFramePlayButton()
@@ -3811,6 +3884,7 @@
         style: state.style.scaleName,
         version: state.version.id,
         mode: state.mode,
+        drawingInputMode: state.drawingInputMode,
         bgOffset: state.bgOffset,
         bgEndOffset: state.bgEndOffset,
         composerName: state.composerName,
@@ -3849,6 +3923,9 @@
     buildRecipe: buildRecipe,
     buildSharedRecipe: buildSharedRecipe,
     setStep: setStep,
+    setDrawingInputMode: function (mode) {
+      setDrawingInputMode(mode, false)
+    },
     setAdminMode: setAdminMode,
     engine: engine,
     draw: draw,
