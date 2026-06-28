@@ -7,6 +7,7 @@
   const Core = window.MusicCore
   const D = window.SDStudioData
   const ShareStore = window.HwaeumShareStore || null
+  const StudioUtils = window.HwaeumStudioUtils
 
   const engine = new window.AudioEngine()
   const takes = new window.TakesStore("sda.takes")
@@ -26,6 +27,7 @@
   const COMPLETE_STEP = 3
   const SHARE_STEP = 4
   const SHARE_AUDIO_BITS_PER_SECOND = 64000
+  const DEFAULT_ATMOSPHERE_ID = "none"
   const DEFAULT_STYLE_ID = "bright" // 기본 음계 = C장조(서양 악기는 파(F)도 난다)
   const GUGAK_STYLE_ID = "gugak" // 국악기만 5음(펜타토닉)+시김새 — 파(F)·시(B) 없음
   const CUSTOM_BG_MAX_BYTES = 50 * 1024 * 1024
@@ -42,6 +44,10 @@
 
   function defaultStyle() {
     return D.styles.find((s) => s.id === DEFAULT_STYLE_ID) || D.styles[0]
+  }
+
+  function defaultAtmosphere() {
+    return D.atmospheres.find((a) => a.id === DEFAULT_ATMOSPHERE_ID) || D.atmospheres[0]
   }
 
   // 악기 그룹별 기본 음계: 기본은 C장조, 국악기만 5음(펜타토닉)+시김새.
@@ -84,7 +90,7 @@
 
   const state = {
     duration: DEFAULT_DURATION_SECONDS,
-    atmosphere: D.atmospheres[0],
+    atmosphere: defaultAtmosphere(),
     instrument: D.instruments[0],
     style: styleForInstrument(D.instruments[0]),
     version: defaultVersion(),
@@ -215,6 +221,7 @@
     shareDisplayNameInput: $("shareDisplayNameInput"),
     shareChannelPassInput: $("shareChannelPassInput"),
     claimChannelBtn: $("claimChannelBtn"),
+    openClaimedChannelBtn: $("openClaimedChannelBtn"),
     shareStatus: $("shareStatus"),
     sharedWorksList: $("sharedWorksList"),
     sharedEmpty: $("sharedEmpty"),
@@ -301,10 +308,7 @@
   // --- 유틸 ---
 
   function hexToRgba(hex, alpha) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(hex)
-    if (!m) return hex
-    const n = parseInt(m[1], 16)
-    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + alpha + ")"
+    return StudioUtils.hexToRgba(hex, alpha)
   }
 
   function applyMoodTint() {
@@ -316,63 +320,39 @@
   }
 
   function round3(v) {
-    return Math.round(v * 1000) / 1000
+    return StudioUtils.round3(v)
   }
 
   function normalizeDuration(value) {
-    const n = Number(value)
-    return round3(Math.max(MIN_DURATION_SECONDS, isFinite(n) ? n : DEFAULT_DURATION_SECONDS))
+    return StudioUtils.normalizeDuration(value, { min: MIN_DURATION_SECONDS, fallback: DEFAULT_DURATION_SECONDS })
   }
 
   function secondsLabel(value) {
-    const n = round3(Math.max(0, Number(value) || 0))
-    const whole = Math.round(n)
-    if (Math.abs(n - whole) < 0.001) return whole + "초"
-    return n.toFixed(1).replace(/\.0$/, "") + "초"
+    return StudioUtils.secondsLabel(value)
   }
 
   function clampNumber(value, min, max) {
-    const n = parseFloat(value)
-    if (!isFinite(n)) return min
-    return Math.max(min, Math.min(max, n))
+    return StudioUtils.clampNumber(value, min, max)
   }
 
   function clampUnit(value) {
-    return Math.max(0, Math.min(1, Number(value) || 0))
+    return StudioUtils.clampUnit(value)
   }
 
   function cleanText(value, max) {
-    return String(value || "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, max)
+    return StudioUtils.cleanText(value, max)
   }
 
   function normalizePictureData(value) {
-    const data = String(value || "")
-    return /^data:image\/[a-z0-9.+-]+;base64,/i.test(data) ? data : ""
+    return StudioUtils.normalizePictureData(value)
   }
 
   function normalizeHashtags(value) {
-    const raw = Array.isArray(value) ? value.join(" ") : String(value || "")
-    const seen = {}
-    return raw
-      .split(/[\s,]+/)
-      .map((tag) => tag.replace(/^#+/, "").replace(/[^\w가-힣-]/g, "").trim())
-      .filter(Boolean)
-      .filter((tag) => {
-        const key = tag.toLowerCase()
-        if (seen[key]) return false
-        seen[key] = true
-        return true
-      })
-      .slice(0, 3)
+    return StudioUtils.normalizeHashtags(value)
   }
 
   function hashtagText(value) {
-    return normalizeHashtags(value)
-      .map((tag) => "#" + tag)
-      .join(" ")
+    return StudioUtils.hashtagText(value)
   }
 
   function paletteCount() {
@@ -455,37 +435,19 @@
   // 저장/공유용 다운샘플 — 절대 x(시간 위치)를 보존하도록 균등 인덱스로 솎는다.
   // (resampleByTime은 x를 0..1로 정규화해 부분 드로잉을 늘려버리므로 여기선 쓰지 않음)
   function simplifyPoints(points, maxPoints) {
-    if (!points || points.length <= maxPoints) {
-      return (points || []).map((p) => ({ x: round3(p.x), y: round3(p.y) }))
-    }
-    const out = []
-    const step = points.length / maxPoints
-    for (let i = 0; i < maxPoints; i++) {
-      const p = points[Math.floor(i * step)]
-      out.push({ x: round3(p.x), y: round3(p.y) })
-    }
-    const last = points[points.length - 1]
-    out.push({ x: round3(last.x), y: round3(last.y) })
-    return out
+    return StudioUtils.simplifyPoints(points, maxPoints)
   }
 
   function simplifyPath(path) {
-    if (!path || path.length < 2) return path ? path.slice() : []
-    return simplifyPoints(path, 120)
+    return StudioUtils.simplifyPath(path)
   }
 
   function simplifyStrokes(strokes) {
-    return (strokes || []).map((s) => simplifyPoints(s, 70)).filter((s) => s.length > 0)
+    return StudioUtils.simplifyStrokes(strokes)
   }
 
   function simplifyEffectStamps(stamps) {
-    return (stamps || [])
-      .filter((stamp) => stamp && D.effects[stamp.id])
-      .map((stamp) => ({
-        id: stamp.id,
-        x: round3(Math.max(0, Math.min(1, stamp.x || 0))),
-        y: round3(Math.max(0, Math.min(1, stamp.y == null ? 0.5 : stamp.y))),
-      }))
+    return StudioUtils.simplifyEffectStamps(stamps, D.effects)
   }
 
   function stampedEffectIds() {
@@ -782,7 +744,7 @@
     if (idx !== -1) D.atmospheres.splice(idx, 1)
     if (state.bgPreviewId === a.id) stopBackgroundPreview()
     if (state.atmosphere && state.atmosphere.id === a.id) {
-      state.atmosphere = D.atmospheres[0]
+      state.atmosphere = defaultAtmosphere()
       state.bgOffset = 0
       state.bgEndOffset = 0
       applyMoodTint()
@@ -826,17 +788,41 @@
   function buildUploadCard() {
     const card = document.createElement("div")
     card.className = "card upload-card"
-    card.innerHTML =
-      '<span class="upload-plus" aria-hidden="true">＋</span>' +
-      "<strong>여기에 음악 올리기</strong>" +
-      '<span class="upload-sub"><span>Pixabay에서 음악 찾기</span><span>mp3 · wav 올리기</span><span>50MB 이하</span></span>' +
-      '<span class="upload-actions">' +
-      '<a class="upload-action upload-action-secondary" href="' +
-      PIXABAY_MUSIC_URL +
-      '" target="_blank" rel="noopener noreferrer">여기서 찾아보기</a>' +
-      '<button class="upload-action upload-action-primary" type="button">내 배경 음원 추가</button>' +
-      "</span>"
-    const uploadButton = card.querySelector("button")
+    const plus = document.createElement("span")
+    plus.className = "upload-plus"
+    plus.setAttribute("aria-hidden", "true")
+    plus.textContent = "＋"
+    card.appendChild(plus)
+
+    const title = document.createElement("strong")
+    title.textContent = "여기에 음악 올리기"
+    card.appendChild(title)
+
+    const sub = document.createElement("span")
+    sub.className = "upload-sub"
+    ;["Pixabay에서 음악 찾기", "mp3 · wav 올리기", "50MB 이하"].forEach(function (text) {
+      const line = document.createElement("span")
+      line.textContent = text
+      sub.appendChild(line)
+    })
+    card.appendChild(sub)
+
+    const actions = document.createElement("span")
+    actions.className = "upload-actions"
+    const searchLink = document.createElement("a")
+    searchLink.className = "upload-action upload-action-secondary"
+    searchLink.href = PIXABAY_MUSIC_URL
+    searchLink.target = "_blank"
+    searchLink.rel = "noopener noreferrer"
+    searchLink.textContent = "여기서 찾아보기"
+    actions.appendChild(searchLink)
+
+    const uploadButton = document.createElement("button")
+    uploadButton.className = "upload-action upload-action-primary"
+    uploadButton.type = "button"
+    uploadButton.textContent = "내 배경 음원 추가"
+    actions.appendChild(uploadButton)
+    card.appendChild(actions)
     uploadButton.addEventListener("click", () => {
       window.alert(CUSTOM_BG_COPYRIGHT_NOTICE)
       el.bgUploadInput.click()
@@ -997,7 +983,9 @@
       b.type = "button"
       b.className = "version" + (v.id === state.version.id ? " active" : "")
       b.setAttribute("aria-pressed", v.id === state.version.id ? "true" : "false")
-      b.innerHTML = "<strong>" + v.label + "</strong>"
+      const label = document.createElement("strong")
+      label.textContent = v.label
+      b.appendChild(label)
       b.title = v.detail
       b.addEventListener("click", () => {
         state.version = v
@@ -1122,7 +1110,10 @@
     cdot.style.background = colorForInstrument(state.instrument.id)
     current.appendChild(cdot)
     const ctext = document.createElement("span")
-    ctext.innerHTML = "그릴 악기 <strong>" + state.instrument.label + "</strong>"
+    ctext.appendChild(document.createTextNode("그릴 악기 "))
+    const currentName = document.createElement("strong")
+    currentName.textContent = state.instrument.label
+    ctext.appendChild(currentName)
     current.appendChild(ctext)
     el.orchestraLegend.appendChild(current)
   }
@@ -1308,7 +1299,9 @@
       const d = document.createElement("div")
       d.className = "palette-label" + (index === times.length - 1 ? " palette-label-end" : "")
       d.style.left = Math.round(timelineCssX(time / duration)) + "px"
-      d.innerHTML = "<span>" + secondsLabel(time) + "</span>"
+      const label = document.createElement("span")
+      label.textContent = secondsLabel(time)
+      d.appendChild(label)
       el.paletteLabels.appendChild(d)
     })
   }
@@ -2554,7 +2547,7 @@
       : "드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요."
     el.takesCount.textContent = items.length ? items.length + "개" : ""
     items.forEach((t, idx) => {
-      const atmos = D.atmospheres.find((a) => a.id === t.recipe.atmosphere) || D.atmospheres[0]
+      const atmos = D.atmospheres.find((a) => a.id === t.recipe.atmosphere) || defaultAtmosphere()
       const wrap = document.createElement("div")
       wrap.className = "take" + (t.id === state.activeTakeId ? " active" : "")
       wrap.tabIndex = 0
@@ -2738,7 +2731,7 @@
     const loadedPicture = normalizePictureData(recipe && recipe.picture)
     if (loadedPicture) setPicture(loadedPicture, recipe.pictureName || "불러온 그림")
     state.duration = normalizeDuration(recipe.duration || DEFAULT_DURATION_SECONDS)
-    state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || D.atmospheres[0]
+    state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || defaultAtmosphere()
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
     state.style = styleForInstrument(state.instrument) // 음계는 악기 그룹을 따른다(서양=C장조, 국악=5음)
     state.version = defaultVersion()
@@ -2827,8 +2820,26 @@
     window.location.href = channelPageUrl(channel, workId)
   }
 
+  function hideOpenClaimedChannelButton() {
+    if (!el.openClaimedChannelBtn) return
+    el.openClaimedChannelBtn.hidden = true
+    delete el.openClaimedChannelBtn.dataset.channel
+  }
+
+  function showOpenClaimedChannelButton(channel) {
+    if (!el.openClaimedChannelBtn) return
+    const normalized = normalizeSharedChannel(channel)
+    if (!normalized) {
+      hideOpenClaimedChannelButton()
+      return
+    }
+    el.openClaimedChannelBtn.dataset.channel = normalized
+    el.openClaimedChannelBtn.hidden = false
+  }
+
   // 관리자(8624)로 채널을 만들거나, 내가 점유한 채널의 표시 이름·2차 비밀번호를 고친다.
   async function claimChannelFromForm() {
+    hideOpenClaimedChannelButton()
     if (!ShareStore || !ShareStore.claimChannel) {
       setShareMessage("공유 모듈을 불러오지 못했어요.", true)
       return
@@ -2854,8 +2865,8 @@
       setShareMessage(channel + " 채널을 만드는 중입니다.", false)
       const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: adminPin })
       if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
-      state.sharedChannel = channel
-      if (el.channelBrowseInput) el.channelBrowseInput.value = channel
+      syncShareInputs(channel)
+      showOpenClaimedChannelButton(channel)
       const name = (result.channel && result.channel.displayName) || displayName
       setShareMessage(
         (result.claimed === false ? channel + " 채널 설정을 저장했어요." : channel + " 채널을 만들었어요.") +
@@ -2891,7 +2902,7 @@
   }
 
   function sharedMetadata() {
-    const atmos = state.atmosphere || D.atmospheres[0]
+    const atmos = state.atmosphere || defaultAtmosphere()
     const inst = state.instrument || D.instruments[0]
     return {
       title: state.title || "무제",
@@ -4005,6 +4016,13 @@
     if (el.claimChannelBtn) {
       el.claimChannelBtn.addEventListener("click", claimChannelFromForm)
     }
+    if (el.openClaimedChannelBtn) {
+      el.openClaimedChannelBtn.addEventListener("click", () => openChannelPage(el.openClaimedChannelBtn.dataset.channel || ""))
+    }
+    const claimedChannelInputs = [el.shareAdminPinInput, el.claimChannelInput, el.shareDisplayNameInput, el.shareChannelPassInput]
+    claimedChannelInputs.forEach(function (input) {
+      if (input) input.addEventListener("input", hideOpenClaimedChannelButton)
+    })
 
     el.titleInput.addEventListener("input", () => {
       state.title = el.titleInput.value || "무제"

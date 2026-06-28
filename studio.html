@@ -110,7 +110,7 @@
               <div class="panel-head">
                 <div>
                   <p class="eyebrow">Draw the sound</p>
-                  <h2>그림 위에 소리를 그립니다</h2>
+                  <h2>소리를 디자인 합니다</h2>
                 </div>
                 <div class="panel-tools">
                   <div class="draw-mode-tabs" role="group" aria-label="드로잉 방식">
@@ -269,6 +269,7 @@
                 <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="채널 표시 이름 (예: 3반 봄 음악, 선택)" aria-label="채널 표시 이름" />
                 <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="2차 비밀번호 (숫자 4자리 이상)" aria-label="2차 비밀번호" />
                 <button class="btn primary" type="button" id="claimChannelBtn">채널 만들기 / 저장</button>
+                <button class="btn" type="button" id="openClaimedChannelBtn" hidden>방금 만든 채널 열기 →</button>
                 <p class="muted">관리자 PIN으로만 채널을 만들 수 있어요. 표시 이름과 2차 비밀번호를 정하면, 학생은 <strong>채널 번호 + 2차 비밀번호</strong>로 들어옵니다. 채널 번호(본질 주소)는 바뀌지 않아요.</p>
               </div>
             </details>
@@ -293,6 +294,7 @@
     <script src="./js/drawing.js?v=20260628-drawing-cursor"></script>
     <script src="./js/takes.js?v=20260627-take-title"></script>
     <script src="./js/share-store.js?v=20260628-channel-ui"></script>
-    <script src="./js/studio.js?v=20260628-channel-ui" defer></script>
+    <script src="./js/studio-utils.js?v=20260628-refactor"></script>
+    <script src="./js/studio.js?v=20260628-refactor" defer></script>
   </body>
 </html>

@@ -132,3 +132,30 @@ test("undo restores a stroke split by the eraser", () => {
   assert.deepEqual(plain(draw.getStrokes()), original)
   assert.deepEqual(plain(draw.getStrokeInstruments()), ["flute"])
 })
+
+test("eraser leaves same-line points more than half a second away", () => {
+  const DrawingCanvas = loadDrawing()
+  const canvas = makeCanvas()
+  const draw = new DrawingCanvas(canvas, {
+    activeInstrument: "flute",
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+  })
+
+  draw.setStrokes(
+    [
+      [
+        { x: 0.1, y: 0.5 },
+        { x: 0.5, y: 0.5 },
+        { x: 0.525, y: 0.5 },
+        { x: 0.8, y: 0.5 },
+      ],
+    ],
+    ["flute"],
+  )
+
+  assert.equal(draw._eraseAt({ x: 0.5, y: 0.5 }), true)
+
+  const xs = plain(draw.getPath()).map((point) => point.x)
+  assert.equal(xs.includes(0.5), false)
+  assert.equal(xs.includes(0.525), true)
+})

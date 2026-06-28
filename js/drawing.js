@@ -10,6 +10,8 @@
   const Core = root.MusicCore
   const TIMELINE_GRID_SECONDS = 2.5
   const PITCH_LABEL_GUTTER_CSS_PX = 56
+  const ERASER_PITCH_RADIUS = 0.035
+  const ERASER_TIME_RADIUS_SECONDS = 0.5
 
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v))
@@ -123,7 +125,11 @@
     this.hits = []
     this.isDrawing = false
     this.eraseMode = false // 지우개 모드
-    this.eraseRadius = 0.035 // 정규화 반경
+    this.eraseRadius = ERASER_PITCH_RADIUS // 세로 정규화 반경
+    const eraseTimeRadius = opts.eraseTimeRadiusSeconds != null ? Number(opts.eraseTimeRadiusSeconds) : NaN
+    this.eraseTimeRadiusSeconds = Number.isFinite(eraseTimeRadius)
+      ? Math.max(0.05, eraseTimeRadius)
+      : ERASER_TIME_RADIUS_SECONDS
     this.flowMode = false
     this.flowActive = false
     this.flowY = 0.5
@@ -388,7 +394,10 @@
 
   // 지우개: 커서 반경 안의 점을 지우고, 끊긴 구간은 별도 획으로 분리
   DrawingCanvas.prototype._eraseAt = function (p) {
-    const r2 = this.eraseRadius * this.eraseRadius
+    const st = this.getState ? this.getState() : null
+    const duration = Math.max(1, Number(st && st.duration) || 30)
+    const rx = Math.max(0.001, this.eraseTimeRadiusSeconds / duration)
+    const ry = Math.max(0.001, this.eraseRadius)
     const next = []
     const nextInst = []
     for (let si = 0; si < this.strokes.length; si++) {
@@ -398,7 +407,7 @@
       for (const pt of stroke) {
         const dx = pt.x - p.x
         const dy = pt.y - p.y
-        if (dx * dx + dy * dy <= r2) {
+        if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1) {
           if (cur.length >= 2) {
             next.push(cur)
             nextInst.push(inst)

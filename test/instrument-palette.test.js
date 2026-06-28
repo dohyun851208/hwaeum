@@ -218,3 +218,17 @@ test("레시피 링크 공유는 드로잉 단계에서 시작하고 완성 탭 
   assert.match(source, /state\.sharedRecipeLoaded = true/)
   assert.match(source, /const items = state\.sharedRecipeLoaded \? \[\] : takes\.list\(\)/)
 })
+
+test("step 2 default atmosphere selection is no background music", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const stateStart = source.indexOf("const state = {")
+  const stateEnd = source.indexOf("const bgPreview = new Audio()", stateStart)
+  const stateBlock = source.slice(stateStart, stateEnd)
+
+  assert.ok(stateStart >= 0)
+  assert.ok(stateEnd > stateStart)
+  assert.match(source, /const DEFAULT_ATMOSPHERE_ID = "none"/)
+  assert.match(source, /function defaultAtmosphere\(\)[\s\S]*DEFAULT_ATMOSPHERE_ID/)
+  assert.match(stateBlock, /atmosphere: defaultAtmosphere\(\)/)
+  assert.doesNotMatch(stateBlock, /atmosphere: D\.atmospheres\[0\]/)
+})
