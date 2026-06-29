@@ -19,11 +19,11 @@
     flute: 1.08,
     oboe: 1.03,
     clarinet: 0.91,
-    frenchHorn: 1.01,
+    frenchHorn: 1.3332,
     violin: 0.81,
-    viola: 2.1,
+    viola: 2.52,
     cello: 0.73,
-    doubleBass: 0.34,
+    doubleBass: 0.408,
     sogeum: 0.52,
     daegeum: 0.97,
     danso: 0.23,
@@ -1172,6 +1172,85 @@
     }
   }
 
+  function pluckedSampleTriggers(items, sequenceEnd, retriggerRepeated) {
+    const triggers = []
+    let lastMidi = null
+    ;(items || [])
+      .filter(function (item) {
+        return item && item.midi != null && isFinite(Number(item.time))
+      })
+      .slice()
+      .sort(function (a, b) {
+        return a.time - b.time
+      })
+      .forEach(function (item) {
+        const midi = Math.round(Number(item.midi))
+        if (!isFinite(midi)) return
+        const itemTime = clamp(Number(item.time) || 0, 0, Math.max(0, sequenceEnd))
+        if (!triggers.length || retriggerRepeated || midi !== lastMidi) {
+          triggers.push(Object.assign({}, item, { time: itemTime, midi: midi }))
+          lastMidi = midi
+        }
+      })
+    return triggers
+  }
+
+  function schedulePluckedSampleSequence(ctx, dest, plan, items, instBuffers, start, sequenceEnd, register, options) {
+    options = options || {}
+    const asset = plan.melodyAsset
+    const buffer = instBuffers.melody
+    const sampleBuffers = instBuffers.melodySamples
+    const multi = isMultiSample(asset)
+    const triggers = pluckedSampleTriggers(items, sequenceEnd, !!options.retriggerRepeated)
+    const minEnvDuration = options.minEnvDuration || STROKE_TAP_SECONDS
+    for (let i = 0; i < triggers.length; i++) {
+      const item = triggers[i]
+      const next = triggers[i + 1]
+      const eventStart = clamp(Number(item.time) || 0, 0, sequenceEnd)
+      let eventEnd = next ? next.time : sequenceEnd
+      if (item.duration != null && isFinite(Number(item.duration))) {
+        eventEnd = Math.min(eventEnd, eventStart + Math.max(0, Number(item.duration)))
+      }
+      const eventDuration = Math.max(0.03, eventEnd - eventStart)
+      const envDuration = Math.max(eventDuration, minEnvDuration)
+      const when = start + eventStart
+      const segment = nearestSampleSegment(asset, item.midi)
+      const srcBuffer = multi ? sampleBufferFor(sampleBuffers, segment, buffer) : buffer
+      if (!srcBuffer) continue
+      const baseRate = segmentPlaybackRate(asset, item.midi, segment)
+      const fallbackOffset = 0
+      const sourceBounds = multi ? { offset: 0, duration: audioBufferDuration(srcBuffer) } : sampleSegmentBounds(srcBuffer, segment, fallbackOffset)
+      const offset = sourceBounds.offset
+      const usableSourceDur = sourceBounds.duration
+      if (!(usableSourceDur > 0.01)) continue
+
+      const src = ctx.createBufferSource()
+      const env = ctx.createGain()
+      const velocity = item.velocity == null ? 0.7 : item.velocity
+      const srcPlaySeconds = Math.max(eventDuration + 0.18, minEnvDuration)
+      src.buffer = srcBuffer
+      src.playbackRate.setValueAtTime(baseRate, when)
+      applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, velocity * 0.85), when, envDuration, 0.012, plan)
+      connectGugakSampleTone(ctx, src, env, plan, when)
+      const noteGain = connectMelodyEnv(ctx, env, dest, plan, [item], start, when, 0.001)
+
+      try {
+        const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, offset, Math.min(usableSourceDur, srcPlaySeconds * baseRate + 0.02)))
+        src.start(when, safeBufferOffset(src.buffer, offset), srcDur)
+        src.stop(when + srcPlaySeconds + 0.05)
+        register(src)
+      } catch (e) {
+        warnScheduleFallback("pluck sample start failed", e, {
+          instrument: plan.instrument && plan.instrument.id,
+          offset: offset,
+          sourceDuration: usableSourceDur,
+          bufferDuration: audioBufferDuration(src.buffer),
+        })
+        disconnectQuietly(src, env, noteGain)
+      }
+    }
+  }
+
   AudioEngine.prototype.scheduleSampleStrokes = function (ctx, dest, plan, strokeSegments, instBuffers, start, register) {
     const asset = plan.melodyAsset
     const buffer = instBuffers.melody
@@ -1182,6 +1261,10 @@
     const attackSeconds = 0.035
     for (const stroke of strokeSegments || []) {
       if (!stroke || !stroke.events || !stroke.events.length) continue
+      if (isGayageumPlan(plan)) {
+        schedulePluckedSampleSequence(ctx, dest, plan, stroke.events, instBuffers, start, stroke.end, register)
+        continue
+      }
       const first = stroke.events[0]
       const phraseStart = start + stroke.start
       const phraseDuration = Math.max(0.03, stroke.duration)
@@ -1243,6 +1326,15 @@
     const samplePhrase = asset.sampleMode === "phrase"
     const glideSeconds = noteGlideSeconds(plan)
     const attackSeconds = phraseAttackSeconds(plan)
+    if (isGayageumPlan(plan)) {
+      const phrases = contiguousPhrases(notes)
+      for (const phraseNotes of phrases) {
+        schedulePluckedSampleSequence(ctx, dest, plan, phraseNotes, instBuffers, start, phraseEnd(phraseNotes), register, {
+          retriggerRepeated: true,
+        })
+      }
+      return
+    }
     if (multi) {
       const phrases = contiguousPhrases(notes)
       for (const phraseNotes of phrases) {

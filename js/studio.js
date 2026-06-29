@@ -23,6 +23,7 @@
   const PICTURE_NAME_MAX = 80
   const RECIPE_PICTURE_MAX_EDGE = 960
   const RECIPE_PICTURE_JPEG_QUALITY = 0.82
+  const SOUND_STEP = 1
   const DRAWING_STEP = 2
   const COMPLETE_STEP = 3
   const SHARE_STEP = 4
@@ -144,7 +145,7 @@
     renderInstruments()
   })
 
-  const AUDIO_MODE_READY = "실제 음원을 우선 사용하고, 없으면 합성음으로 대체합니다. 국악 음원 출처: 국립국악원."
+  const AUDIO_MODE_CREDIT = "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시)"
 
   const $ = (id) => document.getElementById(id)
   const el = {
@@ -537,16 +538,17 @@
       .warmInstrument(buildRecipe())
       .then(function (buffer) {
         if (!asset || !asset.src) return
-        if (buffer) {
-          el.audioModeNote.textContent = AUDIO_MODE_READY
-        } else {
-          el.audioModeNote.textContent =
-            "⚠ 실제 악기 음원을 불러오지 못해 합성음으로 들려요. 파일을 더블클릭(file://)하지 말고 서버(VS Code Live Server 또는 npm run serve)로 열면 실제 악기 소리가 납니다. 국악 음원 출처: 국립국악원."
-        }
+        if (!buffer) console.warn("악기 샘플을 불러오지 못해 합성음으로 대체합니다.")
       })
       .catch(function (e) {
         console.warn("악기 샘플 준비 실패", e)
       })
+  }
+
+  function syncAudioModeNote() {
+    if (!el.audioModeNote) return
+    el.audioModeNote.textContent = AUDIO_MODE_CREDIT
+    el.audioModeNote.hidden = state.step !== SOUND_STEP
   }
 
   function instrumentParticle(label) {
@@ -1317,12 +1319,28 @@
     if (typeof draw.pitchLabelGutterCssPx === "function") {
       el.pitchLabels.style.setProperty("--pitch-label-width", Math.round(draw.pitchLabelGutterCssPx()) + "px")
     }
+    const axisRect =
+      el.pitchLabels && typeof el.pitchLabels.getBoundingClientRect === "function"
+        ? el.pitchLabels.getBoundingClientRect()
+        : null
+    const axisHeight = Math.round(el.pitchLabels.clientHeight || el.canvas.clientHeight || (axisRect && axisRect.height) || 0)
+    const axisY = function (percent) {
+      if (!(axisHeight > 0)) return null
+      return Math.round(((Number(percent) || 0) / 100) * axisHeight)
+    }
     rows.forEach((row) => {
       if (row.rowTop == null || row.rowHeight == null) return
       const d = document.createElement("span")
       d.className = "pitch-label-row" + (row.selected ? " selected" : "") + (!row.label ? " silent" : "")
-      d.style.top = row.rowTop + "%"
-      d.style.height = row.rowHeight + "%"
+      const rowTop = axisY(row.rowTop)
+      const rowBottom = axisY(row.rowBottom != null ? row.rowBottom : row.rowTop + row.rowHeight)
+      if (rowTop != null && rowBottom != null) {
+        d.style.top = rowTop + "px"
+        d.style.height = Math.max(1, rowBottom - rowTop) + "px"
+      } else {
+        d.style.top = row.rowTop + "%"
+        d.style.height = row.rowHeight + "%"
+      }
       el.pitchLabels.appendChild(d)
     })
     rows.forEach((label) => {
@@ -1333,7 +1351,8 @@
         (label.selected ? " selected" : "") +
         (label.top <= 0 ? " edge-high" : "") +
         (label.top >= 100 ? " edge-low" : "")
-      d.style.top = label.top + "%"
+      const labelTop = axisY(label.top)
+      d.style.top = labelTop != null ? labelTop + "px" : label.top + "%"
       d.textContent = label.label
       el.pitchLabels.appendChild(d)
     })
@@ -1372,21 +1391,54 @@
     }
   }
 
+  function instrumentLabelById(id) {
+    const inst = D.instruments.find((i) => i.id === id)
+    return inst ? inst.label : id
+  }
+
+  function joinedInstrumentLabels(ids) {
+    return (ids || [])
+      .map(instrumentLabelById)
+      .filter(Boolean)
+      .join(", ")
+  }
+
+  function usedInstrumentIdsForRecipe(recipe) {
+    const source = recipe || {}
+    const fallbackId = source.instrument || (state.instrument && state.instrument.id) || (D.instruments[0] && D.instruments[0].id)
+    const ids = []
+
+    const add = function (id) {
+      const realId = id || fallbackId
+      if (ids.indexOf(realId) === -1) ids.push(realId)
+    }
+
+    const strokes = Array.isArray(source.strokes) ? source.strokes : []
+    const strokeInsts = Array.isArray(source.strokeInstruments) ? source.strokeInstruments : []
+    if (strokes.length) {
+      strokes.forEach((stroke, index) => {
+        if (Array.isArray(stroke) && stroke.length) add(strokeInsts[index])
+      })
+    } else {
+      strokeInsts.forEach(add)
+    }
+
+    if (!ids.length) add(fallbackId)
+    return ids
+  }
+
+  function usedInstrumentLabelsForRecipe(recipe) {
+    return joinedInstrumentLabels(usedInstrumentIdsForRecipe(recipe))
+  }
+
   // 곡에 실제로 쓰인 악기 이름(중복 제거). 그린 줄이 없으면 현재 선택 악기.
   function usedInstrumentLabels() {
-    const ids = []
-    const strokeInsts = typeof draw.getStrokeInstruments === "function" ? draw.getStrokeInstruments() : []
-    strokeInsts.forEach((id) => {
-      const realId = id || state.instrument.id
-      if (ids.indexOf(realId) === -1) ids.push(realId)
-    })
-    if (!ids.length) ids.push(state.instrument.id)
-    return ids
-      .map((id) => {
-        const inst = D.instruments.find((i) => i.id === id)
-        return inst ? inst.label : id
-      })
-      .join(", ")
+    const recipe = {
+      instrument: state.instrument.id,
+      strokes: typeof draw.getStrokes === "function" ? draw.getStrokes() : [],
+      strokeInstruments: typeof draw.getStrokeInstruments === "function" ? draw.getStrokeInstruments() : [],
+    }
+    return usedInstrumentLabelsForRecipe(recipe)
   }
 
   function syncReflectionInputs() {
@@ -2568,11 +2620,10 @@
       window.TakesStore.renderThumbnail(cv, t.recipe, atmos.color)
       const meta = document.createElement("div")
       meta.className = "take-meta"
-      const instObj = D.instruments.find((i) => i.id === t.recipe.instrument) || D.instruments[0]
       renderTakeName(meta, t, idx + 1)
       const detail = document.createElement("span")
       detail.className = "take-detail"
-      detail.textContent = atmos.label + " · " + instObj.label + " · " + secondsLabel(t.recipe.duration)
+      detail.textContent = atmos.label + " · " + usedInstrumentLabelsForRecipe(t.recipe) + " · " + secondsLabel(t.recipe.duration)
       meta.appendChild(detail)
       const tools = document.createElement("div")
       tools.className = "take-tools"
@@ -2901,9 +2952,9 @@
     target.classList.toggle("error", !!error)
   }
 
-  function sharedMetadata() {
+  function sharedMetadata(recipe) {
     const atmos = state.atmosphere || defaultAtmosphere()
-    const inst = state.instrument || D.instruments[0]
+    const instrumentLabel = recipe ? usedInstrumentLabelsForRecipe(recipe) : usedInstrumentLabels()
     return {
       title: state.title || "무제",
       composerName: cleanText(state.composerName, COMPOSER_NAME_MAX),
@@ -2911,7 +2962,7 @@
       melodyIntent: cleanText(state.melodyIntent, 180),
       hashtags: normalizeHashtags(state.hashtags),
       atmosphereLabel: atmos.label,
-      instrumentLabel: inst.label,
+      instrumentLabel: instrumentLabel,
       duration: state.duration,
       coverHasEmbeddedPlay: false,
     }
@@ -2966,6 +3017,19 @@
     const d = new Date(value || "")
     if (!isFinite(d.getTime())) return ""
     return d.toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+  }
+
+  function sharedViewerMetaText(work) {
+    const meta = (work && work.metadata) || {}
+    const uploadedAt = formatSharedDate(work && work.createdAt)
+    const description = [meta.atmosphereLabel, meta.instrumentLabel, secondsLabel(meta.duration || 30)].filter(Boolean).join(" · ")
+    return [
+      meta.composerName ? "작곡가 " + cleanText(meta.composerName, COMPOSER_NAME_MAX) : "작곡가 이름 없음",
+      description,
+      uploadedAt ? "업로드 " + uploadedAt : "업로드 시간 없음",
+    ]
+      .filter(Boolean)
+      .join("\n")
   }
 
   const sharedViewer = {
@@ -3111,15 +3175,7 @@
     viewer.cover.src = coverUrl
     viewer.cover.alt = title + " 표지"
     viewer.title.textContent = title
-    viewer.meta.textContent = [
-      meta.composerName ? "작곡가 " + meta.composerName : "",
-      meta.atmosphereLabel,
-      meta.instrumentLabel,
-      secondsLabel(meta.duration || 30),
-      formatSharedDate(work.createdAt),
-    ]
-      .filter(Boolean)
-      .join(" · ")
+    viewer.meta.textContent = sharedViewerMetaText(work)
     optionalViewerText(viewer.background, "배경", meta.backgroundReason)
     optionalViewerText(viewer.melody, "선율", meta.melodyIntent)
     if (meta.hashtags && meta.hashtags.length) {
@@ -3311,7 +3367,7 @@
     const pass = passArg != null ? ShareStore.cleanPin(passArg) : ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
     syncShareInputs(channel)
     const recipe = buildRecipe()
-    const metadata = sharedMetadata()
+    const metadata = sharedMetadata(recipe)
     const publishButton = el.publishShareBtn
     if (publishButton) publishButton.disabled = true
     try {
@@ -3829,6 +3885,7 @@
     const nextStep = Math.max(0, Math.min(screens.length - 1, i))
     state.step = nextStep
     el.body.dataset.step = String(state.step)
+    syncAudioModeNote()
     screens.forEach((s, idx) => {
       const on = idx === state.step
       s.classList.toggle("active", on)

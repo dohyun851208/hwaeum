@@ -125,6 +125,9 @@ p {
   align-items: center;
   gap: 10px;
 }
+body:not([data-step="2"]) .transport {
+  display: none;
+}
 .status-pill {
   position: relative;
   display: inline-flex;
@@ -410,6 +413,9 @@ p {
   grid-template-columns: minmax(0, 1.4fr) minmax(240px, 1fr);
   gap: 22px;
   align-items: start;
+}
+.setup-grid.picture-only {
+  grid-template-columns: minmax(0, 1fr);
 }
 .dropframe {
   position: relative;
@@ -1782,6 +1788,10 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   overflow-wrap: anywhere;
 }
 
+.channel-viewer-meta {
+  white-space: pre-line;
+}
+
 .channel-viewer-audio {
   width: 100%;
   margin: 4px 0 2px;
@@ -2772,16 +2782,46 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   justify-content: start;
 }
 
-/* Step 5 — 채널 열기: 붙은 검색바 + 접이식 관리자 입력 */
+/* Step 5 — 채널 열기: 학생 입장과 관리자 채널 만들기를 같은 비중으로 보여준다. */
 .share-gate {
   display: grid;
+  gap: 14px;
+}
+.channel-gate-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  width: 100%;
+}
+.channel-gate-card {
+  display: grid;
+  align-content: start;
   gap: 12px;
-  justify-items: start;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 250, 242, 0.8);
+}
+.channel-gate-card-head {
+  display: grid;
+  gap: 3px;
+}
+.channel-gate-card-head .eyebrow {
+  margin: 0;
+}
+.channel-gate-card h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.28rem;
+  line-height: 1.2;
 }
 .channel-open-bar {
   display: inline-flex;
   align-items: center;
-  width: min(100%, 420px);
+  width: 100%;
   padding: 5px 5px 5px 14px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
@@ -2833,37 +2873,13 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .channel-open-go:active {
   transform: translateY(0) scale(0.98);
 }
-.channel-admin-toggle {
-  width: min(100%, 420px);
-}
-.channel-admin-toggle > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 2px 2px 4px;
-  color: var(--muted);
-  font-size: 0.86rem;
-  font-weight: 800;
-  list-style: none;
-  cursor: pointer;
-}
-.channel-admin-toggle > summary::-webkit-details-marker {
-  display: none;
-}
-.channel-admin-toggle > summary::before {
-  content: "▸";
-  font-size: 0.72rem;
-}
-.channel-admin-toggle[open] > summary::before {
-  content: "▾";
-}
-.channel-admin-toggle-body {
+.channel-admin-form {
   display: grid;
-  gap: 6px;
-  padding: 8px 0 2px 4px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
 }
-.channel-admin-toggle-body input {
-  width: 200px;
+.channel-admin-form input {
+  width: 100%;
   height: 40px;
   padding: 0 12px;
   border: 1px solid var(--line-strong);
@@ -2874,17 +2890,18 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   font-weight: 800;
   letter-spacing: 0.08em;
 }
-.channel-admin-toggle-body input:focus {
+.channel-admin-form input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-.channel-admin-toggle-body .muted {
+.channel-admin-form .muted {
+  grid-column: 1 / -1;
   margin: 0;
   font-size: 0.8rem;
 }
 .channel-claim-form button {
-  width: 200px;
+  width: 100%;
 }
 .channel-claim-form #shareDisplayNameInput {
   letter-spacing: normal;
@@ -3095,6 +3112,9 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   font-size: 0.92rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+.shared-viewer-meta {
+  white-space: pre-line;
 }
 .shared-viewer-audio {
   width: 100%;

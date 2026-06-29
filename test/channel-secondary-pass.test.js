@@ -6,6 +6,22 @@ const test = require("node:test")
 const projectDir = path.resolve(__dirname, "..")
 const utils = require(path.join(projectDir, "api", "share", "_utils.cjs"))
 
+function functionBody(source, name) {
+  const marker = "function " + name + "("
+  const start = source.indexOf(marker)
+  assert.notEqual(start, -1, name + " should exist")
+  const open = source.indexOf("{", start)
+  let depth = 0
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === "{") depth += 1
+    else if (source[i] === "}") {
+      depth -= 1
+      if (depth === 0) return source.slice(open + 1, i)
+    }
+  }
+  throw new Error("Could not parse function body for " + name)
+}
+
 test("cleanPin keeps digits only and caps length", () => {
   assert.equal(utils.cleanPin("12a3-4 5"), "12345")
   assert.equal(utils.cleanPin("0000"), "0000")
@@ -71,9 +87,31 @@ test("share-store exposes channel claim + pass-aware listing", () => {
 test("share + channel pages carry the 2차 비밀번호 UI", () => {
   const studio = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
+  const styles = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+
+  assert.match(studio, /채널을 열어 그림 음악을 감상합니다\./)
+  assert.match(studio, /채널 번호를 입력하면 같은 채널에 모인 그림 음악이 갤러리처럼 펼쳐집니다\./)
+  assert.doesNotMatch(studio, /채널을 열면 선생님이 알려 준 2차 비밀번호/)
+  assert.match(studio, /관리자 채널 만들기/)
+  assert.match(studio, /class="channel-gate-grid"/)
   assert.match(studio, /id="claimChannelBtn"/)
   assert.match(studio, /id="shareChannelPassInput"/)
   assert.match(studio, /id="shareDisplayNameInput"/)
+  assert.match(styles, /\.channel-gate-grid\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/)
   assert.match(channelHtml, /id="channelGate"/)
   assert.match(channelHtml, /id="channelGateInput"/)
+})
+
+test("channel page opens locked channels only after the gate password is typed", () => {
+  const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+  const loadChannelBody = functionBody(channel, "loadChannel")
+  const submitGatePassBody = functionBody(channel, "submitGatePass")
+  const openInputChannelBody = functionBody(channel, "openInputChannel")
+
+  assert.doesNotMatch(loadChannelBody, /ShareStore\.loadPass/)
+  assert.match(loadChannelBody, /options\.pass != null/)
+  assert.match(loadChannelBody, /ShareStore\.listChannel\(normalized, state\.pass\)/)
+  assert.doesNotMatch(submitGatePassBody, /rememberPass/)
+  assert.match(submitGatePassBody, /loadChannel\(state\.channel, \{ pass: pin \}\)/)
+  assert.match(openInputChannelBody, /state\.pass = ""/)
 })

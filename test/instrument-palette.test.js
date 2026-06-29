@@ -48,6 +48,27 @@ test("서양 악기는 관악기와 현악기로 나누어 보여준다", () => 
   })
 })
 
+test("악기 카드 설명 문구는 수업용 표현을 사용한다", () => {
+  const data = loadManifest()
+  const details = Object.fromEntries(data.instruments.map((instrument) => [instrument.id, instrument.detail]))
+
+  assert.deepEqual(details, {
+    flute: "가볍고 투명한 소리",
+    oboe: "애잔하고 맑은 소리",
+    clarinet: "둥글고 부드러운 소리",
+    frenchHorn: "웅장하고 포근한 소리",
+    violin: "선명하고 화려한 소리",
+    viola: "차분하고 은은한 소리",
+    cello: "깊고 풍부한 소리",
+    doubleBass: "낮고 묵직한 소리",
+    sogeum: "청아한 소리",
+    daegeum: "깊게 울리는 소리",
+    danso: "고요한 소리",
+    haegeum: "애절한 소리",
+    gayageum: "맑게 뜯는 소리",
+  })
+})
+
 test("국악 악기는 요청한 다섯 악기만 지정 순서로 보여준다", () => {
   const data = loadManifest()
 
@@ -138,10 +159,12 @@ test("배경음악 구간 선택은 src가 있는 배경 음원에 열린다", (
 test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
   assert.doesNotMatch(html, /id="composePlay"/)
   assert.doesNotMatch(source, /composePlay/)
   assert.match(html, /id="playBtn"[\s\S]*aria-label="전체곡 재생"/)
+  assert.match(css, /body:not\(\[data-step="2"\]\) \.transport[\s\S]*display:\s*none/)
 })
 
 test("완성 화면 그림에는 재생 버튼이 있고 음악 저장은 WebM만 사용한다", () => {
@@ -231,4 +254,18 @@ test("step 2 default atmosphere selection is no background music", () => {
   assert.match(source, /function defaultAtmosphere\(\)[\s\S]*DEFAULT_ATMOSPHERE_ID/)
   assert.match(stateBlock, /atmosphere: defaultAtmosphere\(\)/)
   assert.doesNotMatch(stateBlock, /atmosphere: D\.atmospheres\[0\]/)
+})
+
+test("국악 음원 출처 표기는 2단계에서만 보인다", () => {
+  const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const expected = "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시)"
+
+  assert.match(html, new RegExp('<span class="muted" id="audioModeNote" hidden>' + expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "</span>"))
+  assert.match(source, /const SOUND_STEP = 1/)
+  assert.match(source, /function syncAudioModeNote\(\)/)
+  assert.match(source, /el\.audioModeNote\.hidden = state\.step !== SOUND_STEP/)
+  assert.match(source, /state\.step = nextStep[\s\S]*syncAudioModeNote\(\)/)
+  assert.doesNotMatch(html + source, /실제 음원을 우선 사용하고/)
+  assert.doesNotMatch(html + source, /국악 음원 출처: 국립국악원\./)
 })

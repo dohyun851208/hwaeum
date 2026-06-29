@@ -244,17 +244,38 @@
     return cleanText((work && work.title) || meta.title || "무제", 80)
   }
 
+  function workDescriptionLine(work) {
+    const meta = (work && work.metadata) || {}
+    return [
+      cleanText(meta.atmosphereLabel, 32),
+      cleanText(meta.instrumentLabel, 72),
+      secondsLabel(meta.duration || 30),
+    ]
+      .filter(Boolean)
+      .join(" · ")
+  }
+
   function workMetaLine(work) {
     const meta = (work && work.metadata) || {}
     return [
       meta.composerName ? "작곡가 " + cleanText(meta.composerName, 24) : "",
-      cleanText(meta.atmosphereLabel, 32),
-      cleanText(meta.instrumentLabel, 32),
-      secondsLabel(meta.duration || 30),
+      workDescriptionLine(work),
       formatDate(work && work.createdAt),
     ]
       .filter(Boolean)
       .join(" · ")
+  }
+
+  function workViewerMetaText(work) {
+    const meta = (work && work.metadata) || {}
+    const uploadedAt = formatDate(work && work.createdAt)
+    return [
+      meta.composerName ? "작곡가 " + cleanText(meta.composerName, 24) : "작곡가 이름 없음",
+      workDescriptionLine(work),
+      uploadedAt ? "업로드 " + uploadedAt : "업로드 시간 없음",
+    ]
+      .filter(Boolean)
+      .join("\n")
   }
 
   function coverUrl(work, large) {
@@ -622,9 +643,14 @@
 
     const channelChanged = normalized !== state.channel
     state.channel = normalized
-    if (channelChanged) state.flowIndex = 0
+    if (channelChanged) {
+      state.flowIndex = 0
+      state.pass = ""
+    }
+    if (options.pass != null) {
+      state.pass = ShareStore.cleanPin ? ShareStore.cleanPin(options.pass) : String(options.pass || "").replace(/\D/g, "").slice(0, 12)
+    }
     state.loading = true
-    state.pass = ShareStore.loadPass ? ShareStore.loadPass(normalized) : ""
     renderShelves()
     setStatus(normalized + " 채널을 불러오는 중입니다.", false)
     try {
@@ -662,9 +688,8 @@
       setStatus("2차 비밀번호(숫자)를 넣어 주세요.", true)
       return
     }
-    if (ShareStore && ShareStore.rememberPass) ShareStore.rememberPass(state.channel, pin)
     state.openedFromHash = false
-    loadChannel(state.channel)
+    loadChannel(state.channel, { pass: pin })
   }
 
   async function renameChannel() {
@@ -735,7 +760,7 @@
     el.viewerCover.src = coverUrl(work, true)
     el.viewerCover.alt = workTitle(work) + " 표지"
     el.viewerTitle.textContent = workTitle(work)
-    el.viewerMeta.textContent = workMetaLine(work)
+    el.viewerMeta.textContent = workViewerMetaText(work)
     setOptionalText(el.viewerBackground, "배경", meta.backgroundReason)
     setOptionalText(el.viewerMelody, "선율", meta.melodyIntent)
     const tags = tagsText(meta.hashtags)
@@ -809,6 +834,7 @@
     }
     state.openedFromHash = false
     state.flowIndex = 0
+    state.pass = ""
     history.pushState(null, "", channelUrl(channel, ""))
     loadChannel(channel, { updateUrl: false })
   }

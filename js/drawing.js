@@ -17,9 +17,9 @@
     return Math.max(lo, Math.min(hi, v))
   }
 
-  const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-  // 음 이름만 반환(옥타브 숫자 없음). 악기마다 음역대가 달라 적힌 옥타브 숫자가
-  // 실제 들리는 소리와 어긋날 수 있어, 축 라벨에는 음 이름만 표시한다.
+  const NOTE_NAMES = ["도", "도#", "레", "레#", "미", "파", "파#", "솔", "솔#", "라", "라#", "시"]
+  // 계이름만 반환(옥타브 숫자 없음). 악기마다 음역대가 달라 적힌 옥타브 숫자가
+  // 실제 들리는 소리와 어긋날 수 있어, 축 라벨에는 계이름만 표시한다.
   function noteLetter(midi) {
     return NOTE_NAMES[((midi % 12) + 12) % 12]
   }
@@ -29,7 +29,7 @@
     return (Core.drawableScale || Core.buildScale)(style, asset)
   }
 
-  // 축 라벨에 쓸 음 이름. 악기 transpose 를 반영하되 옥타브 숫자는 떼고 음 이름만 보여준다.
+  // 축 라벨에 쓸 계이름. 악기 transpose 를 반영하되 옥타브 숫자는 떼고 계이름만 보여준다.
   // (악기마다 음역대가 달라 옥타브 숫자가 실제 소리와 어긋날 수 있어서. 높은 음=위, 낮은 음=아래는 그대로.)
   function soundingLabel(midi, asset) {
     const tr = asset && asset.playbackTranspose ? asset.playbackTranspose : 0

@@ -130,7 +130,10 @@ check("스타일 선택 카드 제거", qc("#styleGrid") === 0, qc("#styleGrid")
 check("연주 형태 토글 제거", qc("[data-mode]") === 0, qc("[data-mode]"))
 check("믹스 선택 UI 제거", qc("#versionList") === 0 && !window.document.body.textContent.includes("믹스"), qc("#versionList"))
 check("단계 탭 5개", qc("[data-step-jump]") === 5)
-check("국악 음원 출처 표기", window.document.getElementById("audioModeNote").textContent.includes("국립국악원"))
+check(
+  "국악 음원 출처 표기",
+  window.document.getElementById("audioModeNote").textContent.trim() === "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시)",
+)
 check("드로잉 참고 그림 영역 존재", qc("#drawingReferenceImg") === 1, qc("#drawingReferenceImg"))
 
 const picInput = window.document.getElementById("picInput")

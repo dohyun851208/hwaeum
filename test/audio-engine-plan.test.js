@@ -497,6 +497,39 @@ test("gayageum sample playback does not apply a sustained sample loop", () => {
   )
 })
 
+test("gayageum connected sample notes retrigger each plucked pitch", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [
+      { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
+      { time: 0.5, duration: 0.5, midi: 62, velocity: 0.7 },
+      { time: 1, duration: 0.5, midi: 64, velocity: 0.7 },
+    ],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, {
+    sampleMode: "phrase",
+    sampleMap: [
+      { midi: 60, offset: 0.1, duration: 0.5, cents: 0 },
+      { midi: 62, offset: 0.6, duration: 0.5, cents: 0 },
+      { midi: 64, offset: 1.1, duration: 0.5, cents: 0 },
+    ],
+  })
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
+
+  assert.equal(ctx.created.buffers.length, 3)
+  assert.deepEqual(ctx.created.buffers.map((source) => source.startCalls[0][0]), [0, 0.5, 1])
+  assert.deepEqual(ctx.created.buffers.map((source) => source.startCalls[0][1]), [0.1, 0.6, 1.1])
+  ctx.created.buffers.forEach((source) => {
+    assert.equal(source.loop, false)
+    assert.equal(source.playbackRate.events.some((event) => event[0] === "target"), false)
+  })
+})
+
 test("gugak multi-sample long horizontal notes loop the stable region of the sample", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
@@ -1118,11 +1151,11 @@ test("선율 gain은 서양 기준과 악기별 음량 보정을 함께 적용�
   assert.ok(hasGain(fluteValues, 1.68 * 1.5 * 1.08), "flute gain follows measured instrument loudness calibration")
   assert.ok(hasGain(oboeValues, 1.68 * 1.5 * 1.03), "oboe gain follows measured instrument loudness calibration")
   assert.ok(hasGain(clarinetValues, 1.68 * 1.5 * 0.91), "clarinet gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(frenchHornValues, 1.68 * 1.5 * 1.01), "french horn gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(frenchHornValues, 1.68 * 1.5 * 1.3332), "french horn gain follows measured instrument loudness calibration")
   assert.ok(hasGain(violinValues, 1.68 * 1.5 * 0.81), "violin is the reference calibrated instrument gain")
-  assert.ok(hasGain(violaValues, 1.68 * 1.5 * 2.1), "viola gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(violaValues, 1.68 * 1.5 * 2.52), "viola gain follows measured instrument loudness calibration")
   assert.ok(hasGain(celloValues, 1.68 * 1.5 * 0.73), "cello gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(doubleBassValues, 1.68 * 1.5 * 0.34), "double bass gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(doubleBassValues, 1.68 * 1.5 * 0.408), "double bass gain follows measured instrument loudness calibration")
   assert.ok(hasGain(sogeumValues, 1.68 * 0.52), "sogeum gain follows measured instrument loudness calibration")
   assert.ok(hasGain(daegeumValues, 1.68 * 0.97), "daegeum gain follows measured instrument loudness calibration")
   assert.ok(hasGain(dansoValues, 1.68 * 0.23), "danso gain follows measured instrument loudness calibration")
@@ -1147,7 +1180,8 @@ test("gayageum note-level gain does not boost plucked sample rows", () => {
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
   const gainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
-  assert.equal(ctx.created.gains.length, 1, "가야금 샘플 재생에는 줄별 증폭 gain 노드를 추가하지 않는다")
+  assert.equal(ctx.created.buffers.length, 2, "gayageum retriggers each plucked note as a separate sample source")
+  assert.equal(ctx.created.gains.length, ctx.created.buffers.length, "gayageum does not add extra note-level gain nodes")
   assert.equal(
     gainEvents.some((event) => event[0] === "set" && Math.abs(event[1] - 1.413) < 1e-9),
     false,
@@ -1541,6 +1575,55 @@ test("짧게 그린 획도 라이브처럼 지속음(loop)으로 이어진다 �
   const rateEvents = ctx.created.buffers[0].playbackRate.events
   assert.equal(rateEvents.filter((event) => event[0] === "set").length, 1)
   assert.ok(rateEvents.some((event) => event[0] === "target"), "음 변화는 playbackRate 글라이드여야 한다")
+})
+
+test("gayageum stroke playback retriggers pitch changes instead of gliding one decayed pluck", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "gayageum", style: "gugak", version: "balanced", mode: "melody" },
+    [],
+  )
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, {
+    sampleMode: "phrase",
+    sampleMap: [
+      { midi: 60, offset: 0.1, duration: 0.5, cents: 0 },
+      { midi: 62, offset: 0.6, duration: 0.5, cents: 0 },
+      { midi: 64, offset: 1.1, duration: 0.5, cents: 0 },
+    ],
+  })
+
+  engine.scheduleSampleStrokes(
+    ctx,
+    dest,
+    plan,
+    [
+      {
+        start: 0,
+        end: 1.2,
+        duration: 1.2,
+        events: [
+          { time: 0, midi: 60, uiMidi: 60 },
+          { time: 0.25, midi: 60, uiMidi: 60 },
+          { time: 0.5, midi: 62, uiMidi: 62 },
+          { time: 1, midi: 64, uiMidi: 64 },
+        ],
+      },
+    ],
+    { melody: { duration: 2.4 }, melodySamples: null },
+    0,
+    noop,
+  )
+
+  assert.equal(ctx.created.buffers.length, 3)
+  assert.deepEqual(ctx.created.buffers.map((source) => source.startCalls[0][0]), [0, 0.5, 1])
+  assert.deepEqual(ctx.created.buffers.map((source) => source.startCalls[0][1]), [0.1, 0.6, 1.1])
+  ctx.created.buffers.forEach((source) => {
+    assert.equal(source.loop, false)
+    assert.equal(source.playbackRate.events.some((event) => event[0] === "target"), false)
+  })
 })
 
 test("드로잉 미리듣기와 전체 재생이 같은 지속음 헬퍼(continuousSustainPlan)를 쓴다", () => {
