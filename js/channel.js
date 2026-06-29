@@ -462,11 +462,10 @@
     state.flowCards = state.works.map(function (work, index) {
       const card = createAlbumCard(work, index, {
         className: "channel-flow-album",
-        ariaLabel: workTitle(work) + " 선택",
+        ariaLabel: workTitle(work) + " 크게 보기",
         onClick: function () {
-          // 드래그로 자리를 옮긴 직후의 클릭은 무시한다(아래 click 캡처에서 막음).
-          if (index === state.flowIndex) openViewer(work, { updateHash: true })
-          else setFlowIndex(index)
+          // 어느 앨범을 눌러도 바로 뷰어를 연다.
+          openViewer(work, { updateHash: true })
         },
       })
       stage.appendChild(card)

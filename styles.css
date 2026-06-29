@@ -1627,7 +1627,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   gap: 6px 18px;
   align-items: center;
   min-height: 104px;
-  padding: 17px 22px 17px 26px;
+  padding: 20px 22px 17px;
   border: 1px solid var(--channel-line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
@@ -1637,16 +1637,16 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   overflow: hidden;
 }
 
-/* 왼쪽의 청록 라인이 표지 선택 상태와 설명을 이어 준다. */
+/* 상단 그라데이션 하이라이트 — 선택된 표지와 설명을 잇는 세련된 구분선 */
 .channel-coverflow-caption::before {
   content: "";
   position: absolute;
+  top: 0;
   left: 0;
-  top: 14px;
-  bottom: 14px;
-  width: 4px;
-  border-radius: 0 4px 4px 0;
-  background: linear-gradient(180deg, var(--channel-gold), var(--channel-accent) 72%);
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--channel-accent), var(--channel-gold) 60%, var(--channel-accent));
+  opacity: 0.85;
 }
 
 .channel-coverflow-count,
@@ -1902,7 +1902,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .drawing-reference {
   min-width: 0;
   margin: 0;
-  padding: 46px 0 18px 16px;
+  padding: 46px 0 18px 0;
   border-right: 1px solid var(--line);
   background: rgba(251, 246, 236, 0.45);
   overflow: hidden;
@@ -1916,7 +1916,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   width: 100%;
   height: min(62vh, 660px);
   min-height: 420px;
-  border-radius: 12px 0 0 12px;
+  border-radius: 0;
   background: #fffaf0;
   object-fit: contain;
   object-position: center;
@@ -3401,7 +3401,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
     grid-template-columns: 54px minmax(0, 1fr);
   }
   body[data-step="2"] .drawing-reference {
-    padding: 44px 0 14px 14px;
+    padding: 44px 0 14px 0;
   }
   body[data-step="2"] .drawing-workspace.reference-collapsed .drawing-reference {
     padding-left: 0;
