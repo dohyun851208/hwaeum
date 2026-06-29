@@ -2,7 +2,7 @@
 
 ## 1. Atmosphere & Identity
 
-Hwaeum feels like a calm classroom atelier: warm paper, ink, instrument color, and a wide drawing surface. The signature is a gallery-like making table where students can see picture, sound, and timeline as one continuous composition.
+Hwaeum feels like a modern classroom gallery: clear white surfaces, cool gray walls, ink controls, teal focus color, and a wide drawing surface. The signature is a gallery-like making table where students can see picture, sound, and timeline as one continuous composition.
 
 ## 2. Color
 
@@ -10,16 +10,16 @@ Hwaeum feels like a calm classroom atelier: warm paper, ink, instrument color, a
 
 | Role | Token | Light | Dark | Usage |
 | --- | --- | --- | --- | --- |
-| Surface/page | `--paper` | `#efe7d9` | Not supported | App background start |
-| Surface/page alt | `--paper-2` | `#e7ddcb` | Not supported | App background end |
-| Surface/canvas | `--canvas` | `#fbf6ec` | Not supported | Panels, buttons, drawing canvas |
-| Text/primary | `--ink` | `#20292a` | Not supported | Headings, controls, strong labels |
-| Text/secondary | `--muted` | `#6c7370` | Not supported | Help text, captions, inactive steps |
-| Border/default | `--line` | `rgba(32, 41, 42, 0.12)` | Not supported | Soft panel and control outlines |
-| Border/strong | `--line-strong` | `rgba(32, 41, 42, 0.22)` | Not supported | Emphasized outlines |
-| Accent/primary | `--accent` | `#5f8f63` | Not supported | Active controls, playhead, selected state |
-| Accent/soft | `--accent-soft` | `rgba(95, 143, 99, 0.14)` | Not supported | Mood tint, selected background |
-| Accent/line | `--accent-line` | `rgba(95, 143, 99, 0.4)` | Not supported | Guide lines, focus and active outlines |
+| Surface/page | `--paper` | `#f8fafc` | Not supported | App background start |
+| Surface/page alt | `--paper-2` | `#eef3f7` | Not supported | App background end |
+| Surface/canvas | `--canvas` | `#ffffff` | Not supported | Panels, buttons, drawing canvas |
+| Text/primary | `--ink` | `#161b22` | Not supported | Headings, controls, strong labels |
+| Text/secondary | `--muted` | `#667085` | Not supported | Help text, captions, inactive steps |
+| Border/default | `--line` | `rgba(20, 33, 45, 0.12)` | Not supported | Soft panel and control outlines |
+| Border/strong | `--line-strong` | `rgba(20, 33, 45, 0.22)` | Not supported | Emphasized outlines |
+| Accent/primary | `--accent` | `#00a6a6` | Not supported | Active controls, playhead, selected state |
+| Accent/soft | `--accent-soft` | `rgba(0, 166, 166, 0.1)` | Not supported | Mood tint, selected background |
+| Accent/line | `--accent-line` | `rgba(0, 166, 166, 0.42)` | Not supported | Guide lines, focus and active outlines |
 
 ### Rules
 
@@ -135,7 +135,7 @@ All spacing follows a 4px base.
 
 ### Strategy
 
-Mixed: warm tonal surfaces plus restrained borders and soft shadows.
+Mixed: clear white surfaces, cool gray page depth, restrained borders, and soft shadows.
 
 | Level | Token | Usage |
 | --- | --- | --- |

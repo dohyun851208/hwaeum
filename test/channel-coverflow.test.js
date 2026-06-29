@@ -41,3 +41,21 @@ test("커버플로우는 마우스 드래그와 휠로 부드럽게 움직인다
   assert.match(css, /\.channel-coverflow-stage\.is-dragging[\s\S]*transition:\s*none/)
   assert.match(css, /cursor:\s*grab/)
 })
+
+test("채널 화면은 화음 갤러리를 주제목으로 두고 현재 채널 번호를 입력칸에 보여 준다", () => {
+  const html = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
+  const source = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+  const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+
+  assert.match(html, /id="channelTitle">화음 갤러리/)
+  assert.doesNotMatch(html, /그림 음악 전시실/)
+  assert.match(html, /<label for="channelInput">현재 채널<\/label>/)
+  assert.match(source, /el\.title\.textContent = "화음 갤러리"/)
+  assert.match(source, /el\.input\.value = channel \|\| ""/)
+  assert.doesNotMatch(source, /: name/)
+  assert.doesNotMatch(source, /공유 음악 " \+ state\.works\.length/)
+  assert.doesNotMatch(source, /개를 불러왔어요/)
+  assert.match(css, /\.channel-title-block h1\s*\{[\s\S]*color:\s*var\(--channel-accent\)/)
+  assert.match(css, /\.channel-title-block h1\s*\{[\s\S]*font-size:\s*2\.1rem/)
+  assert.match(css, /\.channel-title-block p:last-child:empty\s*\{[\s\S]*display:\s*none/)
+})

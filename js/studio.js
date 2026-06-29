@@ -316,8 +316,8 @@
   function applyMoodTint() {
     const c = state.atmosphere.color
     document.documentElement.style.setProperty("--accent", c)
-    document.documentElement.style.setProperty("--accent-soft", hexToRgba(c, 0.14))
-    document.documentElement.style.setProperty("--accent-line", hexToRgba(c, 0.4))
+    document.documentElement.style.setProperty("--accent-soft", hexToRgba(c, 0.1))
+    document.documentElement.style.setProperty("--accent-line", hexToRgba(c, 0.36))
     draw.setAccent(c)
   }
 
@@ -523,7 +523,7 @@
     if (!el.drawingReferenceToggle) return
     const label = collapsed ? "그림 펼치기" : "그림 접기"
     const icon = el.drawingReferenceToggle.querySelector("span")
-    if (icon) icon.textContent = collapsed ? "▶" : "◀"
+    if (icon) icon.classList.toggle("is-expand", collapsed)
     el.drawingReferenceToggle.setAttribute("aria-expanded", String(!collapsed))
     el.drawingReferenceToggle.setAttribute("aria-label", label)
     el.drawingReferenceToggle.title = label
@@ -2590,7 +2590,7 @@
     const displayName = el.shareDisplayNameInput ? el.shareDisplayNameInput.value.trim() : ""
     const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
     if (!adminPin) {
-      setShareMessage("채널을 만들려면 1차 관리자 PIN(8624)을 넣어 주세요.", true)
+      setShareMessage("채널을 만들려면 1차 관리자 번호(8624)를 넣어 주세요.", true)
       return
     }
     if (!channel) {
@@ -2659,7 +2659,7 @@
     }
   }
 
-  // 관리자 PIN을 채널 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 PIN이 남지 않게).
+  // 관리자 번호를 채널 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 번호가 남지 않게).
   const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
   function rememberAdminPin() {
     try {
@@ -2883,7 +2883,7 @@
     if (!ShareStore || !work) return
     const pin = adminPinValue()
     if (!workIsMine(work) && !pin) {
-      setShareMessage("다른 사람의 작품은 관리자 PIN이 있어야 지울 수 있어요.", true)
+      setShareMessage("다른 사람의 작품은 관리자 번호가 있어야 지울 수 있어요.", true)
       return
     }
     if (!window.confirm("이 공유 작품을 지울까요?")) return

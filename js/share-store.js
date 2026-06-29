@@ -13,7 +13,7 @@
   const LOCAL_STORE_NAME = "works"
   const LOCAL_CHANNEL_STORE_NAME = "channels"
   const MIN_PIN_LENGTH = 4
-  // 로컬(서버 없는) 폴백에서만 쓰는 1차 관리자 PIN 검문. 배포 환경은 서버(_utils.cjs)가 진짜 검문소.
+  // 로컬(서버 없는) 폴백에서만 쓰는 1차 관리자 번호 검문. 배포 환경은 서버(_utils.cjs)가 진짜 검문소.
   const LOCAL_ADMIN_PIN = "8624"
   const MAX_UPLOAD_TOTAL_BYTES = 3.5 * 1024 * 1024
   const objectUrlCache = new Map()
@@ -390,7 +390,7 @@
 
   async function claimLocalChannel(channel, pin, displayName, owner, adminPin) {
     if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) {
-      throw new Error("채널을 만들려면 1차 관리자 PIN이 필요해요.")
+      throw new Error("채널을 만들려면 1차 관리자 번호가 필요해요.")
     }
     const existing = await getLocalChannel(channel)
     if (existing && existing.ownerId && existing.ownerId !== owner.id) {

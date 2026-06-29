@@ -91,9 +91,11 @@ test("share + channel pages carry the 2차 비밀번호 UI", () => {
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const styles = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
-  assert.match(studio, /채널을 열어 그림 음악을 감상합니다\./)
+  assert.match(studio, /채널에 들어가 그림 음악을 감상합니다\./)
   assert.match(studio, /채널 번호를 입력하면 같은 채널에 모인 그림 음악이 갤러리처럼 펼쳐집니다\./)
   assert.doesNotMatch(studio, /채널을 열면 선생님이 알려 준 2차 비밀번호/)
+  assert.doesNotMatch(studio, /채널 열기/)
+  assert.match(studio, /id="channelOpenTitle">채널 들어가기/)
   assert.doesNotMatch(studio, /관리자 채널 만들기/)
   assert.match(studio, /id="channelAdminTitle">채널 만들기/)
   assert.match(studio, /class="channel-gate-grid"/)

@@ -3,21 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>화음 — 그림으로 30초 BGM 만들기</title>
+    <title>화음 — 그림으로 30초 음악 만들기</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --ink: #332c2a;
-        --muted: #6b5b5b;
-        --pink: #f43f5e;
-        --violet: #8b5cf6;
-        --teal: #14b8a6;
-        --cream: #fff8f2;
-        --shell: #fff1e9;
-        --panel: rgba(255, 255, 255, 0.72);
-        --sans: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+        --ink: #161b22;
+        --muted: #667085;
+        --pink: #de4961;
+        --violet: #5966d8;
+        --teal: #00a6a6;
+        --lime: #c8ff3d;
+        --cream: #f8fafc;
+        --shell: #eef3f7;
+        --panel: rgba(255, 255, 255, 0.9);
+        --line: rgba(20, 33, 45, 0.12);
+        --sans: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
         --serif: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
       }
 
@@ -47,9 +49,9 @@
         position: relative;
         min-height: 100vh;
         background:
-          radial-gradient(circle at 1px 1px, rgba(139, 92, 246, 0.1) 1px, transparent 0) 0 0 / 34px 34px,
-          radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.92), transparent 34%),
-          linear-gradient(180deg, #fff0e7 0%, #fff8f3 56%, #fff3ea 100%);
+          linear-gradient(90deg, rgba(15, 23, 42, 0.035) 0 1px, transparent 1px 100%) 0 0 / 128px 128px,
+          linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(238, 243, 247, 0.94) 100%),
+          #eef3f7;
         overflow: hidden;
       }
 
@@ -58,11 +60,9 @@
         position: absolute;
         inset: -16%;
         background:
-          radial-gradient(circle at 17% 25%, rgba(251, 113, 133, 0.16), transparent 22%),
-          radial-gradient(circle at 84% 28%, rgba(20, 184, 166, 0.14), transparent 20%),
-          radial-gradient(circle at 52% 78%, rgba(139, 92, 246, 0.13), transparent 24%);
-        filter: blur(2px);
-        opacity: 0.9;
+          linear-gradient(115deg, transparent 0 18%, rgba(0, 166, 166, 0.08) 18% 18.4%, transparent 18.4% 58%, rgba(200, 255, 61, 0.12) 58% 58.35%, transparent 58.35% 100%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 54%);
+        opacity: 0.86;
       }
 
       .hero-stage-wrap {
@@ -85,16 +85,16 @@
       .hero-stage::before {
         content: "";
         position: absolute;
-        left: 50%;
-        top: 50%;
-        width: min(86vw, 1040px);
-        height: min(74vh, 690px);
+        left: 8vw;
+        right: 8vw;
+        top: 12vh;
+        bottom: 10vh;
         background:
-          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.7), transparent 58%),
-          radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1), transparent 62%);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        opacity: 0.78;
+          linear-gradient(180deg, rgba(255, 255, 255, 0.48), transparent 44%),
+          linear-gradient(90deg, transparent, rgba(0, 166, 166, 0.08), transparent);
+        border-top: 1px solid rgba(255, 255, 255, 0.72);
+        border-bottom: 1px solid rgba(20, 33, 45, 0.08);
+        opacity: 0.9;
       }
 
       .hero-stage::after {
@@ -102,7 +102,7 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        box-shadow: inset 0 0 120px rgba(255, 255, 255, 0.4);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
       }
 
       .scene {
@@ -117,7 +117,7 @@
         inset: 0;
         z-index: 35;
         pointer-events: none;
-        animation: meaningIntroExit 520ms ease 2960ms forwards;
+        animation: meaningIntroExit 520ms ease 4320ms forwards;
       }
 
       .meaning-intro::before {
@@ -133,7 +133,7 @@
         transform-origin: center;
         opacity: 0;
         filter: blur(0.2px);
-        animation: meaningLineGather 2700ms cubic-bezier(0.18, 0.86, 0.16, 1) 380ms both;
+        animation: meaningLineGather 3820ms cubic-bezier(0.18, 0.86, 0.16, 1) 380ms both;
       }
 
       .meaning-symbol {
@@ -150,8 +150,8 @@
         aspect-ratio: 1;
         opacity: 0;
         transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.74) rotate(var(--tilt));
-        filter: drop-shadow(0 18px 36px rgba(73, 49, 40, 0.16));
-        animation: meaningSymbolGather 2950ms cubic-bezier(0.18, 0.86, 0.16, 1) both;
+        filter: drop-shadow(0 18px 36px rgba(15, 23, 42, 0.16));
+        animation: meaningSymbolGather 4050ms cubic-bezier(0.18, 0.86, 0.16, 1) both;
       }
 
       .meaning-symbol.paint {
@@ -190,10 +190,10 @@
         inset: 0;
         overflow: hidden;
         border: 1.5px solid rgba(255, 255, 255, 0.88);
-        border-radius: 34px;
-        background: rgba(255, 248, 242, 0.82);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.88);
         box-shadow:
-          0 18px 40px rgba(73, 49, 40, 0.11),
+          0 18px 40px rgba(15, 23, 42, 0.12),
           0 0 0 1px rgba(255, 255, 255, 0.32);
       }
 
@@ -249,6 +249,57 @@
         color: rgba(62, 47, 84, 0.95);
       }
 
+      .meaning-echo {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 18;
+        width: 620px;
+        height: 370px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        opacity: 0;
+        animation: meaningEchoIn 900ms ease 5550ms forwards;
+      }
+
+      .meaning-echo span {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        width: 58px;
+        height: 58px;
+        border: 1.5px solid rgba(255, 255, 255, 0.88);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.72);
+        color: rgba(22, 27, 34, 0.42);
+        font-size: 2.15rem;
+        line-height: 1;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(18px) saturate(1.18);
+        -webkit-backdrop-filter: blur(18px) saturate(1.18);
+      }
+
+      .meaning-echo .paint {
+        left: 0;
+        top: 50%;
+        color: rgba(244, 63, 94, 0.58);
+        transform: translate(-50%, -50%) rotate(-8deg);
+      }
+
+      .meaning-echo .harmony {
+        left: 50%;
+        top: 0;
+        color: rgba(139, 92, 246, 0.58);
+        transform: translate(-50%, -50%) rotate(2deg);
+      }
+
+      .meaning-echo .sound {
+        right: 0;
+        top: 50%;
+        color: rgba(20, 184, 166, 0.58);
+        transform: translate(50%, -50%) rotate(8deg);
+      }
+
       .world {
         position: absolute;
         left: 50%;
@@ -261,7 +312,7 @@
         pointer-events: none;
         overflow: visible;
         --spin-deg: 0deg;
-        --intro-delay: 3350ms;
+        --intro-delay: 4760ms;
       }
 
       .orbit-ring {
@@ -270,7 +321,7 @@
         top: 50%;
         width: 82%;
         height: 84%;
-        border: 2px dashed rgba(139, 92, 246, 0.22);
+        border: 1px solid rgba(0, 166, 166, 0.24);
         border-radius: 50%;
         transform: translate(-50%, -50%);
         background: transparent;
@@ -299,35 +350,28 @@
         position: absolute;
         left: 50%;
         top: 50%;
-        width: min(360px, 32vw);
+        width: min(420px, 34vw);
         min-width: 286px;
-        padding: 33px 28px 29px;
+        padding: 0;
         transform: translate(-50%, -50%);
         text-align: center;
-        background: var(--panel);
-        border: 1.5px solid rgba(255, 255, 255, 0.92);
-        border-radius: 26px;
-        box-shadow: 0 18px 56px rgba(73, 49, 40, 0.12);
-        backdrop-filter: blur(30px) saturate(1.35);
-        -webkit-backdrop-filter: blur(30px) saturate(1.35);
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
         z-index: 20;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         gap: 15px;
-        animation: titleSettle 1350ms cubic-bezier(0.18, 0.86, 0.16, 1) 3180ms both;
+        animation: titleSettle 1350ms cubic-bezier(0.18, 0.86, 0.16, 1) 4480ms both;
       }
 
       .title-stack::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.36) 48%, transparent 72%);
-        transform: translateX(-120%) skewX(-14deg);
-        animation: panelShimmer 7600ms ease-in-out 1200ms infinite;
-        pointer-events: none;
+        display: none;
       }
 
       .brand-title {
@@ -339,7 +383,9 @@
         font-weight: 400;
         line-height: 0.92;
         letter-spacing: 0;
-        text-shadow: 0 8px 22px rgba(244, 63, 94, 0.13);
+        text-shadow:
+          0 2px 0 rgba(255, 255, 255, 0.78),
+          0 18px 34px rgba(15, 23, 42, 0.14);
       }
 
       .title-stack .subtitle {
@@ -358,9 +404,9 @@
       .title-stack .subtitle strong {
         display: block;
         margin: 0;
-        color: var(--pink);
+        color: var(--ink);
         font-size: clamp(1.24rem, 1.45vw, 1.42rem);
-        font-weight: 400;
+        font-weight: 800;
         line-height: 1.24;
       }
 
@@ -381,12 +427,12 @@
         width: var(--o-size, 210px);
         aspect-ratio: 1;
         overflow: hidden;
-        border: 1.5px solid rgba(255, 255, 255, 0.86);
-        border-radius: 8px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 6px;
         background: #fff;
         box-shadow:
-          0 18px 36px rgba(73, 49, 40, 0.14),
-          0 4px 14px rgba(73, 49, 40, 0.08);
+          0 22px 38px rgba(15, 23, 42, 0.2),
+          1px 0 0 rgba(255, 255, 255, 0.48) inset;
         transform: translate(-50%, -50%) scale(var(--o-scale, 1));
         opacity: 0;
         z-index: var(--o-z, 5);
@@ -412,27 +458,34 @@
         position: absolute;
         inset: 0;
         background:
-          linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.58)),
-          linear-gradient(135deg, rgba(255, 255, 255, 0.16), transparent 40%);
+          linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 36%),
+          linear-gradient(180deg, transparent 58%, rgba(255, 255, 255, 0.82));
         pointer-events: none;
       }
 
       .album-card figcaption {
         position: absolute;
-        left: 16px;
-        right: 16px;
-        bottom: 14px;
+        left: 0;
+        right: 0;
+        bottom: 0;
         z-index: 2;
         display: grid;
         gap: 3px;
-        text-shadow: 0 8px 16px rgba(0, 0, 0, 0.84);
+        min-height: 50px;
+        padding: 10px 12px 9px;
+        border-top: 1px solid rgba(255, 255, 255, 0.62);
+        background: rgba(255, 255, 255, 0.86);
+        text-align: left;
+        text-shadow: none;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
       }
 
       .album-card figcaption strong {
-        color: #fff8f2;
-        font-size: 1.08rem;
-        font-weight: 400;
-        line-height: 1.04;
+        color: var(--ink);
+        font-size: 0.98rem;
+        font-weight: 800;
+        line-height: 1.12;
       }
 
       .hero-stage.is-orbit-interactive {
@@ -456,28 +509,29 @@
         z-index: 1;
         margin-top: 0;
         padding: 13px 24px;
-        border-radius: 16px;
+        border-radius: 8px;
         color: #fff;
-        background: linear-gradient(135deg, #fb7185, var(--pink));
+        background: var(--ink);
         text-decoration: none;
         font-size: clamp(1rem, 1.25vw, 1.18rem);
-        font-weight: 400;
+        font-weight: 900;
         letter-spacing: 0;
         white-space: nowrap;
         pointer-events: auto;
         box-shadow:
-          0 12px 24px rgba(244, 63, 94, 0.28),
-          0 0 0 1px rgba(255, 255, 255, 0.36);
+          0 16px 32px rgba(15, 23, 42, 0.18),
+          0 0 0 1px rgba(255, 255, 255, 0.28);
         animation: ctaBreathe 3200ms ease-in-out infinite;
-        transition: transform 220ms ease, box-shadow 220ms ease;
+        transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease;
       }
 
       .enter-cta:hover {
+        background: var(--teal);
         transform: translateY(-2px);
       }
 
       .enter-cta:focus-visible {
-        outline: 2px solid var(--teal);
+        outline: 3px solid var(--lime);
         outline-offset: 4px;
       }
 
@@ -512,32 +566,32 @@
         0% {
           opacity: 0;
           transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.72) rotate(var(--tilt));
-          filter: blur(5px) drop-shadow(0 18px 36px rgba(73, 49, 40, 0.1));
+          filter: blur(5px) drop-shadow(0 18px 36px rgba(15, 23, 42, 0.1));
         }
         16% {
           opacity: 1;
           transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.9) rotate(var(--tilt));
-          filter: blur(0) drop-shadow(0 18px 36px rgba(73, 49, 40, 0.16));
+          filter: blur(0) drop-shadow(0 18px 36px rgba(15, 23, 42, 0.16));
         }
         50% {
           opacity: 1;
           transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(1) rotate(var(--tilt));
-          filter: blur(0) drop-shadow(0 18px 36px rgba(73, 49, 40, 0.16));
+          filter: blur(0) drop-shadow(0 18px 36px rgba(15, 23, 42, 0.16));
         }
         74% {
           opacity: 0.98;
           transform: translate(-50%, -50%) translate(var(--mid-x), var(--mid-y)) scale(0.9) rotate(0deg);
-          filter: blur(0) drop-shadow(0 18px 36px rgba(73, 49, 40, 0.16));
+          filter: blur(0) drop-shadow(0 18px 36px rgba(15, 23, 42, 0.16));
         }
         90% {
           opacity: 0.92;
           transform: translate(-50%, -50%) translate(0, 0) scale(0.58) rotate(0deg);
-          filter: blur(0) drop-shadow(0 14px 30px rgba(73, 49, 40, 0.12));
+          filter: blur(0) drop-shadow(0 14px 30px rgba(15, 23, 42, 0.12));
         }
         100% {
           opacity: 0;
           transform: translate(-50%, -50%) translate(0, 0) scale(0.24) rotate(0deg);
-          filter: blur(8px) drop-shadow(0 10px 26px rgba(73, 49, 40, 0.08));
+          filter: blur(8px) drop-shadow(0 10px 26px rgba(15, 23, 42, 0.08));
         }
       }
 
@@ -575,6 +629,17 @@
         100% {
           opacity: 0;
           transform: scale(1.08);
+        }
+      }
+
+      @keyframes meaningEchoIn {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.94);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
         }
       }
 
@@ -658,7 +723,7 @@
         .title-stack {
           width: min(336px, 31vw);
           min-width: 272px;
-          padding: 28px 24px 25px;
+          padding: 0;
           gap: 14px;
         }
 
@@ -671,7 +736,7 @@
         .title-stack {
           width: min(312px, 30vw);
           min-width: 260px;
-          padding: 23px 20px 20px;
+          padding: 0;
           gap: 12px;
         }
 
@@ -699,6 +764,11 @@
 
         .meaning-intro {
           display: none;
+        }
+
+        .meaning-echo {
+          opacity: 1;
+          animation: none;
         }
 
         .album-card {
@@ -750,11 +820,16 @@
             <div class="title-stack">
               <h1 class="brand-title">화음</h1>
               <p class="subtitle">
-                <strong>그림과 소리를 조화롭게<br />나만의 BGM 만들기</strong>
+                <strong>그림과 소리를 조화롭게<br />나만의 음악 만들기</strong>
               </p>
               <a class="enter-cta" href="studio.html">
                 그림으로 음악 만들기
               </a>
+            </div>
+            <div class="meaning-echo" aria-hidden="true">
+              <span class="paint">畵</span>
+              <span class="harmony">和</span>
+              <span class="sound">音</span>
             </div>
 
             <div class="world" aria-hidden="true">
@@ -811,7 +886,7 @@
               >
                 <img src="assets/hero/hero-harmony.webp" alt="" />
                 <figcaption>
-                  <strong>나의 BGM</strong>
+                  <strong>나의 음악</strong>
                 </figcaption>
               </figure>
             </div>

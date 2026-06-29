@@ -347,7 +347,7 @@
     const channel = state.channel
     const name = channelDisplayName()
     if (el.title) {
-      el.title.textContent = channel ? name || channel + " 채널" : "학급 채널"
+      el.title.textContent = "화음 갤러리"
       // 제목 텍스트를 새로 쓰면 관리자 배지 span이 지워지므로 다시 붙여 준다.
       if (el.adminFlag) el.title.appendChild(el.adminFlag)
     }
@@ -355,12 +355,12 @@
       ? "채널을 불러옵니다."
       : channel
         ? state.locked
-          ? "잠긴 채널"
-          : (name ? "#" + channel + " · " : "") + "공유 음악 " + state.works.length + "개"
+          ? "비밀번호가 필요한 채널"
+          : ""
         : "채널 번호를 입력해 주세요."
     if (el.input && document.activeElement !== el.input) {
-      el.input.value = ""
-      el.input.placeholder = channel ? "다른 채널" : "예: 3021"
+      el.input.value = channel || ""
+      el.input.placeholder = channel ? "" : "예: 3021"
     }
     if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
   }
@@ -668,10 +668,7 @@
       if (state.locked) {
         setStatus(result.passError ? "2차 비밀번호가 맞지 않아요." : "2차 비밀번호를 입력하세요.", !!result.passError)
       } else {
-        setStatus(
-          normalized + " 채널에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.works.length + "개를 불러왔어요.",
-          false,
-        )
+        setStatus("", false)
       }
       if (options.updateUrl !== false) history.replaceState(null, "", channelUrl(normalized, options.focusWork || ""))
       if (!state.locked) focusWork(options.focusWork || workIdFromHash())
@@ -699,13 +696,13 @@
     if (!ShareStore || !ShareStore.claimChannel) return
     const channel = state.channel
     if (!channel) {
-      setStatus("먼저 채널을 열어 주세요.", true)
+      setStatus("먼저 채널에 들어가 주세요.", true)
       return
     }
     const displayName = el.nameInput ? el.nameInput.value.trim() : ""
     const pin = ShareStore.cleanPin(el.namePass ? el.namePass.value : "")
     if (!state.adminPin) {
-      setStatus("이름을 바꾸려면 관리자 PIN을 넣어 주세요.", true)
+      setStatus("이름을 바꾸려면 관리자 번호를 넣어 주세요.", true)
       return
     }
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
@@ -730,7 +727,7 @@
     if (!ShareStore || !ShareStore.deleteChannel) return
     const channel = state.channel
     if (!channel) {
-      setStatus("먼저 채널을 열어 주세요.", true)
+      setStatus("먼저 채널에 들어가 주세요.", true)
       return
     }
     const pin = ShareStore.cleanPin(el.namePass ? el.namePass.value : "")
@@ -852,7 +849,7 @@
   async function deleteActiveWork() {
     if (!state.activeWork || !ShareStore || !ShareStore.deleteWork) return
     if (!canDeleteActive()) {
-      setStatus("이 작품을 지우려면 관리자 PIN이 필요합니다.", true)
+      setStatus("이 작품을 지우려면 관리자 번호가 필요합니다.", true)
       return
     }
     if (!confirm("이 공유 작품을 지울까요?")) return
@@ -985,7 +982,7 @@
       loadChannel(channel, { updateUrl: false, focusWork: workIdFromHash() })
     } else {
       renderShelves()
-      setStatus("채널 번호를 입력하고 열기를 눌러 주세요.", false)
+      setStatus("", false)
     }
   }
 
