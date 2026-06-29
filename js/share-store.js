@@ -187,6 +187,15 @@
     }
   }
 
+  function forgetChannel(channel) {
+    const normalized = normalizeChannel(channel)
+    try {
+      const s = storage()
+      if (s && (!normalized || normalizeChannel(s.getItem(CHANNEL_STORAGE_KEY)) === normalized)) s.removeItem(CHANNEL_STORAGE_KEY)
+    } catch (e) {}
+    if (normalized) rememberPass(normalized, "")
+  }
+
   function loadImage(src) {
     return new Promise(function (resolve) {
       if (!src) {
@@ -477,6 +486,36 @@
     return { ok: true, deleted: work.id, localOnly: true }
   }
 
+  async function deleteLocalChannel(channel, pin) {
+    const channelRecord = await getLocalChannel(channel)
+    if (!channelRecord) throw new Error("삭제할 채널을 찾지 못했어요.")
+    if (!channelRecord.pass || pin !== channelRecord.pass) throw new Error("채널 2차 비밀번호가 맞지 않아요.")
+    const deletedWorks =
+      (await withLocalStore("readwrite", function (store, setResult) {
+        const req = store.getAll()
+        req.onsuccess = function () {
+          let count = 0
+          const records = req.result || []
+          records.forEach(function (record) {
+            if (record && record.channel === channel) {
+              store.delete(record.id)
+              count += 1
+            }
+          })
+          setResult(count)
+        }
+      })) || 0
+    await withLocalStore(
+      "readwrite",
+      function (store) {
+        store.delete(channel)
+      },
+      LOCAL_CHANNEL_STORE_NAME,
+    )
+    forgetChannel(channel)
+    return { ok: true, deleted: channel, deletedWorks: deletedWorks, localOnly: true }
+  }
+
   function shouldUseLocalShare(error) {
     if (!indexedDb()) return false
     const status = error && Number(error.status)
@@ -609,6 +648,24 @@
     }
   }
 
+  async function deleteChannel(channel, pass) {
+    const normalized = normalizeChannel(channel)
+    if (!normalized) throw new Error("삭제할 채널 번호를 적어 주세요.")
+    const pin = cleanPin(pass)
+    if (pin.length < MIN_PIN_LENGTH) throw new Error("2차 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 넣어 주세요.")
+    try {
+      const result = await postJson("/channel-delete", {
+        channel: normalized,
+        pass: pin,
+      })
+      forgetChannel(normalized)
+      return result
+    } catch (error) {
+      if (!shouldUseLocalShare(error)) throw error
+      return deleteLocalChannel(normalized, pin)
+    }
+  }
+
   function formatBytes(size) {
     const n = Number(size) || 0
     if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1).replace(/\.0$/, "") + "MB"
@@ -628,6 +685,7 @@
     publishWork: publishWork,
     listChannel: listChannel,
     deleteWork: deleteWork,
+    deleteChannel: deleteChannel,
     formatBytes: formatBytes,
     MIN_PIN_LENGTH: MIN_PIN_LENGTH,
   }

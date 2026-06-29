@@ -6,9 +6,9 @@ const vm = require("node:vm")
 
 const projectDir = path.resolve(__dirname, "..")
 
-function loadDrawing(buildScale) {
+function loadDrawing(buildScale, coreOverrides) {
   const sandbox = {
-    MusicCore: {
+    MusicCore: Object.assign({
       buildScale: buildScale || function () {
         return [60, 62, 64, 65, 67, 69, 71, 72]
       },
@@ -18,7 +18,7 @@ function loadDrawing(buildScale) {
       autocompleteRhythm() {
         return []
       },
-    },
+    }, coreOverrides || {}),
     performance: { now: () => 0 },
     devicePixelRatio: 1,
   }
@@ -211,10 +211,50 @@ test("pitch axis labels use requested Korean order for western and gugak palette
   const westernMidis = [55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79]
   const gugakMidis = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76]
   const westernLabels = loadDrawing(() => westernMidis).pitchLabelsForStyle({}).map((label) => label.label)
-  const gugakLabels = loadDrawing(() => gugakMidis).pitchLabelsForStyle({}).map((label) => label.label)
+  const gugakRows = loadDrawing(null, {
+    drawableScale() {
+      return westernMidis
+    },
+    isPitchPlayable(midi) {
+      return gugakMidis.indexOf(midi) !== -1
+    },
+  }).pitchRowsForStyle({}, {})
+  const gugakLabels = gugakRows.map((label) => label.label)
+  const gugakDisabled = gugakRows.filter((row) => !row.selected).map((row) => row.midi)
 
   assert.deepEqual(westernLabels, ["솔", "라", "시", "도", "레", "미", "파", "솔", "라", "시", "도", "레", "미", "파", "솔"])
-  assert.deepEqual(gugakLabels, ["솔", "라", "도", "레", "미", "솔", "라", "도", "레", "미"])
+  assert.deepEqual(gugakLabels, westernLabels)
+  assert.deepEqual(gugakDisabled, [59, 65, 71, 77, 79])
+})
+
+test("inactive pitch rows do not start a new drawing stroke", () => {
+  const westernMidis = [55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79]
+  const gugakMidis = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76]
+  const DrawingCanvas = loadDrawing(null, {
+    drawableScale() {
+      return westernMidis
+    },
+    isPitchPlayable(midi) {
+      return gugakMidis.indexOf(midi) !== -1
+    },
+    quantizePitch(y) {
+      const idx = Math.max(0, Math.min(westernMidis.length - 1, Math.floor((1 - y) * westernMidis.length)))
+      const midi = westernMidis[idx]
+      return gugakMidis.indexOf(midi) !== -1 ? midi : null
+    },
+  })
+  const ctx = makeContext()
+  const draw = new DrawingCanvas(makeCanvas(ctx), {
+    getState: () => ({ duration: 30, style: {}, mode: "melody", melodyAsset: { playableMidi: gugakMidis } }),
+  })
+
+  draw.isDrawing = true
+  draw.drawingGestureHasUndo = false
+  assert.equal(draw._startStrokeSegment({ x: 0.2, y: 1 - (2 + 0.5) / westernMidis.length }), false)
+  assert.equal(draw.getStrokes().length, 0)
+
+  assert.equal(draw._startStrokeSegment({ x: 0.2, y: 1 - (4 + 0.5) / westernMidis.length }), true)
+  assert.equal(draw.getStrokes().length, 1)
 })
 
 test("sticky pitch axis snaps label rows to whole CSS pixels", () => {

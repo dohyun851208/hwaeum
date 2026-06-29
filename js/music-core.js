@@ -57,19 +57,58 @@
     return out.filter((m) => m >= lo && m <= hi).sort((a, b) => a - b)
   }
 
-  // 실제로 "그릴 수 있는" 음 목록 = 음계 ∩ 악기 연주가능음(playableMidi).
-  // 서양 악기는 playableMidi가 없어 음계 전체. 국악기는 연주 가능한 음만 남긴다.
-  // 축·quantize·렌더가 이 한 목록을 공유해야 "그린 칸 = 들리는 음"이 맞는다.
+  function displayPitchBounds(style) {
+    const bounds = pitchBounds(style)
+    return {
+      lo: style.drawLowMidi == null ? bounds.lo : style.drawLowMidi,
+      hi: style.drawHighMidi == null ? bounds.hi : style.drawHighMidi,
+    }
+  }
+
+  function buildDisplayScale(style) {
+    if (!style || !Array.isArray(style.drawIntervals)) return buildScale(style)
+    const bounds = displayPitchBounds(style)
+    return buildScale(
+      {
+        root: style.drawRoot == null ? style.root : style.drawRoot,
+        intervals: style.drawIntervals,
+        lowMidi: bounds.lo,
+        highMidi: bounds.hi,
+      },
+      bounds.lo,
+      bounds.hi,
+    )
+  }
+
+  function playableMidiFor(style, asset) {
+    if (asset && Array.isArray(asset.playableMidi) && asset.playableMidi.length) return asset.playableMidi
+    if (style && Array.isArray(style.playableMidi) && style.playableMidi.length) return style.playableMidi
+    return null
+  }
+
+  function isPitchPlayable(midi, style, asset) {
+    if (midi == null) return false
+    const allowed = playableMidiFor(style, asset)
+    if (!allowed) return true
+    const tr = asset && Number.isFinite(asset.playbackTranspose) ? asset.playbackTranspose : 0
+    return allowed.indexOf(midi) !== -1 || allowed.indexOf(midi + tr) !== -1
+  }
+
+  // 화면에 고정해서 보여줄 음높이 칸 목록.
+  // 일부 음을 낼 수 없는 악기도 칸 수를 줄이지 않고, 비활성 칸으로 남긴다.
   function drawableScale(style, asset) {
-    const scale = buildScale(style)
-    if (!asset || !Array.isArray(asset.playableMidi) || !asset.playableMidi.length) return scale
-    const tr = asset.playbackTranspose || 0
-    const filtered = scale.filter((m) => asset.playableMidi.indexOf(m) !== -1 || asset.playableMidi.indexOf(m + tr) !== -1)
+    const scale = buildDisplayScale(style)
+    return scale.length ? scale : buildScale(style)
+  }
+
+  function playableScale(style, asset) {
+    const scale = drawableScale(style, asset)
+    const filtered = scale.filter((m) => isPitchPlayable(m, style, asset))
     return filtered.length ? filtered : scale
   }
 
   function nearestScaleNote(target, style, asset) {
-    const scale = drawableScale(style, asset)
+    const scale = playableScale(style, asset)
     let best = scale[0]
     for (const m of scale) {
       if (Math.abs(m - target) < Math.abs(best - target)) best = m
@@ -88,7 +127,8 @@
     // 끝음(맨 위/아래)도 칸 전체가 히트존이 되어 빠지지 않는다.
     const fromBottom = 1 - playableY
     const idx = Math.floor(fromBottom * scale.length)
-    return scale[Math.max(0, Math.min(scale.length - 1, idx))]
+    const midi = scale[Math.max(0, Math.min(scale.length - 1, idx))]
+    return isPitchPlayable(midi, style, asset) ? midi : null
   }
 
   // --- 시간 재샘플링 (속도 무관) ---
@@ -354,6 +394,7 @@
   return {
     buildScale,
     drawableScale,
+    isPitchPlayable,
     nearestScaleNote,
     quantizePitch,
     interpY,

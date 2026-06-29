@@ -18,6 +18,7 @@
 - `decisions/2026-06-27-unified-gugak-palette.md` — 국악기 드로잉 팔레트 통일
 - `decisions/2026-06-28-instrument-loudness-calibration.md` — 악기별/음별 선율 음량 보정 기준
 - `decisions/2026-06-28-channel-secondary-password.md` — 채널 이원화(고유번호/표시이름) + 2차 비밀번호 점유
+- `decisions/2026-06-29-fixed-drawing-pitch-grid.md` — 악기 변경 시 도화지 음높이 행 고정
 
 ## 작성 규칙
 

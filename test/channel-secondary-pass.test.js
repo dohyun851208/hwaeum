@@ -80,8 +80,10 @@ test("share-store exposes channel claim + pass-aware listing", () => {
   const store = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
   assert.match(store, /claimChannel: claimChannel/)
   assert.match(store, /function listChannel\(channel, pass\)/)
+  assert.match(store, /function deleteChannel\(channel, pass\)/)
   assert.match(store, /rememberPass:/)
   assert.match(store, /loadPass:/)
+  assert.match(store, /deleteChannel: deleteChannel/)
 })
 
 test("share + channel pages carry the 2차 비밀번호 UI", () => {
@@ -92,14 +94,27 @@ test("share + channel pages carry the 2차 비밀번호 UI", () => {
   assert.match(studio, /채널을 열어 그림 음악을 감상합니다\./)
   assert.match(studio, /채널 번호를 입력하면 같은 채널에 모인 그림 음악이 갤러리처럼 펼쳐집니다\./)
   assert.doesNotMatch(studio, /채널을 열면 선생님이 알려 준 2차 비밀번호/)
-  assert.match(studio, /관리자 채널 만들기/)
+  assert.doesNotMatch(studio, /관리자 채널 만들기/)
+  assert.match(studio, /id="channelAdminTitle">채널 만들기/)
   assert.match(studio, /class="channel-gate-grid"/)
   assert.match(studio, /id="claimChannelBtn"/)
+  assert.match(studio, /id="deleteChannelBtn"/)
   assert.match(studio, /id="shareChannelPassInput"/)
   assert.match(studio, /id="shareDisplayNameInput"/)
   assert.match(styles, /\.channel-gate-grid\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/)
+  assert.match(styles, /\.channel-gate\[hidden\],\s*\.channel-empty\[hidden\]\s*\{[\s\S]*display:\s*none/)
   assert.match(channelHtml, /id="channelGate"/)
   assert.match(channelHtml, /id="channelGateInput"/)
+  assert.match(channelHtml, /id="channelDeleteBtn"/)
+})
+
+test("channel delete API verifies the channel 2차 비밀번호", () => {
+  const channelDelete = fs.readFileSync(path.join(projectDir, "api", "share", "channel-delete.js"), "utf8")
+  assert.match(channelDelete, /loadChannelMeta/)
+  assert.match(channelDelete, /hashPass\(channel, pass\) !== channelMeta\.passHash/)
+  assert.match(channelDelete, /const prefix = "share\/channels\/" \+ channel \+ "\/"/)
+  assert.match(channelDelete, /await del\(targets\)/)
+  assert.doesNotMatch(channelDelete, /hashAdmin/)
 })
 
 test("channel page opens locked channels only after the gate password is typed", () => {

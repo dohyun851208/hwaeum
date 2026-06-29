@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 스튜디오 · 그림으로 만드는 BGM</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260628-channel-ui" />
+    <link rel="stylesheet" href="./styles.css?v=20260629-channel-delete" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -264,7 +264,7 @@
               <section class="channel-gate-card channel-admin-card" aria-labelledby="channelAdminTitle">
                 <div class="channel-gate-card-head">
                   <p class="eyebrow">Teacher</p>
-                  <h3 id="channelAdminTitle">관리자 채널 만들기</h3>
+                  <h3 id="channelAdminTitle">채널 만들기</h3>
                 </div>
                 <div class="channel-admin-form channel-claim-form">
                   <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="1차 관리자 PIN (8624)" aria-label="1차 관리자 PIN" />
@@ -272,8 +272,9 @@
                   <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="채널 표시 이름 (예: 3반 봄 음악, 선택)" aria-label="채널 표시 이름" />
                   <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="2차 비밀번호 (숫자 4자리 이상)" aria-label="2차 비밀번호" />
                   <button class="btn primary" type="button" id="claimChannelBtn">채널 만들기 / 저장</button>
+                  <button class="btn danger" type="button" id="deleteChannelBtn">채널 삭제하기</button>
                   <button class="btn" type="button" id="openClaimedChannelBtn" hidden>방금 만든 채널 열기 →</button>
-                  <p class="muted">관리자 PIN으로만 채널을 만들 수 있어요. 표시 이름과 2차 비밀번호를 정하면, 학생은 <strong>채널 번호 + 2차 비밀번호</strong>로 들어옵니다. 채널 번호(본질 주소)는 바뀌지 않아요.</p>
+                  <p class="muted">관리자 PIN으로만 채널을 만들 수 있어요. 표시 이름과 2차 비밀번호를 정하면, 학생은 <strong>채널 번호 + 2차 비밀번호</strong>로 들어옵니다. 채널 삭제는 2차 비밀번호로 할 수 있고, 채널 안의 음악도 함께 지워집니다.</p>
                 </div>
               </section>
             </div>
@@ -291,17 +292,17 @@
     </div>
 
     <script src="./js/music-core.js?v=20260624-reflect-limit"></script>
-    <script src="./js/manifest.js?v=20260627-stamp-png"></script>
+    <script src="./js/manifest.js?v=20260629-channel-copy"></script>
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
     <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
     <script src="./js/audio-engine.js?v=20260628-pause-live-preview"></script>
     <script src="./js/drawing.js?v=20260628-drawing-cursor"></script>
     <script src="./js/takes.js?v=20260627-take-title"></script>
-    <script src="./js/share-store.js?v=20260628-channel-ui"></script>
+    <script src="./js/share-store.js?v=20260629-channel-delete"></script>
     <script src="./js/studio-utils.js?v=20260628-refactor"></script>
     <script src="./js/studio-export.js?v=20260629-extract"></script>
     <script src="./js/studio-setup-render.js?v=20260629-extract"></script>
     <script src="./js/studio-share-ui.js?v=20260629-extract"></script>
-    <script src="./js/studio.js?v=20260629-extract" defer></script>
+    <script src="./js/studio.js?v=20260629-channel-delete" defer></script>
   </body>
 </html>

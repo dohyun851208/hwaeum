@@ -6,7 +6,7 @@
 
   const ShareStore = root.HwaeumShareStore
   const DEFAULT_COVER_SRC = "./assets/default-cover.png"
-  const WORKS_PER_SHELF = 8
+  const WORKS_PER_SHELF = 7
   const VIEW_MODE_SHELF = "shelf"
   const VIEW_MODE_FLOW = "flow"
   const VIEW_MODE_STORAGE_KEY = "hwaeum.channelViewMode"
@@ -34,6 +34,7 @@
     nameInput: $("channelNameInput"),
     namePass: $("channelNamePass"),
     renameBtn: $("channelRenameBtn"),
+    deleteChannelBtn: $("channelDeleteBtn"),
     shelfModeBtn: $("channelShelfModeBtn"),
     flowModeBtn: $("channelFlowModeBtn"),
     flowPrevBtn: $("channelFlowPrevBtn"),
@@ -354,10 +355,13 @@
       ? "채널을 불러옵니다."
       : channel
         ? state.locked
-          ? "비밀번호가 필요한 채널입니다."
-          : (name ? "#" + channel + " · " : "") + "공유된 음악 " + state.works.length + "개"
+          ? "잠긴 채널"
+          : (name ? "#" + channel + " · " : "") + "공유 음악 " + state.works.length + "개"
         : "채널 번호를 입력해 주세요."
-    if (el.input && el.input.value !== channel) el.input.value = channel
+    if (el.input && document.activeElement !== el.input) {
+      el.input.value = ""
+      el.input.placeholder = channel ? "다른 채널" : "예: 3021"
+    }
     if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
   }
 
@@ -426,12 +430,12 @@
     const sign = offset === 0 ? 0 : offset > 0 ? 1 : -1
     const visible = abs <= 4.6
     const clamped = Math.max(-4, Math.min(4, offset))
-    const x = clamped * 150
+    const x = clamped * 184
     // 회전은 가운데(0)에서 옆칸(±1)까지 부드럽게 ±58도로 차오른 뒤 그대로 유지한다.
     const rotate = -sign * Math.min(abs, 1) * 58
-    const z = -Math.min(abs, 4) * 92
-    const scale = Math.max(0.66, 1 - Math.min(abs, 4) * 0.075)
-    const opacity = visible ? Math.max(0.16, 1 - abs * 0.16) : 0
+    const z = -Math.min(abs, 4) * 112
+    const scale = Math.max(0.62, 1 - Math.min(abs, 4) * 0.08)
+    const opacity = visible ? Math.max(0.18, 1 - abs * 0.15) : 0
     card.style.setProperty("--flow-x", x.toFixed(1) + "px")
     card.style.setProperty("--flow-rotate", rotate.toFixed(1) + "deg")
     card.style.setProperty("--flow-z", z.toFixed(1) + "px")
@@ -510,7 +514,7 @@
 
   // 마우스/터치 드래그·휠로 커버플로우를 굴린다.
   function bindFlowInteractions(stage) {
-    const SPACING = 150
+    const SPACING = 184
     let pointerId = null
     let startX = 0
     let startPos = 0
@@ -663,7 +667,7 @@
       state.loading = false
       renderShelves()
       if (state.locked) {
-        setStatus(result.passError ? "2차 비밀번호가 맞지 않아요. 다시 넣어 주세요." : "선생님이 알려 준 2차 비밀번호를 넣어 주세요.", !!result.passError)
+        setStatus(result.passError ? "2차 비밀번호가 맞지 않아요." : "2차 비밀번호를 입력하세요.", !!result.passError)
       } else {
         setStatus(
           normalized + " 채널에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.works.length + "개를 불러왔어요.",
@@ -685,7 +689,7 @@
   function submitGatePass() {
     const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(el.gateInput ? el.gateInput.value : "") : ""
     if (!pin) {
-      setStatus("2차 비밀번호(숫자)를 넣어 주세요.", true)
+      setStatus("2차 비밀번호를 입력하세요.", true)
       return
     }
     state.openedFromHash = false
@@ -720,6 +724,47 @@
     } catch (error) {
       console.error(error)
       setStatus(error.message || "채널 이름을 저장하지 못했어요.", true)
+    }
+  }
+
+  async function deleteCurrentChannel() {
+    if (!ShareStore || !ShareStore.deleteChannel) return
+    const channel = state.channel
+    if (!channel) {
+      setStatus("먼저 채널을 열어 주세요.", true)
+      return
+    }
+    const pin = ShareStore.cleanPin(el.namePass ? el.namePass.value : "")
+    if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
+      setStatus("채널 2차 비밀번호(숫자)를 넣어 주세요.", true)
+      return
+    }
+    if (!confirm(channel + " 채널과 안에 있는 음악을 모두 삭제할까요?")) return
+    if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = true
+    try {
+      setStatus("채널을 삭제하는 중입니다.", false)
+      const result = await ShareStore.deleteChannel(channel, pin)
+      if (el.viewer && !el.viewer.hidden) closeViewer()
+      state.channel = ""
+      state.works = []
+      state.channelMeta = null
+      state.locked = false
+      state.pass = ""
+      state.flowIndex = 0
+      state.flowPosition = 0
+      state.openedFromHash = false
+      if (el.input) el.input.value = ""
+      if (el.nameInput) el.nameInput.value = ""
+      if (el.namePass) el.namePass.value = ""
+      history.replaceState(null, "", channelUrl("", ""))
+      setMenuOpen(false)
+      renderShelves()
+      setStatus(channel + " 채널을 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
+    } catch (error) {
+      console.error(error)
+      setStatus(error.message || "채널을 삭제하지 못했어요.", true)
+    } finally {
+      if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = false
     }
   }
 
@@ -865,6 +910,9 @@
     }
     if (el.renameBtn) {
       el.renameBtn.addEventListener("click", renameChannel)
+    }
+    if (el.deleteChannelBtn) {
+      el.deleteChannelBtn.addEventListener("click", deleteCurrentChannel)
     }
     el.form.addEventListener("submit", function (event) {
       event.preventDefault()

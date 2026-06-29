@@ -218,6 +218,7 @@
     shareDisplayNameInput: $("shareDisplayNameInput"),
     shareChannelPassInput: $("shareChannelPassInput"),
     claimChannelBtn: $("claimChannelBtn"),
+    deleteChannelBtn: $("deleteChannelBtn"),
     openClaimedChannelBtn: $("openClaimedChannelBtn"),
     shareStatus: $("shareStatus"),
     sharedWorksList: $("sharedWorksList"),
@@ -258,6 +259,7 @@
   const draw = new window.DrawingCanvas(el.canvas, {
     activeInstrument: state.instrument.id,
     instrumentColor: colorForInstrument,
+    melodyAssetForInstrument: (id) => D.melodies[id] || null,
     maxInstruments: 4,
     onInstrumentLimit: (max) => {
       el.exportStatus.textContent = "악기는 한 곡에 최대 " + max + "개까지예요. 줄을 지우면 다른 악기를 더할 수 있어요."
@@ -2621,6 +2623,42 @@
     }
   }
 
+  async function deleteChannelFromForm() {
+    hideOpenClaimedChannelButton()
+    if (!ShareStore || !ShareStore.deleteChannel) {
+      setShareMessage("공유 모듈을 불러오지 못했어요.", true)
+      return
+    }
+    const channel = ShareStore.normalizeChannel(el.claimChannelInput ? el.claimChannelInput.value : "")
+    const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
+    if (!channel) {
+      setShareMessage("삭제할 채널 번호를 적어 주세요.", true)
+      return
+    }
+    if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
+      setShareMessage("2차 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 넣어 주세요.", true)
+      return
+    }
+    if (!window.confirm(channel + " 채널과 안에 있는 음악을 모두 삭제할까요?")) return
+    if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = true
+    try {
+      setShareMessage(channel + " 채널을 삭제하는 중입니다.", false)
+      const result = await ShareStore.deleteChannel(channel, pin)
+      if (state.sharedChannel === channel) {
+        state.sharedWorks = []
+        syncShareInputs("")
+        renderSharedWorks()
+      }
+      if (el.shareChannelPassInput) el.shareChannelPassInput.value = ""
+      setShareMessage(channel + " 채널을 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
+    } catch (e) {
+      console.error(e)
+      setShareMessage(e.message || "채널을 삭제하지 못했어요.", true)
+    } finally {
+      if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = false
+    }
+  }
+
   // 관리자 PIN을 채널 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 PIN이 남지 않게).
   const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
   function rememberAdminPin() {
@@ -3321,6 +3359,9 @@
     }
     if (el.claimChannelBtn) {
       el.claimChannelBtn.addEventListener("click", claimChannelFromForm)
+    }
+    if (el.deleteChannelBtn) {
+      el.deleteChannelBtn.addEventListener("click", deleteChannelFromForm)
     }
     if (el.openClaimedChannelBtn) {
       el.openClaimedChannelBtn.addEventListener("click", () => openChannelPage(el.openClaimedChannelBtn.dataset.channel || ""))

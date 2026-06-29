@@ -108,10 +108,10 @@
     { id: "forest", label: "숲", group: "소리풍경", padType: "ambient", detail: "새소리 가득한 숲", color: "#5f8a55", backgroundId: "forest", effectIds: [] },
     { id: "school", label: "학교", group: "소리풍경", padType: "ambient", detail: "운동장·교실의 학교 소리", color: "#b08a4e", backgroundId: "school", effectIds: [] },
     // 리듬장단 — 곡 아래 깔리는 장단형 배경
-    { id: "rhythm", label: "리듬", group: "리듬장단", padType: "synth", detail: "기본 리듬 장단", color: "#c2683f", backgroundId: "rhythm", effectIds: [] },
-    { id: "jajinSamchae", label: "자진삼채", group: "리듬장단", padType: "synth", detail: "빠른 자진삼채", color: "#b5532f", backgroundId: "jajinSamchae", effectIds: [] },
-    { id: "jungjungmori", label: "중중모리", group: "리듬장단", padType: "synth", detail: "중중모리 장단의 흐름", color: "#a8623f", backgroundId: "jungjungmori", effectIds: [] },
-    { id: "pungnyu", label: "풍류", group: "리듬장단", padType: "string", detail: "풍류 장단의 여유", color: "#8a6b4e", backgroundId: "pungnyu", effectIds: [] },
+    { id: "rhythm", label: "리듬", group: "리듬장단", padType: "synth", detail: "신나고 재밌는 리듬", color: "#c2683f", backgroundId: "rhythm", effectIds: [] },
+    { id: "jajinSamchae", label: "자진삼채", group: "리듬장단", padType: "synth", detail: "빠르고 흥겨운 장단", color: "#b5532f", backgroundId: "jajinSamchae", effectIds: [] },
+    { id: "jungjungmori", label: "중중모리", group: "리듬장단", padType: "synth", detail: "여유롭고 경쾌한 장단", color: "#a8623f", backgroundId: "jungjungmori", effectIds: [] },
+    { id: "pungnyu", label: "풍류", group: "리듬장단", padType: "string", detail: "멋스러운 장단", color: "#8a6b4e", backgroundId: "pungnyu", effectIds: [] },
     // 배경 없음 — 배경음악·합성 패드 없이 악기 소리만. silent:true 가 엔진의 합성 패드/앰비언스 폴백을 끈다.
     // (backgroundId·padType 이 없어 배경 음원도, 합성 패드도 깔리지 않는다. 배열 끝에 둬 기본값(고요한, index 0)은 유지.)
     { id: "none", label: "배경음악 없음", group: "배경 없음", padType: null, detail: "배경음악 없이 악기 소리만", color: "#8c9196", backgroundId: null, effectIds: [], silent: true },
@@ -187,7 +187,7 @@
   // 으뜸음을 도(C, 60)로 통일해 "음계의 성격(장/단/온음/펜타)"이 실제로 다르게 들리도록 한다.
   // (예전엔 C장조·A단조·D도리안이 모두 흰건반 같은 집합이라 동일하게 들렸음)
   // 서양 팔레트 기본 음역은 G3..G5로 통일한다.
-  // 국악풍은 다섯 국악기 모두 G-A-C-D-E-G-A-C-D-E 10칸으로 통일한다.
+  // 국악풍도 화면 도화지는 서양 기본 축 15칸을 함께 쓰고, 실제 발음 가능한 10음만 켠다.
   // 음 간격이 넓어져, 자유롭게 그려도 "연결된" 선율로 들린다.
   // 기본값(맨 앞)은 펜타토닉 — 반음이 없어 어떤 순서로 그려도 어울려 "틀린 음"이 안 난다(칸딘스키 뮤직랩 방식).
   const styles = [
@@ -195,7 +195,21 @@
     { id: "bright", label: "밝음", scaleName: "C Major", root: 60, intervals: [0, 2, 4, 5, 7, 9, 11], lowMidi: 55, highMidi: 79, detail: "장음계 — 밝고 안정적", gugak: false },
     { id: "calm", label: "차분함", scaleName: "C Minor", root: 60, intervals: [0, 2, 3, 5, 7, 8, 10], lowMidi: 55, highMidi: 79, detail: "단음계 — 어둡고 차분", gugak: false },
     { id: "mystic", label: "신비로움", scaleName: "C Whole Tone", root: 60, intervals: [0, 2, 4, 6, 8, 10], lowMidi: 55, highMidi: 79, detail: "온음음계 — 몽환적·붕 뜬 느낌", gugak: false },
-    { id: "gugak", label: "국악풍", scaleName: "G Pentatonic + 시김새", root: 55, intervals: [0, 2, 5, 7, 9], lowMidi: 55, highMidi: 76, detail: "전통 5음계 — 꺾음·흘러내림·떠는음", gugak: true },
+    {
+      id: "gugak",
+      label: "국악풍",
+      scaleName: "G Pentatonic + 시김새",
+      root: 55,
+      intervals: [0, 2, 5, 7, 9],
+      lowMidi: 55,
+      highMidi: 76,
+      drawRoot: 60,
+      drawIntervals: [0, 2, 4, 5, 7, 9, 11],
+      drawLowMidi: 55,
+      drawHighMidi: 79,
+      detail: "전통 5음계 — 꺾음·흘러내림·떠는음",
+      gugak: true,
+    },
   ]
 
   // 믹스 변형 — 한 시도(테이크)를 다른 균형으로 들어보는 옵션

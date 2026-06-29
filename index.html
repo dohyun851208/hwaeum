@@ -112,6 +112,143 @@
         transform: translateZ(0);
       }
 
+      .meaning-intro {
+        position: absolute;
+        inset: 0;
+        z-index: 35;
+        pointer-events: none;
+        animation: meaningIntroExit 520ms ease 2960ms forwards;
+      }
+
+      .meaning-intro::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 48%;
+        width: 640px;
+        max-width: 68vw;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(244, 63, 94, 0.34), rgba(139, 92, 246, 0.34), rgba(20, 184, 166, 0.34), transparent);
+        transform: translate(-50%, -50%) scaleX(0);
+        transform-origin: center;
+        opacity: 0;
+        filter: blur(0.2px);
+        animation: meaningLineGather 2700ms cubic-bezier(0.18, 0.86, 0.16, 1) 380ms both;
+      }
+
+      .meaning-symbol {
+        --start-x: 0px;
+        --start-y: 0px;
+        --mid-x: 0px;
+        --mid-y: 0px;
+        --tilt: 0deg;
+        --accent: var(--violet);
+        position: absolute;
+        left: 50%;
+        top: 48%;
+        width: 228px;
+        aspect-ratio: 1;
+        opacity: 0;
+        transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.74) rotate(var(--tilt));
+        filter: drop-shadow(0 18px 36px rgba(73, 49, 40, 0.16));
+        animation: meaningSymbolGather 2950ms cubic-bezier(0.18, 0.86, 0.16, 1) both;
+      }
+
+      .meaning-symbol.paint {
+        --start-x: -312px;
+        --start-y: -8px;
+        --mid-x: -116px;
+        --mid-y: 2px;
+        --tilt: -7deg;
+        --accent: var(--pink);
+        animation-delay: 200ms;
+      }
+
+      .meaning-symbol.harmony {
+        --start-x: 0px;
+        --start-y: 18px;
+        --mid-x: 0px;
+        --mid-y: 0px;
+        --tilt: 0deg;
+        --accent: var(--violet);
+        width: 248px;
+        animation-delay: 420ms;
+      }
+
+      .meaning-symbol.sound {
+        --start-x: 312px;
+        --start-y: -8px;
+        --mid-x: 116px;
+        --mid-y: 2px;
+        --tilt: 7deg;
+        --accent: var(--teal);
+        animation-delay: 280ms;
+      }
+
+      .meaning-art {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        border: 1.5px solid rgba(255, 255, 255, 0.88);
+        border-radius: 34px;
+        background: rgba(255, 248, 242, 0.82);
+        box-shadow:
+          0 18px 40px rgba(73, 49, 40, 0.11),
+          0 0 0 1px rgba(255, 255, 255, 0.32);
+      }
+
+      .meaning-art::after {
+        content: "";
+        position: absolute;
+        inset: -24%;
+        border: 2px solid color-mix(in srgb, var(--accent) 34%, transparent);
+        border-radius: 50%;
+        opacity: 0;
+        transform: scale(0.72);
+        animation: meaningRipple 1800ms ease-out 820ms both;
+      }
+
+      .meaning-art img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        clip-path: inset(0 100% 0 0);
+        transform: scale(1.04);
+        animation: meaningImageReveal 1200ms cubic-bezier(0.18, 0.86, 0.16, 1) 220ms forwards;
+      }
+
+      .harmony .meaning-art img {
+        animation-delay: 420ms;
+      }
+
+      .sound .meaning-art img {
+        animation-delay: 320ms;
+      }
+
+      .meaning-glyph {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: rgba(51, 44, 42, 0.92);
+        font-family: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+        font-size: 6.9rem;
+        font-weight: 400;
+        line-height: 1;
+        text-shadow:
+          0 3px 0 rgba(255, 255, 255, 0.52),
+          0 12px 26px color-mix(in srgb, var(--accent) 24%, transparent);
+        transform: translateY(4px) scale(0.92);
+        opacity: 0;
+        animation: meaningGlyphIn 1600ms cubic-bezier(0.18, 0.86, 0.16, 1) 520ms forwards;
+      }
+
+      .harmony .meaning-glyph {
+        font-size: 7.4rem;
+        color: rgba(62, 47, 84, 0.95);
+      }
+
       .world {
         position: absolute;
         left: 50%;
@@ -124,6 +261,7 @@
         pointer-events: none;
         overflow: visible;
         --spin-deg: 0deg;
+        --intro-delay: 3350ms;
       }
 
       .orbit-ring {
@@ -138,7 +276,7 @@
         background: transparent;
         box-shadow: none;
         opacity: 0;
-        animation: orbitRingFadeIn 1200ms ease 180ms forwards;
+        animation: orbitRingFadeIn 1200ms ease var(--intro-delay) forwards;
       }
 
       .orbit-ring::before,
@@ -178,7 +316,7 @@
         align-items: center;
         justify-content: center;
         gap: 15px;
-        animation: titleSettle 1600ms cubic-bezier(0.18, 0.86, 0.16, 1) 120ms both;
+        animation: titleSettle 1350ms cubic-bezier(0.18, 0.86, 0.16, 1) 3180ms both;
       }
 
       .title-stack::before {
@@ -221,9 +359,9 @@
         display: block;
         margin: 0;
         color: var(--pink);
-        font-size: clamp(1.28rem, 1.55vw, 1.48rem);
+        font-size: clamp(1.24rem, 1.45vw, 1.42rem);
         font-weight: 400;
-        line-height: 1.18;
+        line-height: 1.24;
       }
 
       .title-stack .subtitle span {
@@ -258,8 +396,8 @@
         cursor: grab;
         will-change: left, top, transform, opacity;
         animation:
-          cardSlideIn 940ms cubic-bezier(0.16, 1, 0.3, 1) var(--o-delay, 0ms) forwards,
-          cardFloat var(--o-dur, 7200ms) ease-in-out calc(var(--o-delay, 0ms) + 940ms) infinite;
+          cardSlideIn 940ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--intro-delay, 0ms) + var(--o-delay, 0ms)) forwards,
+          cardFloat var(--o-dur, 7200ms) ease-in-out calc(var(--intro-delay, 0ms) + var(--o-delay, 0ms) + 940ms) infinite;
       }
 
       .album-card img {
@@ -341,6 +479,103 @@
       .enter-cta:focus-visible {
         outline: 2px solid var(--teal);
         outline-offset: 4px;
+      }
+
+      @keyframes meaningIntroExit {
+        to {
+          opacity: 0;
+          visibility: hidden;
+        }
+      }
+
+      @keyframes meaningLineGather {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scaleX(0);
+        }
+        26%,
+        62% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scaleX(1);
+        }
+        86% {
+          opacity: 0.72;
+          transform: translate(-50%, -50%) scaleX(0.28);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scaleX(0);
+        }
+      }
+
+      @keyframes meaningSymbolGather {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.72) rotate(var(--tilt));
+          filter: blur(5px) drop-shadow(0 18px 36px rgba(73, 49, 40, 0.1));
+        }
+        16% {
+          opacity: 1;
+          transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.9) rotate(var(--tilt));
+          filter: blur(0) drop-shadow(0 18px 36px rgba(73, 49, 40, 0.16));
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(1) rotate(var(--tilt));
+          filter: blur(0) drop-shadow(0 18px 36px rgba(73, 49, 40, 0.16));
+        }
+        74% {
+          opacity: 0.98;
+          transform: translate(-50%, -50%) translate(var(--mid-x), var(--mid-y)) scale(0.9) rotate(0deg);
+          filter: blur(0) drop-shadow(0 18px 36px rgba(73, 49, 40, 0.16));
+        }
+        90% {
+          opacity: 0.92;
+          transform: translate(-50%, -50%) translate(0, 0) scale(0.58) rotate(0deg);
+          filter: blur(0) drop-shadow(0 14px 30px rgba(73, 49, 40, 0.12));
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -50%) translate(0, 0) scale(0.24) rotate(0deg);
+          filter: blur(8px) drop-shadow(0 10px 26px rgba(73, 49, 40, 0.08));
+        }
+      }
+
+      @keyframes meaningImageReveal {
+        from {
+          clip-path: inset(0 100% 0 0);
+          filter: blur(2px) saturate(0.82);
+        }
+        to {
+          clip-path: inset(0 0 0 0);
+          filter: blur(0) saturate(1.04);
+        }
+      }
+
+      @keyframes meaningGlyphIn {
+        0% {
+          opacity: 0;
+          transform: translateY(10px) scale(0.86);
+        }
+        42%,
+        100% {
+          opacity: 1;
+          transform: translateY(4px) scale(1);
+        }
+      }
+
+      @keyframes meaningRipple {
+        0% {
+          opacity: 0;
+          transform: scale(0.72);
+        }
+        38% {
+          opacity: 0.75;
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.08);
+        }
       }
 
       @keyframes orbitRingFadeIn {
@@ -462,8 +697,16 @@
           animation: none;
         }
 
+        .meaning-intro {
+          display: none;
+        }
+
         .album-card {
           opacity: var(--o-opacity, 0.94);
+        }
+
+        .orbit-ring {
+          opacity: 1;
         }
       }
     </style>
@@ -484,14 +727,33 @@
       <main class="hero-stage-wrap">
         <section class="hero-stage" aria-label="화음 메인">
           <div class="scene">
+            <div class="meaning-intro" aria-hidden="true">
+              <div class="meaning-symbol paint">
+                <div class="meaning-art">
+                  <img src="assets/hero/intro-paint.webp" alt="" />
+                </div>
+                <span class="meaning-glyph">畵</span>
+              </div>
+              <div class="meaning-symbol harmony">
+                <div class="meaning-art">
+                  <img src="assets/hero/intro-harmony.webp" alt="" />
+                </div>
+                <span class="meaning-glyph">和</span>
+              </div>
+              <div class="meaning-symbol sound">
+                <div class="meaning-art">
+                  <img src="assets/hero/intro-sound.webp" alt="" />
+                </div>
+                <span class="meaning-glyph">音</span>
+              </div>
+            </div>
             <div class="title-stack">
               <h1 class="brand-title">화음</h1>
               <p class="subtitle">
-                <strong>그림으로 소리를 그리고<br />소리를 조화롭게</strong>
-                <span><em>畵音</em> 그림의 소리 · <em>和音</em> 어울리는 소리</span>
+                <strong>그림과 소리를 조화롭게<br />나만의 BGM 만들기</strong>
               </p>
               <a class="enter-cta" href="studio.html">
-                입장하기
+                그림으로 음악 만들기
               </a>
             </div>
 
@@ -549,7 +811,7 @@
               >
                 <img src="assets/hero/hero-harmony.webp" alt="" />
                 <figcaption>
-                  <strong>나의 30초</strong>
+                  <strong>나의 BGM</strong>
                 </figcaption>
               </figure>
             </div>

@@ -29,9 +29,13 @@
     return NOTE_NAMES[((midi % 12) + 12) % 12]
   }
 
-  // 그릴 수 있는 음 목록(음계 ∩ 악기 연주가능음). 축·격자·렌더·quantize 가 모두 이 한 목록을 공유한다.
+  // 화면에 보이는 음높이 행 목록. 악기에 따라 낼 수 없는 음은 행을 없애지 않고 비활성으로 둔다.
   function drawableScaleFor(style, asset) {
     return (Core.drawableScale || Core.buildScale)(style, asset)
+  }
+
+  function isPitchPlayableFor(midi, style, asset) {
+    return !Core.isPitchPlayable || Core.isPitchPlayable(midi, style, asset)
   }
 
   // 축 라벨에 쓸 계이름. 악기 transpose 를 반영하되 옥타브 숫자는 떼고 계이름만 보여준다.
@@ -52,7 +56,7 @@
         rowTop: bounds.top * 100,
         rowBottom: bounds.bottom * 100,
         rowHeight: (bounds.bottom - bounds.top) * 100,
-        selected: true,
+        selected: isPitchPlayableFor(midi, style, asset),
       }
     })
   }
@@ -117,6 +121,7 @@
     this.onFlowStart = opts.onFlowStart || function () {}
     this.onFlowEnd = opts.onFlowEnd || function () {}
     this.getFlowProgress = opts.getFlowProgress || function () { return 0 }
+    this.melodyAssetForInstrument = opts.melodyAssetForInstrument || null
     this.accent = opts.accent || "#5f8f63"
     this.strokes = [] // 정규화 다중 획: [ [{x,y}...], ... ]
     this.strokeInstruments = [] // 각 획의 악기 id(획과 1:1, 지우개로 쪼개져도 유지) — 오케스트라용
@@ -143,6 +148,7 @@
     this.pixelRatio = 1
     this.lastPreviewAt = 0
     this.lastPreviewY = null
+    this.drawingGestureHasUndo = false
     // 가장자리 자동 스크롤 — 긴 타임라인에서 끝까지 이어 그리기
     this.scrollContainer =
       opts.scrollContainer ||
@@ -209,6 +215,47 @@
     return this.accent
   }
 
+  DrawingCanvas.prototype._assetForInstrument = function (id, state) {
+    if (this.melodyAssetForInstrument) {
+      const asset = this.melodyAssetForInstrument(id)
+      if (asset) return asset
+    }
+    return state && state.melodyAsset ? state.melodyAsset : null
+  }
+
+  DrawingCanvas.prototype._pointIsDrawable = function (p, state, asset) {
+    const st = state || (this.getState ? this.getState() : null)
+    if (!st || st.mode === "rhythm" || !Core.quantizePitch) return true
+    const melodyAsset = asset || this._assetForInstrument(this.activeInstrument, st)
+    return Core.quantizePitch(p.y, st.style, melodyAsset) != null
+  }
+
+  DrawingCanvas.prototype._startStrokeSegment = function (p) {
+    const active = this.activeInstrument
+    if (
+      active != null &&
+      this.strokeInstruments.indexOf(active) === -1 &&
+      this.distinctInstrumentCount() >= this.maxInstruments
+    ) {
+      this.isDrawing = false
+      this.onInstrumentLimit(this.maxInstruments)
+      return false
+    }
+    const st = this.getState ? this.getState() : null
+    const asset = this._assetForInstrument(active, st)
+    if (!this._pointIsDrawable(p, st, asset)) return false
+    if (!this.drawingGestureHasUndo) {
+      this._pushUndo()
+      this.drawingGestureHasUndo = true
+    }
+    this.currentStroke = [p]
+    this.strokes.push(this.currentStroke)
+    this.strokeInstruments.push(active)
+    this._previewStart(p)
+    this.render()
+    return true
+  }
+
   DrawingCanvas.prototype._instrumentForNote = function (note) {
     if (!note || note.voice == null) return this.activeInstrument
     return this.strokeInstruments[note.voice] != null ? this.strokeInstruments[note.voice] : this.activeInstrument
@@ -225,7 +272,14 @@
       this.onInstrumentLimit(this.maxInstruments)
       return false
     }
+    const st = this.getState ? this.getState() : null
+    const asset = this._assetForInstrument(active, st)
+    if (!this._pointIsDrawable(p, st, asset)) {
+      this.isDrawing = false
+      return false
+    }
     this._pushUndo()
+    this.drawingGestureHasUndo = true
     this.isDrawing = true
     this.flowActive = true
     const flowProgress = clamp(this.getFlowProgress(), 0, 1)
@@ -240,9 +294,33 @@
   }
 
   DrawingCanvas.prototype.flowRecord = function (progress) {
-    if (!this.flowActive || !this.currentStroke) return false
+    if (!this.flowActive) return false
     const x = clamp(Number(progress) || 0, 0, 1)
     const y = clamp(this.flowY, 0, 1)
+    const point = { x: x, y: y }
+    const active = this.activeInstrument
+    const st = this.getState ? this.getState() : null
+    const asset = this._assetForInstrument(active, st)
+    if (!this._pointIsDrawable(point, st, asset)) {
+      if (this.currentStroke) {
+        this.currentStroke = null
+        this.onPreviewEnd()
+        this.compute()
+        this.render()
+        this.onChange()
+      }
+      return false
+    }
+    if (!this.currentStroke) {
+      this.currentStroke = [point]
+      this.strokes.push(this.currentStroke)
+      this.strokeInstruments.push(active)
+      this._previewStart(point)
+      this.compute()
+      this.render()
+      this.onChange()
+      return true
+    }
     const stroke = this.currentStroke
     const last = stroke[stroke.length - 1]
     if (last && Math.abs(last.x - x) < 1e-4) {
@@ -264,6 +342,7 @@
     this.flowActive = false
     this.isDrawing = false
     this.pendingUndoSnapshot = null
+    this.drawingGestureHasUndo = false
     this.currentStroke = null
     this.onPreviewEnd()
     if (notifyFlowEnd) this.onFlowEnd()
@@ -459,24 +538,8 @@
         self._startFlowStroke(p)
         return
       }
-      // 악기 제한: 새 악기로 줄을 시작하려는데 이미 한도(기본 4개)면 막는다(줄을 지우면 자리가 생김)
-      const active = self.activeInstrument
-      if (
-        active != null &&
-        self.strokeInstruments.indexOf(active) === -1 &&
-        self.distinctInstrumentCount() >= self.maxInstruments
-      ) {
-        self.isDrawing = false
-        self.onInstrumentLimit(self.maxInstruments)
-        return
-      }
-      // 새 획 시작 — 기존 획은 그대로 둔다(자동 삭제/연결 없음)
-      self._pushUndo()
-      self.currentStroke = [p]
-      self.strokes.push(self.currentStroke)
-      self.strokeInstruments.push(active)
-      self._previewStart(p)
-      self.render()
+      self.drawingGestureHasUndo = false
+      if (!self._startStrokeSegment(p)) self.currentStroke = null
     })
     this.canvas.addEventListener("pointermove", function (e) {
       if (!self.isDrawing) return
@@ -503,6 +566,7 @@
       }
       self.isDrawing = false
       self.pendingUndoSnapshot = null
+      self.drawingGestureHasUndo = false
       self._stopAutoScroll()
       if (!self.eraseMode) self.onPreviewEnd()
       self.currentStroke = null
@@ -524,8 +588,21 @@
       this.render()
       return
     }
+    if (!this._pointIsDrawable(p)) {
+      if (this.currentStroke) {
+        this.currentStroke = null
+        this.onPreviewEnd()
+        this.compute()
+        this.render()
+        this.onChange()
+      }
+      return
+    }
     const stroke = this.currentStroke
-    if (!stroke) return
+    if (!stroke) {
+      this._startStrokeSegment(p)
+      return
+    }
     const last = stroke[stroke.length - 1]
     // 한 획 안에서는 시간(x)이 거꾸로 가지 않게 단조 증가
     if (!last || p.x >= last.x) stroke.push(p)
@@ -621,8 +698,17 @@
       this.notes = []
     } else {
       // 선율형은 점 하나(점 찍기)도 짧은 음으로 표현
+      const melodyAsset = st.melodyAsset || this._assetForInstrument(this.activeInstrument, st)
+      const melodyAssets = this.strokeInstruments.map((id) => this._assetForInstrument(id, st) || melodyAsset)
       this.notes =
-        this.strokes.length >= 1 ? Core.autocompleteMelodyStrokes(this.strokes, { durationSec: st.duration, style: st.style }) : []
+        this.strokes.length >= 1
+          ? Core.autocompleteMelodyStrokes(this.strokes, {
+              durationSec: st.duration,
+              style: st.style,
+              melodyAsset: melodyAsset,
+              melodyAssets: melodyAssets,
+            })
+          : []
       this.hits = []
     }
   }
@@ -659,12 +745,18 @@
     ctx.fillStyle = "#fbf6ec"
     ctx.fillRect(0, 0, labelGutter, H)
 
-    // 음높이 칸: 그릴 수 있는 음마다 한 칸. 각 음이 줄 위가 아니라 칸 안(중앙)에 들어가도록 경계선을 그린다.
+    // 음높이 칸: 악기를 바꿔도 같은 위치를 쓰고, 낼 수 없는 음은 비활성 행으로 표시한다.
     const st = this.getState()
-    const rows = drawableScaleFor(st.style, st.melodyAsset)
-    const rowCount = rows.length
+    const rowInfo = pitchRowsForStyle(st.style, st.melodyAsset)
+    const rowCount = rowInfo.length
     const gridLineWidth = Math.max(1, Math.round(px))
     const duration = Math.max(1, Number(st.duration) || 30)
+    rowInfo.forEach(function (row, i) {
+      if (row.selected) return
+      const bounds = pitchRowBoundsY(i, rowCount, H)
+      ctx.fillStyle = "rgba(31,38,38,0.045)"
+      ctx.fillRect(labelGutter, bounds.top, W - labelGutter, Math.max(1, bounds.bottom - bounds.top))
+    })
     ctx.lineWidth = gridLineWidth
     const drawVerticalLine = function (t) {
       const x = labelGutter + ((W - labelGutter) * t) / duration
@@ -719,7 +811,8 @@
     const H = this.canvas.height
     const px = this.pixelRatio || 1
     const st = this.getState()
-    const rows = drawableScaleFor(st.style, st.melodyAsset)
+    const rowInfo = pitchRowsForStyle(st.style, st.melodyAsset)
+    const rows = rowInfo.map((row) => row.midi)
     const asset = st.melodyAsset
     const labelGutter = this._pitchLabelGutter()
     const fontSize = Math.max(10, Math.round(12 * px))
@@ -739,9 +832,9 @@
     ctx.font = "700 " + fontSize + "px sans-serif"
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
-    ctx.fillStyle = "rgba(31,38,38,0.74)"
     for (let i = 0; i < rows.length; i++) {
       const y = pitchRowCenterY(i, rows.length, H)
+      ctx.fillStyle = rowInfo[i] && !rowInfo[i].selected ? "rgba(31,38,38,0.28)" : "rgba(31,38,38,0.74)"
       ctx.fillText(soundingLabel(rows[i], asset), labelGutter / 2, clamp(y, fontSize, H - fontSize))
     }
     if (typeof ctx.restore === "function") ctx.restore()

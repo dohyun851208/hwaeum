@@ -319,6 +319,10 @@ test("stroke sample playback uses live drawing glide timing", () => {
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
   const dest = makeNode()
+  const style = sandbox.SDStudioData.styles.find((s) => s.id === "gugak")
+  const asset = sandbox.SDStudioData.melodies.haegeum
+  const rows = core.drawableScale(style, asset)
+  const yFor = (midi) => 1 - (rows.indexOf(midi) + 0.5) / rows.length
   const recipe = {
     duration: 30,
     atmosphere: "calm",
@@ -326,7 +330,7 @@ test("stroke sample playback uses live drawing glide timing", () => {
     style: "gugak",
     version: "balanced",
     mode: "melody",
-    strokes: [[{ x: 0, y: 0.2 }, { x: 0.25, y: 0.8 }]],
+    strokes: [[{ x: 0, y: yFor(67) }, { x: 0.25, y: yFor(69) }]],
     strokeInstruments: ["haegeum"],
   }
   const plan = engine.resolvePlan(recipe, [{ time: 0, duration: 7.5, midi: 60, velocity: 0.7, voice: 0 }])
@@ -688,11 +692,13 @@ test("haegeum live drawing preview uses a slower pitch glide", () => {
   engine.livePreview = {
     kind: "sample",
     signature: engine._liveSignature(plan),
-    sampleMidi: plan.melodyAsset.baseMidi,
+    sampleMidi: 67,
     rateParam: rateParam,
   }
 
-  engine.liveDrawingMove(recipe, 0.4)
+  const rows = core.drawableScale(plan.style, plan.melodyAsset)
+  const y = 1 - (rows.indexOf(67) + 0.5) / rows.length
+  engine.liveDrawingMove(recipe, y)
 
   const target = rateParam.events.find((event) => event[0] === "target")
   assert.ok(target, "haegeum live preview should glide instead of restarting")
@@ -879,6 +885,31 @@ test("resolvePlan filters Korean instrument notes outside the allowed playable r
     ),
     [67, 76],
   )
+})
+
+test("resolvePlan stroke segments leave Korean inactive pitch rows silent", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const style = sandbox.SDStudioData.styles.find((s) => s.id === "gugak")
+  const asset = sandbox.SDStudioData.melodies.sogeum
+  const rows = core.drawableScale(style, asset)
+  const yFor = (midi) => 1 - (rows.indexOf(midi) + 0.5) / rows.length
+  const recipe = {
+    duration: 30,
+    atmosphere: "calm",
+    instrument: "sogeum",
+    style: "gugak",
+    version: "balanced",
+    mode: "melody",
+    strokes: [[{ x: 0, y: yFor(59) }, { x: 0.5, y: yFor(62) }]],
+    strokeInstruments: ["sogeum"],
+  }
+
+  const plan = engine.resolvePlan(recipe, [])
+
+  assert.equal(plan.strokeSegments.length, 1)
+  assert.equal(plan.strokeSegments[0].events.length, 1)
+  assert.equal(plan.strokeSegments[0].events[0].uiMidi, 62)
 })
 
 test("preload decodes uploaded background files for the merged playback graph", async () => {
