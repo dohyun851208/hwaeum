@@ -8,6 +8,8 @@
 ;(function (root) {
   "use strict"
 
+  // === § 1  모듈 전역 · 상수 ===
+
   const Core = root.MusicCore
   const Data = root.SDStudioData
   const EFFECT_GAIN = 0.15
@@ -61,6 +63,8 @@
   const HAEGEUM_PHRASE_ATTACK_SECONDS = 0.06
   const DRAWING_NOTE_GAP_TOLERANCE_SECONDS = 0.08
   const STROKE_TAP_SECONDS = 0.16
+  // === § 2  공유 유틸리티 ===
+
   function midiToFreq(midi) {
     return 440 * Math.pow(2, (midi - 69) / 12)
   }
@@ -125,6 +129,8 @@
   function isGugakInstrument(instrument) {
     return !!(instrument && instrument.group === "국악")
   }
+
+  // === § 3  게인 계산 함수 ===
 
   function backgroundOutputGain(plan) {
     return ((plan && plan.version && plan.version.padGain) || 0) * BACKGROUND_OUTPUT_GAIN
@@ -251,6 +257,8 @@
     filter.connect(env)
     return filter
   }
+  // === § 4  Sustain Loop 시스템 ===
+
   function sampleSustainLoopRegion(offset, duration) {
     const dur = Number(duration) || 0
     if (dur <= 0.25) return null
@@ -429,6 +437,8 @@
       master.connect(output)
     }
   }
+  // === § 5  샘플 맵 & 재생 헬퍼 ===
+
   function samplePlaybackRate(asset, midi) {
     const baseMidi = asset && asset.baseMidi != null ? asset.baseMidi : midi
     return Math.pow(2, (midi - baseMidi) / 12)
@@ -615,7 +625,8 @@
     return { start: start, end: end, length: Math.max(0.05, end - start) }
   }
 
-  // 합성 폴백 음색 — 실제 샘플이 없을 때도 악기가 구분되어 들리도록
+  // === § 6  합성 음색 설정 ===
+  // 실제 샘플이 없을 때도 악기가 구분되어 들리도록
   // (필터 컷오프/공명 Q, 어택, 비브라토 속도/깊이를 악기마다 다르게).
   const SYNTH_VOICE_DEFAULTS = {
     서양: { cutoff: 1800, Q: 0.7, attack: 0.05, vibratoRate: 5, vibratoDepth: 8 },
@@ -641,6 +652,8 @@
     const base = SYNTH_VOICE_DEFAULTS[instrument.group] || SYNTH_VOICE_DEFAULTS["서양"]
     return Object.assign({ waveform: instrument.waveform || "sine" }, base, SYNTH_VOICE_OVERRIDES[instrument.id] || {})
   }
+
+  // === § 7  프레이즈 & 음표 그룹화 ===
 
   // 두 음이 시간상 맞붙어 있으면(연속) 레가토로 이어 들리게 한다.
   function isContiguous(note, next) {
@@ -685,6 +698,8 @@
   }
 
   // 연속으로 그린 음들은 하나의 프레이즈 엔벨로프로 감싸, 경계마다 다시 타격되지 않게 한다.
+  // === § 8  엔벨로프 적용 ===
+
   function applyPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack) {
     const attack = Math.min(maxAttack || NOTE_GLIDE_SECONDS, phraseDuration * 0.25)
     const release = Math.min(0.18, Math.max(0.08, phraseDuration * 0.2))
@@ -712,6 +727,8 @@
   function applySampleMelodyEnv(env, peak, phraseStart, phraseDuration, maxAttack, plan) {
     applyPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack)
   }
+
+  // === § 9  AudioEngine 클래스 & Prototype 메서드 ===
 
   function AudioEngine() {
     this.ctx = null
@@ -1251,6 +1268,47 @@
     }
   }
 
+  // ⚠ source.buffer 는 "한 번만" 설정(이중 설정 시 브라우저 throw → 선율 무음).
+  // continuousSustainPlan 이후 공통 블록: source 노드 설정·글라이드·엔벨로프·start/stop.
+  // scheduleSampleStrokes / scheduleSampleMelody 두 경로의 공통 코어.
+  function _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
+                                      phraseStart, phraseDuration, phraseStop,
+                                      events, start, glideSeconds, attackSeconds, envPeakArg, register) {
+    const env = ctx.createGain()
+    const startOffset = sustain.offset
+    const startSourceDur = sustain.duration
+    const src = ctx.createBufferSource()
+    src.buffer = sustain.buffer
+    applySustainPlanToSource(src, sustain)
+    src.playbackRate.setValueAtTime(baseRate, phraseStart)
+    for (let k = 1; k < events.length; k++) {
+      const ev = events[k]
+      const nextRate = segmentPlaybackRate(asset, ev.midi, segment)
+      src.playbackRate.setTargetAtTime(nextRate, start + ev.time, glideSeconds)
+    }
+    applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, envPeakArg * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
+    connectGugakSampleTone(ctx, src, env, plan, phraseStart)
+    const noteGain = connectMelodyEnv(ctx, env, dest, plan, events, start, phraseStart, glideSeconds)
+    try {
+      if (src.loop) {
+        src.start(phraseStart, safeBufferOffset(src.buffer, startOffset))
+      } else {
+        const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, startOffset, Math.min(startSourceDur, phraseDuration * baseRate + 0.18)))
+        src.start(phraseStart, safeBufferOffset(src.buffer, startOffset), srcDur)
+      }
+      src.stop(phraseStop + 0.18)
+      register(src)
+    } catch (e) {
+      warnScheduleFallback("샘플 프레이즈 시작 실패", e, {
+        instrument: plan.instrument && plan.instrument.id,
+        offset: startOffset,
+        sourceDuration: startSourceDur,
+        bufferDuration: audioBufferDuration(src.buffer),
+      })
+      disconnectQuietly(src, env, noteGain)
+    }
+  }
+
   AudioEngine.prototype.scheduleSampleStrokes = function (ctx, dest, plan, strokeSegments, instBuffers, start, register) {
     const asset = plan.melodyAsset
     const buffer = instBuffers.melody
@@ -1272,49 +1330,16 @@
       const segment = nearestSampleSegment(asset, first.midi)
       const srcBuffer = multi ? sampleBufferFor(sampleBuffers, segment, buffer) : buffer
       if (!srcBuffer) continue
-      const env = ctx.createGain()
       const baseRate = segmentPlaybackRate(asset, first.midi, segment)
       const fallbackOffset = segment ? 0 : samplePhrase ? Math.min(0.05, Math.max(0, audioBufferDuration(srcBuffer) * 0.08)) : 0
       const sourceBounds = multi ? { offset: 0, duration: audioBufferDuration(srcBuffer) } : sampleSegmentBounds(srcBuffer, segment, fallbackOffset)
       const offset = sourceBounds.offset
       const usableSourceDur = sourceBounds.duration
       if (!(usableSourceDur > 0.01)) continue
-      // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다(획당 source 1개 + 피치 글라이드).
-      // ⚠ source.buffer 는 여기서 "한 번만" 설정(이중 설정 시 브라우저 throw → 선율 무음).
       const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan)
-      const startOffset = sustain.offset
-      const startSourceDur = sustain.duration
-      const src = ctx.createBufferSource()
-      src.buffer = sustain.buffer
-      applySustainPlanToSource(src, sustain)
-      src.playbackRate.setValueAtTime(baseRate, phraseStart)
-      for (let k = 1; k < stroke.events.length; k++) {
-        const event = stroke.events[k]
-        const nextRate = segmentPlaybackRate(asset, event.midi, segment)
-        src.playbackRate.setTargetAtTime(nextRate, start + event.time, glideSeconds)
-      }
-      applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, 0.7 * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
-      connectGugakSampleTone(ctx, src, env, plan, phraseStart)
-      const noteGain = connectMelodyEnv(ctx, env, dest, plan, stroke.events, start, phraseStart, glideSeconds)
-
-      try {
-        if (src.loop) {
-          src.start(phraseStart, safeBufferOffset(src.buffer, startOffset))
-        } else {
-          const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, startOffset, Math.min(startSourceDur, phraseDuration * baseRate + 0.18)))
-          src.start(phraseStart, safeBufferOffset(src.buffer, startOffset), srcDur)
-        }
-        src.stop(phraseStop + 0.18)
-        register(src)
-      } catch (e) {
-        warnScheduleFallback("획 샘플 시작 실패", e, {
-          instrument: plan.instrument && plan.instrument.id,
-          offset: startOffset,
-          sourceDuration: startSourceDur,
-          bufferDuration: audioBufferDuration(src.buffer),
-        })
-        disconnectQuietly(src, env, noteGain)
-      }
+      _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
+        phraseStart, phraseDuration, phraseStop,
+        stroke.events, start, glideSeconds, attackSeconds, 0.7, register)
     }
   }
 
@@ -1346,46 +1371,14 @@
         const segment = nearestSampleSegment(asset, first.midi)
         const srcBuffer = sampleBufferFor(sampleBuffers, segment, buffer)
         if (!srcBuffer) continue
-        const env = ctx.createGain()
         const baseRate = segmentPlaybackRate(asset, first.midi, segment)
         const usableSourceDur = audioBufferDuration(srcBuffer)
         if (!(usableSourceDur > 0.01)) continue
         // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다. source.buffer 는 한 번만 설정.
         const sustain = continuousSustainPlan(ctx, srcBuffer, 0, usableSourceDur, plan)
-        const startOffset = sustain.offset
-        const startSourceDur = sustain.duration
-        const src = ctx.createBufferSource()
-        src.buffer = sustain.buffer
-        applySustainPlanToSource(src, sustain)
-        src.playbackRate.setValueAtTime(baseRate, phraseStart)
-        for (let k = 1; k < phraseNotes.length; k++) {
-          const note = phraseNotes[k]
-          const noteStart = start + note.time
-          const nextRate = segmentPlaybackRate(asset, note.midi, segment)
-          src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
-        }
-        applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
-        connectGugakSampleTone(ctx, src, env, plan, phraseStart)
-        const noteGain = connectMelodyEnv(ctx, env, dest, plan, phraseNotes, start, phraseStart, glideSeconds)
-
-        try {
-          if (src.loop) {
-            src.start(phraseStart, safeBufferOffset(src.buffer, startOffset))
-          } else {
-            const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, startOffset, Math.min(startSourceDur, phraseDuration * baseRate + 0.18)))
-            src.start(phraseStart, safeBufferOffset(src.buffer, startOffset), srcDur)
-          }
-          src.stop(phraseStop + 0.18)
-          register(src)
-        } catch (e) {
-          warnScheduleFallback("획 샘플 시작 실패", e, {
-            instrument: plan.instrument && plan.instrument.id,
-            offset: startOffset,
-            sourceDuration: startSourceDur,
-            bufferDuration: audioBufferDuration(src.buffer),
-          })
-          disconnectQuietly(src, env, noteGain)
-        }
+        _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
+          phraseStart, phraseDuration, phraseStop,
+          phraseNotes, start, glideSeconds, attackSeconds, first.velocity, register)
       }
       return
     }
@@ -1396,7 +1389,6 @@
       const phraseStart = start + first.time
       const phraseDuration = phraseEnd(notes) - first.time
       const phraseStop = start + last.time + last.duration
-      const env = ctx.createGain()
       const segment = nearestSampleSegment(asset, first.midi)
       const srcBuffer = buffer
       if (!srcBuffer) continue
@@ -1406,43 +1398,11 @@
       const offset = sourceBounds.offset
       const usableSourceDur = sourceBounds.duration
       if (!(usableSourceDur > 0.01)) continue
-      // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다. source.buffer 는 한 번만 설정.
       // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지고, 짧게 그려도 라이브처럼 안 끊긴다.
       const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan)
-      const startOffset = sustain.offset
-      const startSourceDur = sustain.duration
-      const src = ctx.createBufferSource()
-      src.buffer = sustain.buffer
-      applySustainPlanToSource(src, sustain)
-      src.playbackRate.setValueAtTime(baseRate, phraseStart)
-      for (let k = 1; k < notes.length; k++) {
-        const note = notes[k]
-        const noteStart = start + note.time
-        const nextRate = segmentPlaybackRate(asset, note.midi, segment)
-        src.playbackRate.setTargetAtTime(nextRate, noteStart, glideSeconds)
-      }
-      applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
-      connectGugakSampleTone(ctx, src, env, plan, phraseStart)
-      const noteGain = connectMelodyEnv(ctx, env, dest, plan, notes, start, phraseStart, glideSeconds)
-
-      try {
-        if (src.loop) {
-          src.start(phraseStart, safeBufferOffset(src.buffer, startOffset))
-        } else {
-          const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, startOffset, Math.min(startSourceDur, phraseDuration * baseRate + 0.18)))
-          src.start(phraseStart, safeBufferOffset(src.buffer, startOffset), srcDur)
-        }
-        src.stop(phraseStop + 0.18)
-        register(src)
-      } catch (e) {
-        warnScheduleFallback("획 샘플 시작 실패", e, {
-          instrument: plan.instrument && plan.instrument.id,
-          offset: startOffset,
-          sourceDuration: startSourceDur,
-          bufferDuration: audioBufferDuration(src.buffer),
-        })
-        disconnectQuietly(src, env, noteGain)
-      }
+      _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
+        phraseStart, phraseDuration, phraseStop,
+        notes, start, glideSeconds, attackSeconds, first.velocity, register)
     }
   }
 

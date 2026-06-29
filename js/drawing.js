@@ -7,11 +7,16 @@
  */
 ;(function (root) {
   "use strict"
+
+  // === § 1  모듈 전역 · 상수 ===
+
   const Core = root.MusicCore
   const TIMELINE_GRID_SECONDS = 2.5
   const PITCH_LABEL_GUTTER_CSS_PX = 56
   const ERASER_PITCH_RADIUS = 0.035
   const ERASER_TIME_RADIUS_SECONDS = 0.5
+
+  // === § 2  피치 행 지오메트리 & 레이블 헬퍼 (순수) ===
 
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v))
@@ -98,6 +103,8 @@
     }
     return pos
   }
+
+  // === § 3  DrawingCanvas 생성자 & 기본 API ===
 
   function DrawingCanvas(canvas, opts) {
     this.canvas = canvas
@@ -284,6 +291,8 @@
     return true
   }
 
+  // === § 4  Undo 시스템 ===
+
   DrawingCanvas.prototype._snapshot = function () {
     return {
       strokes: this.getStrokes(),
@@ -427,6 +436,8 @@
     this.strokeInstruments = nextInst
     return changed
   }
+
+  // === § 5  포인터 이벤트 바인딩 & 자동 스크롤 ===
 
   DrawingCanvas.prototype._bind = function () {
     const self = this
@@ -581,6 +592,8 @@
     this._edgeDir = 0
   }
 
+  // === § 6  라이브 미리듣기 ===
+
   DrawingCanvas.prototype._previewStart = function (point) {
     const now = root.performance && root.performance.now ? root.performance.now() : Date.now()
     this.lastPreviewAt = now
@@ -596,6 +609,8 @@
     this.lastPreviewY = point.y
     this.onPreview({ x: point.x, y: point.y })
   }
+
+  // === § 7  계산 & 렌더링 ===
 
   DrawingCanvas.prototype.compute = function () {
     const st = this.getState()
