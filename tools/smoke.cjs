@@ -178,7 +178,8 @@ check(
   qc("#atmosphereGrid .mood-card") === window.SDStudioData.atmospheres.length,
   qc("#atmosphereGrid .mood-card") + "/" + window.SDStudioData.atmospheres.length,
 )
-check("단계 이름은 배경/악기", window.document.body.textContent.includes("배경/악기"))
+check("단계 이름은 배경 음악 고르기", window.document.body.textContent.includes("배경 음악 고르기"))
+check("2단계 악기 영역은 미리 듣기 문구를 쓴다", window.document.body.textContent.includes("이 배경에 어울리는 악기 미리 듣기"))
 check(
   "배경 하위 범주 표시",
   Array.from(window.document.querySelectorAll("#atmosphereGrid .atmosphere-group-label"))

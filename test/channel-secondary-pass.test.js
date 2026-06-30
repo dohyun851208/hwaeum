@@ -91,8 +91,8 @@ test("share + channel pages carry the channel password UI", () => {
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const styles = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
-  assert.match(studio, /화음 갤러리에 들어가 완성된 작품을 감상합니다\./)
-  assert.match(studio, /화음 갤러리 번호를 입력하면 같은 화음 갤러리에 모인 완성 작품이 펼쳐집니다\./)
+  assert.match(studio, /화음 갤러리에 공유합니다\./)
+  assert.match(studio, /화음 갤러리 번호를 입력하면 같은 화음 갤러리에 모인 완성 작품을 함께 감상할 수 있습니다\./)
   assert.doesNotMatch(studio, new RegExp("화음 갤러리를 열면 선생님이 알려 준 " + "2" + "차 " + "비밀번호"))
   assert.doesNotMatch(studio, new RegExp("화음 갤러리 " + "열기"))
   assert.match(studio, /id="channelOpenTitle">화음 갤러리 들어가기/)

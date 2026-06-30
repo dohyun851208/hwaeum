@@ -265,8 +265,8 @@ body:not([data-step="2"]) .transport {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 48px;
-  padding: 11px 14px;
+  min-height: 54px;
+  padding: 10px 12px;
   border-radius: 6px;
   border: 0;
   background: transparent;
@@ -286,8 +286,10 @@ body:not([data-step="2"]) .transport {
   flex: 0 0 auto;
 }
 .step strong {
-  font-size: 1rem;
+  font-size: clamp(0.86rem, 0.92vw, 1rem);
   font-weight: 800;
+  line-height: 1.18;
+  text-align: left;
 }
 .step.active {
   border-color: transparent;
@@ -960,7 +962,7 @@ body.is-publishing #saveTakeBtn {
   font-size: 1rem;
 }
 
-/* 2단계: 배경/악기 통합 선택 */
+/* 2단계: 배경 음악 고르기 + 어울리는 악기 미리 듣기 */
 .sound-palette-screen .screen-head {
   max-width: 920px;
 }
@@ -2545,11 +2547,9 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
-  max-height: 160px;
   min-width: 0;
-  overflow-y: auto;
+  overflow: visible;
   padding: 1px 2px 4px 0;
-  scrollbar-gutter: stable;
 }
 .effect-btn {
   flex: 0 0 auto;
@@ -4585,7 +4585,6 @@ body:not(.channel-body)::after {
     padding-top: 7px;
   }
   body[data-step="2"] .effect-list {
-    max-height: 142px;
     gap: 7px;
   }
   body[data-step="2"] .effect-btn {

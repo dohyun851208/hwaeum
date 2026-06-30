@@ -298,11 +298,11 @@
     },
     onFlowStart: () => {
       if (state.drawingInputMode !== DRAW_MODE_SOUND) return
-      el.exportStatus.textContent = "소리모드 녹음 중입니다. 손을 떼면 들은 타이밍대로 악보에 남아요."
+      el.exportStatus.textContent = "들으며 그리기 중입니다. 손을 떼면 들은 타이밍대로 악보에 남아요."
     },
     onFlowEnd: () => {
       if (state.drawingInputMode !== DRAW_MODE_SOUND) return
-      el.exportStatus.textContent = "소리모드 선율을 악보에 남겼어요."
+      el.exportStatus.textContent = "들으며 그린 선율을 악보에 남겼어요."
     },
     accent: state.atmosphere.color,
   })

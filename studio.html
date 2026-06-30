@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 스튜디오 · 그림으로 만드는 음악</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260630-gallery-luxe" />
+    <link rel="stylesheet" href="./styles.css?v=20260630-five-step-flow" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -24,19 +24,19 @@
 
       <!-- 단계 표시 -->
       <nav class="steps" aria-label="제작 단계">
-        <button class="step active" type="button" data-step-jump="0"><span>1</span><strong>그림</strong></button>
-        <button class="step" type="button" data-step-jump="1"><span>2</span><strong>배경/악기</strong></button>
-        <button class="step" type="button" data-step-jump="2"><span>3</span><strong>드로잉</strong></button>
-        <button class="step" type="button" data-step-jump="3"><span>4</span><strong>완성</strong></button>
-        <button class="step" type="button" data-step-jump="4"><span>5</span><strong>공유</strong></button>
+        <button class="step active" type="button" data-step-jump="0"><span>1</span><strong>그림 선택하기</strong></button>
+        <button class="step" type="button" data-step-jump="1"><span>2</span><strong>배경 음악 고르기</strong></button>
+        <button class="step" type="button" data-step-jump="2"><span>3</span><strong>선율 그리기</strong></button>
+        <button class="step" type="button" data-step-jump="3"><span>4</span><strong>작품 완성하기</strong></button>
+        <button class="step" type="button" data-step-jump="4"><span>5</span><strong>화음 갤러리에 공유하기</strong></button>
       </nav>
 
       <main class="stage">
-        <!-- 1단계: 그림 -->
-        <section class="screen active" data-screen="0" aria-label="1단계 그림">
+        <!-- 1단계: 그림 선택하기 -->
+        <section class="screen active" data-screen="0" aria-label="1단계 그림 선택하기">
           <div class="screen-head">
             <p class="eyebrow">1단계</p>
-            <h2>그림을 올립니다.</h2>
+            <h2>그림을 선택합니다.</h2>
             <p class="lead">업로드한 그림을 바탕으로 나만의 음악을 만들어 보세요.</p>
           </div>
           <div class="setup-grid picture-only">
@@ -52,21 +52,21 @@
           </div>
           <div class="screen-actions">
             <span class="muted upload-status" id="picStatus">그림은 표지로 사용됩니다. 저작권을 침해하지 않는 본인 작품 또는 이용이 허용된 이미지를 업로드해 주세요.</span>
-            <button class="btn primary" type="button" data-step-next>다음 · 소리 조합</button>
+            <button class="btn primary" type="button" data-step-next>배경 음악 고르기</button>
           </div>
         </section>
 
-        <!-- 2단계: 배경 / 악기 -->
-        <section class="screen sound-palette-screen" data-screen="1" aria-label="2단계 배경, 악기">
+        <!-- 2단계: 배경 음악 고르기 -->
+        <section class="screen sound-palette-screen" data-screen="1" aria-label="2단계 배경 음악 고르기">
           <div class="screen-head">
             <p class="eyebrow">2단계</p>
-            <h2>배경음악과 악기를 선택합니다.</h2>
+            <h2>배경 음악을 고릅니다.</h2>
           </div>
           <div class="sound-choice-flow">
             <section class="choice-section" aria-labelledby="atmosphereTitle">
               <div class="choice-section-head">
-                <p class="eyebrow">배경음악</p>
-                <h3 id="atmosphereTitle">배경</h3>
+                <p class="eyebrow">배경 음악</p>
+                <h3 id="atmosphereTitle">배경 음악 고르기</h3>
                 <p class="muted">카드를 눌러 배경 음악을 들어보세요. 선택한 배경은 곡 전체의 바탕이 됩니다.</p>
               </div>
               <div class="card-grid" id="atmosphereGrid"></div>
@@ -76,9 +76,9 @@
 
             <section class="choice-section" aria-labelledby="instrumentTitle">
               <div class="choice-section-head">
-                <p class="eyebrow">연주 악기</p>
-                <h3 id="instrumentTitle">악기</h3>
-                <p class="muted">카드를 눌러 다양한 악기의 음색을 들어보세요. 선택한 악기의 음색으로 선율이 연주됩니다.</p>
+                <p class="eyebrow">악기 미리 듣기</p>
+                <h3 id="instrumentTitle">이 배경에 어울리는 악기 미리 듣기</h3>
+                <p class="muted">악기 소리를 들어보고 그림과 배경에 어울리는 음색을 골라보세요. 여기서 고른 악기는 3단계에서 처음 그릴 악기가 됩니다.</p>
               </div>
               <div class="instrument-toolbar">
                 <div class="group-tabs" id="instrumentGroups"></div>
@@ -88,23 +88,23 @@
           </div>
           <div class="screen-actions">
             <button class="btn" type="button" data-step-prev>이전</button>
-            <button class="btn primary" type="button" data-step-next>드로잉으로 이동</button>
+            <button class="btn primary" type="button" data-step-next>선율 그리기</button>
           </div>
         </section>
 
-        <!-- 3단계: 드로잉 -->
-        <section class="screen compose drawing-screen" data-screen="2" aria-label="3단계 드로잉">
+        <!-- 3단계: 선율 그리기 -->
+        <section class="screen compose drawing-screen" data-screen="2" aria-label="3단계 선율 그리기">
           <div class="compose-grid drawing-only">
             <section class="panel draw-panel">
               <div class="panel-head">
                 <div>
                   <p class="eyebrow">3단계</p>
-                  <h2>소리를 디자인 합니다</h2>
+                  <h2>선율을 그립니다.</h2>
                 </div>
                 <div class="panel-tools">
                   <div class="draw-mode-tabs" role="group" aria-label="드로잉 방식">
-                    <button class="draw-mode-tab active" id="drawModePictureBtn" type="button" aria-pressed="true">그림모드</button>
-                    <button class="draw-mode-tab" id="drawModeSoundBtn" type="button" aria-pressed="false">소리모드</button>
+                    <button class="draw-mode-tab active" id="drawModePictureBtn" type="button" aria-pressed="true">직접 그리기</button>
+                    <button class="draw-mode-tab" id="drawModeSoundBtn" type="button" aria-pressed="false">들으며 그리기</button>
                   </div>
                   <button class="btn small active" id="penBtn" type="button" aria-pressed="true">펜(키보드1)</button>
                   <button class="btn small" id="clearBtn" type="button" aria-pressed="false">지우개(키보드2)</button>
@@ -182,15 +182,15 @@
           </div>
           <div class="screen-actions">
             <button class="btn" type="button" data-step-prev>이전</button>
-            <button class="btn" type="button" data-step-next>완성으로</button>
+            <button class="btn" type="button" data-step-next>작품 완성하기</button>
           </div>
         </section>
 
-        <!-- 4단계: 완성 -->
-        <section class="screen completion-screen" data-screen="3" aria-label="4단계 완성">
+        <!-- 4단계: 작품 완성하기 -->
+        <section class="screen completion-screen" data-screen="3" aria-label="4단계 작품 완성하기">
           <div class="screen-head">
             <p class="eyebrow">4단계</p>
-            <h2>그림 음악을 완성합니다.</h2>
+            <h2>작품을 완성합니다.</h2>
             <p class="lead">제목과 창작 의도를 작성하고 작품을 저장하거나, 음악과 커버 이미지를 내보낼 수 있습니다.</p>
           </div>
           <section class="panel gallery-panel completion-gallery">
@@ -249,16 +249,16 @@
           </section>
           <div class="screen-actions">
             <button class="btn" type="button" data-step-prev>이전</button>
-            <button class="btn primary" type="button" data-step-next>공유 탭으로</button>
+            <button class="btn primary" type="button" data-step-next>화음 갤러리에 공유하기</button>
           </div>
         </section>
 
-        <!-- 5단계: 공유 -->
-        <section class="screen share-screen" data-screen="4" aria-label="5단계 공유">
+        <!-- 5단계: 화음 갤러리에 공유하기 -->
+        <section class="screen share-screen" data-screen="4" aria-label="5단계 화음 갤러리에 공유하기">
           <div class="screen-head">
             <p class="eyebrow">5단계</p>
-            <h2>화음 갤러리에 들어가 완성된 작품을 감상합니다.</h2>
-            <p class="lead">화음 갤러리 번호를 입력하면 같은 화음 갤러리에 모인 완성 작품이 펼쳐집니다.</p>
+            <h2>화음 갤러리에 공유합니다.</h2>
+            <p class="lead">화음 갤러리 번호를 입력하면 같은 화음 갤러리에 모인 완성 작품을 함께 감상할 수 있습니다.</p>
           </div>
           <section class="panel share-board share-gate">
             <div class="channel-gate-grid">

@@ -21,8 +21,15 @@ test("studio and gallery user-facing labels avoid leftover English section words
   }
 
   assert.match(studio, />1단계</)
-  assert.match(studio, />배경음악</)
-  assert.match(studio, />연주 악기</)
+  assert.match(studio, />그림 선택하기</)
+  assert.match(studio, />배경 음악 고르기</)
+  assert.match(studio, />선율 그리기</)
+  assert.match(studio, />작품 완성하기</)
+  assert.match(studio, />화음 갤러리에 공유하기</)
+  assert.match(studio, />악기 미리 듣기</)
+  assert.match(studio, /이 배경에 어울리는 악기 미리 듣기/)
+  assert.doesNotMatch(studio, />배경\/악기</)
+  assert.doesNotMatch(studio, />연주 악기</)
   assert.match(studio, />학생</)
   assert.match(studio, />선생님</)
   assert.match(studio, /화음 갤러리 들어가기/)
