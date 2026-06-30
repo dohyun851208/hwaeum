@@ -2065,9 +2065,6 @@
       setEraser(false)
       if (bgWasPaused && !bgPlayer.paused) pauseBgPlayer(true)
       if (bgPlayer.paused) showSelectedPlayhead(false)
-      if (announce) el.exportStatus.textContent = "소리모드: 배경 재생 버튼을 누른 뒤, 원하는 순간에 그리면 그 타이밍에 선율이 남아요."
-    } else if (announce) {
-      el.exportStatus.textContent = "그림모드: 캔버스의 가로 위치와 선 길이대로 선율이 만들어집니다."
     }
     syncDrawingInputModeUI()
   }
@@ -2863,9 +2860,20 @@
     const metadata = sharedMetadata(recipe)
     const publishButton = el.publishShareBtn
     if (publishButton) publishButton.disabled = true
+
+    const progressEl = document.getElementById("publishProgress")
+    const progressFill = document.getElementById("publishProgressFill")
+    function setProgress(ratio) {
+      if (!progressEl || !progressFill) return
+      progressEl.hidden = false
+      progressFill.style.width = Math.round(Math.min(1, ratio) * 100) + "%"
+    }
+
+    document.body.classList.add("is-publishing")
     try {
       el.exportStatus.classList.remove("error")
       el.exportStatus.textContent = "표지 이미지를 작게 압축하는 중입니다."
+      setProgress(0.05)
       const images = await ShareStore.createImageBlobs({
         pictureSrc: state.pic,
         defaultCoverSrc: DEFAULT_COVER_SRC,
@@ -2873,11 +2881,19 @@
         hashtags: hashtagText(metadata.hashtags),
         accent: state.atmosphere.color,
       })
-      el.exportStatus.textContent = "최종 음악을 압축하는 중입니다. 노래 길이만큼 기다려 주세요."
+      el.exportStatus.textContent = "음악을 압축하는 중입니다. 완료될 때까지 기다려 주세요."
+      setProgress(0.1)
       if (!engine.renderCompressedAudioBlob) throw new Error("압축 음악을 만들 수 없는 브라우저입니다.")
-      const music = await engine.renderCompressedAudioBlob(recipe, notesFor(recipe), { audioBitsPerSecond: SHARE_AUDIO_BITS_PER_SECOND })
+      const music = await engine.renderCompressedAudioBlob(recipe, notesFor(recipe), {
+        audioBitsPerSecond: SHARE_AUDIO_BITS_PER_SECOND,
+        onProgress: function (ratio) {
+          setProgress(0.1 + ratio * 0.8) // 10% → 90%
+          if (ratio >= 0.2) el.exportStatus.textContent = "음악을 압축하는 중입니다… " + Math.round(ratio * 100) + "%"
+        },
+      })
       el.exportStatus.textContent =
         "공유 서버에 올리는 중입니다. 음악 " + ShareStore.formatBytes(music.size) + ", 표지 " + ShareStore.formatBytes(images.cover.size) + "."
+      setProgress(0.92)
       const result = await ShareStore.publishWork({
         channel: channel,
         pass: pass,
@@ -2889,6 +2905,7 @@
         musicBlob: music,
       })
       const work = result.work
+      setProgress(1.0)
       el.exportStatus.textContent = result.localOnly ? channel + " 화음 갤러리에 이 브라우저용으로 저장했어요." : channel + " 화음 갤러리에 공유했어요."
       state.sharedChannel = channel
       window.location.href = channelPageUrl(channel, work && work.id)
@@ -2896,7 +2913,9 @@
       console.error(e)
       el.exportStatus.textContent = e.message || "공유 업로드에 실패했어요."
       el.exportStatus.classList.add("error")
+      if (progressEl) progressEl.hidden = true
     } finally {
+      document.body.classList.remove("is-publishing")
       if (publishButton) publishButton.disabled = false
     }
   }

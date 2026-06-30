@@ -495,6 +495,29 @@ body:not([data-step="2"]) .transport {
   color: #b23b2c;
   font-weight: 800;
 }
+.publish-progress {
+  margin-top: 8px;
+}
+.publish-progress-track {
+  height: 6px;
+  background: var(--paper-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.publish-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 250ms ease;
+}
+body.is-publishing .take-actions .take-action,
+body.is-publishing .screen-actions button,
+body.is-publishing #saveTakeBtn {
+  pointer-events: none;
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 /* 세그먼트 토글 */
 .segmented {
@@ -2772,47 +2795,37 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: var(--accent-soft);
   border: 1px solid var(--line);
 }
-.placard-title {
+.placard-field {
+  display: grid;
+  grid-template-columns: 5em 1fr;
+  align-items: baseline;
+  gap: 0 8px;
+}
+.placard-field-label {
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 900;
+  opacity: 0.52;
+  white-space: nowrap;
+  padding-bottom: 3px;
+}
+.placard-blank {
+  width: 100%;
   border: none;
+  border-bottom: 2px solid var(--line-strong);
   background: transparent;
+  font: inherit;
+  color: var(--ink);
+  padding: 2px 4px;
+}
+.placard-blank--title {
   font-family: var(--serif);
   font-size: 1.3rem;
   font-weight: 700;
-  color: var(--ink);
-  padding: 2px 0;
 }
-.placard-title:focus {
+.placard-blank:focus {
   outline: none;
-  border-bottom: 1px solid var(--accent);
-}
-.composer-field {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  max-width: 360px;
-}
-.composer-field span {
-  color: var(--ink);
-  font-size: 0.84rem;
-  font-weight: 900;
-  opacity: 0.75;
-}
-.composer-field input {
-  width: 100%;
-  min-width: 0;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--ink);
-  font: inherit;
-}
-.composer-field input:focus {
-  outline: none;
-  border-color: var(--accent);
-  background: #ffffff;
+  border-bottom-color: var(--accent);
 }
 .placard-detail {
   color: var(--ink);
@@ -3849,7 +3862,6 @@ body:not(.channel-body)::after {
   border-color: rgba(150, 113, 32, 0.24);
 }
 
-.composer-field input,
 .reflection-field textarea,
 .hashtag-field input,
 .share-channel-field input,
@@ -3860,7 +3872,7 @@ body:not(.channel-body)::after {
   border-color: var(--line-strong);
 }
 
-.composer-field input:focus,
+.placard-blank:focus,
 .reflection-field textarea:focus,
 .hashtag-field input:focus,
 .share-channel-field input:focus,
@@ -4475,7 +4487,7 @@ body:not(.channel-body)::after {
   body[data-step="2"] .placard {
     padding: 12px 14px;
   }
-  body[data-step="2"] .placard-title {
+  body[data-step="2"] .placard-blank--title {
     font-size: 1.45rem;
   }
   body[data-step="2"] .placard-tags {

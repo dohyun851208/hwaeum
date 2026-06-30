@@ -199,11 +199,14 @@
               <canvas id="frameCanvas" width="640" height="640" aria-hidden="true"></canvas>
             </div>
             <div class="placard">
-              <input id="titleInput" class="placard-title" type="text" placeholder="제목" aria-label="작품 제목" maxlength="24" />
-              <label class="composer-field" for="composerInput">
-                <span>작곡가</span>
-                <input id="composerInput" type="text" maxlength="24" placeholder="나의 이름" aria-label="작곡가 이름" />
-              </label>
+              <div class="placard-field">
+                <label class="placard-field-label" for="titleInput">제목</label>
+                <input id="titleInput" class="placard-blank placard-blank--title" type="text" placeholder="제목을 적어 보세요" aria-label="작품 제목" maxlength="24" />
+              </div>
+              <div class="placard-field">
+                <label class="placard-field-label" for="composerInput">나의 이름</label>
+                <input id="composerInput" class="placard-blank" type="text" maxlength="24" placeholder="이름을 적어 보세요" aria-label="내 이름" />
+              </div>
               <p class="placard-detail" id="placardDetail"></p>
               <p class="placard-tags" id="placardMeta"></p>
             </div>
@@ -227,6 +230,11 @@
               <button class="btn small primary" id="saveTakeBtn" type="button">이 시도 저장</button>
             </div>
             <p class="upload-status" id="exportStatus" aria-live="polite"></p>
+            <div class="publish-progress" id="publishProgress" hidden role="status" aria-label="공유 진행률">
+              <div class="publish-progress-track">
+                <div class="publish-progress-fill" id="publishProgressFill"></div>
+              </div>
+            </div>
 
             <div class="takes">
               <div class="takes-head">

@@ -64,7 +64,6 @@ test("switching to sound mode does not auto-start the background player", () => 
   assert.doesNotMatch(modeBody, /playBgPlayer\(\)/)
   assert.match(modeBody, /const bgWasPaused = bgPlayer\.paused/)
   assert.match(modeBody, /if \(bgWasPaused && !bgPlayer\.paused\) pauseBgPlayer\(true\)/)
-  assert.match(modeBody, /배경 재생 버튼을 누른 뒤/)
 })
 
 test("sound-mode drawing resumes the clock from the current playhead, not 0", () => {

@@ -2275,6 +2275,7 @@
 
   AudioEngine.prototype.renderCompressedAudioBlob = async function (recipe, notes, options) {
     options = options || {}
+    const onProgress = typeof options.onProgress === "function" ? options.onProgress : null
     const mimeType = supportedCompressedAudioMime()
     if (!mimeType) throw new Error("Compressed WebM audio recording is not supported")
     const ctx = this.ensureContext()
@@ -2282,7 +2283,9 @@
     if (typeof ctx.createMediaStreamDestination !== "function") {
       throw new Error("Audio recording destination is not supported")
     }
+    if (onProgress) onProgress(0)
     const rendered = await this.renderOffline(recipe, notes)
+    if (onProgress) onProgress(0.2)
     const dest = ctx.createMediaStreamDestination()
     const source = ctx.createBufferSource()
     source.buffer = rendered
@@ -2292,6 +2295,7 @@
     if (options.audioBitsPerSecond) recorderOptions.audioBitsPerSecond = options.audioBitsPerSecond
     const recorder = new root.MediaRecorder(dest.stream, recorderOptions)
     let stopTimer = 0
+    let progressTimer = 0
     let stopped = false
     const stopRecorder = function () {
       if (stopped) return
@@ -2312,9 +2316,18 @@
       recorder.start()
       source.start(ctx.currentTime + 0.05)
       stopTimer = root.setTimeout(stopRecorder, Math.max(1000, (rendered.duration + 1) * 1000))
+      if (onProgress && rendered.duration > 0) {
+        const recStart = Date.now()
+        const totalMs = rendered.duration * 1000
+        progressTimer = root.setInterval(function () {
+          const ratio = Math.min(1, (Date.now() - recStart) / totalMs)
+          onProgress(0.2 + ratio * 0.7) // 20% → 90%
+        }, 200)
+      }
       await done
     } finally {
       if (stopTimer) root.clearTimeout(stopTimer)
+      if (progressTimer) root.clearInterval(progressTimer)
       try {
         source.disconnect()
       } catch (e) {}
@@ -2323,6 +2336,7 @@
       } catch (e) {}
       dest.stream.getTracks().forEach((track) => track.stop())
     }
+    if (onProgress) onProgress(0.9)
     if (!chunks.length) throw new Error("Compressed audio is empty")
     return new Blob(chunks, { type: mimeType })
   }
