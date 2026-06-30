@@ -828,6 +828,24 @@ test("note preview ignores mapped offsets outside the loaded buffer", () => {
   assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
 })
 
+test("note preview plays at twice the previous instrument-button gain", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const plan = {
+    instrument: { id: "previewTest", group: "테스트" },
+    melodyAsset: { sampleMode: "multi", baseMidi: 60, minRate: 0.5, maxRate: 2 },
+  }
+  const note = { time: 0, duration: 0.2, midi: 60, uiMidi: 60, velocity: 0.7 }
+
+  engine._previewSynth(ctx, plan, note, 0)
+  engine._previewSample(ctx, plan, { duration: 2.4 }, note, 1)
+
+  const linearTargets = ctx.created.gains.map((gain) => gain.gain.events.find((event) => event[0] === "linear")[1])
+  assert.ok(Math.abs(linearTargets[0] - 0.7 * 0.24 * 2) < 1e-9)
+  assert.ok(Math.abs(linearTargets[1] - 0.7 * 0.34 * 2) < 1e-9)
+})
+
 test("resolvePlan applies instrument playback transposition per drawn voice", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()

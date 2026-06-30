@@ -165,6 +165,23 @@ test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", (
   assert.doesNotMatch(source, /composePlay/)
   assert.match(html, /id="playBtn"[\s\S]*aria-label="전체 듣기"/)
   assert.match(css, /body:not\(\[data-step="2"\]\) \.transport[\s\S]*display:\s*none/)
+  const refColStart = html.indexOf('<div class="drawing-ref-col">')
+  const figureEnd = html.indexOf("</figure>", refColStart)
+  const refColEnd = html.indexOf("</div>", figureEnd)
+  const transportStart = html.indexOf('<div class="transport"', refColStart)
+  assert.ok(refColStart >= 0 && figureEnd > refColStart && refColEnd > figureEnd)
+  assert.ok(transportStart > refColEnd)
+  assert.doesNotMatch(css, /\.drawing-workspace\.reference-collapsed \.transport\s*\{[\s\S]*display:\s*none/)
+  assert.match(css, /\.drawing-workspace\.reference-collapsed > \.transport[\s\S]*grid-column:\s*2/)
+})
+
+test("펜과 지우개 도구 버튼은 키보드 숫자 배지를 보인다", () => {
+  const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
+  const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+
+  assert.match(html, /id="penBtn"[\s\S]*aria-keyshortcuts="1"[\s\S]*class="tool-shortcut-badge"[^>]*>1<\/span>[\s\S]*id="clearBtn"/)
+  assert.match(html, /id="clearBtn"[\s\S]*aria-keyshortcuts="2"[\s\S]*class="tool-shortcut-badge"[^>]*>2<\/span>/)
+  assert.match(css, /\.tool-shortcut-badge\s*\{[\s\S]*position:\s*absolute[\s\S]*right:\s*5px[\s\S]*bottom:\s*4px/)
 })
 
 test("드로잉 읽기 표시는 길이 다음에 시도한 횟수를 보여준다", () => {
@@ -214,6 +231,15 @@ test("드로잉 화면에서 믹스 선택 UI를 제거한다", () => {
   assert.match(source, /function defaultVersion\(\)[\s\S]*D\.versions\[0\]/)
   assert.match(source, /state\.version = defaultVersion\(\)/)
   assert.doesNotMatch(source, /state\.version\.label \+ " 재생 중/)
+})
+
+test("드로잉 화면 상단 저장 버튼은 시도를 바로 저장한다", () => {
+  const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+
+  assert.match(html, /id="drawingSaveTakeBtn"[^>]*>저장<\/button>/)
+  assert.match(source, /drawingSaveTakeBtn: \$\("drawingSaveTakeBtn"\)/)
+  assert.match(source, /if \(el\.drawingSaveTakeBtn\) el\.drawingSaveTakeBtn\.addEventListener\("click", saveTake\)/)
 })
 
 test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () => {

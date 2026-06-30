@@ -55,6 +55,9 @@
   }
   const LIVE_PREVIEW_MAX_GAIN = 0.95
   const MASTER_OUTPUT_GAIN = 0.70
+  const NOTE_PREVIEW_GAIN_BOOST = 2
+  const NOTE_PREVIEW_SYNTH_GAIN = 0.24 * NOTE_PREVIEW_GAIN_BOOST
+  const NOTE_PREVIEW_SAMPLE_GAIN = 0.34 * NOTE_PREVIEW_GAIN_BOOST
   const GUGAK_DRAWING_GAIN_BOOST = 1.3
   const NOTE_GLIDE_SECONDS = 0.035
   const LIVE_NOTE_GLIDE_SECONDS = 0.025
@@ -2056,7 +2059,7 @@
     filter.frequency.setValueAtTime(voice.cutoff, start)
     filter.Q.setValueAtTime(voice.Q, start)
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(note.velocity * 0.24 * previewOutputGain(plan) * noteMelodyOutputGain(plan, note), start + 0.012)
+    env.gain.linearRampToValueAtTime(note.velocity * NOTE_PREVIEW_SYNTH_GAIN * previewOutputGain(plan) * noteMelodyOutputGain(plan, note), start + 0.012)
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
     osc.connect(filter)
     filter.connect(env)
@@ -2081,7 +2084,7 @@
     src.buffer = buffer
     src.playbackRate.setValueAtTime(baseRate, start)
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(note.velocity * 0.34 * previewOutputGain(plan) * noteMelodyOutputGain(plan, note), start + 0.012)
+    env.gain.linearRampToValueAtTime(note.velocity * NOTE_PREVIEW_SAMPLE_GAIN * previewOutputGain(plan) * noteMelodyOutputGain(plan, note), start + 0.012)
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
     src.connect(env)
     env.connect(ctx.destination)

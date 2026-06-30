@@ -167,13 +167,13 @@ test("switching to the eraser keeps the playhead in place instead of resetting t
   assert.match(freezeBody, /rememberPlayheadProgress\(playheadElapsedMs \/ durMs\)/)
 })
 
-test("background range changes do not rewrite the drawing timeline duration", () => {
+test("background range changes update the drawing timeline duration", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const ensureBody = functionBody(source, "ensureTimelineDuration")
   const syncUiBody = functionBody(source, "syncBgPlayerUI")
 
-  assert.doesNotMatch(ensureBody, /state\.bgEndOffset\s*-\s*state\.bgOffset/)
-  assert.doesNotMatch(ensureBody, /state\.duration\s*=\s*next/)
-  assert.doesNotMatch(ensureBody, /bgMinGap\(total\)/)
+  assert.match(ensureBody, /Number\(state\.bgEndOffset\)\s*-\s*Number\(state\.bgOffset\)/)
+  assert.match(ensureBody, /next = normalizeDuration\(segment\)/)
+  assert.match(ensureBody, /state\.duration\s*=\s*next/)
   assert.match(syncUiBody, /const durationChanged = ensureTimelineDuration\(false\)/)
 })

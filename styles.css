@@ -427,6 +427,19 @@ body:not([data-step="2"]) .transport {
   color: var(--accent);
   border-color: var(--accent-line);
 }
+.drawing-save-btn.btn.small {
+  min-width: 108px;
+  border-color: #d5b300;
+  background: #fff200;
+  color: #111827;
+  font-size: 1.05rem;
+  box-shadow: 0 8px 18px rgba(143, 115, 0, 0.18);
+}
+.drawing-save-btn.btn.small:hover,
+.drawing-save-btn.btn.small:focus-visible {
+  border-color: #b08c00;
+  background: #ffe45c;
+}
 .btn:active,
 .btn.pressing {
   transform: translateY(0) scale(0.98);
@@ -464,6 +477,23 @@ body:not([data-step="2"]) .transport {
   fill: currentColor;
   stroke: none;
   opacity: 0.12;
+}
+.tool-shortcut-badge {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  background: rgba(25, 27, 23, 0.86);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(25, 27, 23, 0.18);
+  pointer-events: none;
 }
 .btn.tiny {
   min-height: 34px;
@@ -2043,14 +2073,17 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   position: relative;
   display: grid;
   grid-template-columns: var(--drawing-reference-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, auto) auto;
   align-items: stretch;
   min-width: 0;
   transition: grid-template-columns 180ms ease;
 }
 .drawing-workspace.reference-collapsed {
-  grid-template-columns: var(--drawing-reference-collapsed-width) minmax(0, 1fr);
+  grid-template-columns: var(--drawing-reference-collapsed-width) max-content minmax(0, 1fr);
 }
 .drawing-ref-col {
+  grid-column: 1;
+  grid-row: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -2058,10 +2091,36 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: rgba(248, 250, 252, 0.78);
   overflow: hidden;
 }
+.drawing-workspace > .transport {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  background: rgba(248, 250, 252, 0.78);
+}
 .canvas-col {
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+.drawing-workspace > .bg-player {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+.drawing-workspace.reference-collapsed > .transport {
+  grid-column: 2;
+  grid-row: 2;
+  border-right: 0;
+}
+.drawing-workspace.reference-collapsed > .bg-player {
+  grid-column: 3;
+  grid-row: 2;
+}
+.drawing-workspace.reference-collapsed .canvas-col {
+  grid-column: 2 / 4;
 }
 .drawing-reference {
   min-width: 0;
@@ -2072,9 +2131,6 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .drawing-workspace.reference-collapsed .drawing-reference {
   padding-left: 0;
 }
-.drawing-workspace.reference-collapsed .transport {
-  display: none;
-}
 .drawing-reference img {
   display: block;
   width: var(--drawing-reference-image-size);
@@ -2083,7 +2139,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   margin: 0 auto;
   border-radius: 0;
   background: #ffffff;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   transition: opacity 140ms ease, transform 180ms ease;
 }
@@ -2385,6 +2441,11 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.16),
     0 8px 18px rgba(25, 27, 23, 0.18);
+}
+#penBtn.active .tool-shortcut-badge,
+#clearBtn.active .tool-shortcut-badge {
+  background: var(--canvas);
+  color: var(--ink);
 }
 
 /* 읽기 표시 */
@@ -3943,7 +4004,8 @@ body:not(.channel-body)::after {
   background: rgba(255, 250, 238, 0.56);
 }
 
-.drawing-ref-col {
+.drawing-ref-col,
+.drawing-workspace > .transport {
   background: rgba(255, 244, 213, 0.68);
   border-right-color: var(--line);
 }
@@ -4577,7 +4639,7 @@ body:not(.channel-body)::after {
     --canvas-pad-bottom: 14px;
   }
   body[data-step="2"] .drawing-workspace.reference-collapsed {
-    grid-template-columns: var(--drawing-reference-collapsed-width) minmax(0, 1fr);
+    grid-template-columns: var(--drawing-reference-collapsed-width) max-content minmax(0, 1fr);
   }
   body[data-step="2"] .drawing-reference {
     padding: calc(var(--canvas-pad-top) + var(--drawing-reference-vertical-gap)) 0 calc(var(--canvas-pad-bottom) + var(--drawing-reference-vertical-gap)) 0;

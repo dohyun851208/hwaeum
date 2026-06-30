@@ -183,6 +183,7 @@
     clearBtn: $("clearBtn"),
     undoBtn: $("undoBtn"),
     resetComposeBtn: $("resetComposeBtn"),
+    drawingSaveTakeBtn: $("drawingSaveTakeBtn"),
     scaleReadout: $("scaleReadout"),
     rhythmReadout: $("rhythmReadout"),
     noteReadout: $("noteReadout"),
@@ -1725,8 +1726,15 @@
   }
 
   function ensureTimelineDuration(resetScroll) {
-    if (isFinite(state.duration) && state.duration > 0) return false
-    state.duration = DEFAULT_DURATION_SECONDS
+    let next = null
+    const total = bgDuration()
+    if (canSelectBgRange() && total) {
+      const segment = Number(state.bgEndOffset) - Number(state.bgOffset)
+      if (isFinite(segment) && segment > 0) next = normalizeDuration(segment)
+    }
+    if (next == null) next = normalizeDuration(state.duration || DEFAULT_DURATION_SECONDS)
+    if (Math.abs((Number(state.duration) || 0) - next) < 0.001) return false
+    state.duration = next
     selectedPlayheadProgress = clampPlayheadProgress(selectedPlayheadProgress)
     playheadElapsedMs = selectedPlaybackStartSec() * 1000
     refreshTimeline(!!resetScroll)
@@ -1804,7 +1812,7 @@
     if (!durationChanged) updateReadouts()
     setIcon(el.bgPlayBtn, bgPlayer.paused ? "▶" : "❚❚")
     if (el.bgPlayBtn) {
-      const bgPlayLabel = bgPlayer.paused ? "선택 구간 듣기" : "선택 구간 일시정지"
+      const bgPlayLabel = bgPlayer.paused ? "배경 구간 선택" : "배경 구간 일시정지"
       el.bgPlayBtn.setAttribute("aria-label", bgPlayLabel)
       el.bgPlayBtn.setAttribute("title", bgPlayLabel)
       el.bgPlayBtn.classList.toggle("active", !bgPlayer.paused)
@@ -2521,7 +2529,9 @@
     state.activeTakeId = take.id
     state.sharedRecipeLoaded = false
     renderTakes()
+    if (state.step === DRAWING_STEP && el.statusText) el.statusText.textContent = "시도를 저장했어요"
     el.exportStatus.textContent = "시도를 저장했어요. 아래에서 골라 비교해 들어보세요."
+    return take
   }
 
   // 시도 카드 클릭 → 그 시도의 결과(제목·분위기·악기·해시태그·그린 음)를 완성 화면에 불러온다.
@@ -3417,6 +3427,7 @@
     }
 
     if (el.saveTakeBtn) el.saveTakeBtn.addEventListener("click", saveTake)
+    if (el.drawingSaveTakeBtn) el.drawingSaveTakeBtn.addEventListener("click", saveTake)
     // 완성 탭의 일괄 내보내기/공유 버튼은 제거됨 — 이제 각 시도(테이크)별 버튼이 담당.
     // 아래 버튼들은 더 이상 마크업에 없을 수 있으므로 모두 존재 여부를 확인하고 바인딩한다.
     if (el.exportAudioBtn) el.exportAudioBtn.addEventListener("click", exportAudio)
