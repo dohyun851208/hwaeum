@@ -2845,6 +2845,17 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .placard-tags.is-empty {
   display: none;
 }
+.field-invalid {
+  border-color: #d93025 !important;
+  box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15) !important;
+}
+.placard-blank.field-invalid {
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom-color: #d93025 !important;
+  box-shadow: none !important;
+}
 .reflection-fields {
   display: grid;
   gap: 12px;
@@ -3652,7 +3663,7 @@ body:not(.channel-body)::after {
   border-color: rgba(150, 113, 32, 0.42);
   background:
     linear-gradient(180deg, rgba(255, 249, 231, 0.78), rgba(255, 249, 231, 0.95)),
-    url("./assets/default-cover.png") center / cover;
+    url("./assets/default-cover.webp") center / cover;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.68),
     0 18px 42px rgba(42, 35, 18, 0.12);
@@ -3662,7 +3673,7 @@ body:not(.channel-body)::after {
   border-color: var(--brand-gold-strong);
   background:
     linear-gradient(180deg, rgba(255, 249, 231, 0.68), rgba(255, 249, 231, 0.9)),
-    url("./assets/default-cover.png") center / cover;
+    url("./assets/default-cover.webp") center / cover;
 }
 
 .dropframe-empty {

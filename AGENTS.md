@@ -105,5 +105,6 @@ npm i jsdom ; node tools/smoke.cjs   # 통합 스모크 (선택, 오디오/캔�
 - 음높이 칸은 `music-core.js`의 `drawableScale()`이 관리하고, 발음 가능 여부는 `isPitchPlayable()`/`quantizePitch()`가 관리한다. 음높이 축 라벨은 **옥타브 숫자 없이 한글 계이름만**(도·레·미…) 표시한다. 기본 도화지 축은 아래부터 **솔·라·시·도·레·미·파·솔·라·시·도·레·미·파·솔**이며, 국악기는 이 중 파·시 등 발음하지 않는 칸을 비활성화한다. 단 **높은 음=위, 낮은 음=아래**는 항상 보장한다. 소리를 구현할 때도 라벨 숫자에 기대지 말고 악기별 음역(transpose·playableMidi)을 따른다 → `drawing.js`의 `soundingLabel()`/`noteLetter()`.
 - **설계를 바꾸는 결정** → `docs/decisions/`에 ADR 기록 (docs/CLAUDE.md 규칙)
 - **모바일 대응은 만들지 않는다.** 이 도구는 교실 데스크톱 사용 기준으로 설계한다. 사용자가 따로 요청하지 않는 한 모바일 전용 레이아웃·브레이크포인트·QA를 추가하지 않는다.
+- **에셋 최적화는 기본값이다.** `assets/`에 이미지를 추가하거나 교체할 때는 **반드시 WebP**로 변환한다(`ffmpeg -i input.png -c:v libwebp -quality 82 -lossless 0 output.webp`). PNG·BMP는 올리지 않는다. 악기 카드 이미지는 긴 변 800px 이하로 리사이즈한다(`-vf scale=800:-1`). 기존 WebP도 800KB 이상이면 품질을 낮춰 재압축한다.
 - **완료 주장 전** `npm test` 통과 확인. UI/오디오 변경은 서버로 띄워 실제 동작 확인.
 - 사용자(교사·학생) 대상 문구는 **한국어**, 저학년도 이해 가능한 쉬운 표현.

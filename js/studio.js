@@ -19,7 +19,7 @@
   const TIMELINE_LABEL_GUTTER_PX = 56
   const DEFAULT_DURATION_SECONDS = 30
   const MIN_DURATION_SECONDS = 1
-  const DEFAULT_COVER_SRC = "./assets/default-cover.png"
+  const DEFAULT_COVER_SRC = "./assets/default-cover.webp"
   const ADMIN_STORAGE_KEY = "sda.adminMode"
   const TAKE_NAME_MAX = 24
   const COMPOSER_NAME_MAX = 24
@@ -3200,6 +3200,24 @@
   // === § 27  단계 이동 ===
 
   function setStep(i) {
+    if (i === SHARE_STEP) {
+      const missing = []
+      if (!el.titleInput?.value.trim()) missing.push({ field: el.titleInput, label: "제목" })
+      if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "나의 이름" })
+      if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: "배경음악을 고른 이유" })
+      if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: "선율을 표현한 의도" })
+      if (!el.hashtagsInput?.value.trim()) missing.push({ field: el.hashtagsInput, label: "나의 음악 해시태그" })
+      if (missing.length > 0) {
+        if (state.step !== COMPLETE_STEP) setStep(COMPLETE_STEP)
+        missing.forEach(({ field }) => field.classList.add("field-invalid"))
+        el.exportStatus.textContent = "공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", ")
+        el.exportStatus.classList.add("error")
+        missing[0].field.focus()
+        missing[0].field.scrollIntoView({ behavior: "smooth", block: "center" })
+        return
+      }
+    }
+
     const screens = document.querySelectorAll("[data-screen]")
     const tabs = document.querySelectorAll("[data-step-jump]")
     if (state.bgPreviewId) {
@@ -3413,25 +3431,30 @@
     })
 
     el.titleInput.addEventListener("input", () => {
+      el.titleInput.classList.remove("field-invalid")
       state.title = el.titleInput.value || "무제"
     })
     if (el.composerInput) {
       el.composerInput.addEventListener("input", () => {
+        el.composerInput.classList.remove("field-invalid")
         state.composerName = cleanText(el.composerInput.value, COMPOSER_NAME_MAX)
       })
     }
     if (el.bgReasonInput) {
       el.bgReasonInput.addEventListener("input", () => {
+        el.bgReasonInput.classList.remove("field-invalid")
         state.backgroundReason = el.bgReasonInput.value
       })
     }
     if (el.melodyIntentInput) {
       el.melodyIntentInput.addEventListener("input", () => {
+        el.melodyIntentInput.classList.remove("field-invalid")
         state.melodyIntent = el.melodyIntentInput.value
       })
     }
     if (el.hashtagsInput) {
       el.hashtagsInput.addEventListener("input", () => {
+        el.hashtagsInput.classList.remove("field-invalid")
         state.hashtags = el.hashtagsInput.value
         updateReadouts()
       })

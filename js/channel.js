@@ -5,7 +5,7 @@
   "use strict"
 
   const ShareStore = root.HwaeumShareStore
-  const DEFAULT_COVER_SRC = "./assets/default-cover.png"
+  const DEFAULT_COVER_SRC = "./assets/default-cover.webp"
   const WORKS_PER_SHELF = 7
   const VIEW_MODE_SHELF = "shelf"
   const VIEW_MODE_FLOW = "flow"
