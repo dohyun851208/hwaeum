@@ -160,7 +160,10 @@ test("shared work delete requires the admin pin even for the same browser owner"
   assert.doesNotMatch(functionBody(store, "deleteLocalWork"), /record\.ownerId === owner\.id \|\| !!adminPin/)
   assert.doesNotMatch(functionBody(store, "deleteWork"), /ownerKey/)
 
-  assert.match(functionBody(channel, "canDeleteActive"), /!!state\.activeWork && !!state\.adminPin/)
+  assert.match(functionBody(channel, "canDeleteActive"), /!!state\.activeWork/)
+  assert.doesNotMatch(functionBody(channel, "canDeleteActive"), /state\.adminPin/)
+  assert.match(functionBody(channel, "deleteActiveWork"), /promptTrimmed\("관리자 번호를 입력하세요\."/)
+  assert.match(functionBody(channel, "deleteActiveWork"), /ShareStore\.deleteWork\(work, adminPin\)/)
   assert.doesNotMatch(bindChannelBody, /setAdminPin\(el\.adminPin\.value\)/)
   assert.match(renameChannelBody, /promptTrimmed\("관리자 번호를 입력하세요\."/)
   assert.match(renameChannelBody, /promptTrimmed\("바꿀 갤러리 이름을 입력하세요\."/)

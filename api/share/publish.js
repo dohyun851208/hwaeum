@@ -37,8 +37,9 @@ module.exports = async function handler(req, res) {
     const files = body.files || {}
     const cover = decodeFile(files.cover, "image/webp")
     const thumb = decodeFile(files.thumb, "image/webp")
+    const drawing = files.drawing ? decodeFile(files.drawing, "image/webp") : null
     const music = decodeFile(files.music, "audio/webm")
-    const totalBytes = cover.size + thumb.size + music.size
+    const totalBytes = cover.size + thumb.size + (drawing ? drawing.size : 0) + music.size
     if (totalBytes > MAX_TOTAL_BYTES) return send(res, 413, { error: "압축 후에도 파일이 커요. 그림이나 배경음을 더 작게 줄여 주세요." })
 
     const id = safeWorkId()
@@ -46,6 +47,7 @@ module.exports = async function handler(req, res) {
     const putOptions = { access: "public", addRandomSuffix: false }
     const coverBlob = await put(base + "cover.webp", cover.buffer, Object.assign({}, putOptions, { contentType: cover.contentType }))
     const thumbBlob = await put(base + "thumb.webp", thumb.buffer, Object.assign({}, putOptions, { contentType: thumb.contentType }))
+    const drawingBlob = drawing ? await put(base + "drawing.webp", drawing.buffer, Object.assign({}, putOptions, { contentType: drawing.contentType })) : null
     const musicBlob = await put(base + "music.webm", music.buffer, Object.assign({}, putOptions, { contentType: music.contentType }))
 
     const metadata = metadataFromInput(Object.assign({}, body.metadata, { title: body.title || (body.metadata && body.metadata.title) }))
@@ -65,11 +67,14 @@ module.exports = async function handler(req, res) {
         coverPathname: coverBlob.pathname,
         thumbUrl: thumbBlob.url,
         thumbPathname: thumbBlob.pathname,
+        drawingUrl: drawingBlob ? drawingBlob.url : "",
+        drawingPathname: drawingBlob ? drawingBlob.pathname : "",
         musicUrl: musicBlob.url,
         musicPathname: musicBlob.pathname,
         musicType: music.contentType,
         coverBytes: cover.size,
         thumbBytes: thumb.size,
+        drawingBytes: drawing ? drawing.size : 0,
         musicBytes: music.size,
         totalBytes,
       },

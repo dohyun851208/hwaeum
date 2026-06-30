@@ -63,5 +63,33 @@ test("화음 갤러리 화면은 저장된 갤러리 이름을 주제목으로 �
   assert.match(css, /\.channel-viewbar\s*\{[\s\S]*left:\s*50%/)
   assert.match(css, /\.channel-viewbar\s*\{[\s\S]*transform:\s*translate\(-50%,\s*-50%\)/)
   assert.match(css, /\.channel-flow-controls\s*\{[\s\S]*position:\s*absolute/)
-  assert.match(css, /\.channel-open-form\s*\{[\s\S]*grid-template-columns:\s*92px\s*118px\s*62px/)
+  assert.match(css, /\.channel-open-form\s*\{[\s\S]*grid-template-columns:\s*auto\s*92px\s*118px\s*62px/)
+})
+
+test("화음 갤러리는 갤러리 전체 공유 버튼을 쓰고 작품별 링크 복사를 숨긴다", () => {
+  const html = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
+  const source = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+
+  assert.match(html, /id="channelShareBtn"[\s\S]*갤러리 공유/)
+  assert.doesNotMatch(html, /id="viewerCopyBtn"/)
+  assert.match(source, /shareBtn: \$\("channelShareBtn"\)/)
+  assert.match(source, /function copyGalleryLink\(\)/)
+  assert.match(source, /channelUrl\(state\.channel,\s*""\)/)
+  assert.doesNotMatch(source, /function copyActiveLink\(\)/)
+})
+
+test("한눈에 보기 작품 카드는 드래그로 순서를 바꾸고 갤러리별로 저장한다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+  const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+
+  assert.match(source, /const WORK_ORDER_STORAGE_PREFIX = "hwaeum\.channelWorkOrder\."/)
+  assert.match(source, /function applyStoredWorkOrder\(works,\s*channel\)/)
+  assert.match(source, /function saveWorkOrder\(\)/)
+  assert.match(source, /function bindShelfReorder\(button,\s*work\)/)
+  assert.match(source, /addEventListener\("dragstart"/)
+  assert.match(source, /addEventListener\("drop"/)
+  assert.match(source, /createAlbumCard\(work,\s*start \+ offset,\s*\{ draggable: true \}\)/)
+  assert.match(css, /\.channel-album-reorderable/)
+  assert.match(css, /\.channel-album\.is-drop-before::before/)
+  assert.match(css, /\.channel-album\.is-drop-after::after/)
 })

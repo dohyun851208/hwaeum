@@ -181,12 +181,12 @@
 
     // ── 파일 다운로드 유틸 ───────────────────────────────────────
 
-    function canvasToBlob(canvas, type) {
+    function canvasToBlob(canvas, type, quality) {
       return new Promise(function (resolve, reject) {
         canvas.toBlob(function (blob) {
           if (blob) resolve(blob)
           else reject(new Error("canvas toBlob failed"))
-        }, type)
+        }, type, quality)
       })
     }
 

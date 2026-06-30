@@ -428,17 +428,34 @@ body:not([data-step="2"]) .transport {
   border-color: var(--accent-line);
 }
 .drawing-save-btn.btn.small {
-  min-width: 108px;
-  border-color: #d5b300;
-  background: #fff200;
-  color: #111827;
-  font-size: 1.05rem;
-  box-shadow: 0 8px 18px rgba(143, 115, 0, 0.18);
+  min-width: 96px;
+  border-color: #cfb66a;
+  background: #fff7d7;
+  color: #3f3515;
+  font-size: 0.98rem;
+  box-shadow: 0 6px 14px rgba(63, 53, 21, 0.1);
 }
 .drawing-save-btn.btn.small:hover,
 .drawing-save-btn.btn.small:focus-visible {
-  border-color: #b08c00;
-  background: #ffe45c;
+  border-color: #a9822f;
+  background: #ffefba;
+}
+.drawing-new-take-btn.btn.small,
+.take-new-save-btn.btn.small {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  box-shadow: none;
+}
+.drawing-new-take-btn.btn.small {
+  min-width: 142px;
+}
+.drawing-new-take-btn.btn.small:hover,
+.drawing-new-take-btn.btn.small:focus-visible,
+.take-new-save-btn.btn.small:hover,
+.take-new-save-btn.btn.small:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .btn:active,
 .btn.pressing {
@@ -511,6 +528,30 @@ body:not([data-step="2"]) .transport {
 }
 .setup-grid.picture-only {
   grid-template-columns: minmax(0, 1fr);
+  max-width: 680px;
+  margin-inline: auto;
+}
+.screen[data-screen="0"] {
+  padding: 22px 24px 24px;
+}
+.screen[data-screen="0"] .screen-head {
+  max-width: 680px;
+  margin-inline: auto;
+  margin-bottom: 16px;
+}
+.screen[data-screen="0"] .lead {
+  margin-top: 8px;
+  font-size: 1rem;
+}
+.screen[data-screen="0"] .screen-actions {
+  max-width: 680px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin: 18px auto 0;
+}
+.screen[data-screen="0"] .screen-actions .upload-status {
+  flex: 1 1 420px;
+  max-width: 500px;
 }
 .dropframe {
   position: relative;
@@ -526,6 +567,11 @@ body:not([data-step="2"]) .transport {
   overflow: hidden;
   cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease;
+}
+.setup-grid.picture-only .dropframe {
+  width: 100%;
+  height: clamp(260px, 36vh, 360px);
+  justify-self: center;
 }
 .dropframe:hover {
   border-color: var(--accent);
@@ -545,12 +591,25 @@ body:not([data-step="2"]) .transport {
   text-align: center;
   color: var(--muted);
 }
+.setup-grid.picture-only .dropframe-empty {
+  width: min(280px, 82%);
+  padding: 18px 16px;
+  gap: 5px;
+}
 .dropframe-empty strong {
   font-size: 1.1rem;
   color: var(--ink);
 }
+.setup-grid.picture-only .dropframe-empty strong {
+  font-size: 1.02rem;
+}
 .dropframe-icon {
   font-size: 2.6rem;
+}
+.setup-grid.picture-only .dropframe-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 1.35rem;
 }
 .dropframe input {
   position: absolute;
@@ -1374,7 +1433,7 @@ body.is-publishing #saveTakeBtn {
   grid-row: 1;
   justify-self: end;
   display: grid;
-  grid-template-columns: 92px 118px 62px;
+  grid-template-columns: auto 92px 118px 62px;
   align-items: center;
   gap: 8px;
 }
@@ -1402,6 +1461,16 @@ body.is-publishing #saveTakeBtn {
 
 .channel-open-form .channel-code-input {
   width: 118px;
+}
+
+.channel-share-button {
+  min-width: 106px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.channel-share-button[hidden] {
+  display: none;
 }
 
 .channel-open-button,
@@ -1592,6 +1661,41 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: transparent;
   cursor: pointer;
   transform: translateY(calc(var(--lift, 0px) * -1));
+}
+
+.channel-album-reorderable {
+  cursor: grab;
+}
+
+.channel-album-reorderable:active,
+.channel-album.is-dragging {
+  cursor: grabbing;
+}
+
+.channel-album.is-dragging {
+  opacity: 0.52;
+}
+
+.channel-album.is-drop-before::before,
+.channel-album.is-drop-after::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 104px;
+  z-index: 4;
+  width: 5px;
+  border-radius: 999px;
+  background: var(--channel-gold);
+  box-shadow: 0 0 0 3px rgba(255, 224, 138, 0.18), 0 14px 26px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
+.channel-album.is-drop-before::before {
+  left: -11px;
+}
+
+.channel-album.is-drop-after::after {
+  right: -11px;
 }
 
 .channel-album-cover {
@@ -2890,13 +2994,29 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   --completion-panel-bg: rgba(255, 255, 255, 0.76);
   --completion-field-bg: rgba(255, 255, 255, 0.9);
   --completion-panel-border: var(--line);
+  grid-template-columns: minmax(360px, 0.82fr) minmax(520px, 1.18fr);
+  align-items: start;
   gap: 18px;
+}
+.completion-work-list,
+.completion-detail-panel {
+  min-width: 0;
+}
+.completion-work-list {
+  align-self: stretch;
+}
+.completion-detail-panel {
+  display: grid;
+  gap: 14px;
+}
+.completion-current-preview {
+  display: none;
 }
 .completion-gallery .placard,
 .completion-gallery .reflection-fields,
 .completion-gallery .takes {
-  width: min(100%, 860px);
-  justify-self: start;
+  width: 100%;
+  justify-self: stretch;
   min-width: 0;
   padding: 16px;
   border: 1px solid var(--completion-panel-border);
@@ -2905,9 +3025,21 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 .completion-gallery .actions-row,
 .completion-gallery .upload-status,
-.completion-gallery .publish-progress {
-  width: min(100%, 860px);
-  justify-self: start;
+.completion-gallery .publish-progress,
+.completion-share-panel {
+  width: 100%;
+  justify-self: stretch;
+}
+.completion-share-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.completion-share-button {
+  min-height: 48px;
+  min-width: 220px;
+  padding-inline: 20px;
+  font-size: 1rem;
 }
 .frame {
   position: relative;
@@ -3584,13 +3716,17 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   display: grid;
   gap: 10px;
 }
+.completion-work-list .takes {
+  max-height: calc(100vh - 260px);
+  overflow: auto;
+}
 .take {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) auto;
+  grid-template-columns: 124px minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: center;
+  align-items: start;
   padding: 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--canvas);
   cursor: pointer;
@@ -3604,11 +3740,32 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: var(--accent-soft);
   box-shadow: 0 0 0 2px var(--accent-line) inset;
 }
-.take-thumb {
-  width: 88px;
-  height: 55px;
-  border-radius: 8px;
+.take-cover {
+  position: relative;
+  grid-row: 1 / span 2;
+  width: 124px;
+  height: 98px;
+  overflow: hidden;
   border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1f2a2a;
+}
+.take-cover-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.take-thumb {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 48px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 250, 238, 0.78);
+  background: rgba(255, 250, 238, 0.9);
+  box-shadow: 0 6px 16px rgba(20, 26, 26, 0.2);
 }
 .take-name-line {
   display: flex;
@@ -3669,13 +3826,25 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   color: var(--muted);
   font-size: 0.78rem;
 }
+.take-composer {
+  margin-top: 3px;
+}
+.take-tags {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .take-tools {
   display: flex;
   gap: 6px;
 }
-/* 시도별 저장·공유 버튼 줄 — 카드 전체 폭으로 펼친다(.take는 3열 그리드). */
+/* 작품별 저장 버튼 줄 */
 .take-actions {
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -4729,7 +4898,7 @@ body:not(.channel-body)::after {
     height: 60px;
   }
   .completion-gallery {
-    grid-template-columns: minmax(300px, 420px) minmax(520px, 860px);
+    grid-template-columns: minmax(360px, 520px) minmax(520px, 860px);
     justify-content: start;
     align-items: start;
     gap: 20px 24px;
@@ -4764,6 +4933,14 @@ body:not(.channel-body)::after {
   .completion-gallery .publish-progress,
   .completion-gallery .takes {
     grid-column: 2;
+  }
+  .completion-gallery .completion-detail-panel > .placard,
+  .completion-gallery .completion-detail-panel > .reflection-fields,
+  .completion-gallery .completion-detail-panel > .actions-row,
+  .completion-gallery .completion-detail-panel > .upload-status,
+  .completion-gallery .completion-detail-panel > .publish-progress,
+  .completion-gallery .completion-detail-panel > .completion-share-panel {
+    grid-column: 1;
   }
   body[data-step="2"] .gallery-panel .placard,
   body[data-step="2"] .gallery-panel .reflection-fields,

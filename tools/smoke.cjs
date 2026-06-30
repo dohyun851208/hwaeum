@@ -360,11 +360,17 @@ check(
   qc("#exportAudioBtn") === 0 && qc("#exportDrawingImageBtn") === 0 && qc("#exportCoverBtn") === 0 && qc("#shareBtn") === 0,
   qc("#exportAudioBtn") + "/" + qc("#exportDrawingImageBtn") + "/" + qc("#exportCoverBtn") + "/" + qc("#shareBtn"),
 )
-check("완성 탭은 '이 시도 저장' 버튼만 유지", qc("#saveTakeBtn") === 1, qc("#saveTakeBtn"))
 check(
-  "완성 탭 채널 공유 패널 제거",
-  qc(".share-publish-panel") === 0 && qc("#publishShareBtn") === 0 && qc("#shareChannelInput") === 0 && qc("#openShareStepBtn") === 0,
-  qc(".share-publish-panel") + "/" + qc("#publishShareBtn") + "/" + qc("#shareChannelInput"),
+  "완성 탭은 작품 저장과 공유 버튼을 제공",
+  qc("#saveTakeBtn") === 1 && qc("#saveNewTakeBtn") === 0 && qc("#publishShareBtn") === 1 && qc("#myWorksTitle") === 1,
+  qc("#saveTakeBtn") + "/" + qc("#saveNewTakeBtn") + "/" + qc("#publishShareBtn") + "/" + qc("#myWorksTitle"),
+)
+check(
+  "완성 탭 공유 진행률은 공유 버튼 바로 아래에 있다",
+  qc(".share-publish-panel") === 0 &&
+    qc(".completion-share-panel #publishShareBtn") === 1 &&
+    window.document.querySelector(".completion-detail-panel > .completion-share-panel + .publish-progress") != null,
+  qc(".share-publish-panel") + "/" + qc(".completion-share-panel #publishShareBtn") + "/" + qc(".completion-detail-panel > .completion-share-panel + .publish-progress"),
 )
 check("완성 탭 관리자 모드 버튼 제거", qc("#adminModeBtn") === 0, qc("#adminModeBtn"))
 check("완성 탭 음악 멈춤 버튼 제거", qc("#completeStopBtn") === 0, qc("#completeStopBtn"))
@@ -500,14 +506,14 @@ check(
   "배경음이 켜져도 재생 버튼은 전체곡 재생 상태",
   !window.document.getElementById("playBtn").classList.contains("active") &&
     window.document.getElementById("playBtn").querySelector("span").textContent === "▶" &&
-    window.document.getElementById("playBtn").getAttribute("aria-label") === "전체곡 재생",
+    window.document.getElementById("playBtn").getAttribute("aria-label") === "전체 듣기",
 )
 SD.setStep(3)
 check(
   "배경음이 꺼진 뒤 재생 버튼은 재생 상태",
   !window.document.getElementById("playBtn").classList.contains("active") &&
     window.document.getElementById("playBtn").querySelector("span").textContent === "▶" &&
-    window.document.getElementById("playBtn").getAttribute("aria-label") === "전체곡 재생",
+    window.document.getElementById("playBtn").getAttribute("aria-label") === "전체 듣기",
 )
 let copiedShareUrl = ""
 Object.defineProperty(window.navigator, "clipboard", {
@@ -530,16 +536,16 @@ check("공유 링크 레시피는 시간순 경로를 포함", copiedRecipe.path
 SD.setStep(2)
 window.document.getElementById("clearBtn").click()
 check("지우개 버튼으로 지우개 모드 진입", SD.draw.eraseMode === true, SD.draw.eraseMode)
-check("지우개 버튼 안내 문구는 짧게 표시", window.document.getElementById("exportStatus").textContent === "지우개(키보드2)", window.document.getElementById("exportStatus").textContent)
+check("지우개 버튼 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("exportStatus").textContent)
 window.document.getElementById("penBtn").click()
 check("펜 버튼으로 그리기 모드 복귀", SD.draw.eraseMode === false, SD.draw.eraseMode)
-check("펜 버튼 안내 문구는 짧게 표시", window.document.getElementById("exportStatus").textContent === "펜(키보드1)", window.document.getElementById("exportStatus").textContent)
+check("펜 버튼 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "펜을 선택했어요.", window.document.getElementById("exportStatus").textContent)
 window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "2", bubbles: true }))
 check("키보드 2로 지우개 모드 진입", SD.draw.eraseMode === true, SD.draw.eraseMode)
-check("키보드 2 안내 문구는 짧게 표시", window.document.getElementById("exportStatus").textContent === "지우개(키보드2)", window.document.getElementById("exportStatus").textContent)
+check("키보드 2 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("exportStatus").textContent)
 window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "1", bubbles: true }))
 check("키보드 1로 펜 모드 복귀", SD.draw.eraseMode === false, SD.draw.eraseMode)
-check("키보드 1 안내 문구는 짧게 표시", window.document.getElementById("exportStatus").textContent === "펜(키보드1)", window.document.getElementById("exportStatus").textContent)
+check("키보드 1 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "펜을 선택했어요.", window.document.getElementById("exportStatus").textContent)
 const originalPlayForSpace = SD.engine.play
 let spacePlayCalls = 0
 SD.engine.play = () => {
@@ -677,10 +683,11 @@ SD.setStep(3)
 check("저장된 시도 제목 텍스트 표시", qc(".take-name-text") === 1, qc(".take-name-text"))
 check("저장된 시도 제목 입력칸 제거", qc(".take-name-input") === 0, qc(".take-name-input"))
 check("저장된 시도 제목 텍스트 내용", window.document.querySelector(".take-name-text").textContent === "테스트", window.document.querySelector(".take-name-text").textContent)
-check("저장된 시도 액션 버튼 4개(음악/이미지/링크/채널)", qc(".take-action") === 4, qc(".take-action"))
+check("저장된 작품 카드에 업로드 그림 표시", window.document.querySelector(".take-cover-img")?.src === smokeImageData, window.document.querySelector(".take-cover-img")?.src)
+check("저장된 시도 액션 버튼 3개(음악/이미지/수정)", qc(".take-action") === 3, qc(".take-action"))
 check(
   "저장된 시도 액션 버튼 라벨",
-  Array.from(window.document.querySelectorAll(".take-action")).map((b) => b.textContent).join("/") === "음악 저장/이미지 저장/레시피 링크 복사/화음 갤러리에 공유하기",
+  Array.from(window.document.querySelectorAll(".take-action")).map((b) => b.textContent).join("/") === "음악 저장/이미지 저장/수정",
   Array.from(window.document.querySelectorAll(".take-action")).map((b) => b.textContent).join("/"),
 )
 SD.loadRecipe(Object.assign({}, recipe, { picture: "data:image/png;base64,ZGlydHk=", pictureName: "다른 그림" }))
@@ -725,7 +732,7 @@ check("localStorage 재로드 유지", new window.TakesStore("sda.takes").list()
 const newestTake = SD.takes.add(recipe, "마지막")
 const orderedTakes = SD.takes.list()
 check(
-  "내 시도는 마지막 시도가 아래로 쌓임",
+  "내 작품은 마지막 작품이 아래로 쌓임",
   orderedTakes.length === 2 && orderedTakes[orderedTakes.length - 1].id === newestTake.id,
   orderedTakes.map((take) => take.name).join("/"),
 )

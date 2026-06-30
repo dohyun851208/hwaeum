@@ -65,6 +65,22 @@ test("TakesStore setTitle updates the visible name and recipe title", () => {
   assert.equal(saved.recipe.title, "새 제목")
 })
 
+test("TakesStore update overwrites an existing attempt without adding a new one", () => {
+  const { TakesStore } = loadTakesStore()
+  const takes = new TakesStore("sda.takes")
+  const take = takes.add({ duration: 30, title: "처음 제목" }, "처음 제목")
+
+  const updated = takes.update(take.id, { duration: 45, title: "고친 제목" }, "고친 제목")
+  const items = takes.list()
+
+  assert.equal(items.length, 1)
+  assert.equal(updated.id, take.id)
+  assert.equal(updated.createdAt, take.createdAt)
+  assert.equal(updated.name, "고친 제목")
+  assert.equal(updated.recipe.duration, 45)
+  assert.equal(updated.recipe.title, "고친 제목")
+})
+
 test("TakesStore keeps the recipe picture for later restore", () => {
   const { TakesStore } = loadTakesStore()
   const takes = new TakesStore("sda.takes")

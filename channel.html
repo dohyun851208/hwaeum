@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 갤러리</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260630-gallery-admin-menu" />
+    <link rel="stylesheet" href="./styles.css?v=20260630-drawing-image-delete" />
   </head>
   <body class="channel-body">
     <div class="channel-shell">
@@ -52,6 +52,7 @@
           </div>
           <form class="channel-open-form" id="channelOpenForm">
             <label for="channelInput">현재 갤러리</label>
+            <button class="channel-open-button channel-share-button" id="channelShareBtn" type="button" hidden>갤러리 공유</button>
             <input id="channelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="번호 (예 #107)" />
             <input id="channelCodeInput" class="channel-code-input" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="갤러리 코드" aria-label="갤러리 코드" />
             <button class="channel-open-button" type="submit">열기</button>
@@ -84,14 +85,14 @@
           <p class="channel-viewer-text" id="viewerMelody" hidden></p>
           <p class="channel-viewer-tags" id="viewerTags" hidden></p>
           <div class="channel-viewer-actions">
-            <button class="channel-action-button" id="viewerCopyBtn" type="button">링크 복사</button>
-            <button class="channel-action-button danger" id="viewerDeleteBtn" type="button" hidden>삭제</button>
+            <button class="channel-action-button" id="viewerDrawingBtn" type="button">드로잉 이미지</button>
+            <button class="channel-action-button danger" id="viewerDeleteBtn" type="button">작품 삭제</button>
           </div>
         </section>
       </div>
     </div>
 
-    <script src="./js/share-store.js?v=20260630-gallery-admin-menu" defer></script>
-    <script src="./js/channel.js?v=20260630-gallery-admin-menu" defer></script>
+    <script src="./js/share-store.js?v=20260630-drawing-image-delete" defer></script>
+    <script src="./js/channel.js?v=20260630-drawing-image-delete" defer></script>
   </body>
 </html>

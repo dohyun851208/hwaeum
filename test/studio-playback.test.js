@@ -24,7 +24,7 @@ function functionBody(source, name) {
 test("main playback can start without a drawn melody so background music can play alone", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const playBody = functionBody(source, "play")
-  const saveTakeBody = functionBody(source, "saveTake")
+  const saveTakeBody = functionBody(source, "saveTakeWithMode")
 
   assert.doesNotMatch(playBody, /requireDrawn\(\)/)
   assert.match(saveTakeBody, /requireDrawn\(\)/, "empty-canvas checks should remain on take saving")

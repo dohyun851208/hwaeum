@@ -10,6 +10,7 @@
   const VIEW_MODE_SHELF = "shelf"
   const VIEW_MODE_FLOW = "flow"
   const VIEW_MODE_STORAGE_KEY = "hwaeum.channelViewMode"
+  const WORK_ORDER_STORAGE_PREFIX = "hwaeum.channelWorkOrder."
 
   const $ = (id) => document.getElementById(id)
   const el = {
@@ -22,6 +23,7 @@
     title: $("channelTitle"),
     count: $("channelCount"),
     form: $("channelOpenForm"),
+    shareBtn: $("channelShareBtn"),
     input: $("channelInput"),
     codeInput: $("channelCodeInput"),
     library: $("channelLibrary"),
@@ -56,7 +58,7 @@
     viewerBackground: $("viewerBackground"),
     viewerMelody: $("viewerMelody"),
     viewerTags: $("viewerTags"),
-    viewerCopy: $("viewerCopyBtn"),
+    viewerDrawing: $("viewerDrawingBtn"),
     viewerDelete: $("viewerDeleteBtn"),
   }
 
@@ -75,7 +77,12 @@
     flowPosition: 0,
     flowCards: [],
     flowDragMoved: false,
+    shelfDragWorkId: "",
+    shelfDragMoved: false,
+    shelfDropPosition: "",
+    suppressAlbumClick: false,
   }
+  const generatedDrawingUrls = new Map()
 
   function cleanText(value, max) {
     const text = String(value || "").replace(/\s+/g, " ").trim()
@@ -144,6 +151,72 @@
     } catch (e) {}
   }
 
+  function workOrderStorageKey(channel) {
+    const normalized = normalizeChannel(channel)
+    return normalized ? WORK_ORDER_STORAGE_PREFIX + normalized : ""
+  }
+
+  function loadWorkOrder(channel) {
+    const key = workOrderStorageKey(channel)
+    if (!key) return []
+    try {
+      const value = root.localStorage ? root.localStorage.getItem(key) : ""
+      const parsed = value ? JSON.parse(value) : []
+      return Array.isArray(parsed)
+        ? parsed
+            .map(function (id) {
+              return cleanText(id, 80)
+            })
+            .filter(Boolean)
+        : []
+    } catch (e) {
+      return []
+    }
+  }
+
+  function saveWorkOrder() {
+    const key = workOrderStorageKey(state.channel)
+    if (!key) return
+    try {
+      if (root.localStorage) {
+        root.localStorage.setItem(
+          key,
+          JSON.stringify(
+            state.works
+              .map(function (work) {
+                return work && work.id
+              })
+              .filter(Boolean),
+          ),
+        )
+      }
+    } catch (e) {}
+  }
+
+  function applyStoredWorkOrder(works, channel) {
+    const list = Array.isArray(works) ? works.slice() : []
+    const order = loadWorkOrder(channel)
+    if (!order.length || list.length < 2) return list
+    const byId = new Map()
+    list.forEach(function (work) {
+      if (work && work.id) byId.set(work.id, work)
+    })
+    const ordered = []
+    order.forEach(function (id) {
+      const work = byId.get(id)
+      if (!work) return
+      ordered.push(work)
+      byId.delete(id)
+    })
+    list.forEach(function (work) {
+      if (work && work.id && byId.has(work.id)) {
+        ordered.push(work)
+        byId.delete(work.id)
+      }
+    })
+    return ordered
+  }
+
   function clampFlowIndex(index) {
     const max = Math.max(0, state.works.length - 1)
     return Math.max(0, Math.min(max, Number(index) || 0))
@@ -200,7 +273,7 @@
     if (!active || !el.flowCaption) return
     const meta = active.metadata || {}
     el.flowCount.textContent = state.flowIndex + 1 + " / " + state.works.length
-    el.flowTitle.textContent = workTitle(active)
+    el.flowTitle.textContent = workDisplayTitle(active)
     el.flowMeta.textContent = workMetaLine(active)
     const tags = tagsText(meta.hashtags)
     el.flowTags.hidden = !tags
@@ -244,6 +317,17 @@
     return cleanText((work && work.title) || meta.title || "무제", 80)
   }
 
+  function workComposer(work) {
+    const meta = (work && work.metadata) || {}
+    return cleanText(meta.composerName, 24)
+  }
+
+  function workDisplayTitle(work) {
+    const title = workTitle(work)
+    const composer = workComposer(work)
+    return composer ? title + " (" + composer + ")" : title
+  }
+
   function workDescriptionLine(work) {
     const meta = (work && work.metadata) || {}
     return [
@@ -256,9 +340,8 @@
   }
 
   function workMetaLine(work) {
-    const meta = (work && work.metadata) || {}
     return [
-      meta.composerName ? "작곡가 " + cleanText(meta.composerName, 24) : "",
+      workComposer(work) ? "작곡가 " + workComposer(work) : "",
       workDescriptionLine(work),
       formatDate(work && work.createdAt),
     ]
@@ -267,10 +350,9 @@
   }
 
   function workViewerMetaText(work) {
-    const meta = (work && work.metadata) || {}
     const uploadedAt = formatDate(work && work.createdAt)
     return [
-      meta.composerName ? "작곡가 " + cleanText(meta.composerName, 24) : "작곡가 이름 없음",
+      workComposer(work) ? "작곡가 " + workComposer(work) : "작곡가 이름 없음",
       workDescriptionLine(work),
       uploadedAt ? "업로드 " + uploadedAt : "업로드 시간 없음",
     ]
@@ -293,12 +375,13 @@
     return files.musicUrl || ""
   }
 
-  function sharedWorkUrl(work) {
-    return (work && work.shareUrl) || channelUrl((work && work.channel) || state.channel, work && work.id)
+  function drawingUrl(work) {
+    const files = (work && work.files) || {}
+    return files.drawingUrl || files.drawingImageUrl || ""
   }
 
   function canDeleteActive() {
-    return !!state.activeWork && !!state.adminPin
+    return !!state.activeWork
   }
 
   const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
@@ -386,6 +469,7 @@
       el.input.value = channel || ""
       el.input.placeholder = channel ? "" : "번호 (예 #107)"
     }
+    if (el.shareBtn) el.shareBtn.hidden = !channel || state.locked || state.loading
     if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
   }
 
@@ -415,19 +499,20 @@
     button.type = "button"
     button.className = "channel-album" + (options.className ? " " + options.className : "")
     button.id = "work-" + work.id
+    button.dataset.workId = work.id
     button.style.setProperty("--lift", String((index % 4) * 10) + "px")
-    button.setAttribute("aria-label", options.ariaLabel || workTitle(work) + " 크게 보기")
+    button.setAttribute("aria-label", options.ariaLabel || workDisplayTitle(work) + " 크게 보기")
 
     const cover = document.createElement("span")
     cover.className = "channel-album-cover"
     const img = document.createElement("img")
     img.src = coverUrl(work, false)
-    img.alt = workTitle(work) + " 표지"
+    img.alt = workDisplayTitle(work) + " 표지"
     img.loading = "lazy"
     const overlay = document.createElement("span")
     overlay.className = "channel-album-overlay"
     const title = document.createElement("strong")
-    title.textContent = workTitle(work)
+    title.textContent = workDisplayTitle(work)
     const tags = document.createElement("span")
     tags.textContent = tagsText(meta.hashtags) || [meta.atmosphereLabel, meta.instrumentLabel].filter(Boolean).join(" · ")
 
@@ -443,9 +528,11 @@
     cover.appendChild(overlay)
     button.appendChild(cover)
     button.addEventListener("click", function () {
+      if (state.suppressAlbumClick) return
       if (typeof options.onClick === "function") options.onClick(work, index)
       else openViewer(work, { updateHash: true })
     })
+    if (options.draggable) bindShelfReorder(button, work)
     return button
   }
 
@@ -486,7 +573,7 @@
     state.flowCards = state.works.map(function (work, index) {
       const card = createAlbumCard(work, index, {
         className: "channel-flow-album",
-        ariaLabel: workTitle(work) + " 크게 보기",
+        ariaLabel: workDisplayTitle(work) + " 크게 보기",
         onClick: function () {
           // 어느 앨범을 눌러도 바로 뷰어를 연다.
           openViewer(work, { updateHash: true })
@@ -616,13 +703,106 @@
     )
   }
 
+  function clearShelfDropMarks() {
+    document.querySelectorAll(".channel-album.is-drop-before, .channel-album.is-drop-after").forEach(function (node) {
+      node.classList.remove("is-drop-before", "is-drop-after")
+    })
+  }
+
+  function albumDropPosition(button, event) {
+    const rect = button.getBoundingClientRect()
+    const after = event.clientX > rect.left + rect.width / 2
+    button.classList.toggle("is-drop-before", !after)
+    button.classList.toggle("is-drop-after", after)
+    state.shelfDropPosition = after ? "after" : "before"
+    return state.shelfDropPosition
+  }
+
+  function moveWorkBeforeOrAfter(dragId, targetId, position) {
+    if (!dragId || !targetId || dragId === targetId) return false
+    const from = state.works.findIndex((work) => work && work.id === dragId)
+    const target = state.works.findIndex((work) => work && work.id === targetId)
+    if (from < 0 || target < 0) return false
+    const moving = state.works.splice(from, 1)[0]
+    let insertAt = state.works.findIndex((work) => work && work.id === targetId)
+    if (insertAt < 0) insertAt = state.works.length
+    if (position === "after") insertAt += 1
+    state.works.splice(insertAt, 0, moving)
+    state.flowIndex = clampFlowIndex(insertAt)
+    saveWorkOrder()
+    renderShelves()
+    setStatus("작품 순서를 바꿨어요.", false)
+    return true
+  }
+
+  function finishShelfDrag() {
+    clearShelfDropMarks()
+    document.querySelectorAll(".channel-album.is-dragging").forEach(function (node) {
+      node.classList.remove("is-dragging")
+      node.setAttribute("aria-grabbed", "false")
+    })
+    state.shelfDragWorkId = ""
+    state.shelfDropPosition = ""
+    state.suppressAlbumClick = true
+    setTimeout(function () {
+      state.suppressAlbumClick = false
+    }, 0)
+  }
+
+  function bindShelfReorder(button, work) {
+    if (!work || !work.id) return
+    button.draggable = state.works.length > 1
+    button.classList.toggle("channel-album-reorderable", button.draggable)
+    button.setAttribute("aria-grabbed", "false")
+
+    button.addEventListener("dragstart", function (event) {
+      if (state.viewMode !== VIEW_MODE_SHELF || state.works.length < 2) {
+        event.preventDefault()
+        return
+      }
+      state.shelfDragWorkId = work.id
+      state.shelfDragMoved = false
+      button.classList.add("is-dragging")
+      button.setAttribute("aria-grabbed", "true")
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move"
+        event.dataTransfer.setData("text/plain", work.id)
+      }
+    })
+
+    button.addEventListener("dragover", function (event) {
+      const dragId = state.shelfDragWorkId
+      if (!dragId || dragId === work.id) return
+      event.preventDefault()
+      state.shelfDragMoved = true
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move"
+      clearShelfDropMarks()
+      albumDropPosition(button, event)
+    })
+
+    button.addEventListener("dragleave", function (event) {
+      if (!button.contains(event.relatedTarget)) button.classList.remove("is-drop-before", "is-drop-after")
+    })
+
+    button.addEventListener("drop", function (event) {
+      const dragId = state.shelfDragWorkId || (event.dataTransfer && event.dataTransfer.getData("text/plain"))
+      if (!dragId || dragId === work.id) return
+      event.preventDefault()
+      const position = albumDropPosition(button, event)
+      moveWorkBeforeOrAfter(dragId, work.id, position)
+      finishShelfDrag()
+    })
+
+    button.addEventListener("dragend", finishShelfDrag)
+  }
+
   function renderShelfView() {
     for (let start = 0; start < state.works.length; start += WORKS_PER_SHELF) {
       const shelf = document.createElement("section")
       shelf.className = "channel-shelf"
       shelf.setAttribute("aria-label", Math.floor(start / WORKS_PER_SHELF) + 1 + "번째 선반")
       state.works.slice(start, start + WORKS_PER_SHELF).forEach(function (work, offset) {
-        shelf.appendChild(createAlbumCard(work, start + offset))
+        shelf.appendChild(createAlbumCard(work, start + offset, { draggable: true }))
       })
       el.shelves.appendChild(shelf)
     }
@@ -684,7 +864,7 @@
       const result = await ShareStore.listChannel(normalized, state.pass)
       state.channelMeta = result.meta || null
       state.locked = !!result.locked
-      state.works = state.locked ? [] : Array.isArray(result.works) ? result.works : []
+      state.works = state.locked ? [] : applyStoredWorkOrder(Array.isArray(result.works) ? result.works : [], normalized)
       const focusIndex = options.focusWork ? state.works.findIndex((item) => item && item.id === options.focusWork) : -1
       state.flowIndex = focusIndex >= 0 ? focusIndex : clampFlowIndex(state.flowIndex)
       state.loading = false
@@ -824,6 +1004,116 @@
     el.viewerPlay.setAttribute("aria-label", el.viewerAudio.paused ? "재생" : "일시정지")
   }
 
+  function clampUnit(value) {
+    const n = Number(value)
+    return Math.max(0, Math.min(1, isFinite(n) ? n : 0))
+  }
+
+  function recipeStrokes(recipe) {
+    recipe = recipe || {}
+    if (Array.isArray(recipe.strokes) && recipe.strokes.length) return recipe.strokes
+    return Array.isArray(recipe.path) && recipe.path.length ? [recipe.path] : []
+  }
+
+  function strokeColor(index) {
+    const palette = ["#00a6a6", "#c8a344", "#5b8def", "#d76f51", "#7f6fd6", "#6aa84f"]
+    return palette[index % palette.length]
+  }
+
+  function renderGeneratedDrawingCanvas(work) {
+    const canvas = document.createElement("canvas")
+    const w = 1440
+    const h = 540
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext("2d")
+    ctx.fillStyle = "#fbf6ec"
+    ctx.fillRect(0, 0, w, h)
+
+    ctx.strokeStyle = "rgba(31,38,38,0.1)"
+    ctx.lineWidth = 1
+    for (let i = 0; i <= 12; i++) {
+      const x = Math.round((w * i) / 12)
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, h)
+      ctx.stroke()
+    }
+    for (let i = 0; i <= 14; i++) {
+      const y = Math.round((h * i) / 14)
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(w, y)
+      ctx.stroke()
+    }
+
+    recipeStrokes(work && work.recipe).forEach(function (stroke, index) {
+      if (!Array.isArray(stroke) || stroke.length < 2) return
+      ctx.save()
+      ctx.lineCap = "round"
+      ctx.lineJoin = "round"
+      ctx.lineWidth = 10
+      ctx.strokeStyle = strokeColor(index)
+      ctx.globalAlpha = 0.34
+      ctx.beginPath()
+      ctx.moveTo(clampUnit(stroke[0].x) * w, clampUnit(stroke[0].y) * h)
+      for (let i = 1; i < stroke.length; i++) ctx.lineTo(clampUnit(stroke[i].x) * w, clampUnit(stroke[i].y) * h)
+      ctx.stroke()
+      ctx.globalAlpha = 0.94
+      ctx.lineWidth = 4
+      ctx.stroke()
+      ctx.restore()
+    })
+
+    const stamps = (work && work.recipe && Array.isArray(work.recipe.effectStamps) ? work.recipe.effectStamps : []) || []
+    stamps.forEach(function (stamp) {
+      const x = clampUnit(stamp && stamp.x) * w
+      const y = clampUnit(stamp && stamp.y != null ? stamp.y : 0.5) * h
+      ctx.save()
+      ctx.fillStyle = "rgba(255,224,138,0.88)"
+      ctx.strokeStyle = "rgba(31,38,38,0.18)"
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(x, y, 22, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.stroke()
+      ctx.restore()
+    })
+
+    ctx.fillStyle = "rgba(20,24,22,0.82)"
+    ctx.fillRect(0, h - 54, w, 54)
+    ctx.fillStyle = "#fbf6ec"
+    ctx.font = "800 26px 'Segoe UI', sans-serif"
+    ctx.fillText(workTitle(work) + " 드로잉", 28, h - 20)
+    return canvas
+  }
+
+  function canvasBlob(canvas, type, quality) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(
+        function (blob) {
+          if (blob) resolve(blob)
+          else reject(new Error("드로잉 이미지를 만들지 못했어요."))
+        },
+        type,
+        quality,
+      )
+    })
+  }
+
+  async function generatedDrawingUrl(work) {
+    const key = ((work && work.id) || "drawing") + ":" + ((work && work.updatedAt) || (work && work.createdAt) || "")
+    if (generatedDrawingUrls.has(key)) return generatedDrawingUrls.get(key)
+    const blob = await canvasBlob(renderGeneratedDrawingCanvas(work), "image/webp", 0.72)
+    const url = URL.createObjectURL(blob)
+    generatedDrawingUrls.set(key, url)
+    return url
+  }
+
+  async function drawingImageUrl(work) {
+    return drawingUrl(work) || generatedDrawingUrl(work)
+  }
+
   function openViewer(work, options) {
     options = options || {}
     if (!work) return
@@ -831,8 +1121,8 @@
     const url = musicUrl(work)
     state.activeWork = work
     el.viewerCover.src = coverUrl(work, true)
-    el.viewerCover.alt = workTitle(work) + " 표지"
-    el.viewerTitle.textContent = workTitle(work)
+    el.viewerCover.alt = workDisplayTitle(work) + " 표지"
+    el.viewerTitle.textContent = workDisplayTitle(work)
     el.viewerMeta.textContent = workViewerMetaText(work)
     setOptionalText(el.viewerBackground, "배경", meta.backgroundReason)
     setOptionalText(el.viewerMelody, "선율", meta.melodyIntent)
@@ -842,6 +1132,7 @@
     el.viewerAudio.src = url
     el.viewerAudio.hidden = !url
     el.viewerDelete.hidden = !canDeleteActive()
+    if (el.viewerDrawing) el.viewerDrawing.disabled = !drawingUrl(work) && !recipeStrokes(work.recipe).length
     el.viewer.hidden = false
     el.body.classList.add("channel-viewer-open")
     updateViewerPlayState()
@@ -861,11 +1152,14 @@
     updateViewerPlayState()
   }
 
-  async function copyActiveLink() {
-    if (!state.activeWork) return
-    const text = sharedWorkUrl(state.activeWork)
+  async function copyGalleryLink() {
+    if (!state.channel || state.locked) {
+      setStatus("먼저 화음 갤러리를 열어 주세요.", true)
+      return
+    }
+    const text = channelUrl(state.channel, "")
     const done = function () {
-      setStatus("작품 링크를 복사했어요.", false)
+      setStatus("갤러리 링크를 복사했어요.", false)
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       try {
@@ -874,28 +1168,56 @@
         return
       } catch (e) {}
     }
-    if (typeof prompt === "function") prompt("공유 링크", text)
+    if (typeof prompt === "function") prompt("갤러리 링크", text)
     done()
+  }
+
+  async function openActiveDrawingImage() {
+    if (!state.activeWork) return
+    const win = typeof root.open === "function" ? root.open("about:blank", "_blank") : null
+    try {
+      const url = await drawingImageUrl(state.activeWork)
+      if (!url) throw new Error("드로잉 이미지를 찾지 못했어요.")
+      if (win) {
+        win.location.href = url
+      } else if (typeof root.open === "function") {
+        root.open(url, "_blank", "noopener")
+      } else {
+        location.href = url
+      }
+      setStatus("드로잉 이미지를 새 창으로 열었어요.", false)
+    } catch (error) {
+      if (win && !win.closed) win.close()
+      console.error(error)
+      setStatus(error.message || "드로잉 이미지를 열지 못했어요.", true)
+    }
   }
 
   async function deleteActiveWork() {
     if (!state.activeWork || !ShareStore || !ShareStore.deleteWork) return
-    if (!canDeleteActive()) {
+    const adminPin = promptTrimmed("관리자 번호를 입력하세요.", loadStashedAdminPin())
+    if (adminPin == null) return
+    if (!adminPin) {
       setStatus("이 작품을 지우려면 관리자 번호가 필요합니다.", true)
       return
     }
     if (!confirm("이 공유 작품을 지울까요?")) return
     const work = state.activeWork
+    if (el.viewerDelete) el.viewerDelete.disabled = true
     try {
       setStatus("공유 작품을 삭제하는 중입니다.", false)
-      await ShareStore.deleteWork(work, state.adminPin)
+      await ShareStore.deleteWork(work, adminPin)
+      setAdminPin(adminPin)
       state.works = state.works.filter((item) => item.id !== work.id)
+      saveWorkOrder()
       closeViewer()
       renderShelves()
       setStatus("공유 작품을 삭제했어요.", false)
     } catch (error) {
       console.error(error)
       setStatus(error.message || "공유 작품을 삭제하지 못했어요.", true)
+    } finally {
+      if (el.viewerDelete) el.viewerDelete.disabled = false
     }
   }
 
@@ -955,6 +1277,9 @@
       event.preventDefault()
       openInputChannel()
     })
+    if (el.shareBtn) {
+      el.shareBtn.addEventListener("click", copyGalleryLink)
+    }
     if (el.shelfModeBtn) {
       el.shelfModeBtn.addEventListener("click", function () {
         setViewMode(VIEW_MODE_SHELF)
@@ -991,8 +1316,8 @@
     el.viewerAudio.addEventListener("play", updateViewerPlayState)
     el.viewerAudio.addEventListener("pause", updateViewerPlayState)
     el.viewerAudio.addEventListener("ended", updateViewerPlayState)
-    el.viewerCopy.addEventListener("click", copyActiveLink)
-    el.viewerDelete.addEventListener("click", deleteActiveWork)
+    if (el.viewerDrawing) el.viewerDrawing.addEventListener("click", openActiveDrawingImage)
+    if (el.viewerDelete) el.viewerDelete.addEventListener("click", deleteActiveWork)
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
         if (!el.viewer.hidden) closeViewer()

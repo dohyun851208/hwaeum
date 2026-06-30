@@ -233,13 +233,24 @@ test("드로잉 화면에서 믹스 선택 UI를 제거한다", () => {
   assert.doesNotMatch(source, /state\.version\.label \+ " 재생 중/)
 })
 
-test("드로잉 화면 상단 저장 버튼은 시도를 바로 저장한다", () => {
+test("완성 화면은 작품 저장과 공유를 한곳에서 제공한다", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
 
   assert.match(html, /id="drawingSaveTakeBtn"[^>]*>저장<\/button>/)
+  assert.match(html, /id="drawingSaveNewTakeBtn"[^>]*>새 시도로 저장<\/button>/)
+  assert.match(html, /id="saveTakeBtn"[^>]*>저장<\/button>/)
+  assert.doesNotMatch(html, /id="saveNewTakeBtn"/)
+  assert.match(html, /id="myWorksTitle"[^>]*>내 작품<\/h3>/)
+  assert.match(html, /id="publishShareBtn"[^>]*>화음 갤러리에 공유하기<\/button>/)
   assert.match(source, /drawingSaveTakeBtn: \$\("drawingSaveTakeBtn"\)/)
+  assert.match(source, /drawingSaveNewTakeBtn: \$\("drawingSaveNewTakeBtn"\)/)
   assert.match(source, /if \(el\.drawingSaveTakeBtn\) el\.drawingSaveTakeBtn\.addEventListener\("click", saveTake\)/)
+  assert.match(source, /if \(el\.drawingSaveNewTakeBtn\) el\.drawingSaveNewTakeBtn\.addEventListener\("click", saveNewTake\)/)
+  assert.match(source, /if \(el\.publishShareBtn\) el\.publishShareBtn\.addEventListener\("click", publishCurrentTake\)/)
+  assert.match(source, /takes\.update\(state\.activeTakeId, recipe, name\)/)
+  assert.match(source, /cover\.className = "take-cover"/)
+  assert.match(source, /makeTakeActionButton\("수정"/)
 })
 
 test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () => {

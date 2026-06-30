@@ -55,6 +55,17 @@
     return take
   }
 
+  TakesStore.prototype.update = function (id, recipe, name) {
+    for (let i = 0; i < this.items.length; i += 1) {
+      if (this.items[i].id !== id) continue
+      this.items[i].name = name || ""
+      this.items[i].recipe = JSON.parse(JSON.stringify(recipe))
+      this._save()
+      return this.items[i]
+    }
+    return null
+  }
+
   TakesStore.prototype.remove = function (id) {
     this.items = this.items.filter((t) => t.id !== id)
     this._save()

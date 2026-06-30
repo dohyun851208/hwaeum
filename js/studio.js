@@ -184,6 +184,7 @@
     undoBtn: $("undoBtn"),
     resetComposeBtn: $("resetComposeBtn"),
     drawingSaveTakeBtn: $("drawingSaveTakeBtn"),
+    drawingSaveNewTakeBtn: $("drawingSaveNewTakeBtn"),
     scaleReadout: $("scaleReadout"),
     rhythmReadout: $("rhythmReadout"),
     noteReadout: $("noteReadout"),
@@ -2353,20 +2354,30 @@
     meta.appendChild(row)
   }
 
+  function takeDisplayTitle(take) {
+    const rawTitle = (take && (take.name || (take.recipe && take.recipe.title))) || ""
+    return rawTitle && rawTitle !== "무제" ? rawTitle : "제목"
+  }
+
+  function takePictureSrc(take) {
+    const recipe = (take && take.recipe) || {}
+    return normalizePictureData(recipe.picture) || DEFAULT_COVER_SRC
+  }
+
   function renderTakes() {
     const items = state.sharedRecipeLoaded ? [] : takes.list()
     el.takesList.innerHTML = ""
     el.takesEmpty.style.display = items.length ? "none" : "block"
     el.takesEmpty.textContent = state.sharedRecipeLoaded
-      ? "공유 링크로 불러온 곡입니다. 저장하면 내 시도에 추가됩니다."
-      : "드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요."
+      ? "공유 링크로 불러온 곡입니다. 저장하면 내 작품에 추가됩니다."
+      : "드로잉 후 저장하면 여기에 모입니다. 같은 작품은 저장할 때마다 다시 덮어씁니다."
     el.takesCount.textContent = items.length ? items.length + "개" : ""
     items.forEach((t, idx) => {
       const atmos = D.atmospheres.find((a) => a.id === t.recipe.atmosphere) || defaultAtmosphere()
       const wrap = document.createElement("div")
       wrap.className = "take" + (t.id === state.activeTakeId ? " active" : "")
       wrap.tabIndex = 0
-      wrap.title = "이 시도 결과 보기"
+      wrap.title = "이 작품 정보 보기"
       wrap.addEventListener("click", function () {
         selectTake(t)
       })
@@ -2376,11 +2387,22 @@
           selectTake(t)
         }
       })
+      const cover = document.createElement("div")
+      cover.className = "take-cover"
+      const coverImg = document.createElement("img")
+      coverImg.className = "take-cover-img"
+      coverImg.alt = takeDisplayTitle(t) + " 그림"
+      coverImg.src = takePictureSrc(t)
+      coverImg.addEventListener("error", function () {
+        if (coverImg.src !== DEFAULT_COVER_SRC) coverImg.src = DEFAULT_COVER_SRC
+      })
+      cover.appendChild(coverImg)
       const cv = document.createElement("canvas")
       cv.width = 160
       cv.height = 100
       cv.className = "take-thumb"
       window.TakesStore.renderThumbnail(cv, t.recipe, atmos.color)
+      cover.appendChild(cv)
       const meta = document.createElement("div")
       meta.className = "take-meta"
       renderTakeName(meta, t, idx + 1)
@@ -2388,6 +2410,19 @@
       detail.className = "take-detail"
       detail.textContent = atmos.label + " · " + usedInstrumentLabelsForRecipe(t.recipe) + " · " + secondsLabel(t.recipe.duration)
       meta.appendChild(detail)
+      if (t.recipe && t.recipe.composerName) {
+        const composer = document.createElement("span")
+        composer.className = "take-composer"
+        composer.textContent = "작곡가 " + cleanText(t.recipe.composerName, COMPOSER_NAME_MAX)
+        meta.appendChild(composer)
+      }
+      const tags = normalizeHashtags(t.recipe && t.recipe.hashtags)
+      if (tags.length) {
+        const tagLine = document.createElement("span")
+        tagLine.className = "take-tags"
+        tagLine.textContent = hashtagText(tags)
+        meta.appendChild(tagLine)
+      }
       const tools = document.createElement("div")
       tools.className = "take-tools"
       const isPlayingTake = state.playingTakeId === t.id && (engine.isPlaying || engine.isPaused || !!engine.ambience)
@@ -2396,8 +2431,8 @@
       playB.type = "button"
       playB.className = "btn tiny primary take-play"
       playB.textContent = "▶"
-      playB.title = "이 시도 처음부터 듣기"
-      playB.setAttribute("aria-label", (t.name || "시도") + " 처음부터 듣기")
+      playB.title = "이 작품 처음부터 듣기"
+      playB.setAttribute("aria-label", (t.name || "작품") + " 처음부터 듣기")
       playB.addEventListener("click", function (event) {
         event.stopPropagation()
         playTake(t)
@@ -2408,7 +2443,7 @@
       pauseB.textContent = isPausedTake ? "▶" : "❚❚"
       pauseB.title = isPausedTake ? "이어 듣기" : "일시정지"
       pauseB.disabled = !isPlayingTake
-      pauseB.setAttribute("aria-label", (t.name || "시도") + " " + (isPausedTake ? "이어 듣기" : "일시정지"))
+      pauseB.setAttribute("aria-label", (t.name || "작품") + " " + (isPausedTake ? "이어 듣기" : "일시정지"))
       pauseB.addEventListener("click", function (event) {
         event.stopPropagation()
         if (!isPlayingTake) return
@@ -2434,15 +2469,13 @@
       tools.appendChild(pauseB)
       tools.appendChild(delB)
 
-      // 시도별 저장·공유 버튼: 음악 저장 · 이미지 저장 · 레시피 링크 복사 · 화음 갤러리에 공유하기
       const actions = document.createElement("div")
       actions.className = "take-actions"
-      actions.appendChild(makeTakeActionButton("음악 저장", "이 시도의 음악을 WebM으로 저장", () => exportTakeAudio(t)))
-      actions.appendChild(makeTakeActionButton("이미지 저장", "이 시도의 커버 이미지를 PNG로 저장", () => exportTakeImage(t)))
-      actions.appendChild(makeTakeActionButton("레시피 링크 복사", "드로잉 화면에서 열리는 레시피 링크 복사", () => copyTakeRecipeLink(t)))
-      actions.appendChild(makeTakeActionButton("화음 갤러리에 공유하기", "번호를 입력해 화음 갤러리에 공유", () => publishTake(t)))
+      actions.appendChild(makeTakeActionButton("음악 저장", "이 작품의 음악을 WebM으로 저장", () => exportTakeAudio(t)))
+      actions.appendChild(makeTakeActionButton("이미지 저장", "이 작품의 커버 이미지를 PNG로 저장", () => exportTakeImage(t)))
+      actions.appendChild(makeTakeActionButton("수정", "이 작품을 3단계에서 수정", () => editTake(t)))
 
-      wrap.appendChild(cv)
+      wrap.appendChild(cover)
       wrap.appendChild(meta)
       wrap.appendChild(tools)
       wrap.appendChild(actions)
@@ -2477,6 +2510,18 @@
   function copyTakeRecipeLink(t) {
     selectTake(t)
     shareLink()
+  }
+
+  function editTake(t) {
+    selectTake(t)
+    setStep(DRAWING_STEP)
+    if (el.statusText) el.statusText.textContent = "작품 수정"
+  }
+
+  function publishCurrentTake() {
+    const saved = saveTake()
+    if (!saved) return
+    publishTake(saved)
   }
 
   function publishTake(t) {
@@ -2524,13 +2569,29 @@
   }
 
   function saveTake() {
+    return saveTakeWithMode(false)
+  }
+
+  function saveNewTake() {
+    return saveTakeWithMode(true)
+  }
+
+  function saveTakeWithMode(forceNew) {
     if (!requireDrawn()) return
-    const take = takes.add(buildRecipe(), state.title)
+    const recipe = buildRecipe()
+    const name = state.title
+    let take = null
+    if (!forceNew && !state.sharedRecipeLoaded && state.activeTakeId && typeof takes.update === "function") {
+      take = takes.update(state.activeTakeId, recipe, name)
+    }
+    const updated = !!take
+    if (!take) take = takes.add(recipe, name)
     state.activeTakeId = take.id
     state.sharedRecipeLoaded = false
     renderTakes()
-    if (state.step === DRAWING_STEP && el.statusText) el.statusText.textContent = "시도를 저장했어요"
-    el.exportStatus.textContent = "시도를 저장했어요. 아래에서 골라 비교해 들어보세요."
+    const message = updated ? "현재 작품을 다시 저장했어요." : forceNew ? "새 작품으로 저장했어요." : "내 작품에 저장했어요."
+    if (state.step === DRAWING_STEP && el.statusText) el.statusText.textContent = updated ? "다시 저장했어요" : "저장했어요"
+    el.exportStatus.textContent = message
     return take
   }
 
@@ -2545,7 +2606,7 @@
     }
     loadRecipe(t.recipe)
     renderTakes()
-    el.exportStatus.textContent = "‘" + (title || "시도") + "’ 결과를 불러왔어요."
+    el.exportStatus.textContent = "‘" + (title || "작품") + "’ 정보를 불러왔어요."
   }
 
   // === § 24  레시피 불러오기 ===
@@ -2932,9 +2993,13 @@
         pictureSrc: state.pic,
         defaultCoverSrc: DEFAULT_COVER_SRC,
         title: metadata.title,
+        composerName: metadata.composerName,
         hashtags: hashtagText(metadata.hashtags),
         accent: state.atmosphere.color,
       })
+      el.exportStatus.textContent = "드로잉 이미지를 작게 압축하는 중입니다."
+      setProgress(0.08)
+      const drawing = await canvasToBlob(await renderDrawingSnapshotCanvas(), "image/webp", 0.62)
       el.exportStatus.textContent = "음악을 압축하는 중입니다. 완료될 때까지 기다려 주세요."
       setProgress(0.1)
       if (!engine.renderCompressedAudioBlob) throw new Error("압축 음악을 만들 수 없는 브라우저입니다.")
@@ -2946,7 +3011,13 @@
         },
       })
       el.exportStatus.textContent =
-        "공유 서버에 올리는 중입니다. 음악 " + ShareStore.formatBytes(music.size) + ", 표지 " + ShareStore.formatBytes(images.cover.size) + "."
+        "공유 서버에 올리는 중입니다. 음악 " +
+        ShareStore.formatBytes(music.size) +
+        ", 표지 " +
+        ShareStore.formatBytes(images.cover.size) +
+        ", 드로잉 " +
+        ShareStore.formatBytes(drawing.size) +
+        "."
       setProgress(0.92)
       const result = await ShareStore.publishWork({
         channel: channel,
@@ -2956,6 +3027,7 @@
         metadata: metadata,
         coverBlob: images.cover,
         thumbBlob: images.thumb,
+        drawingBlob: drawing,
         musicBlob: music,
       })
       const work = result.work
@@ -3428,6 +3500,7 @@
 
     if (el.saveTakeBtn) el.saveTakeBtn.addEventListener("click", saveTake)
     if (el.drawingSaveTakeBtn) el.drawingSaveTakeBtn.addEventListener("click", saveTake)
+    if (el.drawingSaveNewTakeBtn) el.drawingSaveNewTakeBtn.addEventListener("click", saveNewTake)
     // 완성 탭의 일괄 내보내기/공유 버튼은 제거됨 — 이제 각 시도(테이크)별 버튼이 담당.
     // 아래 버튼들은 더 이상 마크업에 없을 수 있으므로 모두 존재 여부를 확인하고 바인딩한다.
     if (el.exportAudioBtn) el.exportAudioBtn.addEventListener("click", exportAudio)
@@ -3435,7 +3508,7 @@
     if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.addEventListener("click", exportDrawingVideo)
     if (el.exportCoverBtn) el.exportCoverBtn.addEventListener("click", exportCover)
     if (el.shareBtn) el.shareBtn.addEventListener("click", shareLink)
-    if (el.publishShareBtn) el.publishShareBtn.addEventListener("click", publishSharedWork)
+    if (el.publishShareBtn) el.publishShareBtn.addEventListener("click", publishCurrentTake)
     if (el.openShareStepBtn) el.openShareStepBtn.addEventListener("click", () => setStep(SHARE_STEP))
     if (el.shareChannelInput) {
       el.shareChannelInput.addEventListener("input", () => syncShareInputs(el.shareChannelInput.value))

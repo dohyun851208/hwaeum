@@ -141,6 +141,7 @@
                     </svg>
                   </button>
                   <button class="btn small drawing-save-btn" id="drawingSaveTakeBtn" type="button">저장</button>
+                  <button class="btn small drawing-new-take-btn" id="drawingSaveNewTakeBtn" type="button">새 시도로 저장</button>
                 </div>
               </div>
               <div class="drawing-workspace" id="drawingWorkspace">
@@ -225,57 +226,66 @@
             <p class="lead">제목과 창작 의도를 작성하고 작품을 저장하거나, 음악과 커버 이미지를 내보낼 수 있습니다.</p>
           </div>
           <section class="panel gallery-panel completion-gallery">
-            <div class="frame" id="frame">
-              <img id="frameImg" alt="완성 표지" />
-              <canvas id="frameCanvas" width="640" height="640" aria-hidden="true"></canvas>
-            </div>
-            <div class="placard">
-              <div class="placard-field">
-                <label class="placard-field-label" for="titleInput">제목</label>
-                <input id="titleInput" class="placard-blank placard-blank--title" type="text" placeholder="제목을 적어 보세요" aria-label="작품 제목" maxlength="24" />
+            <aside class="completion-work-list" aria-labelledby="myWorksTitle">
+              <div class="takes">
+                <div class="takes-head">
+                  <div class="takes-title">
+                    <h3 id="myWorksTitle">내 작품</h3>
+                    <span class="muted" id="takesCount"></span>
+                  </div>
+                </div>
+                <div class="takes-list" id="takesList"></div>
+                <p class="muted takes-empty" id="takesEmpty">드로잉 후 저장하면 여기에 모입니다. 같은 작품은 저장할 때마다 다시 덮어씁니다.</p>
               </div>
-              <div class="placard-field">
-                <label class="placard-field-label" for="composerInput">작곡가</label>
-                <input id="composerInput" class="placard-blank" type="text" maxlength="24" placeholder="작곡가를 적어 보세요" aria-label="작곡가" />
-              </div>
-              <p class="placard-detail" id="placardDetail"></p>
-              <p class="placard-tags" id="placardMeta"></p>
-            </div>
-            <div class="reflection-fields">
-              <label class="reflection-field" for="bgReasonInput">
-                <span>배경음악을 고른 이유</span>
-                <textarea id="bgReasonInput" rows="3" maxlength="180" placeholder="그림 배경과 어울린다고 생각한 이유를 적어보세요."></textarea>
-              </label>
-              <label class="reflection-field" for="melodyIntentInput">
-                <span>선율을 표현한 의도</span>
-                <textarea id="melodyIntentInput" rows="3" maxlength="180" placeholder="선의 움직임, 높낮이, 악기로 표현하고 싶은 느낌을 적어보세요."></textarea>
-              </label>
-              <label class="hashtag-field" for="hashtagsInput">
-                <span>해시태그</span>
-                <input id="hashtagsInput" type="text" maxlength="60" placeholder="#따뜻함 #긴장감 #봄" aria-describedby="hashtagHelp" />
-                <small id="hashtagHelp">띄어쓰기나 쉼표로 구분하면 최대 3개까지 저장됩니다.</small>
-              </label>
-            </div>
+            </aside>
 
-            <div class="actions-row">
-              <button class="btn small primary" id="saveTakeBtn" type="button">이 시도 저장</button>
-            </div>
-            <p class="upload-status" id="exportStatus" aria-live="polite"></p>
-            <div class="publish-progress" id="publishProgress" hidden role="status" aria-label="공유 진행률">
-              <div class="publish-progress-track">
-                <div class="publish-progress-fill" id="publishProgressFill"></div>
-              </div>
-            </div>
-
-            <div class="takes">
-              <div class="takes-head">
-                <div class="takes-title">
-                  <h3>내 시도</h3>
-                  <span class="muted" id="takesCount"></span>
+            <div class="completion-detail-panel">
+              <div class="completion-current-preview">
+                <div class="frame" id="frame">
+                  <img id="frameImg" alt="완성 표지" />
+                  <canvas id="frameCanvas" width="640" height="640" aria-hidden="true"></canvas>
                 </div>
               </div>
-              <div class="takes-list" id="takesList"></div>
-              <p class="muted takes-empty" id="takesEmpty">드로잉 후 “이 시도 저장”을 누르면 여기에 모입니다. 골라서 비교해 들어보세요.</p>
+              <div class="placard">
+                <div class="placard-field">
+                  <label class="placard-field-label" for="titleInput">제목</label>
+                  <input id="titleInput" class="placard-blank placard-blank--title" type="text" placeholder="제목을 적어 보세요" aria-label="작품 제목" maxlength="24" />
+                </div>
+                <div class="placard-field">
+                  <label class="placard-field-label" for="composerInput">작곡가</label>
+                  <input id="composerInput" class="placard-blank" type="text" maxlength="24" placeholder="작곡가를 적어 보세요" aria-label="작곡가" />
+                </div>
+                <p class="placard-detail" id="placardDetail"></p>
+                <p class="placard-tags" id="placardMeta"></p>
+              </div>
+              <div class="reflection-fields">
+                <label class="reflection-field" for="bgReasonInput">
+                  <span>배경음악을 고른 이유</span>
+                  <textarea id="bgReasonInput" rows="3" maxlength="180" placeholder="그림 배경과 어울린다고 생각한 이유를 적어보세요."></textarea>
+                </label>
+                <label class="reflection-field" for="melodyIntentInput">
+                  <span>선율을 표현한 의도</span>
+                  <textarea id="melodyIntentInput" rows="3" maxlength="180" placeholder="선의 움직임, 높낮이, 악기로 표현하고 싶은 느낌을 적어보세요."></textarea>
+                </label>
+                <label class="hashtag-field" for="hashtagsInput">
+                  <span>해시태그</span>
+                  <input id="hashtagsInput" type="text" maxlength="60" placeholder="#따뜻함 #긴장감 #봄" aria-describedby="hashtagHelp" />
+                  <small id="hashtagHelp">띄어쓰기나 쉼표로 구분하면 최대 3개까지 저장됩니다.</small>
+                </label>
+              </div>
+
+              <div class="actions-row take-save-actions">
+                <button class="btn small primary" id="saveTakeBtn" type="button">저장</button>
+              </div>
+              <div class="completion-share-panel">
+                <button class="btn primary completion-share-button" id="publishShareBtn" type="button">화음 갤러리에 공유하기</button>
+              </div>
+              <div class="publish-progress" id="publishProgress" hidden role="status" aria-label="공유 진행률">
+                <div class="publish-progress-track">
+                  <div class="publish-progress-fill" id="publishProgressFill"></div>
+                </div>
+              </div>
+              <p class="upload-status" id="exportStatus" aria-live="polite"></p>
             </div>
           </section>
           <div class="screen-actions">

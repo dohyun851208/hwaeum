@@ -55,6 +55,36 @@ test("shared gallery viewers separate composer, description, and uploaded time",
   assert.match(css, /\.shared-viewer-meta\s*\{[\s\S]*white-space:\s*pre-line/)
 })
 
+test("channel viewer opens drawing image instead of copying a work link", () => {
+  const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
+  const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+  const openViewerBody = functionBody(channel, "openViewer")
+  const bindBody = functionBody(channel, "bind")
+
+  assert.match(channelHtml, /id="viewerDrawingBtn"[^>]*>드로잉 이미지/)
+  assert.doesNotMatch(channelHtml, /id="viewerCopyBtn"|>링크 복사</)
+  assert.match(channelHtml, /id="viewerDeleteBtn"[^>]*>작품 삭제/)
+  assert.doesNotMatch(channelHtml, /id="viewerDeleteBtn"[^>]*hidden/)
+  assert.match(openViewerBody, /viewerDrawing\.disabled = !drawingUrl\(work\) && !recipeStrokes\(work\.recipe\)\.length/)
+  assert.match(bindBody, /viewerDrawing[\s\S]*addEventListener\("click", openActiveDrawingImage\)/)
+  assert.match(functionBody(channel, "openActiveDrawingImage"), /root\.open\("about:blank", "_blank"\)/)
+  assert.match(functionBody(channel, "drawingImageUrl"), /drawingUrl\(work\) \|\| generatedDrawingUrl\(work\)/)
+})
+
+test("shared publish stores a drawing image file for channel viewers", () => {
+  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const store = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
+  const publishApi = fs.readFileSync(path.join(projectDir, "api", "share", "publish.js"), "utf8")
+
+  assert.match(functionBody(studio, "publishSharedWork"), /renderDrawingSnapshotCanvas\(\)/)
+  assert.match(functionBody(studio, "publishSharedWork"), /drawingBlob: drawing/)
+  assert.match(functionBody(store, "publishWork"), /drawing: drawing \? await encodeBlob\(drawing\) : null/)
+  assert.match(functionBody(store, "localPublicWork"), /drawingUrl: objectUrlFor\(record\.id, "drawing", drawing\)/)
+  assert.match(publishApi, /const drawing = files\.drawing \? decodeFile\(files\.drawing, "image\/webp"\) : null/)
+  assert.match(publishApi, /base \+ "drawing\.webp"/)
+  assert.match(publishApi, /drawingUrl: drawingBlob \? drawingBlob\.url : ""/)
+})
+
 test("saved takes and shared works describe every used instrument", () => {
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
   const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")

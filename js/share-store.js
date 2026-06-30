@@ -263,12 +263,14 @@
     else drawFallback(ctx, size, options.accent)
 
     const tags = options.hashtags || ""
+    const composer = String(options.composerName || "").replace(/\s+/g, " ").trim()
+    const titleLine = composer ? (options.title || "무제") + " (" + composer + ")" : options.title || "무제"
     const padH = tags ? Math.round(size * 0.2) : Math.round(size * 0.15)
     ctx.fillStyle = "rgba(20,26,26,0.82)"
     ctx.fillRect(0, size - padH, size, padH)
     ctx.fillStyle = "#fbf6ec"
     ctx.font = "700 " + Math.round(size * 0.052) + "px Georgia, serif"
-    ctx.fillText(fitCanvasLine(ctx, options.title || "무제", size - Math.round(size * 0.1)), Math.round(size * 0.047), size - padH + Math.round(size * 0.064))
+    ctx.fillText(fitCanvasLine(ctx, titleLine, size - Math.round(size * 0.1)), Math.round(size * 0.047), size - padH + Math.round(size * 0.064))
     if (tags) {
       ctx.font = "800 " + Math.round(size * 0.03) + "px 'Segoe UI', sans-serif"
       ctx.fillText(fitCanvasLine(ctx, tags, size - Math.round(size * 0.1)), Math.round(size * 0.047), size - padH + Math.round(size * 0.12))
@@ -344,9 +346,11 @@
     const files = record.files || {}
     const cover = files.cover || null
     const thumb = files.thumb || null
+    const drawing = files.drawing || null
     const music = files.music || null
     const coverBytes = cover ? cover.size || 0 : 0
     const thumbBytes = thumb ? thumb.size || 0 : 0
+    const drawingBytes = drawing ? drawing.size || 0 : 0
     const musicBytes = music ? music.size || 0 : 0
     return {
       id: record.id,
@@ -360,12 +364,14 @@
       files: {
         coverUrl: objectUrlFor(record.id, "cover", cover),
         thumbUrl: objectUrlFor(record.id, "thumb", thumb),
+        drawingUrl: objectUrlFor(record.id, "drawing", drawing),
         musicUrl: objectUrlFor(record.id, "music", music),
         musicType: music ? music.type || "audio/webm" : "",
         coverBytes: coverBytes,
         thumbBytes: thumbBytes,
+        drawingBytes: drawingBytes,
         musicBytes: musicBytes,
-        totalBytes: coverBytes + thumbBytes + musicBytes,
+        totalBytes: coverBytes + thumbBytes + drawingBytes + musicBytes,
       },
       shareUrl: localShareUrl(record.id, record.channel),
       localOnly: true,
@@ -432,6 +438,7 @@
       files: {
         cover: payload.coverBlob,
         thumb: payload.thumbBlob,
+        drawing: payload.drawingBlob || null,
         music: payload.musicBlob,
       },
     }
@@ -582,8 +589,9 @@
     const owner = getOwner()
     const cover = payload.coverBlob
     const thumb = payload.thumbBlob
+    const drawing = payload.drawingBlob
     const music = payload.musicBlob
-    const total = (cover ? cover.size : 0) + (thumb ? thumb.size : 0) + (music ? music.size : 0)
+    const total = (cover ? cover.size : 0) + (thumb ? thumb.size : 0) + (drawing ? drawing.size : 0) + (music ? music.size : 0)
     if (!cover || !thumb || !music) throw new Error("공유 파일을 만들지 못했어요.")
     if (total > MAX_UPLOAD_TOTAL_BYTES) throw new Error("압축 후에도 파일이 커요. 그림이나 배경음악을 더 짧고 작은 파일로 바꿔 주세요.")
 
@@ -598,6 +606,7 @@
       files: {
         cover: await encodeBlob(cover),
         thumb: await encodeBlob(thumb),
+        drawing: drawing ? await encodeBlob(drawing) : null,
         music: await encodeBlob(music),
       },
     }

@@ -41,3 +41,16 @@ test("channel play overlay is only added for covers without an embedded play but
   assert.match(functionBody(channel, "createAlbumCard"), /shouldShowCoverPlayOverlay\(work\)/)
   assert.match(functionBody(channel, "updateViewerPlayState"), /shouldShowCoverPlayOverlay\(state\.activeWork\)/)
 })
+
+test("shared gallery covers and titles include the composer beside the title", () => {
+  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const shareStore = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
+  const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+
+  assert.match(functionBody(shareStore, "renderCoverCanvas"), /const composer = String\(options\.composerName/)
+  assert.match(functionBody(shareStore, "renderCoverCanvas"), /const titleLine = composer \?/)
+  assert.match(functionBody(studio, "publishSharedWork"), /composerName: metadata\.composerName/)
+  assert.match(functionBody(channel, "workDisplayTitle"), /title \+ " \(" \+ composer \+ "\)"/)
+  assert.match(functionBody(channel, "createAlbumCard"), /title\.textContent = workDisplayTitle\(work\)/)
+  assert.match(functionBody(channel, "openViewer"), /viewerTitle\.textContent = workDisplayTitle\(work\)/)
+})
