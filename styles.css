@@ -1525,7 +1525,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   align-items: end;
   gap: 18px;
   min-height: 250px;
-  padding: 18px 22px 42px;
+  padding: 18px 22px 110px;
 }
 
 .channel-shelf::before,
