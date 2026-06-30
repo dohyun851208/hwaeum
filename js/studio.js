@@ -40,8 +40,8 @@
   const DEFAULT_INSTRUMENT_FAMILY = "그 밖의 악기"
   const STUDENT_MUSIC_GROUP = "내가 찾은 음악"
   const ATMOSPHERE_GROUP_ORDER = ["배경 없음", "분위기", "소리풍경", "리듬장단", STUDENT_MUSIC_GROUP]
-  const PEN_TOOL_STATUS = "펜(키보드1)"
-  const ERASER_TOOL_STATUS = "지우개(키보드2)"
+  const PEN_TOOL_STATUS = "펜을 선택했어요."
+  const ERASER_TOOL_STATUS = "지우개를 선택했어요."
   const DRAW_MODE_PICTURE = "picture"
   const DRAW_MODE_SOUND = "sound"
   const APP_UNDO_MAX = 30
@@ -94,6 +94,7 @@
     recipePicture: "",
     title: "무제",
     composerName: "",
+    actionCount: 0,
     step: 0,
     group: "서양",
     effectIds: [], // 옛 레시피 호환용: 자동 배치 효과
@@ -212,13 +213,13 @@
     openShareStepBtn: $("openShareStepBtn"),
     channelOpenForm: $("channelOpenForm"),
     channelBrowseInput: $("channelBrowseInput"),
+    channelBrowsePassInput: $("channelBrowsePassInput"),
     loadChannelBtn: $("loadChannelBtn"),
     shareAdminPinInput: $("shareAdminPinInput"),
     claimChannelInput: $("claimChannelInput"),
     shareDisplayNameInput: $("shareDisplayNameInput"),
     shareChannelPassInput: $("shareChannelPassInput"),
     claimChannelBtn: $("claimChannelBtn"),
-    deleteChannelBtn: $("deleteChannelBtn"),
     openClaimedChannelBtn: $("openClaimedChannelBtn"),
     shareStatus: $("shareStatus"),
     sharedWorksList: $("sharedWorksList"),
@@ -291,7 +292,7 @@
     onPreviewEnd: () => {
       engine.liveDrawingEnd()
       if (!engine.isPlaying && !engine.isStarting) {
-        el.statusText.textContent = "전체곡 대기"
+        el.statusText.textContent = "전체 듣기"
         el.statusText.classList.remove("playing")
         el.body.dataset.livePreview = "idle"
       }
@@ -339,6 +340,21 @@
 
   function clampUnit(value) {
     return StudioUtils.clampUnit(value)
+  }
+
+  function normalizeActionCount(value) {
+    const n = Math.floor(Number(value) || 0)
+    return Math.max(0, n)
+  }
+
+  function actionCountLabel(value) {
+    return normalizeActionCount(value) + "회"
+  }
+
+  function recordUserAction(options) {
+    if (state.step !== DRAWING_STEP) return
+    state.actionCount = normalizeActionCount(state.actionCount) + 1
+    if (!options || options.update !== false) updateReadouts()
   }
 
   function cleanText(value, max) {
@@ -513,6 +529,7 @@
     const wrap = canvasWrap()
     if (!wrap) return
     wrap.style.setProperty("--canvas-scroll-left", Math.max(0, wrap.scrollLeft || 0) + "px")
+    syncDrawModeToolbarPosition()
   }
 
   function syncDrawingReferenceToggle() {
@@ -553,6 +570,22 @@
   function timelineCssX(progress) {
     const g = canvasTimelineGeometry()
     return g.labelWidth + clampUnit(progress) * g.width
+  }
+
+  function syncDrawModeToolbarPosition() {
+    if (!el.canvas || !el.drawModePictureBtn) return
+    const panel = el.canvas.closest(".draw-panel")
+    const modeTabs = el.drawModePictureBtn.closest(".draw-mode-tabs")
+    if (!panel || !modeTabs) return
+    const canvasRect = el.canvas.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+    if (!canvasRect.width || !panelRect.width) return
+    const duration = Math.max(MIN_DURATION_SECONDS, state.duration || DEFAULT_DURATION_SECONDS)
+    const anchorTime = Math.min(7.5, duration)
+    const rawX = canvasRect.left - panelRect.left + timelineCssX(anchorTime / duration)
+    const half = Math.max(0, (modeTabs.offsetWidth || 0) / 2)
+    const x = clampNumber(rawX, half + 16, Math.max(half + 16, panelRect.width - half - 16))
+    panel.style.setProperty("--draw-mode-toolbar-left", Math.round(x) + "px")
   }
 
   function timelineProgressFromClientX(clientX) {
@@ -624,6 +657,7 @@
       picture: normalizePictureData(state.recipePicture || state.pic),
       pictureName: cleanText(state.picName || "그림", PICTURE_NAME_MAX),
       duration: state.duration,
+      actionCount: normalizeActionCount(state.actionCount),
       bgOffset: recipeBgOffset(),
       bgEndOffset: recipeBgEndOffset(),
       backgroundReason: cleanText(state.backgroundReason, 180),
@@ -748,6 +782,7 @@
           label.appendChild(name)
           b.appendChild(label)
           b.addEventListener("click", () => {
+            recordUserAction({ update: false })
             selectInstrument(i, true)
             engine.previewNote(buildRecipe(), 0.5).catch(function () {})
           })
@@ -855,6 +890,7 @@
       label.textContent = effect.label
       b.appendChild(label)
       b.addEventListener("click", () => {
+        recordUserAction({ update: false })
         state.effectStampId = state.effectStampId === id ? null : id
         if (state.effectStampId) setEraser(false)
         if (state.effectStampId && engine.warmEffect) {
@@ -1092,8 +1128,8 @@
   function updateReadouts() {
     el.scaleReadout.textContent = state.instrument.label
     el.rhythmReadout.textContent = draw.getStrokes().length ? draw.getStrokes().length + "개 선" : "그린 선"
-    el.noteReadout.textContent = String(draw.notes.length)
     el.durReadout.textContent = secondsLabel(state.duration)
+    el.noteReadout.textContent = actionCountLabel(state.actionCount)
     const tags = hashtagText(state.hashtags)
     el.placardMeta.textContent = tags
     el.placardMeta.classList.toggle("is-empty", !tags)
@@ -1311,7 +1347,7 @@
     const hasAmbience = !!engine.ambience
     const canPause = playing || paused || hasAmbience
     const activeAudio = !!playing && !paused
-    const playLabel = activeAudio ? "전체곡 일시정지" : paused ? "전체곡 이어 재생" : "전체곡 재생"
+    const playLabel = activeAudio ? "전체 일시정지" : paused ? "전체 이어 듣기" : "전체 듣기"
     el.playBtn.setAttribute("aria-label", playLabel)
     el.playBtn.title = playLabel
     el.playBtn.classList.toggle("active", activeAudio)
@@ -1343,7 +1379,7 @@
         ? "재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
         : engine.ambience
           ? "배경음 재생 중"
-        : "전체곡 대기"
+        : "전체 듣기"
     el.statusText.classList.toggle("playing", (playing || !!engine.ambience) && !paused)
     el.statusText.classList.toggle("paused", paused)
     el.frame.classList.toggle("playing", playing && !paused)
@@ -1768,7 +1804,9 @@
     if (!durationChanged) updateReadouts()
     setIcon(el.bgPlayBtn, bgPlayer.paused ? "▶" : "❚❚")
     if (el.bgPlayBtn) {
-      el.bgPlayBtn.setAttribute("aria-label", bgPlayer.paused ? "배경음악만 재생" : "배경음악 일시정지")
+      const bgPlayLabel = bgPlayer.paused ? "선택 구간 듣기" : "선택 구간 일시정지"
+      el.bgPlayBtn.setAttribute("aria-label", bgPlayLabel)
+      el.bgPlayBtn.setAttribute("title", bgPlayLabel)
       el.bgPlayBtn.classList.toggle("active", !bgPlayer.paused)
       el.bgPlayBtn.setAttribute("aria-pressed", bgPlayer.paused ? "false" : "true")
     }
@@ -2057,6 +2095,7 @@
 
   function setDrawingInputMode(mode, announce) {
     const next = mode === DRAW_MODE_SOUND ? DRAW_MODE_SOUND : DRAW_MODE_PICTURE
+    if (announce) recordUserAction()
     const bgWasPaused = bgPlayer.paused
     state.drawingInputMode = next
     draw.setFlowMode(next === DRAW_MODE_SOUND)
@@ -2077,12 +2116,14 @@
   }
 
   function activatePenTool(announce) {
+    if (announce) recordUserAction()
     clearEffectStampSelection()
     setEraser(false)
     if (announce) el.exportStatus.textContent = PEN_TOOL_STATUS
   }
 
   function activateEraserTool(announce) {
+    if (announce) recordUserAction()
     setEraser(true)
     // 지우개로 바꿀 땐 재생은 멈추되 재생바는 제자리에 둔다(정지 버튼처럼 맨 앞으로 되돌리지 않음).
     freezePlayheadAtLivePosition()
@@ -2136,6 +2177,7 @@
     if (!action) return
     appUndoStack.push(action)
     while (appUndoStack.length > APP_UNDO_MAX) appUndoStack.shift()
+    recordUserAction({ update: false })
     syncUndoButton()
   }
 
@@ -2196,6 +2238,7 @@
       if (action.type === "effects") {
         restoreEffectStamps(action.effectStamps)
         syncUndoButton()
+        recordUserAction()
         return "효과음"
       }
       if (action.type === "draw") {
@@ -2206,6 +2249,7 @@
         if (restored) {
           renderEffectStamps()
           syncUndoButton()
+          recordUserAction()
           return "드로잉"
         }
       }
@@ -2218,6 +2262,7 @@
       if (restored) {
         renderEffectStamps()
         syncUndoButton()
+        recordUserAction()
         return "드로잉"
       }
     }
@@ -2231,6 +2276,7 @@
   }
 
   function resetCompose() {
+    recordUserAction({ update: false })
     engine.stop()
     draw.finishFlowStroke(false)
     setEraser(false)
@@ -2246,7 +2292,7 @@
     renderOrchestraLegend()
     setupBgPlayer(true)
     setSelectedPlayhead(0, false, false)
-    el.statusText.textContent = "전체곡 대기"
+    el.statusText.textContent = "전체 듣기"
     el.exportStatus.textContent = "드로잉만 초기화했습니다. 배경음악 구간은 그대로 유지됩니다."
   }
 
@@ -2429,10 +2475,10 @@
     selectTake(t)
     const missing = []
     if (!el.titleInput?.value.trim()) missing.push({ field: el.titleInput, label: "제목" })
-    if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "나의 이름" })
+    if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "작곡가" })
     if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: "배경음악을 고른 이유" })
     if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: "선율을 표현한 의도" })
-    if (!el.hashtagsInput?.value.trim()) missing.push({ field: el.hashtagsInput, label: "나의 음악 해시태그" })
+    if (!el.hashtagsInput?.value.trim()) missing.push({ field: el.hashtagsInput, label: "해시태그" })
     if (missing.length > 0) {
       missing.forEach(({ field }) => field.classList.add("field-invalid"))
       el.exportStatus.textContent = "공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", ")
@@ -2446,21 +2492,21 @@
       el.exportStatus.classList.add("error")
       return
     }
-    const asked = typeof prompt === "function" ? prompt("공유할 화음 갤러리 번호를 입력하세요. (예: 3021)", state.sharedChannel || "") : null
+    const asked = typeof prompt === "function" ? prompt("공유할 번호를 입력하세요. (예 #107)", state.sharedChannel || "") : null
     if (asked === null) return // 취소
     const channel = ShareStore.normalizeChannel(asked)
     if (!channel) {
-      el.exportStatus.textContent = "화음 갤러리 번호를 다시 확인해 주세요."
+      el.exportStatus.textContent = "번호를 다시 확인해 주세요."
       el.exportStatus.classList.add("error")
       return
     }
-    // 공유에는 화음 갤러리 비밀번호가 필요하다(선생님이 알려 준 숫자).
+    // 공유에는 갤러리 코드가 필요하다(선생님이 알려 준 숫자).
     const savedPass = ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
-    const askedPass = typeof prompt === "function" ? prompt("화음 갤러리 비밀번호(숫자)를 입력하세요.", savedPass || "") : null
+    const askedPass = typeof prompt === "function" ? prompt("갤러리 코드(숫자)를 입력하세요.", savedPass || "") : null
     if (askedPass === null) return // 취소
     const pass = ShareStore.cleanPin(askedPass)
     if (!pass) {
-      el.exportStatus.textContent = "화음 갤러리 비밀번호(숫자)를 입력해 주세요."
+      el.exportStatus.textContent = "갤러리 코드(숫자)를 입력해 주세요."
       el.exportStatus.classList.add("error")
       return
     }
@@ -2505,6 +2551,7 @@
     const loadedPicture = normalizePictureData(recipe && recipe.picture)
     if (loadedPicture) setPicture(loadedPicture, recipe.pictureName || "불러온 그림")
     state.duration = normalizeDuration(recipe.duration || DEFAULT_DURATION_SECONDS)
+    state.actionCount = normalizeActionCount(recipe.actionCount)
     state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || defaultAtmosphere()
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
     state.style = styleForInstrument(state.instrument) // 음계는 악기 그룹을 따른다(서양=C장조, 국악=5음)
@@ -2579,17 +2626,36 @@
     }
   }
 
-  function openChannelPage(channelArg, workId) {
+  const CHANNEL_ENTRY_PASS_SESSION_KEY = "hwaeum.channelEntryPass"
+  function rememberChannelEntryPass(channel, pass) {
+    const normalized = normalizeSharedChannel(channel)
+    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(pass) : String(pass || "").replace(/\D/g, "").slice(0, 12)
+    try {
+      const s = window.sessionStorage
+      if (!s || !normalized) return pin
+      if (pin) s.setItem(CHANNEL_ENTRY_PASS_SESSION_KEY, JSON.stringify({ channel: normalized, pass: pin }))
+      else s.removeItem(CHANNEL_ENTRY_PASS_SESSION_KEY)
+    } catch (e) {}
+    return pin
+  }
+
+  function openChannelPage(channelArg, workId, passArg) {
     if (!ShareStore) {
       setShareMessage("공유 모듈을 불러오지 못했어요.", true)
       return
     }
     const channel = ShareStore.normalizeChannel(sharedChannelInputSource(channelArg) || "")
     if (!channel) {
-      setShareMessage("화음 갤러리 번호를 적어 주세요.", true)
+      setShareMessage("번호를 적어 주세요.", true)
+      return
+    }
+    const pass = passArg != null ? ShareStore.cleanPin(passArg) : ShareStore.cleanPin(el.channelBrowsePassInput ? el.channelBrowsePassInput.value : "")
+    if (!pass) {
+      setShareMessage("갤러리 코드를 넣어 주세요.", true)
       return
     }
     syncShareInputs(channel)
+    rememberChannelEntryPass(channel, pass)
     rememberAdminPin()
     window.location.href = channelPageUrl(channel, workId)
   }
@@ -2611,7 +2677,7 @@
     el.openClaimedChannelBtn.hidden = false
   }
 
-  // 관리자 번호(8624)로 화음 갤러리를 만들거나, 내가 점유한 화음 갤러리의 이름·비밀번호를 고친다.
+  // 관리자 번호(8624)로 화음 갤러리를 만들거나, 내가 점유한 갤러리 이름·코드를 고친다.
   async function claimChannelFromForm() {
     hideOpenClaimedChannelButton()
     if (!ShareStore || !ShareStore.claimChannel) {
@@ -2627,24 +2693,24 @@
       return
     }
     if (!channel) {
-      setShareMessage("만들 화음 갤러리 번호를 적어 주세요.", true)
+      setShareMessage("만들 번호를 적어 주세요.", true)
       return
     }
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setShareMessage("화음 갤러리 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 정해 주세요.", true)
+      setShareMessage("갤러리 코드는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 정해 주세요.", true)
       return
     }
     if (el.claimChannelBtn) el.claimChannelBtn.disabled = true
     try {
-      setShareMessage(channel + " 화음 갤러리를 만드는 중입니다.", false)
+      setShareMessage("#" + channel + " 갤러리를 만드는 중입니다.", false)
       const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: adminPin })
       if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
       syncShareInputs(channel)
       showOpenClaimedChannelButton(channel)
       const name = (result.channel && result.channel.displayName) || displayName
       setShareMessage(
-        (result.claimed === false ? channel + " 화음 갤러리 설정을 저장했어요." : channel + " 화음 갤러리를 만들었어요.") +
-          (name ? " 화음 갤러리 이름: " + name + "." : "") +
+        (result.claimed === false ? "#" + channel + " 갤러리 설정을 저장했어요." : "#" + channel + " 갤러리를 만들었어요.") +
+          (name ? " 갤러리 이름: " + name + "." : "") +
           (result.localOnly ? " (이 브라우저에만 저장됨)" : ""),
         false,
       )
@@ -2653,42 +2719,6 @@
       setShareMessage(e.message || "화음 갤러리를 만들지 못했어요.", true)
     } finally {
       if (el.claimChannelBtn) el.claimChannelBtn.disabled = false
-    }
-  }
-
-  async function deleteChannelFromForm() {
-    hideOpenClaimedChannelButton()
-    if (!ShareStore || !ShareStore.deleteChannel) {
-      setShareMessage("공유 모듈을 불러오지 못했어요.", true)
-      return
-    }
-    const channel = ShareStore.normalizeChannel(el.claimChannelInput ? el.claimChannelInput.value : "")
-    const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
-    if (!channel) {
-      setShareMessage("삭제할 화음 갤러리 번호를 적어 주세요.", true)
-      return
-    }
-    if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setShareMessage("화음 갤러리 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 넣어 주세요.", true)
-      return
-    }
-    if (!window.confirm(channel + " 화음 갤러리와 안에 있는 음악을 모두 삭제할까요?")) return
-    if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = true
-    try {
-      setShareMessage(channel + " 화음 갤러리를 삭제하는 중입니다.", false)
-      const result = await ShareStore.deleteChannel(channel, pin)
-      if (state.sharedChannel === channel) {
-        state.sharedWorks = []
-        syncShareInputs("")
-        renderSharedWorks()
-      }
-      if (el.shareChannelPassInput) el.shareChannelPassInput.value = ""
-      setShareMessage(channel + " 화음 갤러리를 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
-    } catch (e) {
-      console.error(e)
-      setShareMessage(e.message || "화음 갤러리를 삭제하지 못했어요.", true)
-    } finally {
-      if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = false
     }
   }
 
@@ -2824,18 +2854,18 @@
     }
     const normalized = ShareStore.normalizeChannel(sharedChannelInputSource(channel) || "")
     if (!normalized) {
-      setShareMessage("화음 갤러리 번호를 적어 주세요.", true)
+      setShareMessage("번호를 적어 주세요.", true)
       return
     }
     syncShareInputs(normalized)
     state.sharedLoading = true
     renderSharedWorks()
-    setShareMessage(normalized + " 화음 갤러리를 불러오는 중입니다.", false)
+    setShareMessage("#" + normalized + " 갤러리를 불러오는 중입니다.", false)
     try {
       const result = await ShareStore.listChannel(normalized, ShareStore.loadPass ? ShareStore.loadPass(normalized) : "")
       state.sharedWorks = result.works || []
       setShareMessage(
-        normalized + " 화음 갤러리에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.sharedWorks.length + "개를 불러왔어요.",
+        "#" + normalized + " 갤러리에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.sharedWorks.length + "개를 불러왔어요.",
         false,
       )
       if (options.updateUrl !== false) updateShareUrl(normalized)
@@ -2864,7 +2894,7 @@
     const channelSource = explicitChannel != null ? explicitChannel : el.shareChannelInput ? el.shareChannelInput.value : state.sharedChannel
     const channel = ShareStore.normalizeChannel(channelSource)
     if (!channel) {
-      el.exportStatus.textContent = "화음 갤러리 번호를 적어 주세요."
+      el.exportStatus.textContent = "번호를 적어 주세요."
       el.exportStatus.classList.add("error")
       return
     }
@@ -2920,7 +2950,7 @@
       })
       const work = result.work
       setProgress(1.0)
-      el.exportStatus.textContent = result.localOnly ? channel + " 화음 갤러리에 이 브라우저용으로 저장했어요." : channel + " 화음 갤러리에 공유했어요."
+      el.exportStatus.textContent = result.localOnly ? "#" + channel + " 갤러리에 이 브라우저용으로 저장했어요." : "#" + channel + " 갤러리에 공유했어요."
       state.sharedChannel = channel
       window.location.href = channelPageUrl(channel, work && work.id)
     } catch (e) {
@@ -3416,11 +3446,8 @@
     if (el.claimChannelBtn) {
       el.claimChannelBtn.addEventListener("click", claimChannelFromForm)
     }
-    if (el.deleteChannelBtn) {
-      el.deleteChannelBtn.addEventListener("click", deleteChannelFromForm)
-    }
     if (el.openClaimedChannelBtn) {
-      el.openClaimedChannelBtn.addEventListener("click", () => openChannelPage(el.openClaimedChannelBtn.dataset.channel || ""))
+      el.openClaimedChannelBtn.addEventListener("click", () => openChannelPage(el.openClaimedChannelBtn.dataset.channel || "", "", el.shareChannelPassInput ? el.shareChannelPassInput.value : ""))
     }
     const claimedChannelInputs = [el.shareAdminPinInput, el.claimChannelInput, el.shareDisplayNameInput, el.shareChannelPassInput]
     claimedChannelInputs.forEach(function (input) {
@@ -3533,6 +3560,7 @@
         backgroundReason: state.backgroundReason,
         melodyIntent: state.melodyIntent,
         hashtags: normalizeHashtags(state.hashtags),
+        actionCount: normalizeActionCount(state.actionCount),
         step: state.step,
         noteCount: state.mode === "rhythm" ? draw.hits.length : draw.notes.length,
         hasPicture: !!state.pic,

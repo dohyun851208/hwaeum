@@ -1,20 +1,16 @@
 const { del, list } = require("@vercel/blob")
-const { cleanChannel, cleanPin, hashPass, listAll, loadChannelMeta, method, parseJsonBody, readJsonUrl, send } = require("./_utils.cjs")
-
-const MIN_PIN_LENGTH = 4
+const { cleanChannel, hashAdmin, listAll, loadChannelMeta, method, parseJsonBody, readJsonUrl, send } = require("./_utils.cjs")
 
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["POST", "DELETE"])) return
   try {
     const body = await parseJsonBody(req)
     const channel = cleanChannel(body.channel)
-    const pass = cleanPin(body.pass)
-    if (!channel) return send(res, 400, { error: "삭제할 화음 갤러리 번호를 적어 주세요." })
-    if (pass.length < MIN_PIN_LENGTH) return send(res, 400, { error: "화음 갤러리 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 넣어 주세요." })
+    if (!channel) return send(res, 400, { error: "삭제할 번호를 적어 주세요." })
+    if (!hashAdmin(body.adminPin)) return send(res, 403, { error: "화음 갤러리를 삭제하려면 관리자 번호가 필요해요." })
 
     const channelMeta = await loadChannelMeta(list, readJsonUrl, channel)
-    if (!channelMeta || !channelMeta.passHash) return send(res, 404, { error: "삭제할 화음 갤러리를 찾지 못했어요." })
-    if (hashPass(channel, pass) !== channelMeta.passHash) return send(res, 403, { error: "화음 갤러리 비밀번호가 맞지 않아요." })
+    if (!channelMeta) return send(res, 404, { error: "삭제할 화음 갤러리를 찾지 못했어요." })
 
     const prefix = "share/channels/" + channel + "/"
     const blobs = await listAll(list, { prefix, limit: 1000 })

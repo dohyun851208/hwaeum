@@ -136,12 +136,12 @@
     return digits
   }
 
-  // 화음 갤러리 비밀번호는 숫자만 받는다.
+  // 갤러리 코드는 숫자만 받는다.
   function cleanPin(value) {
     return String(value || "").replace(/\D/g, "").slice(0, 12)
   }
 
-  // 입력한 화음 갤러리 비밀번호를 세션에 잠깐 둔다(갤러리별). 새로고침해도 다시 안 묻게.
+  // 입력한 갤러리 코드를 세션에 잠깐 둔다(갤러리별). 새로고침해도 다시 안 묻게.
   const PASS_SESSION_PREFIX = "hwaeum.channelPass."
   function rememberPass(channel, pin) {
     const normalized = normalizeChannel(channel)
@@ -418,7 +418,7 @@
   async function publishLocalWork(payload, channel, owner, pin) {
     const channelRecord = await getLocalChannel(channel)
     if (!channelRecord) throw new Error("아직 만들어지지 않은 화음 갤러리예요. 관리자가 먼저 화음 갤러리를 만들어 주세요.")
-    if (channelRecord.pass && pin !== channelRecord.pass) throw new Error("화음 갤러리 비밀번호가 맞지 않아요.")
+    if (channelRecord.pass && pin !== channelRecord.pass) throw new Error("갤러리 코드가 맞지 않아요.")
     const now = new Date().toISOString()
     const record = {
       id: randomId("local_"),
@@ -485,10 +485,10 @@
     return { ok: true, deleted: work.id, localOnly: true }
   }
 
-  async function deleteLocalChannel(channel, pin) {
+  async function deleteLocalChannel(channel, adminPin) {
     const channelRecord = await getLocalChannel(channel)
     if (!channelRecord) throw new Error("삭제할 화음 갤러리를 찾지 못했어요.")
-    if (!channelRecord.pass || pin !== channelRecord.pass) throw new Error("화음 갤러리 비밀번호가 맞지 않아요.")
+    if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) throw new Error("화음 갤러리를 삭제하려면 관리자 번호가 필요해요.")
     const deletedWorks =
       (await withLocalStore("readwrite", function (store, setResult) {
         const req = store.getAll()
@@ -555,9 +555,9 @@
   async function claimChannel(options) {
     options = options || {}
     const channel = normalizeChannel(options.channel)
-    if (!channel) throw new Error("화음 갤러리 번호를 적어 주세요.")
+    if (!channel) throw new Error("번호를 적어 주세요.")
     const pin = cleanPin(options.pin)
-    if (pin.length < MIN_PIN_LENGTH) throw new Error("화음 갤러리 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 정해 주세요.")
+    if (pin.length < MIN_PIN_LENGTH) throw new Error("갤러리 코드는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 정해 주세요.")
     const owner = getOwner()
     const body = {
       channel: channel,
@@ -577,7 +577,7 @@
 
   async function publishWork(payload) {
     const channel = rememberChannel(payload.channel)
-    if (!channel) throw new Error("화음 갤러리 번호를 적어 주세요.")
+    if (!channel) throw new Error("번호를 적어 주세요.")
     const pin = cleanPin(payload.pass)
     const owner = getOwner()
     const cover = payload.coverBlob
@@ -611,7 +611,7 @@
 
   async function listChannel(channel, pass) {
     const normalized = rememberChannel(channel)
-    if (!normalized) throw new Error("화음 갤러리 번호를 적어 주세요.")
+    if (!normalized) throw new Error("번호를 적어 주세요.")
     const pin = cleanPin(pass)
     try {
       const url = API_BASE + "/channel?channel=" + encodeURIComponent(normalized) + (pin ? "&pass=" + encodeURIComponent(pin) : "")
@@ -647,15 +647,15 @@
     }
   }
 
-  async function deleteChannel(channel, pass) {
+  async function deleteChannel(channel, adminPin) {
     const normalized = normalizeChannel(channel)
-    if (!normalized) throw new Error("삭제할 화음 갤러리 번호를 적어 주세요.")
-    const pin = cleanPin(pass)
-    if (pin.length < MIN_PIN_LENGTH) throw new Error("화음 갤러리 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 넣어 주세요.")
+    if (!normalized) throw new Error("삭제할 번호를 적어 주세요.")
+    const pin = String(adminPin || "").trim()
+    if (!pin) throw new Error("화음 갤러리를 삭제하려면 관리자 번호가 필요해요.")
     try {
       const result = await postJson("/channel-delete", {
         channel: normalized,
-        pass: pin,
+        adminPin: pin,
       })
       forgetChannel(normalized)
       return result

@@ -6,9 +6,9 @@ module.exports = async function handler(req, res) {
   try {
     const query = req.query || Object.fromEntries(new URL(req.url || "/", "http://localhost").searchParams.entries())
     const channel = cleanChannel(query.channel || "")
-    if (!channel) return send(res, 400, { error: "화음 갤러리 번호를 적어 주세요." })
+    if (!channel) return send(res, 400, { error: "번호를 적어 주세요." })
 
-    // 화음 갤러리가 비밀번호로 잠겨 있으면 비번이 맞아야 작품 목록을 내준다.
+    // 화음 갤러리가 코드로 잠겨 있으면 코드가 맞아야 작품 목록을 내준다.
     const channelMeta = await loadChannelMeta(list, readJsonUrl, channel)
     if (channelMeta && channelMeta.passHash) {
       const pass = cleanPin(query.pass || "")

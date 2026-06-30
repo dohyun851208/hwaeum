@@ -149,7 +149,7 @@
         return
       }
       el.sharedEmpty.style.display = works.length ? "none" : "block"
-      el.sharedEmpty.textContent = state.sharedChannel ? "아직 이 화음 갤러리에 공유된 음악이 없습니다." : "화음 갤러리 번호를 입력하고 들어가기를 누르면 공유된 음악이 여기에 모입니다."
+      el.sharedEmpty.textContent = state.sharedChannel ? "아직 이 화음 갤러리에 공유된 음악이 없습니다." : "번호를 입력하고 들어가기를 누르면 공유된 음악이 여기에 모입니다."
       const adminReady = !!adminPinValue()
       works.forEach(function (work) {
         const meta = work.metadata || {}

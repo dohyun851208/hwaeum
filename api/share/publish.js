@@ -23,15 +23,15 @@ module.exports = async function handler(req, res) {
   try {
     const body = await parseJsonBody(req)
     const channel = cleanChannel(body.channel)
-    if (!channel) return send(res, 400, { error: "화음 갤러리 번호를 적어 주세요." })
+    if (!channel) return send(res, 400, { error: "번호를 적어 주세요." })
     if (!body.ownerKey || !body.ownerId) return send(res, 400, { error: "작품 소유자를 확인하지 못했어요." })
 
-    // 화음 갤러리는 관리자가 먼저 만들어 둬야 하고, 비밀번호가 맞아야 올릴 수 있다.
+    // 화음 갤러리는 관리자가 먼저 만들어 둬야 하고, 갤러리 코드가 맞아야 올릴 수 있다.
     const channelMeta = await loadChannelMeta(list, readJsonUrl, channel)
     // 409로 보낸다(404는 share-store가 'API 없음 → 로컬 폴백' 신호로 쓰므로 충돌 방지).
     if (!channelMeta) return send(res, 409, { error: "아직 만들어지지 않은 화음 갤러리예요. 관리자가 먼저 화음 갤러리를 만들어 주세요." })
     if (channelMeta.passHash && hashPass(channel, cleanPin(body.pass)) !== channelMeta.passHash) {
-      return send(res, 403, { error: "화음 갤러리 비밀번호가 맞지 않아요." })
+      return send(res, 403, { error: "갤러리 코드가 맞지 않아요." })
     }
 
     const files = body.files || {}

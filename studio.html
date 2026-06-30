@@ -11,9 +11,9 @@
     <div class="atelier">
       <!-- 상단 바 -->
       <header class="topbar">
-        <div class="brand">
-          <p class="eyebrow">화음 스튜디오</p>
-          <h1>그림으로 음악을 그리다</h1>
+        <div class="brand" aria-label="화음 스튜디오">
+          <img class="brand-mark" src="./assets/brand/hwaeum-studio-mark.webp" alt="" />
+          <h1>화음 스튜디오</h1>
         </div>
         <div class="topbar-right">
           <figure class="pic-chip" id="picChip" hidden>
@@ -106,10 +106,38 @@
                     <button class="draw-mode-tab active" id="drawModePictureBtn" type="button" aria-pressed="true">자유 그리기</button>
                     <button class="draw-mode-tab" id="drawModeSoundBtn" type="button" aria-pressed="false">음악에 맞춰 그리기</button>
                   </div>
-                  <button class="btn small active" id="penBtn" type="button" aria-pressed="true">펜(키보드1)</button>
-                  <button class="btn small" id="clearBtn" type="button" aria-pressed="false">지우개(키보드2)</button>
-                  <button class="btn small" id="undoBtn" type="button" disabled>되돌리기</button>
-                  <button class="btn small" id="resetComposeBtn" type="button">초기화</button>
+                  <button class="btn small tool-icon-btn active" id="penBtn" type="button" aria-label="펜, 키보드 1" aria-pressed="true" aria-keyshortcuts="1" title="펜 (키보드 1)">
+                    <svg class="tool-icon" viewBox="0 0 32 32" aria-hidden="true">
+                      <path class="tool-icon-fill" d="M7 25l5.8-1.3L25.6 10.9l-4.5-4.5L8.3 19.2 7 25z" />
+                      <path d="M7 25l5.8-1.3L25.6 10.9a2.2 2.2 0 0 0 0-3.1l-1.4-1.4a2.2 2.2 0 0 0-3.1 0L8.3 19.2 7 25z" />
+                      <path d="M18.9 8.6l4.5 4.5" />
+                      <path d="M8.3 19.2l4.5 4.5" />
+                      <path d="M7 25l3.5-3.5" />
+                    </svg>
+                  </button>
+                  <button class="btn small tool-icon-btn" id="clearBtn" type="button" aria-label="지우개, 키보드 2" aria-pressed="false" aria-keyshortcuts="2" title="지우개 (키보드 2)">
+                    <svg class="tool-icon" viewBox="0 0 32 32" aria-hidden="true">
+                      <path class="tool-icon-fill" d="M5.5 20.5 16.8 9.2a3 3 0 0 1 4.2 0l3.8 3.8a3 3 0 0 1 0 4.2L17 25H10l-4.5-4.5z" />
+                      <path d="M5.5 20.5 16.8 9.2a3 3 0 0 1 4.2 0l3.8 3.8a3 3 0 0 1 0 4.2L17 25H10l-4.5-4.5z" />
+                      <path d="M12.2 15.8l6 6" />
+                      <path d="M10 25h15.5" />
+                      <path d="M8 18l6 6" />
+                    </svg>
+                  </button>
+                  <button class="btn small tool-icon-btn" id="undoBtn" type="button" aria-label="되돌리기" aria-keyshortcuts="Control+Z" title="되돌리기" disabled>
+                    <svg class="tool-icon" viewBox="0 0 32 32" aria-hidden="true">
+                      <path d="M13.8 8.5 6.3 16l7.5 7.5" />
+                      <path d="M7.4 16h18.3" />
+                    </svg>
+                  </button>
+                  <button class="btn small tool-icon-btn" id="resetComposeBtn" type="button" aria-label="드로잉 초기화" title="드로잉 초기화">
+                    <svg class="tool-icon" viewBox="0 0 32 32" aria-hidden="true">
+                      <path d="M12.9 9 5.9 16l7 7" />
+                      <path d="M7 16h8.5" />
+                      <path d="M25.9 9 18.9 16l7 7" />
+                      <path d="M20 16h8.5" />
+                    </svg>
+                  </button>
                 </div>
               </div>
               <div class="drawing-workspace" id="drawingWorkspace">
@@ -130,8 +158,8 @@
                     <img id="drawingReferenceImg" src="./assets/default-cover.webp" alt="올린 그림" />
                   </figure>
                   <div class="transport" aria-label="재생 제어">
-                    <span class="status-pill" id="statusText" aria-live="polite">전체곡 대기</span>
-                    <button class="round-btn" id="playBtn" type="button" aria-label="전체곡 재생"><span aria-hidden="true">▶</span></button>
+                    <span class="status-pill" id="statusText" aria-live="polite">전체 듣기</span>
+                    <button class="round-btn" id="playBtn" type="button" aria-label="전체 듣기" title="전체 듣기"><span aria-hidden="true">▶</span></button>
                     <button class="round-btn ghost" id="stopBtn" type="button" aria-label="정지"><span aria-hidden="true">■</span></button>
                   </div>
                 </div>
@@ -144,9 +172,9 @@
                     <div class="playhead" id="playhead" role="slider" aria-label="재생 시작 위치" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" tabindex="0" hidden></div>
                   </div>
                   <div class="bg-player" id="bgPlayer" aria-label="배경음악 위치 맞추기">
-                    <span class="bg-player-label">배경 구간</span>
+                    <span class="bg-player-label">선택 구간 듣기</span>
                     <div class="bg-range-panel">
-                      <button class="bg-play-btn" id="bgPlayBtn" type="button" aria-label="배경음악만 재생" title="배경음악만 재생"><span aria-hidden="true">▶</span></button>
+                      <button class="bg-play-btn" id="bgPlayBtn" type="button" aria-label="선택 구간 듣기" title="선택 구간 듣기"><span aria-hidden="true">▶</span></button>
                       <div class="bg-range" aria-label="배경음악 선택 구간">
                         <input class="bg-seek" id="bgSeek" type="range" min="0" max="100" value="0" step="1" aria-label="배경음악 시작 위치" />
                         <span class="bg-range-dash" aria-hidden="true">~</span>
@@ -164,8 +192,8 @@
               <div class="readouts">
                 <div><span class="k">악기</span><strong id="scaleReadout">바이올린</strong></div>
                 <div><span class="k">그림</span><strong id="rhythmReadout">그린 선</strong></div>
-                <div><span class="k">소리 수</span><strong id="noteReadout">0</strong></div>
                 <div><span class="k">길이</span><strong id="durReadout">30초</strong></div>
+                <div><span class="k">시도한 횟수</span><strong id="noteReadout">0회</strong></div>
               </div>
               <div class="orchestra-legend" id="orchestraLegend" aria-live="polite"></div>
               <div class="version-row">
@@ -204,8 +232,8 @@
                 <input id="titleInput" class="placard-blank placard-blank--title" type="text" placeholder="제목을 적어 보세요" aria-label="작품 제목" maxlength="24" />
               </div>
               <div class="placard-field">
-                <label class="placard-field-label" for="composerInput">나의 이름</label>
-                <input id="composerInput" class="placard-blank" type="text" maxlength="24" placeholder="이름을 적어 보세요" aria-label="내 이름" />
+                <label class="placard-field-label" for="composerInput">작곡가</label>
+                <input id="composerInput" class="placard-blank" type="text" maxlength="24" placeholder="작곡가를 적어 보세요" aria-label="작곡가" />
               </div>
               <p class="placard-detail" id="placardDetail"></p>
               <p class="placard-tags" id="placardMeta"></p>
@@ -220,7 +248,7 @@
                 <textarea id="melodyIntentInput" rows="3" maxlength="180" placeholder="선의 움직임, 높낮이, 악기로 표현하고 싶은 느낌을 적어보세요."></textarea>
               </label>
               <label class="hashtag-field" for="hashtagsInput">
-                <span>나의 음악 해시태그 2~3개</span>
+                <span>해시태그</span>
                 <input id="hashtagsInput" type="text" maxlength="60" placeholder="#따뜻함 #긴장감 #봄" aria-describedby="hashtagHelp" />
                 <small id="hashtagHelp">띄어쓰기나 쉼표로 구분하면 최대 3개까지 저장됩니다.</small>
               </label>
@@ -258,7 +286,7 @@
           <div class="screen-head">
             <p class="eyebrow">5단계</p>
             <h2>화음 갤러리에 공유합니다.</h2>
-            <p class="lead">화음 갤러리 번호를 입력하면 같은 화음 갤러리에 모인 완성 작품을 함께 감상할 수 있습니다.</p>
+            <p class="lead">번호와 갤러리 코드를 입력하면 같은 화음 갤러리에 모인 완성 작품을 함께 감상할 수 있습니다.</p>
           </div>
           <section class="panel share-board share-gate">
             <div class="channel-gate-grid">
@@ -269,24 +297,27 @@
                 </div>
                 <form class="channel-open-bar" id="channelOpenForm">
                   <span class="channel-open-hash" aria-hidden="true">#</span>
-                  <input id="channelBrowseInput" class="channel-open-input" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="화음 갤러리 번호 (예: 3021)" aria-label="화음 갤러리 번호" />
+                  <input id="channelBrowseInput" class="channel-open-input" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="번호 (예 107)" aria-label="번호" />
+                  <input id="channelBrowsePassInput" class="channel-open-pass" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="갤러리 코드" aria-label="갤러리 코드" />
                   <button class="channel-open-go" id="loadChannelBtn" type="submit">들어가기 →</button>
                 </form>
               </section>
               <section class="channel-gate-card channel-admin-card" aria-labelledby="channelAdminTitle">
                 <div class="channel-gate-card-head">
                   <p class="eyebrow">선생님</p>
-                  <h3 id="channelAdminTitle">화음 갤러리 관리하기</h3>
+                  <h3 id="channelAdminTitle">화음 갤러리 생성하기</h3>
                 </div>
                 <div class="channel-admin-form channel-claim-form">
                   <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 번호 (8624)" aria-label="관리자 번호" />
-                  <input id="claimChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="화음 갤러리 번호 (예: 77)" aria-label="만들 화음 갤러리 번호" />
-                  <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="화음 갤러리 이름 (예: 3반 봄 음악)" aria-label="화음 갤러리 이름" />
-                  <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="화음 갤러리 비밀번호 (숫자 4자리 이상)" aria-label="화음 갤러리 비밀번호" />
-                  <button class="btn primary" type="button" id="claimChannelBtn">화음 갤러리 만들기</button>
-                  <button class="btn danger" type="button" id="deleteChannelBtn">화음 갤러리 삭제하기</button>
+                  <label class="channel-number-field" for="claimChannelInput">
+                    <span class="channel-open-hash" aria-hidden="true">#</span>
+                    <input id="claimChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="번호 (예 107)" aria-label="만들 번호" />
+                  </label>
+                  <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="갤러리 이름 (예: 여름 빛깔을 담은 노래)" aria-label="갤러리 이름" />
+                  <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="갤러리 코드 (숫자 4자리 이상)" aria-label="갤러리 코드" />
+                  <button class="btn primary" type="button" id="claimChannelBtn">화음 갤러리 생성하기</button>
                   <button class="btn" type="button" id="openClaimedChannelBtn" hidden>방금 만든 화음 갤러리 들어가기 →</button>
-                  <p class="muted">관리자 번호(8624)로 화음 갤러리 생성이 가능하며, 교사가 화음 갤러리의 번호, 이름, 비밀번호를 설정하여 화음 갤러리를 만듭니다.<br />학생은 교사가 설정한 화음 갤러리 번호 + 비밀번호를 통해 들어갈 수 있습니다.<br />화음 갤러리 삭제 시에는 화음 갤러리 비밀번호가 필요하며, 화음 갤러리 안의 음악도 함께 삭제됩니다.</p>
+                  <p class="muted">관리자 번호(8624)로 화음 갤러리 생성이 가능하며, 교사가 번호, 갤러리 이름, 갤러리 코드를 설정하여 화음 갤러리를 만듭니다.<br />학생은 교사가 알려 준 번호 + 갤러리 코드를 통해 들어갈 수 있습니다.</p>
                 </div>
               </section>
             </div>
@@ -310,7 +341,7 @@
     <script src="./js/audio-engine.js?v=20260628-pause-live-preview"></script>
     <script src="./js/drawing.js?v=20260628-drawing-cursor"></script>
     <script src="./js/takes.js?v=20260627-take-title"></script>
-    <script src="./js/share-store.js?v=20260629-channel-delete"></script>
+    <script src="./js/share-store.js?v=20260630-gallery-admin-menu"></script>
     <script src="./js/studio-utils.js?v=20260628-refactor"></script>
     <script src="./js/studio-export.js?v=20260629-extract"></script>
     <script src="./js/studio-setup-render.js?v=20260629-extract"></script>

@@ -45,7 +45,7 @@ function hashAdmin(pin) {
   return cleanText(pin, 24) === ADMIN_PIN
 }
 
-// 화음 갤러리 비밀번호는 숫자만. 갤러리 번호로 소금을 쳐서 같은 비번이라도 갤러리마다 해시가 달라지게 한다.
+// 갤러리 코드는 숫자만. 갤러리 번호로 소금을 쳐서 같은 코드라도 갤러리마다 해시가 달라지게 한다.
 function cleanPin(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 12)
 }
@@ -71,7 +71,7 @@ async function loadChannelMeta(list, readJson, channel) {
   }
 }
 
-// 클라이언트로 보낼 땐 소유자 해시·비번 해시를 절대 내보내지 않는다.
+// 클라이언트로 보낼 땐 소유자 해시·코드 해시를 절대 내보내지 않는다.
 function sanitizeChannelMeta(meta) {
   if (!meta || typeof meta !== "object") return null
   return {

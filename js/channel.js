@@ -23,7 +23,7 @@
     count: $("channelCount"),
     form: $("channelOpenForm"),
     input: $("channelInput"),
-    refreshBtn: $("channelRefreshBtn"),
+    codeInput: $("channelCodeInput"),
     library: $("channelLibrary"),
     status: $("channelStatus"),
     viewbar: $("channelViewbar"),
@@ -32,7 +32,6 @@
     gateInput: $("channelGateInput"),
     gateTitle: $("channelGateTitle"),
     nameInput: $("channelNameInput"),
-    namePass: $("channelNamePass"),
     renameBtn: $("channelRenameBtn"),
     deleteChannelBtn: $("channelDeleteBtn"),
     shelfModeBtn: $("channelShelfModeBtn"),
@@ -303,10 +302,27 @@
   }
 
   const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
+  const CHANNEL_ENTRY_PASS_SESSION_KEY = "hwaeum.channelEntryPass"
   function loadStashedAdminPin() {
     try {
       const s = root.sessionStorage
       return s ? (s.getItem(ADMIN_PIN_SESSION_KEY) || "").trim() : ""
+    } catch (e) {
+      return ""
+    }
+  }
+
+  function loadStashedChannelPass(channel) {
+    const normalized = normalizeChannel(channel)
+    try {
+      const s = root.sessionStorage
+      if (!s || !normalized) return ""
+      const raw = s.getItem(CHANNEL_ENTRY_PASS_SESSION_KEY)
+      if (!raw) return ""
+      s.removeItem(CHANNEL_ENTRY_PASS_SESSION_KEY)
+      const parsed = JSON.parse(raw)
+      if (!parsed || normalizeChannel(parsed.channel) !== normalized) return ""
+      return ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(parsed.pass) : String(parsed.pass || "").replace(/\D/g, "").slice(0, 12)
     } catch (e) {
       return ""
     }
@@ -324,6 +340,20 @@
     } catch (e) {}
     updateAdminIndicator()
     if (state.activeWork && el.viewerDelete) el.viewerDelete.hidden = !canDeleteActive()
+  }
+
+  function prefillAdminPin(pin) {
+    if (el.adminPin) el.adminPin.value = String(pin || "").trim()
+  }
+
+  function currentGalleryPass() {
+    return ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(state.pass) : String(state.pass || "").replace(/\D/g, "").slice(0, 12)
+  }
+
+  function promptTrimmed(message, fallback) {
+    if (typeof root.prompt !== "function") return null
+    const value = root.prompt(message, fallback || "")
+    return value == null ? null : String(value).trim()
   }
 
   function updateAdminIndicator() {
@@ -349,12 +379,12 @@
       ? "화음 갤러리를 불러옵니다."
       : channel
         ? state.locked
-          ? "비밀번호가 필요한 화음 갤러리"
+          ? "갤러리 코드가 필요해요"
           : ""
-        : "화음 갤러리 번호를 입력해 주세요."
+        : "번호를 입력해 주세요."
     if (el.input && document.activeElement !== el.input) {
       el.input.value = channel || ""
-      el.input.placeholder = channel ? "" : "예: 3021"
+      el.input.placeholder = channel ? "" : "번호 (예 #107)"
     }
     if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
   }
@@ -613,7 +643,7 @@
     el.empty.hidden = gated || state.loading || !!state.works.length || !state.channel
     if (gated) {
       const name = channelDisplayName()
-      if (el.gateTitle) el.gateTitle.textContent = (name ? name + " 화음 갤러리" : state.channel + " 화음 갤러리") + " — 비밀번호가 필요해요"
+      if (el.gateTitle) el.gateTitle.textContent = (name || "#" + state.channel) + " — 갤러리 코드가 필요해요"
       return
     }
     if (state.loading || !state.works.length) return
@@ -634,7 +664,7 @@
       state.works = []
       state.flowIndex = 0
       renderShelves()
-      setStatus("화음 갤러리 번호를 적어 주세요.", true)
+      setStatus("번호를 적어 주세요.", true)
       return
     }
 
@@ -649,7 +679,7 @@
     }
     state.loading = true
     renderShelves()
-    setStatus(normalized + " 화음 갤러리를 불러오는 중입니다.", false)
+    setStatus("#" + normalized + " 갤러리를 불러오는 중입니다.", false)
     try {
       const result = await ShareStore.listChannel(normalized, state.pass)
       state.channelMeta = result.meta || null
@@ -660,7 +690,7 @@
       state.loading = false
       renderShelves()
       if (state.locked) {
-        setStatus(result.passError ? "화음 갤러리 비밀번호가 맞지 않아요." : "화음 갤러리 비밀번호를 입력하세요.", !!result.passError)
+        setStatus(result.passError ? "갤러리 코드가 맞지 않아요." : "갤러리 코드를 입력하세요.", !!result.passError)
       } else {
         setStatus("", false)
       }
@@ -679,7 +709,7 @@
   function submitGatePass() {
     const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(el.gateInput ? el.gateInput.value : "") : ""
     if (!pin) {
-      setStatus("화음 갤러리 비밀번호를 입력하세요.", true)
+      setStatus("갤러리 코드를 입력하세요.", true)
       return
     }
     state.openedFromHash = false
@@ -693,27 +723,34 @@
       setStatus("먼저 화음 갤러리에 들어가 주세요.", true)
       return
     }
-    const displayName = el.nameInput ? el.nameInput.value.trim() : ""
-    const pin = ShareStore.cleanPin(el.namePass ? el.namePass.value : "")
-    if (!state.adminPin) {
+    const adminPin = promptTrimmed("관리자 번호를 입력하세요.", loadStashedAdminPin())
+    if (adminPin == null) return
+    if (!adminPin) {
       setStatus("이름을 바꾸려면 관리자 번호를 넣어 주세요.", true)
       return
     }
+    const displayName = promptTrimmed("바꿀 갤러리 이름을 입력하세요.", channelDisplayName())
+    if (displayName == null) return
+    if (!displayName) {
+      setStatus("바꿀 갤러리 이름을 넣어 주세요.", true)
+      return
+    }
+    const pin = currentGalleryPass()
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setStatus("화음 갤러리 비밀번호(숫자)를 넣어 주세요.", true)
+      setStatus("갤러리를 다시 들어간 뒤 이름을 바꿔 주세요.", true)
       return
     }
     try {
-      setStatus("화음 갤러리 이름을 저장하는 중입니다.", false)
-      const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: state.adminPin })
+      setStatus("갤러리 이름을 저장하는 중입니다.", false)
+      const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: adminPin })
       state.channelMeta = result.channel || state.channelMeta
       if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
       updateHeader()
       setMenuOpen(false)
-      setStatus("화음 갤러리 이름을 저장했어요.", false)
+      setStatus("갤러리 이름을 저장했어요.", false)
     } catch (error) {
       console.error(error)
-      setStatus(error.message || "화음 갤러리 이름을 저장하지 못했어요.", true)
+      setStatus(error.message || "갤러리 이름을 저장하지 못했어요.", true)
     }
   }
 
@@ -724,16 +761,17 @@
       setStatus("먼저 화음 갤러리에 들어가 주세요.", true)
       return
     }
-    const pin = ShareStore.cleanPin(el.namePass ? el.namePass.value : "")
-    if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setStatus("화음 갤러리 비밀번호(숫자)를 넣어 주세요.", true)
+    const adminPin = promptTrimmed("관리자 번호를 입력하세요.", loadStashedAdminPin())
+    if (adminPin == null) return
+    if (!adminPin) {
+      setStatus("화음 갤러리를 삭제하려면 관리자 번호를 넣어 주세요.", true)
       return
     }
-    if (!confirm(channel + " 화음 갤러리와 안에 있는 음악을 모두 삭제할까요?")) return
+    if (!confirm("#" + channel + " 갤러리와 안에 있는 음악을 모두 삭제할까요?")) return
     if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = true
     try {
-      setStatus("화음 갤러리를 삭제하는 중입니다.", false)
-      const result = await ShareStore.deleteChannel(channel, pin)
+      setStatus("#" + channel + " 갤러리를 삭제하는 중입니다.", false)
+      const result = await ShareStore.deleteChannel(channel, adminPin)
       if (el.viewer && !el.viewer.hidden) closeViewer()
       state.channel = ""
       state.works = []
@@ -744,12 +782,12 @@
       state.flowPosition = 0
       state.openedFromHash = false
       if (el.input) el.input.value = ""
+      if (el.codeInput) el.codeInput.value = ""
       if (el.nameInput) el.nameInput.value = ""
-      if (el.namePass) el.namePass.value = ""
       history.replaceState(null, "", channelUrl("", ""))
       setMenuOpen(false)
       renderShelves()
-      setStatus(channel + " 화음 갤러리를 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
+      setStatus("#" + channel + " 갤러리를 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
     } catch (error) {
       console.error(error)
       setStatus(error.message || "화음 갤러리를 삭제하지 못했어요.", true)
@@ -864,14 +902,26 @@
   function openInputChannel() {
     const channel = normalizeChannel(el.input.value)
     if (!channel) {
-      setStatus("화음 갤러리 번호를 적어 주세요.", true)
+      setStatus("번호를 적어 주세요.", true)
+      return
+    }
+    const codeValue = el.codeInput ? el.codeInput.value : ""
+    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(codeValue) : String(codeValue || "").replace(/\D/g, "").slice(0, 12)
+    if (!pin) {
+      setStatus("갤러리 코드를 넣어 주세요.", true)
+      if (el.codeInput) el.codeInput.focus()
+      return
+    }
+    if (channel === normalizeChannel(state.channel)) {
+      state.openedFromHash = false
+      loadChannel(channel, { pass: pin })
       return
     }
     state.openedFromHash = false
     state.flowIndex = 0
-    state.pass = ""
+    state.pass = pin
     history.pushState(null, "", channelUrl(channel, ""))
-    loadChannel(channel, { updateUrl: false })
+    loadChannel(channel, { updateUrl: false, pass: pin })
   }
 
   function bind() {
@@ -889,9 +939,6 @@
       if (history.length > 1) history.back()
       else location.href = studioUrl()
     })
-    el.adminPin.addEventListener("input", function () {
-      setAdminPin(el.adminPin.value)
-    })
     if (el.gateForm) {
       el.gateForm.addEventListener("submit", function (event) {
         event.preventDefault()
@@ -907,10 +954,6 @@
     el.form.addEventListener("submit", function (event) {
       event.preventDefault()
       openInputChannel()
-    })
-    el.refreshBtn.addEventListener("click", function () {
-      state.openedFromHash = false
-      loadChannel(state.channel)
     })
     if (el.shelfModeBtn) {
       el.shelfModeBtn.addEventListener("click", function () {
@@ -969,11 +1012,11 @@
 
   function init() {
     bind()
-    setAdminPin(loadStashedAdminPin())
+    prefillAdminPin(loadStashedAdminPin())
     const channel = channelFromUrl()
     state.channel = channel
     if (channel) {
-      loadChannel(channel, { updateUrl: false, focusWork: workIdFromHash() })
+      loadChannel(channel, { updateUrl: false, focusWork: workIdFromHash(), pass: loadStashedChannelPass(channel) })
     } else {
       renderShelves()
       setStatus("", false)
