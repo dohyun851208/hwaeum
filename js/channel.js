@@ -679,7 +679,7 @@
     }
     state.loading = true
     renderShelves()
-    setStatus("#" + normalized + " 갤러리를 불러오는 중입니다.", false)
+    setStatus("", false)
     try {
       const result = await ShareStore.listChannel(normalized, state.pass)
       state.channelMeta = result.meta || null
