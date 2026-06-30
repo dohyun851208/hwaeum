@@ -298,11 +298,11 @@
     },
     onFlowStart: () => {
       if (state.drawingInputMode !== DRAW_MODE_SOUND) return
-      el.exportStatus.textContent = "들으며 그리기 중입니다. 손을 떼면 들은 타이밍대로 악보에 남아요."
+      el.exportStatus.textContent = "음악에 맞춰 그리기 중입니다. 손을 떼면 들은 타이밍대로 악보에 남아요."
     },
     onFlowEnd: () => {
       if (state.drawingInputMode !== DRAW_MODE_SOUND) return
-      el.exportStatus.textContent = "들으며 그린 선율을 악보에 남겼어요."
+      el.exportStatus.textContent = "음악에 맞춰 그린 선율을 악보에 남겼어요."
     },
     accent: state.atmosphere.color,
   })
@@ -2427,6 +2427,20 @@
 
   function publishTake(t) {
     selectTake(t)
+    const missing = []
+    if (!el.titleInput?.value.trim()) missing.push({ field: el.titleInput, label: "제목" })
+    if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "나의 이름" })
+    if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: "배경음악을 고른 이유" })
+    if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: "선율을 표현한 의도" })
+    if (!el.hashtagsInput?.value.trim()) missing.push({ field: el.hashtagsInput, label: "나의 음악 해시태그" })
+    if (missing.length > 0) {
+      missing.forEach(({ field }) => field.classList.add("field-invalid"))
+      el.exportStatus.textContent = "공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", ")
+      el.exportStatus.classList.add("error")
+      missing[0].field.focus()
+      missing[0].field.scrollIntoView({ behavior: "smooth", block: "center" })
+      return
+    }
     if (!ShareStore) {
       el.exportStatus.textContent = "공유 모듈을 불러오지 못했어요."
       el.exportStatus.classList.add("error")
@@ -3200,23 +3214,6 @@
   // === § 27  단계 이동 ===
 
   function setStep(i) {
-    if (i === SHARE_STEP) {
-      const missing = []
-      if (!el.titleInput?.value.trim()) missing.push({ field: el.titleInput, label: "제목" })
-      if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "나의 이름" })
-      if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: "배경음악을 고른 이유" })
-      if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: "선율을 표현한 의도" })
-      if (!el.hashtagsInput?.value.trim()) missing.push({ field: el.hashtagsInput, label: "나의 음악 해시태그" })
-      if (missing.length > 0) {
-        if (state.step !== COMPLETE_STEP) setStep(COMPLETE_STEP)
-        missing.forEach(({ field }) => field.classList.add("field-invalid"))
-        el.exportStatus.textContent = "공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", ")
-        el.exportStatus.classList.add("error")
-        missing[0].field.focus()
-        missing[0].field.scrollIntoView({ behavior: "smooth", block: "center" })
-        return
-      }
-    }
 
     const screens = document.querySelectorAll("[data-screen]")
     const tabs = document.querySelectorAll("[data-step-jump]")
