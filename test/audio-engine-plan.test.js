@@ -887,30 +887,6 @@ test("resolvePlan filters Korean instrument notes outside the allowed playable r
   )
 })
 
-test("resolvePlan stroke segments leave Korean inactive pitch rows silent", () => {
-  const sandbox = loadEngine()
-  const engine = new sandbox.AudioEngine()
-  const style = sandbox.SDStudioData.styles.find((s) => s.id === "gugak")
-  const asset = sandbox.SDStudioData.melodies.sogeum
-  const rows = core.drawableScale(style, asset)
-  const yFor = (midi) => 1 - (rows.indexOf(midi) + 0.5) / rows.length
-  const recipe = {
-    duration: 30,
-    atmosphere: "calm",
-    instrument: "sogeum",
-    style: "gugak",
-    version: "balanced",
-    mode: "melody",
-    strokes: [[{ x: 0, y: yFor(59) }, { x: 0.5, y: yFor(62) }]],
-    strokeInstruments: ["sogeum"],
-  }
-
-  const plan = engine.resolvePlan(recipe, [])
-
-  assert.equal(plan.strokeSegments.length, 1)
-  assert.equal(plan.strokeSegments[0].events.length, 1)
-  assert.equal(plan.strokeSegments[0].events[0].uiMidi, 62)
-})
 
 test("preload decodes uploaded background files for the merged playback graph", async () => {
   const sandbox = loadEngine()

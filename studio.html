@@ -264,17 +264,17 @@
               <section class="channel-gate-card channel-admin-card" aria-labelledby="channelAdminTitle">
                 <div class="channel-gate-card-head">
                   <p class="eyebrow">선생님</p>
-                  <h3 id="channelAdminTitle">채널 만들기</h3>
+                  <h3 id="channelAdminTitle">채널 관리하기</h3>
                 </div>
                 <div class="channel-admin-form channel-claim-form">
-                  <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="1차 관리자 번호 (8624)" aria-label="1차 관리자 번호" />
+                  <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 번호 (8624)" aria-label="관리자 번호" />
                   <input id="claimChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="채널 번호 (예: 77)" aria-label="만들 채널 번호" />
-                  <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="채널 표시 이름 (예: 3반 봄 음악, 선택)" aria-label="채널 표시 이름" />
-                  <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="2차 비밀번호 (숫자 4자리 이상)" aria-label="2차 비밀번호" />
-                  <button class="btn primary" type="button" id="claimChannelBtn">채널 만들기 / 저장</button>
+                  <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="채널 이름 (예: 3반 봄 음악)" aria-label="채널 이름" />
+                  <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="채널 비밀번호 (숫자 4자리 이상)" aria-label="채널 비밀번호" />
+                  <button class="btn primary" type="button" id="claimChannelBtn">채널 만들기</button>
                   <button class="btn danger" type="button" id="deleteChannelBtn">채널 삭제하기</button>
                   <button class="btn" type="button" id="openClaimedChannelBtn" hidden>방금 만든 채널 들어가기 →</button>
-                  <p class="muted">관리자 번호로만 채널을 만들 수 있어요. 표시 이름과 2차 비밀번호를 정하면, 학생은 <strong>채널 번호 + 2차 비밀번호</strong>로 들어옵니다. 채널 삭제는 2차 비밀번호로 할 수 있고, 채널 안의 음악도 함께 지워집니다.</p>
+                  <p class="muted">관리자 번호(8624)로 채널 생성이 가능하며, 교사가 채널의 번호, 이름, 비밀번호를 설정하여 채널을 만듭니다.<br />학생은 교사가 설정한 채널 번호 + 비밀번호를 통해 들어갈 수 있습니다.<br />채널 삭제 시에는 채널 비밀번호가 필요하며, 채널 안의 음악도 함께 삭제됩니다.</p>
                 </div>
               </section>
             </div>

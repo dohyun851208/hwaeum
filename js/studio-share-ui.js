@@ -17,12 +17,6 @@
       deleteSharedWork,
     } = deps
 
-    function workIsMine(work) {
-      if (!ShareStore || !work) return false
-      const owner = ShareStore.getOwner()
-      return !!owner && !!owner.id && owner.id === work.ownerId
-    }
-
     function adminPinValue() {
       return el.shareAdminPinInput ? el.shareAdminPinInput.value.trim() : ""
     }
@@ -243,11 +237,11 @@
           copyText(sharedWorkUrl(work), "작품 링크를 복사했어요.")
         })
         actions.appendChild(copyB)
-        if (workIsMine(work) || adminReady) {
+        if (adminReady) {
           const delB = document.createElement("button")
           delB.type = "button"
           delB.className = "btn tiny"
-          delB.textContent = workIsMine(work) ? "삭제" : "관리자 삭제"
+          delB.textContent = "관리자 삭제"
           delB.addEventListener("click", function () {
             deleteSharedWork(work)
           })
@@ -260,7 +254,6 @@
     }
 
     return {
-      workIsMine,
       adminPinValue,
       formatSharedDate,
       pauseSharedAudioExcept,

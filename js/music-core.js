@@ -94,11 +94,14 @@
     return allowed.indexOf(midi) !== -1 || allowed.indexOf(midi + tr) !== -1
   }
 
-  // 화면에 고정해서 보여줄 음높이 칸 목록.
-  // 일부 음을 낼 수 없는 악기도 칸 수를 줄이지 않고, 비활성 칸으로 남긴다.
+  // 그릴 수 있는 음 목록 = 음계 ∩ 악기 연주가능음(playableMidi).
+  // 서양 악기는 playableMidi가 없어 음계 전체. 국악기는 연주 가능한 음만 남긴다.
   function drawableScale(style, asset) {
-    const scale = buildDisplayScale(style)
-    return scale.length ? scale : buildScale(style)
+    const scale = buildScale(style)
+    if (!asset || !Array.isArray(asset.playableMidi) || !asset.playableMidi.length) return scale
+    const tr = asset && Number.isFinite(asset.playbackTranspose) ? asset.playbackTranspose : 0
+    const filtered = scale.filter((m) => asset.playableMidi.indexOf(m) !== -1 || asset.playableMidi.indexOf(m + tr) !== -1)
+    return filtered.length ? filtered : scale
   }
 
   function playableScale(style, asset) {
@@ -128,7 +131,7 @@
     const fromBottom = 1 - playableY
     const idx = Math.floor(fromBottom * scale.length)
     const midi = scale[Math.max(0, Math.min(scale.length - 1, idx))]
-    return isPitchPlayable(midi, style, asset) ? midi : null
+    return midi
   }
 
   // --- 시간 재샘플링 (속도 무관) ---

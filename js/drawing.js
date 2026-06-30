@@ -56,7 +56,7 @@
         rowTop: bounds.top * 100,
         rowBottom: bounds.bottom * 100,
         rowHeight: (bounds.bottom - bounds.top) * 100,
-        selected: isPitchPlayableFor(midi, style, asset),
+        selected: true,
       }
     })
   }
@@ -751,12 +751,6 @@
     const rowCount = rowInfo.length
     const gridLineWidth = Math.max(1, Math.round(px))
     const duration = Math.max(1, Number(st.duration) || 30)
-    rowInfo.forEach(function (row, i) {
-      if (row.selected) return
-      const bounds = pitchRowBoundsY(i, rowCount, H)
-      ctx.fillStyle = "rgba(31,38,38,0.045)"
-      ctx.fillRect(labelGutter, bounds.top, W - labelGutter, Math.max(1, bounds.bottom - bounds.top))
-    })
     ctx.lineWidth = gridLineWidth
     const drawVerticalLine = function (t) {
       const x = labelGutter + ((W - labelGutter) * t) / duration
@@ -834,7 +828,7 @@
     ctx.textBaseline = "middle"
     for (let i = 0; i < rows.length; i++) {
       const y = pitchRowCenterY(i, rows.length, H)
-      ctx.fillStyle = rowInfo[i] && !rowInfo[i].selected ? "rgba(31,38,38,0.28)" : "rgba(31,38,38,0.74)"
+      ctx.fillStyle = "rgba(31,38,38,0.74)"
       ctx.fillText(soundingLabel(rows[i], asset), labelGutter / 2, clamp(y, fontSize, H - fontSize))
     }
     if (typeof ctx.restore === "function") ctx.restore()

@@ -469,7 +469,6 @@
     deleteSharedWork,
   })
   const {
-    workIsMine,
     adminPinValue,
     formatSharedDate,
     pauseSharedAudioExcept,
@@ -2421,13 +2420,13 @@
       el.exportStatus.classList.add("error")
       return
     }
-    // 공유에는 채널 2차 비밀번호가 필요하다(선생님이 알려 준 숫자).
+    // 공유에는 채널 비밀번호가 필요하다(선생님이 알려 준 숫자).
     const savedPass = ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
-    const askedPass = typeof prompt === "function" ? prompt("채널 2차 비밀번호(숫자)를 입력하세요.", savedPass || "") : null
+    const askedPass = typeof prompt === "function" ? prompt("채널 비밀번호(숫자)를 입력하세요.", savedPass || "") : null
     if (askedPass === null) return // 취소
     const pass = ShareStore.cleanPin(askedPass)
     if (!pass) {
-      el.exportStatus.textContent = "2차 비밀번호(숫자)를 입력해 주세요."
+      el.exportStatus.textContent = "채널 비밀번호(숫자)를 입력해 주세요."
       el.exportStatus.classList.add("error")
       return
     }
@@ -2578,7 +2577,7 @@
     el.openClaimedChannelBtn.hidden = false
   }
 
-  // 관리자(8624)로 채널을 만들거나, 내가 점유한 채널의 표시 이름·2차 비밀번호를 고친다.
+  // 관리자 번호(8624)로 채널을 만들거나, 내가 점유한 채널의 이름·비밀번호를 고친다.
   async function claimChannelFromForm() {
     hideOpenClaimedChannelButton()
     if (!ShareStore || !ShareStore.claimChannel) {
@@ -2590,7 +2589,7 @@
     const displayName = el.shareDisplayNameInput ? el.shareDisplayNameInput.value.trim() : ""
     const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
     if (!adminPin) {
-      setShareMessage("채널을 만들려면 1차 관리자 번호(8624)를 넣어 주세요.", true)
+      setShareMessage("채널을 만들려면 관리자 번호(8624)를 넣어 주세요.", true)
       return
     }
     if (!channel) {
@@ -2598,7 +2597,7 @@
       return
     }
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setShareMessage("2차 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 정해 주세요.", true)
+      setShareMessage("채널 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 정해 주세요.", true)
       return
     }
     if (el.claimChannelBtn) el.claimChannelBtn.disabled = true
@@ -2611,7 +2610,7 @@
       const name = (result.channel && result.channel.displayName) || displayName
       setShareMessage(
         (result.claimed === false ? channel + " 채널 설정을 저장했어요." : channel + " 채널을 만들었어요.") +
-          (name ? " 표시 이름: " + name + "." : "") +
+          (name ? " 채널 이름: " + name + "." : "") +
           (result.localOnly ? " (이 브라우저에만 저장됨)" : ""),
         false,
       )
@@ -2636,7 +2635,7 @@
       return
     }
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setShareMessage("2차 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 넣어 주세요.", true)
+      setShareMessage("채널 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 넣어 주세요.", true)
       return
     }
     if (!window.confirm(channel + " 채널과 안에 있는 음악을 모두 삭제할까요?")) return
@@ -2882,8 +2881,8 @@
   async function deleteSharedWork(work) {
     if (!ShareStore || !work) return
     const pin = adminPinValue()
-    if (!workIsMine(work) && !pin) {
-      setShareMessage("다른 사람의 작품은 관리자 번호가 있어야 지울 수 있어요.", true)
+    if (!pin) {
+      setShareMessage("작품을 지우려면 관리자 번호가 필요해요.", true)
       return
     }
     if (!window.confirm("이 공유 작품을 지울까요?")) return

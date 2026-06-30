@@ -298,14 +298,8 @@
     return (work && work.shareUrl) || channelUrl((work && work.channel) || state.channel, work && work.id)
   }
 
-  function workIsMine(work) {
-    if (!ShareStore || !ShareStore.getOwner || !work) return false
-    const owner = ShareStore.getOwner()
-    return !!owner && !!owner.id && owner.id === work.ownerId
-  }
-
   function canDeleteActive() {
-    return !!state.activeWork && (workIsMine(state.activeWork) || !!state.adminPin)
+    return !!state.activeWork && !!state.adminPin
   }
 
   const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
@@ -347,7 +341,7 @@
     const channel = state.channel
     const name = channelDisplayName()
     if (el.title) {
-      el.title.textContent = "화음 갤러리"
+      el.title.textContent = name || "화음 갤러리"
       // 제목 텍스트를 새로 쓰면 관리자 배지 span이 지워지므로 다시 붙여 준다.
       if (el.adminFlag) el.title.appendChild(el.adminFlag)
     }
@@ -666,7 +660,7 @@
       state.loading = false
       renderShelves()
       if (state.locked) {
-        setStatus(result.passError ? "2차 비밀번호가 맞지 않아요." : "2차 비밀번호를 입력하세요.", !!result.passError)
+        setStatus(result.passError ? "채널 비밀번호가 맞지 않아요." : "채널 비밀번호를 입력하세요.", !!result.passError)
       } else {
         setStatus("", false)
       }
@@ -685,7 +679,7 @@
   function submitGatePass() {
     const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(el.gateInput ? el.gateInput.value : "") : ""
     if (!pin) {
-      setStatus("2차 비밀번호를 입력하세요.", true)
+      setStatus("채널 비밀번호를 입력하세요.", true)
       return
     }
     state.openedFromHash = false
@@ -706,7 +700,7 @@
       return
     }
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setStatus("채널 2차 비밀번호(숫자)를 넣어 주세요.", true)
+      setStatus("채널 비밀번호(숫자)를 넣어 주세요.", true)
       return
     }
     try {
@@ -732,7 +726,7 @@
     }
     const pin = ShareStore.cleanPin(el.namePass ? el.namePass.value : "")
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setStatus("채널 2차 비밀번호(숫자)를 넣어 주세요.", true)
+      setStatus("채널 비밀번호(숫자)를 넣어 주세요.", true)
       return
     }
     if (!confirm(channel + " 채널과 안에 있는 음악을 모두 삭제할까요?")) return

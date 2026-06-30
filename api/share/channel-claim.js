@@ -18,7 +18,7 @@ const {
 const MIN_PIN_LENGTH = 4
 
 // 관리자(8624)가 채널을 만들고 점유한다. 이미 다른 선생님이 점유한 채널은 거절한다.
-// 같은 선생님(ownerKey 일치)이면 표시 명칭·2차 비밀번호를 고칠 수 있다.
+// 같은 선생님(ownerKey 일치)이면 채널 이름·비밀번호를 고칠 수 있다.
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["POST"])) return
   try {
@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
     if (!body.ownerKey) return send(res, 400, { error: "선생님 정보를 확인하지 못했어요." })
 
     const pass = cleanPin(body.pass)
-    if (pass.length < MIN_PIN_LENGTH) return send(res, 400, { error: "2차 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 정해 주세요." })
+    if (pass.length < MIN_PIN_LENGTH) return send(res, 400, { error: "채널 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 정해 주세요." })
 
     const displayName = cleanText(body.displayName, 40)
     const ownerHash = hashOwner(body.ownerKey)

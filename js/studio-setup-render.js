@@ -143,7 +143,7 @@
       else startBackgroundPreview(atmosphere)
     }
 
-    // 악기 연주곡 감상 미리듣기 (국악기 카드의 ▶ 버튼)
+    // 악기 연주곡 감상 미리듣기 (악기 카드의 ▶ 버튼)
     function stopExamplePreview(announce) {
       const wasPlaying = !!state.examplePreviewId
       state.examplePreviewId = null

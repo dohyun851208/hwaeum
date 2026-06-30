@@ -45,7 +45,7 @@ function hashAdmin(pin) {
   return cleanText(pin, 24) === ADMIN_PIN
 }
 
-// 2차 비밀번호는 숫자만. 채널 번호로 소금을 쳐서 같은 비번이라도 채널마다 해시가 달라지게 한다.
+// 채널 비밀번호는 숫자만. 채널 번호로 소금을 쳐서 같은 비번이라도 채널마다 해시가 달라지게 한다.
 function cleanPin(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 12)
 }

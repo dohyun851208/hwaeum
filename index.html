@@ -3,24 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>화음 — 그림으로 30초 음악 만들기</title>
+    <title>화음</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --ink: #161b22;
-        --muted: #667085;
-        --pink: #de4961;
-        --violet: #5966d8;
-        --teal: #00a6a6;
-        --lime: #c8ff3d;
-        --cream: #f8fafc;
-        --shell: #eef3f7;
-        --panel: rgba(255, 255, 255, 0.9);
-        --line: rgba(20, 33, 45, 0.12);
+        --ink: #121416;
+        --cream: #fff5dc;
+        --gold: #ffe7a6;
+        --gold-strong: #ffd56d;
+        --teal: #3fd6d0;
+        --red: #de6547;
+        --page-bg: #101418;
         --sans: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
-        --serif: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+        --display: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+        --hanja: "Malgun Gothic", "Microsoft JhengHei", "SimSun", serif;
       }
 
       * {
@@ -34,10 +32,10 @@
 
       body {
         margin: 0;
-        color: var(--ink);
-        font-family: var(--sans);
-        background: var(--shell);
         overflow: hidden;
+        color: var(--cream);
+        background: var(--page-bg);
+        font-family: var(--sans);
       }
 
       a {
@@ -45,185 +43,248 @@
         font: inherit;
       }
 
-      .sample-shell {
+      .landing {
         position: relative;
-        min-height: 100vh;
-        background:
-          linear-gradient(90deg, rgba(15, 23, 42, 0.035) 0 1px, transparent 1px 100%) 0 0 / 128px 128px,
-          linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(238, 243, 247, 0.94) 100%),
-          #eef3f7;
-        overflow: hidden;
-      }
-
-      .sample-shell::before {
-        content: "";
-        position: absolute;
-        inset: -16%;
-        background:
-          linear-gradient(115deg, transparent 0 18%, rgba(0, 166, 166, 0.08) 18% 18.4%, transparent 18.4% 58%, rgba(200, 255, 61, 0.12) 58% 58.35%, transparent 58.35% 100%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 54%);
-        opacity: 0.86;
-      }
-
-      .hero-stage-wrap {
-        position: relative;
-        z-index: 2;
         width: 100vw;
         height: 100vh;
-        perspective: 1500px;
+        min-height: 680px;
         overflow: hidden;
+        isolation: isolate;
+        background: var(--page-bg);
       }
 
-      .hero-stage {
+      .final {
         position: absolute;
         inset: 0;
-        background: transparent;
-        transform-style: preserve-3d;
-        overflow: hidden;
+        display: grid;
+        place-items: center;
+        isolation: isolate;
       }
 
-      .hero-stage::before {
+      .final::before {
         content: "";
         position: absolute;
-        left: 8vw;
-        right: 8vw;
-        top: 12vh;
-        bottom: 10vh;
+        inset: -4%;
+        z-index: -3;
+        background-image: url("assets/hero/intro-a-background.webp");
+        background-size: cover;
+        background-position: center;
+        filter: blur(1.4px) saturate(1.08) contrast(1.02);
+        opacity: 0.94;
+        transform: scale(1.04);
+      }
+
+      .final::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -2;
         background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.48), transparent 44%),
-          linear-gradient(90deg, transparent, rgba(0, 166, 166, 0.08), transparent);
-        border-top: 1px solid rgba(255, 255, 255, 0.72);
-        border-bottom: 1px solid rgba(20, 33, 45, 0.08);
-        opacity: 0.9;
+          radial-gradient(circle at 50% 46%, rgba(255, 229, 157, 0.35), transparent 25%),
+          linear-gradient(180deg, rgba(7, 10, 14, 0.34), rgba(7, 10, 14, 0.76));
       }
 
-      .hero-stage::after {
-        content: "";
+      .final-object {
         position: absolute;
-        inset: 0;
+        z-index: -1;
+        display: block;
+        opacity: 0;
         pointer-events: none;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        animation: finalObjectIn 900ms ease 5360ms forwards;
       }
 
-      .scene {
-        position: absolute;
-        inset: 0;
-        transform-style: preserve-3d;
-        transform: translateZ(0);
+      .final-object img {
+        width: 100%;
+        height: auto;
+        display: block;
+        filter: saturate(1.04);
+      }
+
+      .final-object.paint {
+        left: -5vw;
+        top: 22vh;
+        width: min(34vw, 520px);
+        transform: rotate(-9deg);
+      }
+
+      .final-object.harmony {
+        left: 50%;
+        top: 48%;
+        width: min(40vw, 620px);
+        transform: translate(-50%, -50%);
+      }
+
+      .final-object.sound {
+        right: -7vw;
+        top: 23vh;
+        width: min(40vw, 650px);
+        transform: rotate(8deg);
+      }
+
+      .final-object.harmony img {
+        opacity: 0.18;
+        animation: slowSpin 34000ms linear infinite;
+      }
+
+      .final-object.paint img,
+      .final-object.sound img {
+        opacity: 0.28;
+        animation: finalFloat 7600ms ease-in-out infinite;
+      }
+
+      .title-stack {
+        position: relative;
+        z-index: 3;
+        display: grid;
+        justify-items: center;
+        gap: 16px;
+        text-align: center;
+        opacity: 0;
+        transform: translateY(18px) scale(0.96);
+        animation: titleIn 940ms cubic-bezier(0.18, 0.86, 0.16, 1) 5420ms forwards;
+      }
+
+      .brand-title {
+        margin: 0;
+        color: var(--cream);
+        font-family: var(--display);
+        font-size: clamp(5.4rem, 7.3vw, 7.4rem);
+        font-weight: 400;
+        line-height: 0.92;
+        letter-spacing: 0;
+        text-shadow:
+          0 4px 0 rgba(0, 0, 0, 0.32),
+          0 28px 54px rgba(0, 0, 0, 0.5),
+          0 0 34px rgba(255, 217, 128, 0.34);
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--cream);
+        font-size: clamp(1.18rem, 1.55vw, 1.55rem);
+        font-weight: 900;
+        line-height: 1.32;
+        letter-spacing: 0;
+        text-shadow: 0 12px 28px rgba(0, 0, 0, 0.46);
+      }
+
+      .enter-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 208px;
+        margin-top: 2px;
+        padding: 14px 24px 15px;
+        border-radius: 8px;
+        background: var(--gold);
+        color: var(--ink);
+        font-size: clamp(1.02rem, 1.16vw, 1.16rem);
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0;
+        text-decoration: none;
+        box-shadow:
+          0 18px 38px rgba(0, 0, 0, 0.4),
+          0 0 36px rgba(255, 214, 116, 0.34);
+        pointer-events: auto;
+        transition: transform 220ms ease, background 220ms ease, box-shadow 220ms ease;
+      }
+
+      .enter-cta:hover {
+        background: #ffffff;
+        transform: translateY(-2px);
+        box-shadow:
+          0 20px 42px rgba(0, 0, 0, 0.46),
+          0 0 42px rgba(255, 233, 173, 0.42);
+      }
+
+      .enter-cta:focus-visible {
+        outline: 3px solid var(--teal);
+        outline-offset: 5px;
       }
 
       .meaning-intro {
         position: absolute;
         inset: 0;
-        z-index: 35;
+        z-index: 8;
+        overflow: hidden;
         pointer-events: none;
-        animation: meaningIntroExit 520ms ease 4320ms forwards;
+        isolation: isolate;
+        background:
+          radial-gradient(circle at 50% 48%, rgba(255, 229, 157, 0.28), transparent 27%),
+          linear-gradient(180deg, rgba(7, 10, 14, 0.22), rgba(7, 10, 14, 0.66)),
+          url("assets/hero/intro-a-background.webp") center / cover no-repeat,
+          var(--page-bg);
+        animation: introOut 620ms ease 5100ms forwards;
       }
 
       .meaning-intro::before {
         content: "";
         position: absolute;
-        left: 50%;
-        top: 48%;
-        width: 640px;
-        max-width: 68vw;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, rgba(244, 63, 94, 0.34), rgba(139, 92, 246, 0.34), rgba(20, 184, 166, 0.34), transparent);
-        transform: translate(-50%, -50%) scaleX(0);
-        transform-origin: center;
-        opacity: 0;
-        filter: blur(0.2px);
-        animation: meaningLineGather 3820ms cubic-bezier(0.18, 0.86, 0.16, 1) 380ms both;
+        inset: -4%;
+        z-index: -1;
+        background:
+          radial-gradient(circle at 31% 50%, rgba(222, 101, 71, 0.18), transparent 19%),
+          radial-gradient(circle at 69% 51%, rgba(63, 214, 208, 0.16), transparent 20%),
+          radial-gradient(circle at 50% 50%, rgba(255, 213, 109, 0.2), transparent 24%);
+        filter: blur(12px);
       }
 
-      .meaning-symbol {
+      .intro-symbol {
         --start-x: 0px;
-        --start-y: 0px;
         --mid-x: 0px;
-        --mid-y: 0px;
         --tilt: 0deg;
-        --accent: var(--violet);
+        --symbol-shadow: 0 28px 70px rgba(0, 0, 0, 0.52);
         position: absolute;
         left: 50%;
-        top: 48%;
-        width: 228px;
+        top: 50%;
+        width: clamp(270px, 25vw, 420px);
         aspect-ratio: 1;
         opacity: 0;
-        transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.74) rotate(var(--tilt));
-        filter: drop-shadow(0 18px 36px rgba(15, 23, 42, 0.16));
-        animation: meaningSymbolGather 4050ms cubic-bezier(0.18, 0.86, 0.16, 1) both;
+        transform: translate(-50%, -50%) translateX(var(--start-x)) scale(0.68) rotate(var(--tilt));
+        text-align: center;
+        filter: drop-shadow(var(--symbol-shadow));
+        animation: sideSymbolGather 4600ms cubic-bezier(0.18, 0.86, 0.16, 1) both;
       }
 
-      .meaning-symbol.paint {
-        --start-x: -312px;
-        --start-y: -8px;
-        --mid-x: -116px;
-        --mid-y: 2px;
-        --tilt: -7deg;
-        --accent: var(--pink);
-        animation-delay: 200ms;
+      .intro-symbol.paint {
+        --start-x: clamp(-570px, -34vw, -360px);
+        --mid-x: clamp(-170px, -11vw, -110px);
+        --tilt: -5deg;
+        animation-delay: 150ms;
       }
 
-      .meaning-symbol.harmony {
-        --start-x: 0px;
-        --start-y: 18px;
-        --mid-x: 0px;
-        --mid-y: 0px;
-        --tilt: 0deg;
-        --accent: var(--violet);
-        width: 248px;
-        animation-delay: 420ms;
+      .intro-symbol.sound {
+        --start-x: clamp(360px, 34vw, 570px);
+        --mid-x: clamp(110px, 11vw, 170px);
+        --tilt: 5deg;
+        animation-delay: 210ms;
       }
 
-      .meaning-symbol.sound {
-        --start-x: 312px;
-        --start-y: -8px;
-        --mid-x: 116px;
-        --mid-y: 2px;
-        --tilt: 7deg;
-        --accent: var(--teal);
-        animation-delay: 280ms;
+      .intro-symbol.harmony {
+        width: clamp(400px, 35vw, 620px);
+        transform: translate(-50%, -50%) scale(0.56);
+        animation: harmonySymbolGather 3700ms cubic-bezier(0.18, 0.86, 0.16, 1) 1320ms both;
       }
 
-      .meaning-art {
+      .meaning-object {
         position: absolute;
-        inset: 0;
-        overflow: hidden;
-        border: 1.5px solid rgba(255, 255, 255, 0.88);
-        border-radius: 10px;
-        background: rgba(255, 255, 255, 0.88);
-        box-shadow:
-          0 18px 40px rgba(15, 23, 42, 0.12),
-          0 0 0 1px rgba(255, 255, 255, 0.32);
+        inset: -15%;
+        width: 130%;
+        height: 130%;
+        object-fit: contain;
+        opacity: 0.96;
+        transform-origin: 50% 50%;
+        animation: objectSpin 5100ms linear infinite;
       }
 
-      .meaning-art::after {
-        content: "";
-        position: absolute;
-        inset: -24%;
-        border: 2px solid color-mix(in srgb, var(--accent) 34%, transparent);
-        border-radius: 50%;
-        opacity: 0;
-        transform: scale(0.72);
-        animation: meaningRipple 1800ms ease-out 820ms both;
-      }
-
-      .meaning-art img {
-        width: 100%;
-        height: 100%;
-        display: block;
-        object-fit: cover;
-        clip-path: inset(0 100% 0 0);
-        transform: scale(1.04);
-        animation: meaningImageReveal 1200ms cubic-bezier(0.18, 0.86, 0.16, 1) 220ms forwards;
-      }
-
-      .harmony .meaning-art img {
-        animation-delay: 420ms;
-      }
-
-      .sound .meaning-art img {
-        animation-delay: 320ms;
+      .intro-symbol.harmony .meaning-object {
+        inset: -8%;
+        width: 116%;
+        height: 116%;
+        opacity: 1;
+        animation-duration: 6200ms;
+        animation-direction: reverse;
       }
 
       .meaning-glyph {
@@ -231,552 +292,188 @@
         inset: 0;
         display: grid;
         place-items: center;
-        color: rgba(51, 44, 42, 0.92);
-        font-family: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-        font-size: 6.9rem;
-        font-weight: 400;
-        line-height: 1;
-        text-shadow:
-          0 3px 0 rgba(255, 255, 255, 0.52),
-          0 12px 26px color-mix(in srgb, var(--accent) 24%, transparent);
-        transform: translateY(4px) scale(0.92);
-        opacity: 0;
-        animation: meaningGlyphIn 1600ms cubic-bezier(0.18, 0.86, 0.16, 1) 520ms forwards;
-      }
-
-      .harmony .meaning-glyph {
-        font-size: 7.4rem;
-        color: rgba(62, 47, 84, 0.95);
-      }
-
-      .meaning-echo {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        z-index: 18;
-        width: 620px;
-        height: 370px;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-        opacity: 0;
-        animation: meaningEchoIn 900ms ease 5550ms forwards;
-      }
-
-      .meaning-echo span {
-        position: absolute;
-        display: grid;
-        place-items: center;
-        width: 58px;
-        height: 58px;
-        border: 1.5px solid rgba(255, 255, 255, 0.88);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.72);
-        color: rgba(22, 27, 34, 0.42);
-        font-size: 2.15rem;
-        line-height: 1;
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-        backdrop-filter: blur(18px) saturate(1.18);
-        -webkit-backdrop-filter: blur(18px) saturate(1.18);
-      }
-
-      .meaning-echo .paint {
-        left: 0;
-        top: 50%;
-        color: rgba(244, 63, 94, 0.58);
-        transform: translate(-50%, -50%) rotate(-8deg);
-      }
-
-      .meaning-echo .harmony {
-        left: 50%;
-        top: 0;
-        color: rgba(139, 92, 246, 0.58);
-        transform: translate(-50%, -50%) rotate(2deg);
-      }
-
-      .meaning-echo .sound {
-        right: 0;
-        top: 50%;
-        color: rgba(20, 184, 166, 0.58);
-        transform: translate(50%, -50%) rotate(8deg);
-      }
-
-      .world {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: calc(min(92vw, 940px, 103.6vh));
-        aspect-ratio: 940 / 780;
-        height: auto;
-        z-index: 3;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-        overflow: visible;
-        --spin-deg: 0deg;
-        --intro-delay: 4760ms;
-      }
-
-      .orbit-ring {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: 82%;
-        height: 84%;
-        border: 1px solid rgba(0, 166, 166, 0.24);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        background: transparent;
-        box-shadow: none;
-        opacity: 0;
-        animation: orbitRingFadeIn 1200ms ease var(--intro-delay) forwards;
-      }
-
-      .orbit-ring::before,
-      .orbit-ring::after {
-        content: "";
-        position: absolute;
-        border-radius: 50%;
-        pointer-events: none;
-      }
-
-      .orbit-ring::before {
-        display: none;
-      }
-
-      .orbit-ring::after {
-        display: none;
-      }
-
-      .title-stack {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: min(420px, 34vw);
-        min-width: 286px;
-        padding: 0;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-        box-shadow: none;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-        z-index: 20;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 15px;
-        animation: titleSettle 1350ms cubic-bezier(0.18, 0.86, 0.16, 1) 4480ms both;
-      }
-
-      .title-stack::before {
-        display: none;
-      }
-
-      .brand-title {
-        position: relative;
-        z-index: 1;
-        margin: 0;
-        color: var(--ink);
-        font-size: clamp(4.7rem, 5.9vw, 6.1rem);
-        font-weight: 400;
-        line-height: 0.92;
-        letter-spacing: 0;
-        text-shadow:
-          0 2px 0 rgba(255, 255, 255, 0.78),
-          0 18px 34px rgba(15, 23, 42, 0.14);
-      }
-
-      .title-stack .subtitle {
-        display: grid;
-        gap: 8px;
-        position: relative;
-        z-index: 1;
-        color: var(--muted);
-        margin: 0;
-        font-size: clamp(0.94rem, 1vw, 1.06rem);
-        font-weight: 400;
-        line-height: 1.38;
-        letter-spacing: 0;
-      }
-
-      .title-stack .subtitle strong {
-        display: block;
-        margin: 0;
-        color: var(--ink);
-        font-size: clamp(1.24rem, 1.45vw, 1.42rem);
-        font-weight: 800;
-        line-height: 1.24;
-      }
-
-      .title-stack .subtitle span {
-        display: block;
-        color: var(--muted);
-      }
-
-      .title-stack .subtitle em {
-        color: var(--ink);
-        font-style: normal;
-      }
-
-      .album-card {
-        position: absolute;
-        left: var(--o-left, 50%);
-        top: var(--o-top, 50%);
-        width: var(--o-size, 210px);
-        aspect-ratio: 1;
-        overflow: hidden;
-        border: 1px solid rgba(15, 23, 42, 0.12);
-        border-radius: 6px;
-        background: #fff;
-        box-shadow:
-          0 22px 38px rgba(15, 23, 42, 0.2),
-          1px 0 0 rgba(255, 255, 255, 0.48) inset;
-        transform: translate(-50%, -50%) scale(var(--o-scale, 1));
-        opacity: 0;
-        z-index: var(--o-z, 5);
-        pointer-events: auto;
-        user-select: none;
-        -webkit-user-drag: none;
-        cursor: grab;
-        will-change: left, top, transform, opacity;
-        animation:
-          cardSlideIn 940ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--intro-delay, 0ms) + var(--o-delay, 0ms)) forwards,
-          cardFloat var(--o-dur, 7200ms) ease-in-out calc(var(--intro-delay, 0ms) + var(--o-delay, 0ms) + 940ms) infinite;
-      }
-
-      .album-card img {
-        width: 100%;
-        height: 100%;
-        display: block;
-        object-fit: cover;
-      }
-
-      .album-card::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 36%),
-          linear-gradient(180deg, transparent 58%, rgba(255, 255, 255, 0.82));
-        pointer-events: none;
-      }
-
-      .album-card figcaption {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 2;
-        display: grid;
-        gap: 3px;
-        min-height: 50px;
-        padding: 10px 12px 9px;
-        border-top: 1px solid rgba(255, 255, 255, 0.62);
-        background: rgba(255, 255, 255, 0.86);
-        text-align: left;
-        text-shadow: none;
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-      }
-
-      .album-card figcaption strong {
-        color: var(--ink);
-        font-size: 0.98rem;
-        font-weight: 800;
-        line-height: 1.12;
-      }
-
-      .hero-stage.is-orbit-interactive {
-        cursor: grab;
-        user-select: none;
-      }
-
-      .hero-stage.is-orbit-dragging {
-        cursor: grabbing;
-      }
-
-      .hero-stage.is-orbit-dragging .album-card {
-        cursor: grabbing;
-        animation-play-state: paused;
-      }
-
-      .enter-cta {
-        display: inline-flex;
-        align-items: center;
-        position: relative;
-        z-index: 1;
-        margin-top: 0;
-        padding: 13px 24px;
-        border-radius: 8px;
-        color: #fff;
-        background: var(--ink);
-        text-decoration: none;
-        font-size: clamp(1rem, 1.25vw, 1.18rem);
+        color: var(--cream);
+        font-family: var(--hanja);
+        font-size: clamp(5.6rem, 8.4vw, 8.8rem);
         font-weight: 900;
+        line-height: 1;
+        text-shadow:
+          0 3px 0 rgba(29, 21, 12, 0.48),
+          0 18px 34px rgba(0, 0, 0, 0.58),
+          0 0 24px rgba(255, 230, 156, 0.54);
+        transform: translateY(-3px);
+      }
+
+      .intro-symbol.harmony .meaning-glyph {
+        color: var(--gold-strong);
+        font-size: clamp(8.6rem, 13vw, 13.2rem);
+      }
+
+      .meaning-label {
+        position: absolute;
+        left: 50%;
+        bottom: 16%;
+        min-width: 92px;
+        padding: 7px 13px 8px;
+        border: 1px solid rgba(255, 244, 214, 0.34);
+        border-radius: 999px;
+        background: rgba(10, 12, 14, 0.66);
+        color: #fff6e2;
+        font-size: clamp(0.9rem, 1.02vw, 1.04rem);
+        font-weight: 900;
+        line-height: 1;
         letter-spacing: 0;
         white-space: nowrap;
-        pointer-events: auto;
-        box-shadow:
-          0 16px 32px rgba(15, 23, 42, 0.18),
-          0 0 0 1px rgba(255, 255, 255, 0.28);
-        animation: ctaBreathe 3200ms ease-in-out infinite;
-        transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+        transform: translateX(-50%);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
       }
 
-      .enter-cta:hover {
-        background: var(--teal);
-        transform: translateY(-2px);
+      .intro-symbol.harmony .meaning-label {
+        bottom: 17%;
       }
 
-      .enter-cta:focus-visible {
-        outline: 3px solid var(--lime);
-        outline-offset: 4px;
+      @keyframes sideSymbolGather {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) translateX(var(--start-x)) scale(0.62) rotate(var(--tilt));
+          filter: blur(8px) drop-shadow(var(--symbol-shadow));
+        }
+        15% {
+          opacity: 1;
+          transform: translate(-50%, -50%) translateX(var(--start-x)) scale(0.96) rotate(var(--tilt));
+          filter: blur(0) drop-shadow(var(--symbol-shadow));
+        }
+        46% {
+          opacity: 1;
+          transform: translate(-50%, -50%) translateX(var(--start-x)) scale(1.04) rotate(var(--tilt));
+        }
+        68% {
+          opacity: 1;
+          transform: translate(-50%, -50%) translateX(var(--mid-x)) scale(0.92) rotate(0deg);
+        }
+        86% {
+          opacity: 0.9;
+          transform: translate(-50%, -50%) translateX(0) scale(0.54) rotate(0deg);
+          filter: blur(0) drop-shadow(0 20px 52px rgba(255, 218, 128, 0.18));
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -50%) translateX(0) scale(0.2) rotate(0deg);
+          filter: blur(9px) drop-shadow(0 14px 34px rgba(255, 218, 128, 0.1));
+        }
       }
 
-      @keyframes meaningIntroExit {
+      @keyframes harmonySymbolGather {
+        0%,
+        20% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.52);
+          filter: blur(10px) drop-shadow(0 18px 44px rgba(0, 0, 0, 0.32));
+        }
+        42% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.06);
+          filter: blur(0) drop-shadow(0 34px 86px rgba(255, 212, 117, 0.42));
+        }
+        76% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+          filter: blur(0) drop-shadow(0 34px 86px rgba(255, 212, 117, 0.38));
+        }
+        94% {
+          opacity: 0.96;
+          transform: translate(-50%, -50%) scale(0.68);
+          filter: blur(0) drop-shadow(0 22px 54px rgba(255, 212, 117, 0.18));
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.25);
+          filter: blur(9px) drop-shadow(0 14px 34px rgba(255, 212, 117, 0.12));
+        }
+      }
+
+      @keyframes objectSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes finalFloat {
+        0%,
+        100% {
+          transform: translateY(0) rotate(0deg);
+        }
+        50% {
+          transform: translateY(-12px) rotate(1.6deg);
+        }
+      }
+
+      @keyframes slowSpin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes finalObjectIn {
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes introOut {
         to {
           opacity: 0;
           visibility: hidden;
         }
       }
 
-      @keyframes meaningLineGather {
-        0% {
-          opacity: 0;
-          transform: translate(-50%, -50%) scaleX(0);
-        }
-        26%,
-        62% {
-          opacity: 1;
-          transform: translate(-50%, -50%) scaleX(1);
-        }
-        86% {
-          opacity: 0.72;
-          transform: translate(-50%, -50%) scaleX(0.28);
-        }
-        100% {
-          opacity: 0;
-          transform: translate(-50%, -50%) scaleX(0);
-        }
-      }
-
-      @keyframes meaningSymbolGather {
-        0% {
-          opacity: 0;
-          transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.72) rotate(var(--tilt));
-          filter: blur(5px) drop-shadow(0 18px 36px rgba(15, 23, 42, 0.1));
-        }
-        16% {
-          opacity: 1;
-          transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(0.9) rotate(var(--tilt));
-          filter: blur(0) drop-shadow(0 18px 36px rgba(15, 23, 42, 0.16));
-        }
-        50% {
-          opacity: 1;
-          transform: translate(-50%, -50%) translate(var(--start-x), var(--start-y)) scale(1) rotate(var(--tilt));
-          filter: blur(0) drop-shadow(0 18px 36px rgba(15, 23, 42, 0.16));
-        }
-        74% {
-          opacity: 0.98;
-          transform: translate(-50%, -50%) translate(var(--mid-x), var(--mid-y)) scale(0.9) rotate(0deg);
-          filter: blur(0) drop-shadow(0 18px 36px rgba(15, 23, 42, 0.16));
-        }
-        90% {
-          opacity: 0.92;
-          transform: translate(-50%, -50%) translate(0, 0) scale(0.58) rotate(0deg);
-          filter: blur(0) drop-shadow(0 14px 30px rgba(15, 23, 42, 0.12));
-        }
-        100% {
-          opacity: 0;
-          transform: translate(-50%, -50%) translate(0, 0) scale(0.24) rotate(0deg);
-          filter: blur(8px) drop-shadow(0 10px 26px rgba(15, 23, 42, 0.08));
-        }
-      }
-
-      @keyframes meaningImageReveal {
-        from {
-          clip-path: inset(0 100% 0 0);
-          filter: blur(2px) saturate(0.82);
-        }
-        to {
-          clip-path: inset(0 0 0 0);
-          filter: blur(0) saturate(1.04);
-        }
-      }
-
-      @keyframes meaningGlyphIn {
-        0% {
-          opacity: 0;
-          transform: translateY(10px) scale(0.86);
-        }
-        42%,
-        100% {
-          opacity: 1;
-          transform: translateY(4px) scale(1);
-        }
-      }
-
-      @keyframes meaningRipple {
-        0% {
-          opacity: 0;
-          transform: scale(0.72);
-        }
-        38% {
-          opacity: 0.75;
-        }
-        100% {
-          opacity: 0;
-          transform: scale(1.08);
-        }
-      }
-
-      @keyframes meaningEchoIn {
-        from {
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.94);
-        }
+      @keyframes titleIn {
         to {
           opacity: 1;
-          transform: translate(-50%, -50%) scale(1);
-        }
-      }
-
-      @keyframes orbitRingFadeIn {
-        0% {
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.92);
-        }
-        100% {
-          opacity: 1;
-          transform: translate(-50%, -50%) scale(1);
-        }
-      }
-
-      @keyframes cardSlideIn {
-        0% {
-          opacity: 0;
-          transform: translate(-50%, -50%) translate(var(--o-slide-x, 0), var(--o-slide-y, 0)) scale(0.74);
-          filter: blur(3px);
-        }
-        100% {
-          opacity: var(--o-opacity, 0.94);
-          transform: translate(-50%, -50%) scale(var(--o-scale, 1));
-          filter: blur(0);
-        }
-      }
-
-      @keyframes cardFloat {
-        0%,
-        100% {
-          opacity: var(--o-opacity, 0.94);
-          transform: translate(-50%, -50%) scale(var(--o-scale, 1)) translateY(0) rotate(0deg);
-        }
-        33% {
-          transform: translate(-50%, -50%) scale(var(--o-scale, 1)) translateY(calc(-1 * var(--o-range, 8px))) rotate(0.7deg);
-        }
-        66% {
-          transform: translate(-50%, -50%) scale(var(--o-scale, 1)) translateY(var(--o-range, 8px)) rotate(-0.7deg);
-        }
-      }
-
-      @keyframes ctaBreathe {
-        0%,
-        100% {
-          box-shadow:
-            0 12px 24px rgba(244, 63, 94, 0.28),
-            0 0 0 1px rgba(255, 255, 255, 0.36),
-            0 0 20px rgba(244, 63, 94, 0);
-        }
-        50% {
-          box-shadow:
-            0 14px 28px rgba(244, 63, 94, 0.34),
-            0 0 0 1px rgba(255, 255, 255, 0.5),
-            0 0 28px rgba(251, 113, 133, 0.24);
-        }
-      }
-
-      @keyframes titleSettle {
-        from {
-          transform: translate(-50%, -50%) scale(0.96);
-          opacity: 0;
-        }
-        to {
-          transform: translate(-50%, -50%) scale(1);
-          opacity: 1;
-        }
-      }
-
-      @keyframes panelShimmer {
-        0%,
-        38% {
-          transform: translateX(-120%) skewX(-14deg);
-        }
-        58%,
-        100% {
-          transform: translateX(160%) skewX(-14deg);
-        }
-      }
-
-      @media (max-width: 1440px), (max-height: 850px) {
-        .title-stack {
-          width: min(336px, 31vw);
-          min-width: 272px;
-          padding: 0;
-          gap: 14px;
-        }
-
-        .album-card {
-          width: calc(var(--o-size, 210px) * 0.84);
+          transform: translateY(0) scale(1);
         }
       }
 
       @media (max-height: 780px) and (min-width: 769px) {
-        .title-stack {
-          width: min(312px, 30vw);
-          min-width: 260px;
-          padding: 0;
-          gap: 12px;
+        .landing {
+          min-height: 600px;
         }
 
         .brand-title {
-          font-size: clamp(4.1rem, 5.2vw, 5.2rem);
+          font-size: clamp(4.7rem, 6.2vw, 6rem);
+        }
+
+        .subtitle {
+          font-size: 1.12rem;
         }
 
         .enter-cta {
-          padding: 11px 22px;
-          font-size: 1rem;
-        }
-
-        .album-card {
-          width: calc(var(--o-size, 210px) * 0.76);
+          min-width: 188px;
+          padding: 12px 22px 13px;
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .album-card,
-        .orbit-ring,
-        .title-stack,
-        .enter-cta {
-          animation: none;
-        }
-
         .meaning-intro {
           display: none;
         }
 
-        .meaning-echo {
+        .title-stack,
+        .final-object {
           opacity: 1;
+          transform: none;
           animation: none;
         }
 
-        .album-card {
-          opacity: var(--o-opacity, 0.94);
+        .final-object.harmony {
+          transform: translate(-50%, -50%);
         }
 
-        .orbit-ring {
-          opacity: 1;
+        .meaning-object,
+        .final-object img {
+          animation: none;
         }
       }
     </style>
@@ -793,363 +490,42 @@
     </script>
   </head>
   <body>
-    <div class="sample-shell">
-      <main class="hero-stage-wrap">
-        <section class="hero-stage" aria-label="화음 메인">
-          <div class="scene">
-            <div class="meaning-intro" aria-hidden="true">
-              <div class="meaning-symbol paint">
-                <div class="meaning-art">
-                  <img src="assets/hero/intro-paint.webp" alt="" />
-                </div>
-                <span class="meaning-glyph">畵</span>
-              </div>
-              <div class="meaning-symbol harmony">
-                <div class="meaning-art">
-                  <img src="assets/hero/intro-harmony.webp" alt="" />
-                </div>
-                <span class="meaning-glyph">和</span>
-              </div>
-              <div class="meaning-symbol sound">
-                <div class="meaning-art">
-                  <img src="assets/hero/intro-sound.webp" alt="" />
-                </div>
-                <span class="meaning-glyph">音</span>
-              </div>
-            </div>
-            <div class="title-stack">
-              <h1 class="brand-title">화음</h1>
-              <p class="subtitle">
-                <strong>그림과 소리를 조화롭게<br />나만의 음악 만들기</strong>
-              </p>
-              <a class="enter-cta" href="studio.html">
-                그림으로 음악 만들기
-              </a>
-            </div>
-            <div class="meaning-echo" aria-hidden="true">
-              <span class="paint">畵</span>
-              <span class="harmony">和</span>
-              <span class="sound">音</span>
-            </div>
+    <main class="landing" aria-label="화음 메인">
+      <section class="final" aria-label="화음 첫 화면">
+        <div class="final-object paint" aria-hidden="true">
+          <img src="assets/hero/intro-a-paint-cutout.png" alt="" />
+        </div>
+        <div class="final-object harmony" aria-hidden="true">
+          <img src="assets/hero/intro-a-harmony-cutout.png" alt="" />
+        </div>
+        <div class="final-object sound" aria-hidden="true">
+          <img src="assets/hero/intro-a-sound-cutout.png" alt="" />
+        </div>
 
-            <div class="world" aria-hidden="true">
-              <div class="orbit-ring"></div>
+        <div class="title-stack">
+          <h1 class="brand-title">화음</h1>
+          <p class="subtitle">그림과 소리를 조화롭게<br />나만의 BGM 만들기</p>
+          <a class="enter-cta" href="studio.html">입장하기</a>
+        </div>
+      </section>
 
-              <figure
-                class="album-card night"
-                style="--o-size: 244px; --o-delay: 180ms; --o-dur: 7600ms; --o-range: 8px; --o-opacity: 0.96;"
-              >
-                <img src="assets/hero/hero-night.webp" alt="" />
-                <figcaption>
-                  <strong>조용한 선</strong>
-                </figcaption>
-              </figure>
-              <figure
-                class="album-card sun"
-                style="--o-size: 190px; --o-delay: 260ms; --o-dur: 6800ms; --o-range: 7px; --o-opacity: 0.9;"
-              >
-                <img src="assets/hero/hero-sun.webp" alt="" />
-                <figcaption>
-                  <strong>밝은 선율</strong>
-                </figcaption>
-              </figure>
-              <figure
-                class="album-card forest"
-                style="--o-size: 226px; --o-delay: 340ms; --o-dur: 8000ms; --o-range: 9px; --o-opacity: 0.94;"
-              >
-                <img src="assets/hero/hero-forest.webp" alt="" />
-                <figcaption>
-                  <strong>바람 노래</strong>
-                </figcaption>
-              </figure>
-              <figure
-                class="album-card dusk"
-                style="--o-size: 204px; --o-delay: 420ms; --o-dur: 7000ms; --o-range: 8px; --o-opacity: 0.92;"
-              >
-                <img src="assets/hero/hero-dusk.webp" alt="" />
-                <figcaption>
-                  <strong>붉은 리듬</strong>
-                </figcaption>
-              </figure>
-              <figure
-                class="album-card gugak"
-                style="--o-size: 194px; --o-delay: 500ms; --o-dur: 7400ms; --o-range: 9px; --o-opacity: 0.92;"
-              >
-                <img src="assets/hero/hero-gugak.webp" alt="" />
-                <figcaption>
-                  <strong>긴 숨</strong>
-                </figcaption>
-              </figure>
-              <figure
-                class="album-card playlist"
-                style="--o-size: 214px; --o-delay: 580ms; --o-dur: 8200ms; --o-range: 7px; --o-opacity: 0.94;"
-              >
-                <img src="assets/hero/hero-harmony.webp" alt="" />
-                <figcaption>
-                  <strong>나의 음악</strong>
-                </figcaption>
-              </figure>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-    <script>
-      (() => {
-        const heroStage = document.querySelector(".hero-stage");
-        const world = document.querySelector(".world");
-        const orbitRing = world?.querySelector(".orbit-ring");
-        const cards = world ? Array.from(world.querySelectorAll(".album-card")) : [];
-        const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-        if (!heroStage || !world || !orbitRing || cards.length === 0) return;
-
-        const IDLE_SPEED = 0.018;
-        const DRAG_SPEED = 0.18;
-        const BASE_FRAME_MS = 1000 / 60;
-        const MAX_FRAME_SCALE = 2;
-        const TRACK_SAMPLE_COUNT = 720;
-        const TRACK_POWER = 3.2;
-        const TRACK_SCALE_X = 1.07;
-        const TRACK_SCALE_Y = 0.86;
-        const TOP_TIGHTEN_PCT = 2.8;
-        const DRAG_THRESHOLD_PX = 10;
-        const DIRECTION_INTENT_PX = 4;
-        const TANGENT_FALLBACK_RADIUS_PX = 56;
-
-        let angle = -18;
-        let direction = 1;
-        let velocity = IDLE_SPEED;
-        let targetVelocity = IDLE_SPEED;
-        let rafId = null;
-        let lastFrameTime = null;
-        let activePointerId = null;
-        let dragStartX = 0;
-        let dragStartY = 0;
-        let lastPointerX = 0;
-        let lastPointerY = 0;
-        let isDragging = false;
-        let trackSamples = [];
-
-        function buildTrackSamples(radiusXPct, radiusYPct) {
-          const samples = [];
-          const exponent = 2 / TRACK_POWER;
-
-          for (let sampleIndex = 0; sampleIndex <= TRACK_SAMPLE_COUNT; sampleIndex += 1) {
-            const progress = sampleIndex / TRACK_SAMPLE_COUNT;
-            const angleDeg = -90 + progress * 360;
-            const radians = angleDeg * Math.PI / 180;
-            const cosValue = Math.cos(radians);
-            const sinValue = Math.sin(radians);
-            const x = Math.sign(cosValue) * Math.pow(Math.abs(cosValue), exponent) * radiusXPct;
-            const y = Math.sign(sinValue) * Math.pow(Math.abs(sinValue), exponent) * radiusYPct;
-            const previous = samples[samples.length - 1];
-            const length = previous ? previous.length + Math.hypot(x - previous.x, y - previous.y) : 0;
-
-            samples.push({ progress, x, y, length });
-          }
-
-          return samples;
-        }
-
-        function getTrackPoint(progress) {
-          if (!trackSamples.length) return null;
-
-          const wrappedProgress = ((progress % 1) + 1) % 1;
-          const totalLength = trackSamples[trackSamples.length - 1].length;
-          const targetLength = wrappedProgress * totalLength;
-
-          for (let index = 1; index < trackSamples.length; index += 1) {
-            const previous = trackSamples[index - 1];
-            const next = trackSamples[index];
-            if (targetLength > next.length) continue;
-
-            const segmentLength = next.length - previous.length || 1;
-            const ratio = (targetLength - previous.length) / segmentLength;
-            const x = previous.x + (next.x - previous.x) * ratio;
-            const y = previous.y + (next.y - previous.y) * ratio;
-            return { x, y, vectorRadians: Math.atan2(y, x) };
-          }
-
-          const last = trackSamples[trackSamples.length - 1];
-          return { x: last.x, y: last.y, vectorRadians: Math.atan2(last.y, last.x) };
-        }
-
-        function syncOrbitLayout() {
-          const worldWidth = world.clientWidth;
-          const worldHeight = world.clientHeight;
-          const ringWidth = orbitRing.offsetWidth;
-          const ringHeight = orbitRing.offsetHeight;
-          if (!worldWidth || !worldHeight || !ringWidth || !ringHeight) return;
-
-          const radiusXPct = ((ringWidth / 2) * TRACK_SCALE_X / worldWidth) * 100;
-          const radiusYPct = ((ringHeight / 2) * TRACK_SCALE_Y / worldHeight) * 100;
-          const orbitOffset = (((angle % 360) + 360) % 360) / 360;
-          const slideDistance = 118;
-
-          trackSamples = buildTrackSamples(radiusXPct, radiusYPct);
-
-          cards.forEach((card, index) => {
-            const point = getTrackPoint(orbitOffset + index / cards.length);
-            if (!point) return;
-
-            const topWeight = Math.max(0, -point.y / radiusYPct);
-            const frontWeight = (point.y + radiusYPct) / (radiusYPct * 2);
-            const depth = Math.max(0, Math.min(1, frontWeight));
-            const topLiftPct = Math.pow(topWeight, 2.2) * TOP_TIGHTEN_PCT;
-            const leftPct = 50 + point.x;
-            const topPct = 50 + point.y - topLiftPct;
-            const slideX = Math.round(Math.cos(point.vectorRadians) * slideDistance);
-            const slideY = Math.round(Math.sin(point.vectorRadians) * slideDistance);
-            const scale = 0.92 + depth * 0.12;
-
-            card.style.setProperty("--o-left", `${leftPct.toFixed(3)}%`);
-            card.style.setProperty("--o-top", `${topPct.toFixed(3)}%`);
-            card.style.setProperty("--o-slide-x", `${slideX}px`);
-            card.style.setProperty("--o-slide-y", `${slideY}px`);
-            card.style.setProperty("--o-scale", scale.toFixed(3));
-            card.style.setProperty("--o-z", String(5 + Math.round(depth * 12)));
-          });
-        }
-
-        function render() {
-          world.style.setProperty("--spin-deg", `${angle}deg`);
-          syncOrbitLayout();
-        }
-
-        function resolveDirectionFromPointerDelta(deltaX, deltaY, clientX, clientY) {
-          const ringRect = orbitRing.getBoundingClientRect();
-          const centerX = ringRect.left + ringRect.width / 2;
-          const centerY = ringRect.top + ringRect.height / 2;
-          const radialX = clientX - centerX;
-          const radialY = clientY - centerY;
-          const radialLength = Math.hypot(radialX, radialY);
-
-          if (radialLength < TANGENT_FALLBACK_RADIUS_PX) {
-            if (Math.abs(deltaX) < DIRECTION_INTENT_PX) return 0;
-            return deltaX > 0 ? 1 : -1;
-          }
-
-          const normalizedRadialX = radialX / radialLength;
-          const normalizedRadialY = radialY / radialLength;
-          const clockwiseTangentX = -normalizedRadialY;
-          const clockwiseTangentY = normalizedRadialX;
-          const tangentIntent = deltaX * clockwiseTangentX + deltaY * clockwiseTangentY;
-
-          if (Math.abs(tangentIntent) < DIRECTION_INTENT_PX) return 0;
-          return tangentIntent > 0 ? 1 : -1;
-        }
-
-        function setOrbitDirection(nextDirection, speed = DRAG_SPEED) {
-          direction = nextDirection >= 0 ? 1 : -1;
-          targetVelocity = speed * direction;
-        }
-
-        function tick(timestamp) {
-          if (lastFrameTime === null) lastFrameTime = timestamp;
-          const elapsedMs = Math.max(0, timestamp - lastFrameTime);
-          lastFrameTime = timestamp;
-          const frameScale = Math.min(MAX_FRAME_SCALE, elapsedMs / BASE_FRAME_MS);
-
-          velocity += (targetVelocity - velocity) * 0.1;
-          angle += velocity * frameScale;
-          render();
-          rafId = requestAnimationFrame(tick);
-        }
-
-        function startOrbit() {
-          if (reducedMotion.matches || rafId !== null) return;
-          lastFrameTime = null;
-          rafId = requestAnimationFrame(tick);
-        }
-
-        function stopOrbit() {
-          if (rafId !== null) cancelAnimationFrame(rafId);
-          rafId = null;
-          lastFrameTime = null;
-        }
-
-        function handlePointerDown(event) {
-          if (event.target?.closest("a, button, input, textarea, select")) return;
-
-          activePointerId = event.pointerId;
-          dragStartX = event.clientX;
-          dragStartY = event.clientY;
-          lastPointerX = event.clientX;
-          lastPointerY = event.clientY;
-          isDragging = true;
-          heroStage.classList.add("is-orbit-dragging");
-
-          try {
-            heroStage.setPointerCapture(event.pointerId);
-          } catch (_) {}
-        }
-
-        function handlePointerMove(event) {
-          if (!isDragging || event.pointerId !== activePointerId) return;
-
-          const stepDeltaX = event.clientX - lastPointerX;
-          const stepDeltaY = event.clientY - lastPointerY;
-          const deltaX = event.clientX - dragStartX;
-          const deltaY = event.clientY - dragStartY;
-          lastPointerX = event.clientX;
-          lastPointerY = event.clientY;
-          if (stepDeltaX === 0 && stepDeltaY === 0) return;
-
-          const stepDirection = resolveDirectionFromPointerDelta(stepDeltaX, stepDeltaY, event.clientX, event.clientY);
-          if (stepDirection !== 0 && stepDirection !== direction) {
-            setOrbitDirection(stepDirection);
-            dragStartX = event.clientX;
-            dragStartY = event.clientY;
-            startOrbit();
-            return;
-          }
-
-          if (Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD_PX) return;
-
-          const dragDirection = resolveDirectionFromPointerDelta(deltaX, deltaY, event.clientX, event.clientY);
-          if (dragDirection === 0) return;
-
-          setOrbitDirection(dragDirection);
-          dragStartX = event.clientX;
-          dragStartY = event.clientY;
-          startOrbit();
-        }
-
-        function clearPointerState(event) {
-          if (event && activePointerId !== null && event.pointerId !== activePointerId) return;
-
-          isDragging = false;
-          activePointerId = null;
-          dragStartX = 0;
-          dragStartY = 0;
-          lastPointerX = 0;
-          lastPointerY = 0;
-          targetVelocity = IDLE_SPEED * direction;
-          heroStage.classList.remove("is-orbit-dragging");
-        }
-
-        heroStage.classList.add("is-orbit-interactive");
-        world.classList.add("is-ready");
-        heroStage.addEventListener("pointerdown", handlePointerDown);
-        heroStage.addEventListener("pointermove", handlePointerMove);
-        heroStage.addEventListener("pointerup", clearPointerState);
-        heroStage.addEventListener("pointercancel", clearPointerState);
-        heroStage.addEventListener("lostpointercapture", clearPointerState);
-        window.addEventListener("resize", render);
-
-        reducedMotion.addEventListener?.("change", () => {
-          if (reducedMotion.matches) {
-            stopOrbit();
-            render();
-            return;
-          }
-          startOrbit();
-        });
-
-        render();
-        startOrbit();
-      })();
-    </script>
+      <section class="meaning-intro" aria-hidden="true">
+        <div class="intro-symbol paint">
+          <img class="meaning-object" src="assets/hero/intro-a-paint-cutout.png" alt="" />
+          <span class="meaning-glyph">畵</span>
+          <span class="meaning-label">그림 화</span>
+        </div>
+        <div class="intro-symbol harmony">
+          <img class="meaning-object" src="assets/hero/intro-a-harmony-cutout.png" alt="" />
+          <span class="meaning-glyph">和</span>
+          <span class="meaning-label">조화로울 화</span>
+        </div>
+        <div class="intro-symbol sound">
+          <img class="meaning-object" src="assets/hero/intro-a-sound-cutout.png" alt="" />
+          <span class="meaning-glyph">音</span>
+          <span class="meaning-label">소리 음</span>
+        </div>
+      </section>
+    </main>
   </body>
 </html>

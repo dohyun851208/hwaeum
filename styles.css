@@ -1098,7 +1098,7 @@ body:not([data-step="2"]) .transport {
   z-index: 50;
   display: grid;
   gap: 8px;
-  width: 270px;
+  width: 300px;
   padding: 12px;
   border: 1px solid var(--channel-line);
   border-radius: 8px;
@@ -1151,7 +1151,7 @@ body:not([data-step="2"]) .transport {
 
 .channel-admin-field input,
 .channel-open-form input {
-  min-height: 38px;
+  min-height: 42px;
   border: 1px solid var(--channel-line-strong);
   border-radius: 8px;
   background: #ffffff;
@@ -1162,7 +1162,7 @@ body:not([data-step="2"]) .transport {
 
 .channel-admin-field input {
   width: 100%;
-  padding: 0 10px;
+  padding: 0 12px;
 }
 
 .channel-admin-field small {
@@ -2896,7 +2896,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   justify-content: start;
 }
 
-/* Step 5 — 채널 열기: 학생 입장과 관리자 채널 만들기를 같은 비중으로 보여준다. */
+/* Step 5 — 채널 들어가기: 학생 입장과 교사 채널 관리를 같은 비중으로 보여준다. */
 .share-gate {
   display: grid;
   gap: 14px;
@@ -2994,15 +2994,15 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 .channel-admin-form input {
   width: 100%;
-  height: 40px;
-  padding: 0 12px;
+  height: 46px;
+  padding: 0 14px;
   border: 1px solid var(--line-strong);
   border-radius: 9px;
   background: var(--canvas);
   color: var(--ink);
   font: inherit;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 .channel-admin-form input:focus {
   outline: none;
@@ -3024,33 +3024,40 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   letter-spacing: normal;
   font-weight: 600;
 }
-/* 채널 감상 페이지의 2차 비밀번호 게이트 */
+.channel-claim-form #shareChannelPassInput {
+  grid-column: 1 / -1;
+}
+/* 채널 감상 페이지의 채널 비밀번호 게이트 */
 .channel-gate {
   margin: 0;
 }
 .channel-gate-form {
   display: grid;
-  grid-template-columns: 118px 56px;
+  grid-template-columns: minmax(176px, 1fr) 64px;
   align-items: center;
   gap: 8px;
   margin: 0;
 }
 .channel-gate-form input {
-  min-height: 38px;
-  width: 118px;
-  padding: 0 10px;
+  min-height: 42px;
+  width: 100%;
+  padding: 0 14px;
   border: 1px solid var(--channel-line-strong);
   border-radius: 8px;
   background: #ffffff;
   color: var(--channel-ink);
   font: inherit;
   font-weight: 850;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 .channel-gate-form input:focus {
   outline: none;
   border-color: var(--channel-accent);
   box-shadow: 0 0 0 3px rgba(0, 166, 166, 0.14);
+}
+.channel-gate-form .channel-open-button {
+  min-height: 42px;
+  padding: 0 16px;
 }
 .channel-gate[hidden],
 .channel-empty[hidden] {

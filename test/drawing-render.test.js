@@ -213,18 +213,14 @@ test("pitch axis labels use requested Korean order for western and gugak palette
   const westernLabels = loadDrawing(() => westernMidis).pitchLabelsForStyle({}).map((label) => label.label)
   const gugakRows = loadDrawing(null, {
     drawableScale() {
-      return westernMidis
-    },
-    isPitchPlayable(midi) {
-      return gugakMidis.indexOf(midi) !== -1
+      return gugakMidis
     },
   }).pitchRowsForStyle({}, {})
-  const gugakLabels = gugakRows.map((label) => label.label)
-  const gugakDisabled = gugakRows.filter((row) => !row.selected).map((row) => row.midi)
+  const gugakLabels = gugakRows.map((row) => row.label)
 
   assert.deepEqual(westernLabels, ["솔", "라", "시", "도", "레", "미", "파", "솔", "라", "시", "도", "레", "미", "파", "솔"])
-  assert.deepEqual(gugakLabels, westernLabels)
-  assert.deepEqual(gugakDisabled, [59, 65, 71, 77, 79])
+  assert.deepEqual(gugakLabels, ["솔", "라", "도", "레", "미", "솔", "라", "도", "레", "미"])
+  assert.ok(gugakRows.every((row) => row.selected))
 })
 
 test("inactive pitch rows do not start a new drawing stroke", () => {

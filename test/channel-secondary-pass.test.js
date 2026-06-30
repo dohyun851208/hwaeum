@@ -58,10 +58,10 @@ test("sanitizeChannelMeta hides owner/pass hashes but reports hasPass", () => {
   assert.equal(utils.sanitizeChannelMeta({ channel: "1" }).hasPass, false)
 })
 
-test("server gates: publish + channel list verify the channel 2차 비밀번호", () => {
+test("server gates: publish + channel list verify the channel password", () => {
   const publish = fs.readFileSync(path.join(projectDir, "api", "share", "publish.js"), "utf8")
   const channel = fs.readFileSync(path.join(projectDir, "api", "share", "channel.js"), "utf8")
-  // 공유는 채널이 점유돼 있고 2차 비번이 맞아야 한다.
+  // 공유는 채널이 점유돼 있고 채널 비밀번호가 맞아야 한다.
   assert.match(publish, /loadChannelMeta/)
   assert.match(publish, /hashPass\(channel, cleanPin\(body\.pass\)\) !== channelMeta\.passHash/)
   // 목록은 잠긴 채널이면 비번이 맞아야 작품을 내준다.
@@ -86,37 +86,69 @@ test("share-store exposes channel claim + pass-aware listing", () => {
   assert.match(store, /deleteChannel: deleteChannel/)
 })
 
-test("share + channel pages carry the 2차 비밀번호 UI", () => {
+test("share + channel pages carry the channel password UI", () => {
   const studio = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const styles = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
   assert.match(studio, /채널에 들어가 그림 음악을 감상합니다\./)
   assert.match(studio, /채널 번호를 입력하면 같은 채널에 모인 그림 음악이 갤러리처럼 펼쳐집니다\./)
-  assert.doesNotMatch(studio, /채널을 열면 선생님이 알려 준 2차 비밀번호/)
-  assert.doesNotMatch(studio, /채널 열기/)
+  assert.doesNotMatch(studio, new RegExp("채널을 열면 선생님이 알려 준 " + "2" + "차 " + "비밀번호"))
+  assert.doesNotMatch(studio, new RegExp("채널 " + "열기"))
   assert.match(studio, /id="channelOpenTitle">채널 들어가기/)
-  assert.doesNotMatch(studio, /관리자 채널 만들기/)
-  assert.match(studio, /id="channelAdminTitle">채널 만들기/)
+  assert.doesNotMatch(studio, new RegExp("관리자 " + "채널 만들기"))
+  assert.match(studio, /id="channelAdminTitle">채널 관리하기/)
+  assert.match(studio, /placeholder="관리자 번호 \(8624\)"/)
+  assert.match(studio, /placeholder="채널 이름 \(예: 3반 봄 음악\)"/)
+  assert.match(studio, /placeholder="채널 비밀번호 \(숫자 4자리 이상\)"/)
+  assert.match(studio, /id="claimChannelBtn">채널 만들기/)
+  assert.match(studio, /관리자 번호\(8624\)로 채널 생성이 가능하며/)
+  assert.match(studio, /학생은 교사가 설정한 채널 번호 \+ 비밀번호를 통해 들어갈 수 있습니다\./)
+  assert.match(studio, /채널 삭제 시에는 채널 비밀번호가 필요하며/)
   assert.match(studio, /class="channel-gate-grid"/)
   assert.match(studio, /id="claimChannelBtn"/)
   assert.match(studio, /id="deleteChannelBtn"/)
   assert.match(studio, /id="shareChannelPassInput"/)
   assert.match(studio, /id="shareDisplayNameInput"/)
   assert.match(styles, /\.channel-gate-grid\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(0,\s*1fr\)/)
+  assert.match(styles, /\.channel-claim-form #shareChannelPassInput\s*\{[\s\S]*grid-column:\s*1 \/ -1/)
+  assert.match(styles, /\.channel-gate-form\s*\{[\s\S]*grid-template-columns:\s*minmax\(176px,\s*1fr\)\s*64px/)
   assert.match(styles, /\.channel-gate\[hidden\],\s*\.channel-empty\[hidden\]\s*\{[\s\S]*display:\s*none/)
   assert.match(channelHtml, /id="channelGate"/)
   assert.match(channelHtml, /id="channelGateInput"/)
+  assert.match(channelHtml, /placeholder="채널 비밀번호"/)
   assert.match(channelHtml, /id="channelDeleteBtn"/)
 })
 
-test("channel delete API verifies the channel 2차 비밀번호", () => {
+test("channel delete API verifies the channel password", () => {
   const channelDelete = fs.readFileSync(path.join(projectDir, "api", "share", "channel-delete.js"), "utf8")
   assert.match(channelDelete, /loadChannelMeta/)
   assert.match(channelDelete, /hashPass\(channel, pass\) !== channelMeta\.passHash/)
   assert.match(channelDelete, /const prefix = "share\/channels\/" \+ channel \+ "\/"/)
   assert.match(channelDelete, /await del\(targets\)/)
   assert.doesNotMatch(channelDelete, /hashAdmin/)
+})
+
+test("shared work delete requires the admin pin even for the same browser owner", () => {
+  const deleteApi = fs.readFileSync(path.join(projectDir, "api", "share", "delete.js"), "utf8")
+  const store = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
+  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const studioShareUi = fs.readFileSync(path.join(projectDir, "js", "studio-share-ui.js"), "utf8")
+  const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+
+  assert.match(deleteApi, /hashAdmin\(body\.adminPin\)/)
+  assert.doesNotMatch(deleteApi, /ownerOk/)
+  assert.doesNotMatch(deleteApi, /hashOwner/)
+
+  assert.match(functionBody(store, "deleteLocalWork"), /String\(adminPin \|\| ""\)\.trim\(\) === LOCAL_ADMIN_PIN/)
+  assert.doesNotMatch(functionBody(store, "deleteLocalWork"), /record\.ownerId === owner\.id \|\| !!adminPin/)
+  assert.doesNotMatch(functionBody(store, "deleteWork"), /ownerKey/)
+
+  assert.match(functionBody(channel, "canDeleteActive"), /!!state\.activeWork && !!state\.adminPin/)
+  assert.match(functionBody(studio, "deleteSharedWork"), /if \(!pin\)/)
+  assert.doesNotMatch(functionBody(studio, "deleteSharedWork"), /!workIsMine\(work\) && !pin/)
+  assert.match(functionBody(studioShareUi, "renderSharedWorks"), /if \(adminReady\)/)
+  assert.doesNotMatch(functionBody(studioShareUi, "renderSharedWorks"), /workIsMine\(work\) \|\| adminReady/)
 })
 
 test("channel page opens locked channels only after the gate password is typed", () => {

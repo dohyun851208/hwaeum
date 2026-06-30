@@ -62,10 +62,27 @@ test("instrument example audio entries point to existing project files", () => {
   const missing = collectInstrumentExamples(data)
     .map((instrument) => ({ id: instrument.id, example: instrument.example, filePath: path.resolve(projectDir, instrument.example) }))
     .filter((instrument) => !fs.existsSync(instrument.filePath))
-  const nonMp3 = collectInstrumentExamples(data).filter((instrument) => !/\.mp3$/i.test(instrument.example))
+  const unsupportedFormats = collectInstrumentExamples(data).filter((instrument) => !/\.(mp3|wav)$/i.test(instrument.example))
+  const westernMissingExamples = Array.from(data.instruments)
+    .filter((instrument) => instrument.group === "서양" && !instrument.example)
+    .map((instrument) => instrument.id)
+  const westernExamples = {
+    flute: "sound/감상-연주곡(서양악기)/플루트.wav",
+    oboe: "sound/감상-연주곡(서양악기)/오보에.wav",
+    clarinet: "sound/감상-연주곡(서양악기)/클라리넷.wav",
+    frenchHorn: "sound/감상-연주곡(서양악기)/호른.wav",
+    violin: "sound/감상-연주곡(서양악기)/바이올린.wav",
+    viola: "sound/감상-연주곡(서양악기)/비올라.wav",
+    cello: "sound/감상-연주곡(서양악기)/첼로.wav",
+    doubleBass: "sound/감상-연주곡(서양악기)/더블베이스.wav",
+  }
 
   assert.deepEqual(missing, [])
-  assert.deepEqual(nonMp3, [], "악기 감상 예시곡은 브라우저 호환을 위해 mp3를 사용한다")
+  assert.equal(unsupportedFormats.length, 0, "악기 감상 예시곡은 브라우저 호환 형식(mp3/wav)을 사용한다")
+  assert.equal(westernMissingExamples.length, 0)
+  for (const [id, example] of Object.entries(westernExamples)) {
+    assert.equal(data.instruments.find((instrument) => instrument.id === id).example, example)
+  }
   assert.equal(data.instruments.find((instrument) => instrument.id === "sogeum").exampleLabel, "수제천025")
   assert.equal(data.instruments.find((instrument) => instrument.id === "danso").exampleLabel, "문덕곡 도드리(가사)")
   assert.equal(data.instruments.find((instrument) => instrument.id === "haegeum").exampleLabel, "해금")

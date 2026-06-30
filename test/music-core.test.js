@@ -58,29 +58,9 @@ test("buildScale: 국악 공통 팔레트는 G-A-C-D-E-G-A-C-D-E 10칸이다", (
   assert.deepStrictEqual(core.buildScale(GUGAK_COMMON), [55, 57, 60, 62, 64, 67, 69, 72, 74, 76])
 })
 
-test("drawableScale: 국악기도 서양 기본축과 같은 15칸 도화지를 쓴다", () => {
-  assert.deepStrictEqual(core.drawableScale(GUGAK_FIXED_GRID, GUGAK_ASSET), core.buildScale(G3_G5))
-})
-
-test("quantizePitch: 국악 비활성 칸은 음표를 만들지 않는다", () => {
+test("drawableScale: 국악기는 playableMidi 교집합으로 음계를 줄인다", () => {
   const rows = core.drawableScale(GUGAK_FIXED_GRID, GUGAK_ASSET)
-
-  assert.strictEqual(core.quantizePitch(rowCenterY(rows, 62), GUGAK_FIXED_GRID, GUGAK_ASSET), 62)
-  assert.strictEqual(core.quantizePitch(rowCenterY(rows, 59), GUGAK_FIXED_GRID, GUGAK_ASSET), null)
-  assert.strictEqual(core.quantizePitch(rowCenterY(rows, 65), GUGAK_FIXED_GRID, GUGAK_ASSET), null)
-})
-
-test("autocompleteMelody: 국악 비활성 칸에 그린 구간은 쉼표로 남긴다", () => {
-  const rows = core.drawableScale(GUGAK_FIXED_GRID, GUGAK_ASSET)
-  const notes = core.autocompleteMelody(
-    [
-      { x: 0, y: rowCenterY(rows, 59) },
-      { x: 0.25, y: rowCenterY(rows, 59) },
-    ],
-    { durationSec: 12, style: GUGAK_FIXED_GRID, melodyAsset: GUGAK_ASSET },
-  )
-
-  assert.deepStrictEqual(notes, [])
+  assert.deepStrictEqual(rows, [55, 57, 60, 62, 64, 67, 69, 72, 74, 76])
 })
 
 test("resampleByTime: 그리는 속도와 무관 — 점 밀도가 달라도 같은 결과", () => {

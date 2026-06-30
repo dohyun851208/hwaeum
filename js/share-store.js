@@ -13,7 +13,7 @@
   const LOCAL_STORE_NAME = "works"
   const LOCAL_CHANNEL_STORE_NAME = "channels"
   const MIN_PIN_LENGTH = 4
-  // 로컬(서버 없는) 폴백에서만 쓰는 1차 관리자 번호 검문. 배포 환경은 서버(_utils.cjs)가 진짜 검문소.
+  // 로컬(서버 없는) 폴백에서만 쓰는 관리자 번호 검문. 배포 환경은 서버(_utils.cjs)가 진짜 검문소.
   const LOCAL_ADMIN_PIN = "8624"
   const MAX_UPLOAD_TOTAL_BYTES = 3.5 * 1024 * 1024
   const objectUrlCache = new Map()
@@ -136,12 +136,12 @@
     return digits
   }
 
-  // 2차 비밀번호는 숫자만 받는다.
+  // 채널 비밀번호는 숫자만 받는다.
   function cleanPin(value) {
     return String(value || "").replace(/\D/g, "").slice(0, 12)
   }
 
-  // 입력한 2차 비밀번호를 세션에 잠깐 둔다(채널별). 새로고침해도 다시 안 묻게.
+  // 입력한 채널 비밀번호를 세션에 잠깐 둔다(채널별). 새로고침해도 다시 안 묻게.
   const PASS_SESSION_PREFIX = "hwaeum.channelPass."
   function rememberPass(channel, pin) {
     const normalized = normalizeChannel(channel)
@@ -390,7 +390,7 @@
 
   async function claimLocalChannel(channel, pin, displayName, owner, adminPin) {
     if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) {
-      throw new Error("채널을 만들려면 1차 관리자 번호가 필요해요.")
+      throw new Error("채널을 만들려면 관리자 번호가 필요해요.")
     }
     const existing = await getLocalChannel(channel)
     if (existing && existing.ownerId && existing.ownerId !== owner.id) {
@@ -418,7 +418,7 @@
   async function publishLocalWork(payload, channel, owner, pin) {
     const channelRecord = await getLocalChannel(channel)
     if (!channelRecord) throw new Error("아직 만들어지지 않은 채널이에요. 관리자가 먼저 채널을 만들어 주세요.")
-    if (channelRecord.pass && pin !== channelRecord.pass) throw new Error("채널 2차 비밀번호가 맞지 않아요.")
+    if (channelRecord.pass && pin !== channelRecord.pass) throw new Error("채널 비밀번호가 맞지 않아요.")
     const now = new Date().toISOString()
     const record = {
       id: randomId("local_"),
@@ -466,7 +466,6 @@
   }
 
   async function deleteLocalWork(work, adminPin) {
-    const owner = getOwner()
     const outcome =
       (await withLocalStore("readwrite", function (store, setResult) {
         const req = store.get(work.id)
@@ -476,20 +475,20 @@
             setResult({ found: false, allowed: false })
             return
           }
-          const allowed = record.ownerId === owner.id || !!adminPin
+          const allowed = String(adminPin || "").trim() === LOCAL_ADMIN_PIN
           if (allowed) store.delete(record.id)
           setResult({ found: true, allowed: allowed })
         }
       })) || { found: false, allowed: false }
     if (!outcome.found) throw new Error("이미 삭제되었거나 없는 작품입니다.")
-    if (!outcome.allowed) throw new Error("이 작품을 삭제할 권한이 없어요.")
+    if (!outcome.allowed) throw new Error("이 작품을 삭제하려면 관리자 번호가 필요해요.")
     return { ok: true, deleted: work.id, localOnly: true }
   }
 
   async function deleteLocalChannel(channel, pin) {
     const channelRecord = await getLocalChannel(channel)
     if (!channelRecord) throw new Error("삭제할 채널을 찾지 못했어요.")
-    if (!channelRecord.pass || pin !== channelRecord.pass) throw new Error("채널 2차 비밀번호가 맞지 않아요.")
+    if (!channelRecord.pass || pin !== channelRecord.pass) throw new Error("채널 비밀번호가 맞지 않아요.")
     const deletedWorks =
       (await withLocalStore("readwrite", function (store, setResult) {
         const req = store.getAll()
@@ -558,7 +557,7 @@
     const channel = normalizeChannel(options.channel)
     if (!channel) throw new Error("공유 채널 번호를 적어 주세요.")
     const pin = cleanPin(options.pin)
-    if (pin.length < MIN_PIN_LENGTH) throw new Error("2차 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 정해 주세요.")
+    if (pin.length < MIN_PIN_LENGTH) throw new Error("채널 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 정해 주세요.")
     const owner = getOwner()
     const body = {
       channel: channel,
@@ -633,17 +632,17 @@
 
   async function deleteWork(work, adminPin) {
     if (!work || !work.id || !work.channel) throw new Error("삭제할 작품을 찾지 못했어요.")
-    if (work.localOnly) return deleteLocalWork(work, adminPin)
-    const owner = getOwner()
+    const pin = String(adminPin || "").trim()
+    if (!pin) throw new Error("이 작품을 삭제하려면 관리자 번호가 필요해요.")
+    if (work.localOnly) return deleteLocalWork(work, pin)
     try {
       return await postJson("/delete", {
         channel: work.channel,
         workId: work.id,
-        ownerKey: owner.key,
-        adminPin: adminPin || "",
+        adminPin: pin,
       })
     } catch (error) {
-      if (/^local_/.test(work.id || "")) return deleteLocalWork(work, adminPin)
+      if (/^local_/.test(work.id || "")) return deleteLocalWork(work, pin)
       throw error
     }
   }
@@ -652,7 +651,7 @@
     const normalized = normalizeChannel(channel)
     if (!normalized) throw new Error("삭제할 채널 번호를 적어 주세요.")
     const pin = cleanPin(pass)
-    if (pin.length < MIN_PIN_LENGTH) throw new Error("2차 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 넣어 주세요.")
+    if (pin.length < MIN_PIN_LENGTH) throw new Error("채널 비밀번호는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 넣어 주세요.")
     try {
       const result = await postJson("/channel-delete", {
         channel: normalized,

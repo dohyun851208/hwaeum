@@ -1,5 +1,5 @@
 const { del, list } = require("@vercel/blob")
-const { cleanChannel, hashAdmin, hashOwner, listAll, method, parseJsonBody, readJsonUrl, send } = require("./_utils.cjs")
+const { cleanChannel, hashAdmin, listAll, method, parseJsonBody, send } = require("./_utils.cjs")
 
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["POST", "DELETE"])) return
@@ -14,10 +14,8 @@ module.exports = async function handler(req, res) {
     const metaBlob = blobs.find((blob) => /\/meta\.json$/.test(blob.pathname || ""))
     if (!metaBlob) return send(res, 404, { error: "이미 삭제되었거나 없는 작품입니다." })
 
-    const meta = await readJsonUrl(metaBlob.url)
-    const ownerOk = meta && meta.ownerHash && body.ownerKey && meta.ownerHash === hashOwner(body.ownerKey)
     const adminOk = hashAdmin(body.adminPin)
-    if (!ownerOk && !adminOk) return send(res, 403, { error: "이 작품을 삭제할 권한이 없어요." })
+    if (!adminOk) return send(res, 403, { error: "이 작품을 삭제하려면 관리자 번호가 필요해요." })
 
     const targets = blobs.map((blob) => blob.pathname || blob.url).filter(Boolean)
     if (targets.length) await del(targets)

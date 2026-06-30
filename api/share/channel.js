@@ -8,7 +8,7 @@ module.exports = async function handler(req, res) {
     const channel = cleanChannel(query.channel || "")
     if (!channel) return send(res, 400, { error: "공유 채널 번호를 적어 주세요." })
 
-    // 채널이 2차 비밀번호로 잠겨 있으면 비번이 맞아야 작품 목록을 내준다.
+    // 채널이 비밀번호로 잠겨 있으면 비번이 맞아야 작품 목록을 내준다.
     const channelMeta = await loadChannelMeta(list, readJsonUrl, channel)
     if (channelMeta && channelMeta.passHash) {
       const pass = cleanPin(query.pass || "")
