@@ -37,6 +37,75 @@ function fakeCtx() {
     },
   })
 }
+
+function fakeAudioParam(value = 0) {
+  return {
+    value,
+    cancelScheduledValues() {},
+    exponentialRampToValueAtTime() {},
+    linearRampToValueAtTime() {},
+    setTargetAtTime() {},
+    setValueAtTime(next) {
+      this.value = next
+    },
+  }
+}
+
+function fakeAudioNode(extra) {
+  return Object.assign(
+    {
+      addEventListener() {},
+      connect() {
+        return this
+      },
+      disconnect() {},
+      removeEventListener() {},
+      start() {},
+      stop() {},
+    },
+    extra || {},
+  )
+}
+
+function fakeAudioCtx() {
+  const ctx = fakeCtx()
+  ctx.sampleRate = 44100
+  ctx.currentTime = 0
+  ctx.state = "running"
+  ctx.destination = fakeAudioNode()
+  ctx.createBiquadFilter = () =>
+    fakeAudioNode({
+      Q: fakeAudioParam(1),
+      frequency: fakeAudioParam(350),
+      gain: fakeAudioParam(0),
+      type: "lowpass",
+    })
+  ctx.createBuffer = (channels, length, sampleRate) => ({
+    duration: length / (sampleRate || ctx.sampleRate),
+    getChannelData: () => new Float32Array(length),
+    length,
+    numberOfChannels: channels,
+    sampleRate: sampleRate || ctx.sampleRate,
+  })
+  ctx.createBufferSource = () =>
+    fakeAudioNode({
+      buffer: null,
+      detune: fakeAudioParam(0),
+      playbackRate: fakeAudioParam(1),
+    })
+  ctx.createGain = () => fakeAudioNode({ gain: fakeAudioParam(1) })
+  ctx.createOscillator = () =>
+    fakeAudioNode({
+      detune: fakeAudioParam(0),
+      frequency: fakeAudioParam(440),
+      type: "sine",
+    })
+  ctx.decodeAudioData = () => Promise.reject(new Error("smoke: no audio decode"))
+  ctx.resume = () => Promise.resolve()
+  ctx.suspend = () => Promise.resolve()
+  return ctx
+}
+
 window.HTMLCanvasElement.prototype.getContext = () => fakeCtx()
 window.HTMLCanvasElement.prototype.toBlob = (cb) => cb(new window.Blob([""], { type: "image/png" }))
 window.scrollTo = () => {}
@@ -63,18 +132,23 @@ window.FileReader.prototype.readAsDataURL = function () {
 // 네트워크 없음 — 음원 로드는 실패시키고(합성 폴백 경로) 동기 ReferenceError만 방지
 window.fetch = () => Promise.reject(new Error("smoke: no network"))
 window.AudioContext = function () {
-  this.sampleRate = 44100
-  this.currentTime = 0
-  this.state = "running"
+  return fakeAudioCtx()
 }
 window.OfflineAudioContext = window.AudioContext
 
 const files = [
   "js/music-core.js",
   "js/manifest.js",
+  "js/sample-maps.js",
+  "js/sample-maps-western.js",
   "js/audio-engine.js",
   "js/drawing.js",
   "js/takes.js",
+  "js/share-store.js",
+  "js/studio-utils.js",
+  "js/studio-export.js",
+  "js/studio-setup-render.js",
+  "js/studio-share-ui.js",
   "js/studio.js",
 ]
 for (const f of files) window.eval(read(f))
@@ -94,7 +168,7 @@ const SD = window.SoundDrawing
 check("window.SoundDrawing 노출", !!SD)
 let s = SD.getStateSummary()
 check("기본 길이 30초", s.duration === 30)
-check("기본 배경 calm", s.atmosphere === "calm")
+check("기본 배경 없음", s.atmosphere === "none", s.atmosphere)
 check("기본 악기 = 매니페스트 첫 악기", s.instrument === window.SDStudioData.instruments[0].id, s.instrument)
 check("초기 단계 0", s.step === 0)
 check("초기 음 수 0", s.noteCount === 0)
@@ -109,7 +183,7 @@ check(
   "배경 하위 범주 표시",
   Array.from(window.document.querySelectorAll("#atmosphereGrid .atmosphere-group-label"))
     .map((node) => node.textContent.trim())
-    .join("|") === "분위기|소리풍경|리듬장단|내가 찾은 음악",
+    .join("|") === "배경 없음|분위기|소리풍경|리듬장단|내가 찾은 음악",
   Array.from(window.document.querySelectorAll("#atmosphereGrid .atmosphere-group-label"))
     .map((node) => node.textContent.trim())
     .join("|"),
@@ -163,7 +237,9 @@ check("악기 카드 정지 아이콘 재클릭으로 멈춤", qc("#instrumentGr
 westernTab.click()
 
 // 배경 클릭 → 미리듣기 토글
-const firstMood = window.document.querySelector("#atmosphereGrid .mood-card")
+const firstMood = Array.from(window.document.querySelectorAll("#atmosphereGrid .mood-card")).find((card) =>
+  card.querySelector(".mood-play"),
+)
 firstMood.click()
 check("배경 클릭 시 미리듣기 시작", qc("#atmosphereGrid .mood-card.playing") === 1, qc("#atmosphereGrid .mood-card.playing"))
 firstMood.click()
@@ -226,8 +302,8 @@ check(
 check("오케스트라 범례 렌더(현재 악기 표시)", qc("#orchestraLegend .orchestra-current") === 1, qc("#orchestraLegend .orchestra-current"))
 check(
   "오케스트라 범례에 선택 악기 최대 개수 표시",
-  window.document.querySelector("#orchestraLegend .orchestra-legend-label")?.textContent === "악기 줄 · 선택 악기(최대 4개)",
-  window.document.querySelector("#orchestraLegend .orchestra-legend-label")?.textContent,
+  window.document.querySelector("#orchestraLegend .orchestra-legend-label")?.textContent.trim() === "악기 줄 · 선택 악기",
+  window.document.querySelector("#orchestraLegend .orchestra-legend-label")?.textContent.trim(),
 )
 // 지우개로 한 획을 둘로 쪼개도 그 획의 악기가 양쪽에 유지된다
 SD.draw.setStrokes([[{ x: 0.1, y: 0.5 }, { x: 0.3, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.7, y: 0.5 }, { x: 0.9, y: 0.5 }]], ["cello"])
@@ -603,7 +679,7 @@ check("저장된 시도 제목 텍스트 내용", window.document.querySelector(
 check("저장된 시도 액션 버튼 4개(음악/이미지/링크/채널)", qc(".take-action") === 4, qc(".take-action"))
 check(
   "저장된 시도 액션 버튼 라벨",
-  Array.from(window.document.querySelectorAll(".take-action")).map((b) => b.textContent).join("/") === "음악 저장/이미지 저장/레시피 링크 복사/채널에 공유하기",
+  Array.from(window.document.querySelectorAll(".take-action")).map((b) => b.textContent).join("/") === "음악 저장/이미지 저장/레시피 링크 복사/화음 갤러리에 공유하기",
   Array.from(window.document.querySelectorAll(".take-action")).map((b) => b.textContent).join("/"),
 )
 SD.loadRecipe(Object.assign({}, recipe, { picture: "data:image/png;base64,ZGlydHk=", pictureName: "다른 그림" }))

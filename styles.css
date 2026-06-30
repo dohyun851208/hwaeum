@@ -3916,7 +3916,7 @@ body:not(.channel-body)::after {
   background:
     linear-gradient(180deg, rgba(7, 10, 10, 0.7), rgba(7, 10, 10, 0.92)),
     linear-gradient(90deg, rgba(63, 214, 208, 0.1), transparent 28%, rgba(255, 224, 138, 0.08)),
-    url("./assets/hero/intro-a-concept.webp") center / cover fixed,
+    url("./assets/channel/gallery-stage.webp") center / cover fixed,
     #0b0f0e;
 }
 

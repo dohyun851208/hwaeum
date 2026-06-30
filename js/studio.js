@@ -780,7 +780,7 @@
     el.orchestraLegend.innerHTML = ""
     const tag = document.createElement("span")
     tag.className = "orchestra-legend-label"
-    tag.textContent = "악기 줄 · 선택 악기(최대 4개)"
+    tag.textContent = "악기 줄 · 선택 악기"
     el.orchestraLegend.appendChild(tag)
     if (!order.length) {
       const hint = document.createElement("span")
