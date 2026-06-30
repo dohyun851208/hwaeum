@@ -268,9 +268,14 @@ window.document.getElementById("drawModePictureBtn").click()
 check("그림모드 버튼으로 드로잉 방식 복귀", SD.getStateSummary().drawingInputMode === "picture", SD.getStateSummary().drawingInputMode)
 check("펜 버튼 존재", qc("#penBtn") === 1, qc("#penBtn"))
 check(
-  "드로잉 도구 단축키 안내문구 표시",
-  window.document.querySelector(".tool-shortcut-hint")?.textContent === "펜(키보드1) · 지우개(키보드2)",
-  window.document.querySelector(".tool-shortcut-hint")?.textContent,
+  "펜 버튼에 단축키 표시",
+  window.document.getElementById("penBtn").textContent === "펜(키보드1)",
+  window.document.getElementById("penBtn").textContent,
+)
+check(
+  "지우개 버튼에 단축키 표시",
+  window.document.getElementById("clearBtn").textContent === "지우개(키보드2)",
+  window.document.getElementById("clearBtn").textContent,
 )
 check("완성 작곡가/회고 입력칸 존재", qc("#composerInput") === 1 && qc("#bgReasonInput") === 1 && qc("#melodyIntentInput") === 1 && qc("#hashtagsInput") === 1)
 check(

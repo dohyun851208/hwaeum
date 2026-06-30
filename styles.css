@@ -1886,13 +1886,6 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   gap: 8px;
   margin-top: 4px;
 }
-.tool-shortcut-hint {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 800;
-  line-height: 1.2;
-  white-space: nowrap;
-}
 .draw-mode-tabs {
   display: inline-flex;
   gap: 4px;
