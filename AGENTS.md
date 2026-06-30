@@ -18,8 +18,8 @@
    (`package.json`의 `"type": "commonjs"`는 **Node 테스트 전용**입니다.)
 2. **`file://`(파일 더블클릭)에서는 음원 fetch가 막힙니다.** 반드시 **로컬 서버로** 여세요.
    서버 없이 열면 실제 음원 대신 합성음만 납니다.
-3. **`sound/`(대용량 음원)는 git에 넣지 않습니다.** 다른 PC로 옮길 땐 **폴더를 통째로 복사/zip**.
-   `node_modules/`, `.omc/`도 gitignore — 이 repo는 **자족형 폴더**가 원칙입니다.
+3. **`sound/`의 MP3(앱 음원)는 git에 포함됩니다.** 대용량 원본 WAV만 gitignore(`sound/**/*.wav`).
+   `node_modules/`, `.omc/`도 gitignore. 다른 PC로 이동 시 `git clone`이면 음원도 함께 옵니다.
 4. **오디오는 저장하지 않습니다.** 저장하는 건 "레시피"(설정+드로잉 선)뿐이고, 재생할 때마다 재합성합니다.
 
 ---
@@ -33,6 +33,7 @@ npm run serve     # python -m http.server 4173  → http://localhost:4173/ (랜�
 npm test          # node --test, 순수 로직 단위 테스트 (의존성 없음)
 
 npm i jsdom ; node tools/smoke.cjs   # 통합 스모크 (선택, 오디오/캔버스는 스텁)
+npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (공식 URL)
 ```
 
 브라우저 콘솔에서 `window.SoundDrawing`으로 상태 확인:
@@ -46,7 +47,8 @@ npm i jsdom ; node tools/smoke.cjs   # 통합 스모크 (선택, 오디오/캔�
 화음/  (sound-drawing-tool/)
 ├── CLAUDE.md / AGENTS.md  프로젝트 정체성·제약·전체 아키텍처 (Claude=CLAUDE.md · Codex=AGENTS.md, 동일 내용)
 ├── index.html           3D 히어로 랜딩 페이지(자족형 inline CSS+JS) → studio.html로 진입
-├── studio.html          4단계 위저드 마크업 (앱 본체, js/*.js 로드)
+├── studio.html          5단계 위저드 마크업 (앱 본체, js/*.js 로드)
+├── channel.html         화음 갤러리 감상 페이지 (공유된 작품 목록·뷰어)
 ├── styles.css           갤러리·아틀리에 디자인 + 무드 틴팅(CSS 변수)
 │
 ├── js/                  ◀ 코드 레이어. 모듈별 책임은 js/CLAUDE.md 참고
@@ -55,8 +57,8 @@ npm i jsdom ; node tools/smoke.cjs   # 통합 스모크 (선택, 오디오/캔�
 │   ├── plans/             구현 계획
 │   └── decisions/         의사결정 기록(ADR)
 │
-├── assets/              악기 이미지·기본 표지 (git 포함)
-├── sound/               음원 — ⚠ gitignore. 폴더 복사로만 이동
+├── assets/              악기 이미지·기본 표지 (WebP, git 포함)
+├── sound/               음원 MP3 — git 포함. 원본 WAV만 gitignore
 ├── test/                node --test 단위 테스트 (주로 music-core 대상)
 ├── tools/               smoke.cjs (jsdom 통합 스모크)
 ├── vendor/              tone (브라우저용 벤더 자산)
@@ -78,19 +80,20 @@ npm i jsdom ; node tools/smoke.cjs   # 통합 스모크 (선택, 오디오/캔�
 
 - **`music-core.js`는 순수 함수 계층** — DOM·Web Audio에 의존하지 않습니다. 그래서 단위 테스트가 쉽습니다. **이 순수성을 깨지 마세요.**
 - **`audio-engine.js`**는 Web Audio(라이브 + 오프라인 렌더)·피치 시프트·시김새·합성 폴백 담당.
-- **`studio.js`**가 4단계 위저드를 묶는 오케스트레이터(업로드·무드 틴팅·재생·내보내기·공유).
+- **`studio.js`**가 5단계 위저드를 묶는 오케스트레이터(업로드·무드 틴팅·재생·내보내기·공유). 기능별로 `studio-export.js`(내보내기)·`studio-share-ui.js`(공유 갤러리 카드)·`studio-setup-render.js`(설정 화면 렌더)·`studio-utils.js`(공통 유틸)·`share-store.js`(갤러리 서버 I/O)로 분리되어 있습니다.
 - **`manifest.js`**는 데이터 주도 — **음원/악기/음계 추가·교체는 거의 여기만 수정**합니다.
 
 자세한 모듈 책임과 "어디를 고치나"는 → **`js/CLAUDE.md`**
 
 ---
 
-## 제작 흐름 (4단계 위저드)
+## 제작 흐름 (5단계 위저드)
 
 1. **그림** — 그림 업로드. 그림은 표지와 상단 썸네일로 계속 유지
 2. **분위기·악기·선율** — 한 화면에서 스크롤하며 배경 분위기, 연주 악기, 음계/연주 형태를 이어서 선택하고 미리듣기
 3. **드로잉** — 가로=시간(속도 무관), 세로=음높이. 음계 자동 보정 + 4/4 리듬 자동완성
-4. **완성** — 표지·제목 확인, 시도 저장·비교, WAV·커버 PNG 내보내기, 공유 링크
+4. **완성** — 표지·제목 확인, 시도 저장·비교, WebM 음악·커버 PNG 내보내기
+5. **공유** — 화음 갤러리 번호 입력 후 작품 공유. 교사는 갤러리 생성·관리
 
 ---
 

@@ -16,6 +16,11 @@
 | `drawing.js` | 캔버스 드로잉·가이드/팔레트 렌더·보정 음 오버레이 | Canvas, music-core |
 | `takes.js` | 시도(테이크) 저장·비교(localStorage)·썸네일 | localStorage |
 | `studio.js` | **오케스트레이터** — 5단계 위저드 흐름·업로드·무드 틴팅·재생·내보내기·공유 | 위 전부, DOM |
+| `studio-export.js` | WAV·WebM·커버PNG·드로잉 이미지/영상 내보내기 로직 | studio.js에서 호출 |
+| `studio-share-ui.js` | 공유 갤러리 카드·뷰어 DOM 팩토리 | studio.js에서 호출 |
+| `studio-setup-render.js` | 분위기·악기 선택 화면 렌더 | studio.js에서 호출 |
+| `studio-utils.js` | 공통 유틸(duration 정규화·메타 sanitize·색 변환 등) | studio.js 전반 |
+| `share-store.js` | 화음 갤러리 서버 I/O(publish·list·delete·claim) | studio.js, channel.js |
 
 ## 의존 방향 (지킬 것)
 
@@ -37,7 +42,12 @@ manifest · sample-maps (데이터, 무의존)
 - 음 보정·리듬·시김새·음계 규칙 → `music-core.js` (테스트 동반)
 - 합성음/실제음 폴백, 렌더 품질 → `audio-engine.js`
 - 캔버스 입력·가이드 표시 → `drawing.js`
-- 위저드 단계·화면 연결·내보내기·공유 → `studio.js`
+- 위저드 단계·화면 연결·무드 틴팅·재생 → `studio.js`
+- 음악·이미지·영상 내보내기 → `studio-export.js`
+- 공유 갤러리 카드·뷰어 UI → `studio-share-ui.js`
+- 분위기·악기 선택 화면 렌더 → `studio-setup-render.js`
+- 공통 유틸(duration·색·메타) → `studio-utils.js`
+- 화음 갤러리 서버 통신 → `share-store.js`
 
 ## 테스트
 
