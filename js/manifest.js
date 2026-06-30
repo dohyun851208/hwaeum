@@ -126,7 +126,7 @@
       detail: "가볍고 투명한 소리",
       waveform: "sine",
       image: "./assets/instruments/flute.png",
-      example: "sound/감상-연주곡(서양악기)/플루트.wav",
+      example: "sound/감상-연주곡(서양악기)/플루트.mp3",
     },
     {
       id: "oboe",
@@ -136,7 +136,7 @@
       detail: "애잔하고 맑은 소리",
       waveform: "sawtooth",
       image: "./assets/instruments/oboe.png",
-      example: "sound/감상-연주곡(서양악기)/오보에.wav",
+      example: "sound/감상-연주곡(서양악기)/오보에.mp3",
     },
     {
       id: "clarinet",
@@ -146,7 +146,7 @@
       detail: "둥글고 부드러운 소리",
       waveform: "square",
       image: "./assets/instruments/clarinet.png",
-      example: "sound/감상-연주곡(서양악기)/클라리넷.wav",
+      example: "sound/감상-연주곡(서양악기)/클라리넷.mp3",
     },
     {
       id: "frenchHorn",
@@ -156,7 +156,7 @@
       detail: "웅장하고 포근한 소리",
       waveform: "triangle",
       image: "./assets/instruments/french-horn.png",
-      example: "sound/감상-연주곡(서양악기)/호른.wav",
+      example: "sound/감상-연주곡(서양악기)/호른.mp3",
     },
     {
       id: "violin",
@@ -166,7 +166,7 @@
       detail: "선명하고 화려한 소리",
       waveform: "sawtooth",
       image: "./assets/instruments/violin.png",
-      example: "sound/감상-연주곡(서양악기)/바이올린.wav",
+      example: "sound/감상-연주곡(서양악기)/바이올린.mp3",
     },
     {
       id: "viola",
@@ -176,7 +176,7 @@
       detail: "차분하고 은은한 소리",
       waveform: "sawtooth",
       image: "./assets/instruments/viola.png",
-      example: "sound/감상-연주곡(서양악기)/비올라.wav",
+      example: "sound/감상-연주곡(서양악기)/비올라.mp3",
     },
     {
       id: "cello",
@@ -186,7 +186,7 @@
       detail: "깊고 풍부한 소리",
       waveform: "triangle",
       image: "./assets/instruments/cello.png",
-      example: "sound/감상-연주곡(서양악기)/첼로.wav",
+      example: "sound/감상-연주곡(서양악기)/첼로.mp3",
     },
     {
       id: "doubleBass",
@@ -196,7 +196,7 @@
       detail: "낮고 묵직한 소리",
       waveform: "triangle",
       image: "./assets/instruments/double-bass.png",
-      example: "sound/감상-연주곡(서양악기)/더블베이스.wav",
+      example: "sound/감상-연주곡(서양악기)/더블베이스.mp3",
     },
     {
       id: "sogeum",

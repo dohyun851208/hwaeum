@@ -67,14 +67,14 @@ test("instrument example audio entries point to existing project files", () => {
     .filter((instrument) => instrument.group === "서양" && !instrument.example)
     .map((instrument) => instrument.id)
   const westernExamples = {
-    flute: "sound/감상-연주곡(서양악기)/플루트.wav",
-    oboe: "sound/감상-연주곡(서양악기)/오보에.wav",
-    clarinet: "sound/감상-연주곡(서양악기)/클라리넷.wav",
-    frenchHorn: "sound/감상-연주곡(서양악기)/호른.wav",
-    violin: "sound/감상-연주곡(서양악기)/바이올린.wav",
-    viola: "sound/감상-연주곡(서양악기)/비올라.wav",
-    cello: "sound/감상-연주곡(서양악기)/첼로.wav",
-    doubleBass: "sound/감상-연주곡(서양악기)/더블베이스.wav",
+    flute: "sound/감상-연주곡(서양악기)/플루트.mp3",
+    oboe: "sound/감상-연주곡(서양악기)/오보에.mp3",
+    clarinet: "sound/감상-연주곡(서양악기)/클라리넷.mp3",
+    frenchHorn: "sound/감상-연주곡(서양악기)/호른.mp3",
+    violin: "sound/감상-연주곡(서양악기)/바이올린.mp3",
+    viola: "sound/감상-연주곡(서양악기)/비올라.mp3",
+    cello: "sound/감상-연주곡(서양악기)/첼로.mp3",
+    doubleBass: "sound/감상-연주곡(서양악기)/더블베이스.mp3",
   }
 
   assert.deepEqual(missing, [])

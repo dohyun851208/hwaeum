@@ -458,6 +458,29 @@
     this.onChange()
   }
 
+  // 특정 악기로 그린 획을 모두 지운다. 지우개처럼 undo 가능.
+  DrawingCanvas.prototype.clearInstrument = function (id) {
+    const next = []
+    const nextInst = []
+    for (let i = 0; i < this.strokes.length; i++) {
+      if (this.strokeInstruments[i] !== id) {
+        next.push(this.strokes[i])
+        nextInst.push(this.strokeInstruments[i])
+      }
+    }
+    if (next.length === this.strokes.length) return false
+    this._pushUndo()
+    this.pendingUndoSnapshot = null
+    this.currentStroke = null
+    this.isDrawing = false
+    this.strokes = next
+    this.strokeInstruments = nextInst
+    this.compute()
+    this.render()
+    this.onChange()
+    return true
+  }
+
   DrawingCanvas.prototype.getStrokes = function () {
     return this.strokes.map((s) => s.map((p) => ({ x: p.x, y: p.y })))
   }

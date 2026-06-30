@@ -520,9 +520,12 @@
     if (el.drawingWorkspace) el.drawingWorkspace.classList.toggle("reference-collapsed", collapsed)
     if (el.drawingReference) el.drawingReference.setAttribute("aria-hidden", collapsed ? "true" : "false")
     if (!el.drawingReferenceToggle) return
-    const label = collapsed ? "그림 펼치기" : "그림 접기"
-    const icon = el.drawingReferenceToggle.querySelector("span")
+    const actionText = collapsed ? "펴기" : "접기"
+    const label = "그림 " + actionText
+    const icon = el.drawingReferenceToggle.querySelector(".drawing-reference-icon")
+    const text = el.drawingReferenceToggle.querySelector(".drawing-reference-toggle-text")
     if (icon) icon.classList.toggle("is-expand", collapsed)
+    if (text) text.textContent = actionText
     el.drawingReferenceToggle.setAttribute("aria-expanded", String(!collapsed))
     el.drawingReferenceToggle.setAttribute("aria-label", label)
     el.drawingReferenceToggle.title = label
@@ -744,7 +747,10 @@
           name.textContent = i.label
           label.appendChild(name)
           b.appendChild(label)
-          b.addEventListener("click", () => selectInstrument(i, true))
+          b.addEventListener("click", () => {
+            selectInstrument(i, true)
+            engine.previewNote(buildRecipe(), 0.5).catch(function () {})
+          })
           familyList.appendChild(b)
         })
 
@@ -784,6 +790,7 @@
     } else {
       order.forEach((id) => {
         const inst = D.instruments.find((i) => i.id === id)
+        const instLabel = inst ? inst.label : id
         const chip = document.createElement("span")
         chip.className = "orchestra-chip"
         applyInstrumentTone(chip, id)
@@ -792,8 +799,19 @@
         dot.style.background = colorForInstrument(id)
         chip.appendChild(dot)
         const text = document.createElement("span")
-        text.textContent = (inst ? inst.label : id) + (counts[id] > 1 ? " ×" + counts[id] : "")
+        text.textContent = instLabel + (counts[id] > 1 ? " ×" + counts[id] : "")
         chip.appendChild(text)
+        const removeBtn = document.createElement("button")
+        removeBtn.type = "button"
+        removeBtn.className = "orchestra-chip-remove"
+        removeBtn.setAttribute("aria-label", instLabel + " 줄 모두 지우기")
+        removeBtn.title = instLabel + " 줄 모두 지우기"
+        removeBtn.textContent = "×"
+        removeBtn.addEventListener("click", () => {
+          draw.clearInstrument(id)
+          el.exportStatus.textContent = instLabel + " 줄을 모두 지웠어요. 되돌리기(Ctrl+Z)로 복구할 수 있어요."
+        })
+        chip.appendChild(removeBtn)
         el.orchestraLegend.appendChild(chip)
       })
     }
@@ -842,6 +860,11 @@
         if (state.effectStampId && engine.warmEffect) {
           engine.warmEffect(Object.assign({ id: id }, effect)).catch(function (err) {
             console.warn("효과음 도장 준비 실패", err)
+          })
+        }
+        if (state.effectStampId && engine.previewEffect) {
+          engine.previewEffect(Object.assign({ id: id }, effect)).catch(function (err) {
+            console.warn("효과음 버튼 미리듣기 실패", err)
           })
         }
         renderEffects()
@@ -2360,13 +2383,13 @@
       tools.appendChild(pauseB)
       tools.appendChild(delB)
 
-      // 시도별 저장·공유 버튼: 음악 저장 · 이미지 저장 · 레시피 링크 복사 · 채널에 공유하기
+      // 시도별 저장·공유 버튼: 음악 저장 · 이미지 저장 · 레시피 링크 복사 · 화음 갤러리에 공유하기
       const actions = document.createElement("div")
       actions.className = "take-actions"
       actions.appendChild(makeTakeActionButton("음악 저장", "이 시도의 음악을 WebM으로 저장", () => exportTakeAudio(t)))
       actions.appendChild(makeTakeActionButton("이미지 저장", "이 시도의 커버 이미지를 PNG로 저장", () => exportTakeImage(t)))
       actions.appendChild(makeTakeActionButton("레시피 링크 복사", "드로잉 화면에서 열리는 레시피 링크 복사", () => copyTakeRecipeLink(t)))
-      actions.appendChild(makeTakeActionButton("채널에 공유하기", "채널 번호를 입력해 학급 채널에 공유", () => publishTake(t)))
+      actions.appendChild(makeTakeActionButton("화음 갤러리에 공유하기", "번호를 입력해 화음 갤러리에 공유", () => publishTake(t)))
 
       wrap.appendChild(cv)
       wrap.appendChild(meta)
@@ -2412,21 +2435,21 @@
       el.exportStatus.classList.add("error")
       return
     }
-    const asked = typeof prompt === "function" ? prompt("공유할 채널 번호를 입력하세요. (예: 3021)", state.sharedChannel || "") : null
+    const asked = typeof prompt === "function" ? prompt("공유할 화음 갤러리 번호를 입력하세요. (예: 3021)", state.sharedChannel || "") : null
     if (asked === null) return // 취소
     const channel = ShareStore.normalizeChannel(asked)
     if (!channel) {
-      el.exportStatus.textContent = "채널 번호를 다시 확인해 주세요."
+      el.exportStatus.textContent = "화음 갤러리 번호를 다시 확인해 주세요."
       el.exportStatus.classList.add("error")
       return
     }
-    // 공유에는 채널 비밀번호가 필요하다(선생님이 알려 준 숫자).
+    // 공유에는 화음 갤러리 비밀번호가 필요하다(선생님이 알려 준 숫자).
     const savedPass = ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
-    const askedPass = typeof prompt === "function" ? prompt("채널 비밀번호(숫자)를 입력하세요.", savedPass || "") : null
+    const askedPass = typeof prompt === "function" ? prompt("화음 갤러리 비밀번호(숫자)를 입력하세요.", savedPass || "") : null
     if (askedPass === null) return // 취소
     const pass = ShareStore.cleanPin(askedPass)
     if (!pass) {
-      el.exportStatus.textContent = "채널 비밀번호(숫자)를 입력해 주세요."
+      el.exportStatus.textContent = "화음 갤러리 비밀번호(숫자)를 입력해 주세요."
       el.exportStatus.classList.add("error")
       return
     }
@@ -2514,7 +2537,7 @@
     updateReadouts()
   }
 
-  // === § 25  공유 & 채널 갤러리 ===
+  // === § 25  공유 & 화음 갤러리 ===
 
   function sharedChannelInputSource(value) {
     return value == null ? state.sharedChannel : value
@@ -2552,7 +2575,7 @@
     }
     const channel = ShareStore.normalizeChannel(sharedChannelInputSource(channelArg) || "")
     if (!channel) {
-      setShareMessage("공유 채널 번호를 적어 주세요.", true)
+      setShareMessage("화음 갤러리 번호를 적어 주세요.", true)
       return
     }
     syncShareInputs(channel)
@@ -2577,7 +2600,7 @@
     el.openClaimedChannelBtn.hidden = false
   }
 
-  // 관리자 번호(8624)로 채널을 만들거나, 내가 점유한 채널의 이름·비밀번호를 고친다.
+  // 관리자 번호(8624)로 화음 갤러리를 만들거나, 내가 점유한 화음 갤러리의 이름·비밀번호를 고친다.
   async function claimChannelFromForm() {
     hideOpenClaimedChannelButton()
     if (!ShareStore || !ShareStore.claimChannel) {
@@ -2589,34 +2612,34 @@
     const displayName = el.shareDisplayNameInput ? el.shareDisplayNameInput.value.trim() : ""
     const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
     if (!adminPin) {
-      setShareMessage("채널을 만들려면 관리자 번호(8624)를 넣어 주세요.", true)
+      setShareMessage("화음 갤러리를 만들려면 관리자 번호(8624)를 넣어 주세요.", true)
       return
     }
     if (!channel) {
-      setShareMessage("만들 채널 번호를 적어 주세요.", true)
+      setShareMessage("만들 화음 갤러리 번호를 적어 주세요.", true)
       return
     }
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setShareMessage("채널 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 정해 주세요.", true)
+      setShareMessage("화음 갤러리 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 정해 주세요.", true)
       return
     }
     if (el.claimChannelBtn) el.claimChannelBtn.disabled = true
     try {
-      setShareMessage(channel + " 채널을 만드는 중입니다.", false)
+      setShareMessage(channel + " 화음 갤러리를 만드는 중입니다.", false)
       const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: adminPin })
       if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
       syncShareInputs(channel)
       showOpenClaimedChannelButton(channel)
       const name = (result.channel && result.channel.displayName) || displayName
       setShareMessage(
-        (result.claimed === false ? channel + " 채널 설정을 저장했어요." : channel + " 채널을 만들었어요.") +
-          (name ? " 채널 이름: " + name + "." : "") +
+        (result.claimed === false ? channel + " 화음 갤러리 설정을 저장했어요." : channel + " 화음 갤러리를 만들었어요.") +
+          (name ? " 화음 갤러리 이름: " + name + "." : "") +
           (result.localOnly ? " (이 브라우저에만 저장됨)" : ""),
         false,
       )
     } catch (e) {
       console.error(e)
-      setShareMessage(e.message || "채널을 만들지 못했어요.", true)
+      setShareMessage(e.message || "화음 갤러리를 만들지 못했어요.", true)
     } finally {
       if (el.claimChannelBtn) el.claimChannelBtn.disabled = false
     }
@@ -2631,17 +2654,17 @@
     const channel = ShareStore.normalizeChannel(el.claimChannelInput ? el.claimChannelInput.value : "")
     const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
     if (!channel) {
-      setShareMessage("삭제할 채널 번호를 적어 주세요.", true)
+      setShareMessage("삭제할 화음 갤러리 번호를 적어 주세요.", true)
       return
     }
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setShareMessage("채널 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 넣어 주세요.", true)
+      setShareMessage("화음 갤러리 비밀번호는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 넣어 주세요.", true)
       return
     }
-    if (!window.confirm(channel + " 채널과 안에 있는 음악을 모두 삭제할까요?")) return
+    if (!window.confirm(channel + " 화음 갤러리와 안에 있는 음악을 모두 삭제할까요?")) return
     if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = true
     try {
-      setShareMessage(channel + " 채널을 삭제하는 중입니다.", false)
+      setShareMessage(channel + " 화음 갤러리를 삭제하는 중입니다.", false)
       const result = await ShareStore.deleteChannel(channel, pin)
       if (state.sharedChannel === channel) {
         state.sharedWorks = []
@@ -2649,16 +2672,16 @@
         renderSharedWorks()
       }
       if (el.shareChannelPassInput) el.shareChannelPassInput.value = ""
-      setShareMessage(channel + " 채널을 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
+      setShareMessage(channel + " 화음 갤러리를 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
     } catch (e) {
       console.error(e)
-      setShareMessage(e.message || "채널을 삭제하지 못했어요.", true)
+      setShareMessage(e.message || "화음 갤러리를 삭제하지 못했어요.", true)
     } finally {
       if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = false
     }
   }
 
-  // 관리자 번호를 채널 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 번호가 남지 않게).
+  // 관리자 번호를 화음 갤러리 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 번호가 남지 않게).
   const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
   function rememberAdminPin() {
     try {
@@ -2790,25 +2813,25 @@
     }
     const normalized = ShareStore.normalizeChannel(sharedChannelInputSource(channel) || "")
     if (!normalized) {
-      setShareMessage("공유 채널 번호를 적어 주세요.", true)
+      setShareMessage("화음 갤러리 번호를 적어 주세요.", true)
       return
     }
     syncShareInputs(normalized)
     state.sharedLoading = true
     renderSharedWorks()
-    setShareMessage(normalized + " 채널을 불러오는 중입니다.", false)
+    setShareMessage(normalized + " 화음 갤러리를 불러오는 중입니다.", false)
     try {
       const result = await ShareStore.listChannel(normalized, ShareStore.loadPass ? ShareStore.loadPass(normalized) : "")
       state.sharedWorks = result.works || []
       setShareMessage(
-        normalized + " 채널에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.sharedWorks.length + "개를 불러왔어요.",
+        normalized + " 화음 갤러리에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.sharedWorks.length + "개를 불러왔어요.",
         false,
       )
       if (options.updateUrl !== false) updateShareUrl(normalized)
     } catch (e) {
       console.error(e)
       state.sharedWorks = []
-      setShareMessage(e.message || "공유 채널을 불러오지 못했어요.", true)
+      setShareMessage(e.message || "화음 갤러리를 불러오지 못했어요.", true)
     } finally {
       state.sharedLoading = false
       renderSharedWorks()
@@ -2830,7 +2853,7 @@
     const channelSource = explicitChannel != null ? explicitChannel : el.shareChannelInput ? el.shareChannelInput.value : state.sharedChannel
     const channel = ShareStore.normalizeChannel(channelSource)
     if (!channel) {
-      el.exportStatus.textContent = "공유 채널 번호를 적어 주세요."
+      el.exportStatus.textContent = "화음 갤러리 번호를 적어 주세요."
       el.exportStatus.classList.add("error")
       return
     }
@@ -2866,7 +2889,7 @@
         musicBlob: music,
       })
       const work = result.work
-      el.exportStatus.textContent = result.localOnly ? channel + " 채널에 이 브라우저용으로 저장했어요." : channel + " 채널에 공유했어요."
+      el.exportStatus.textContent = result.localOnly ? channel + " 화음 갤러리에 이 브라우저용으로 저장했어요." : channel + " 화음 갤러리에 공유했어요."
       state.sharedChannel = channel
       window.location.href = channelPageUrl(channel, work && work.id)
     } catch (e) {

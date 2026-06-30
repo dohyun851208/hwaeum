@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 스튜디오 · 그림으로 만드는 음악</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260629-gallery-modern" />
+    <link rel="stylesheet" href="./styles.css?v=20260630-gallery-luxe" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -19,11 +19,6 @@
           <figure class="pic-chip" id="picChip" hidden>
             <img id="picThumb" alt="올린 그림" />
           </figure>
-          <div class="transport" aria-label="재생 제어">
-            <span class="status-pill" id="statusText" aria-live="polite">전체곡 대기</span>
-            <button class="round-btn" id="playBtn" type="button" aria-label="전체곡 재생"><span aria-hidden="true">▶</span></button>
-            <button class="round-btn ghost" id="stopBtn" type="button" aria-label="정지"><span aria-hidden="true">■</span></button>
-          </div>
         </div>
       </header>
 
@@ -129,33 +124,43 @@
                   title="그림 접기"
                 >
                   <span class="drawing-reference-icon" aria-hidden="true"></span>
+                  <span class="drawing-reference-toggle-text">접기</span>
                 </button>
-                <figure class="drawing-reference" id="drawingReference">
-                  <img id="drawingReferenceImg" src="./assets/default-cover.png" alt="올린 그림" />
-                </figure>
-                <div class="canvas-wrap">
-                  <canvas id="drawingCanvas" width="1440" height="540" aria-label="소리를 그리는 캔버스"></canvas>
-                  <div class="effect-stamp-layer" id="effectStampLayer" aria-hidden="true"></div>
-                  <div class="pitch-labels" id="pitchLabels" aria-hidden="true"></div>
-                  <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
-                  <div class="playhead" id="playhead" role="slider" aria-label="재생 시작 위치" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" tabindex="0" hidden></div>
-                </div>
-              </div>
-              <div class="bg-player" id="bgPlayer" aria-label="배경음악 위치 맞추기">
-                <span class="bg-player-label">배경 구간</span>
-                <div class="bg-range-panel">
-                  <button class="bg-play-btn" id="bgPlayBtn" type="button" aria-label="배경음악만 재생" title="배경음악만 재생"><span aria-hidden="true">▶</span></button>
-                  <div class="bg-range" aria-label="배경음악 선택 구간">
-                    <input class="bg-seek" id="bgSeek" type="range" min="0" max="100" value="0" step="1" aria-label="배경음악 시작 위치" />
-                    <span class="bg-range-dash" aria-hidden="true">~</span>
-                    <input class="bg-seek bg-end-seek" id="bgEndSeek" type="range" min="0" max="100" value="30" step="1" aria-label="배경음악 끝 위치" />
+                <div class="drawing-ref-col">
+                  <figure class="drawing-reference" id="drawingReference">
+                    <img id="drawingReferenceImg" src="./assets/default-cover.png" alt="올린 그림" />
+                  </figure>
+                  <div class="transport" aria-label="재생 제어">
+                    <span class="status-pill" id="statusText" aria-live="polite">전체곡 대기</span>
+                    <button class="round-btn" id="playBtn" type="button" aria-label="전체곡 재생"><span aria-hidden="true">▶</span></button>
+                    <button class="round-btn ghost" id="stopBtn" type="button" aria-label="정지"><span aria-hidden="true">■</span></button>
                   </div>
                 </div>
-                <div class="bg-time-inputs" aria-label="배경음악 구간 시간">
-                  <label class="bg-time-field" for="bgStartInput"><span>시작</span><input id="bgStartInput" type="text" inputmode="numeric" autocomplete="off" value="0:00" /></label>
-                  <label class="bg-time-field" for="bgEndInput"><span>끝</span><input id="bgEndInput" type="text" inputmode="numeric" autocomplete="off" value="0:30" /></label>
+                <div class="canvas-col">
+                  <div class="canvas-wrap">
+                    <canvas id="drawingCanvas" width="1440" height="540" aria-label="소리를 그리는 캔버스"></canvas>
+                    <div class="effect-stamp-layer" id="effectStampLayer" aria-hidden="true"></div>
+                    <div class="pitch-labels" id="pitchLabels" aria-hidden="true"></div>
+                    <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
+                    <div class="playhead" id="playhead" role="slider" aria-label="재생 시작 위치" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" tabindex="0" hidden></div>
+                  </div>
+                  <div class="bg-player" id="bgPlayer" aria-label="배경음악 위치 맞추기">
+                    <span class="bg-player-label">배경 구간</span>
+                    <div class="bg-range-panel">
+                      <button class="bg-play-btn" id="bgPlayBtn" type="button" aria-label="배경음악만 재생" title="배경음악만 재생"><span aria-hidden="true">▶</span></button>
+                      <div class="bg-range" aria-label="배경음악 선택 구간">
+                        <input class="bg-seek" id="bgSeek" type="range" min="0" max="100" value="0" step="1" aria-label="배경음악 시작 위치" />
+                        <span class="bg-range-dash" aria-hidden="true">~</span>
+                        <input class="bg-seek bg-end-seek" id="bgEndSeek" type="range" min="0" max="100" value="30" step="1" aria-label="배경음악 끝 위치" />
+                      </div>
+                    </div>
+                    <div class="bg-time-inputs" aria-label="배경음악 구간 시간">
+                      <label class="bg-time-field" for="bgStartInput"><span>시작</span><input id="bgStartInput" type="text" inputmode="numeric" autocomplete="off" value="0:00" /></label>
+                      <label class="bg-time-field" for="bgEndInput"><span>끝</span><input id="bgEndInput" type="text" inputmode="numeric" autocomplete="off" value="0:30" /></label>
+                    </div>
+                    <span class="bg-time" id="bgTime">0:00 ~ 0:00 / 0:00</span>
+                  </div>
                 </div>
-                <span class="bg-time" id="bgTime">0:00 ~ 0:00 / 0:00</span>
               </div>
               <div class="readouts">
                 <div><span class="k">악기</span><strong id="scaleReadout">바이올린</strong></div>
@@ -245,36 +250,36 @@
         <section class="screen share-screen" data-screen="4" aria-label="5단계 공유">
           <div class="screen-head">
             <p class="eyebrow">5단계</p>
-            <h2>채널에 들어가 그림 음악을 감상합니다.</h2>
-            <p class="lead">채널 번호를 입력하면 같은 채널에 모인 그림 음악이 갤러리처럼 펼쳐집니다.</p>
+            <h2>화음 갤러리에 들어가 완성된 작품을 감상합니다.</h2>
+            <p class="lead">화음 갤러리 번호를 입력하면 같은 화음 갤러리에 모인 완성 작품이 펼쳐집니다.</p>
           </div>
           <section class="panel share-board share-gate">
             <div class="channel-gate-grid">
               <section class="channel-gate-card" aria-labelledby="channelOpenTitle">
                 <div class="channel-gate-card-head">
                   <p class="eyebrow">학생</p>
-                  <h3 id="channelOpenTitle">채널 들어가기</h3>
+                  <h3 id="channelOpenTitle">화음 갤러리 들어가기</h3>
                 </div>
                 <form class="channel-open-bar" id="channelOpenForm">
                   <span class="channel-open-hash" aria-hidden="true">#</span>
-                  <input id="channelBrowseInput" class="channel-open-input" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="채널 번호 (예: 3021)" aria-label="채널 번호" />
+                  <input id="channelBrowseInput" class="channel-open-input" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="화음 갤러리 번호 (예: 3021)" aria-label="화음 갤러리 번호" />
                   <button class="channel-open-go" id="loadChannelBtn" type="submit">들어가기 →</button>
                 </form>
               </section>
               <section class="channel-gate-card channel-admin-card" aria-labelledby="channelAdminTitle">
                 <div class="channel-gate-card-head">
                   <p class="eyebrow">선생님</p>
-                  <h3 id="channelAdminTitle">채널 관리하기</h3>
+                  <h3 id="channelAdminTitle">화음 갤러리 관리하기</h3>
                 </div>
                 <div class="channel-admin-form channel-claim-form">
                   <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 번호 (8624)" aria-label="관리자 번호" />
-                  <input id="claimChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="채널 번호 (예: 77)" aria-label="만들 채널 번호" />
-                  <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="채널 이름 (예: 3반 봄 음악)" aria-label="채널 이름" />
-                  <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="채널 비밀번호 (숫자 4자리 이상)" aria-label="채널 비밀번호" />
-                  <button class="btn primary" type="button" id="claimChannelBtn">채널 만들기</button>
-                  <button class="btn danger" type="button" id="deleteChannelBtn">채널 삭제하기</button>
-                  <button class="btn" type="button" id="openClaimedChannelBtn" hidden>방금 만든 채널 들어가기 →</button>
-                  <p class="muted">관리자 번호(8624)로 채널 생성이 가능하며, 교사가 채널의 번호, 이름, 비밀번호를 설정하여 채널을 만듭니다.<br />학생은 교사가 설정한 채널 번호 + 비밀번호를 통해 들어갈 수 있습니다.<br />채널 삭제 시에는 채널 비밀번호가 필요하며, 채널 안의 음악도 함께 삭제됩니다.</p>
+                  <input id="claimChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="화음 갤러리 번호 (예: 77)" aria-label="만들 화음 갤러리 번호" />
+                  <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="화음 갤러리 이름 (예: 3반 봄 음악)" aria-label="화음 갤러리 이름" />
+                  <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="화음 갤러리 비밀번호 (숫자 4자리 이상)" aria-label="화음 갤러리 비밀번호" />
+                  <button class="btn primary" type="button" id="claimChannelBtn">화음 갤러리 만들기</button>
+                  <button class="btn danger" type="button" id="deleteChannelBtn">화음 갤러리 삭제하기</button>
+                  <button class="btn" type="button" id="openClaimedChannelBtn" hidden>방금 만든 화음 갤러리 들어가기 →</button>
+                  <p class="muted">관리자 번호(8624)로 화음 갤러리 생성이 가능하며, 교사가 화음 갤러리의 번호, 이름, 비밀번호를 설정하여 화음 갤러리를 만듭니다.<br />학생은 교사가 설정한 화음 갤러리 번호 + 비밀번호를 통해 들어갈 수 있습니다.<br />화음 갤러리 삭제 시에는 화음 갤러리 비밀번호가 필요하며, 화음 갤러리 안의 음악도 함께 삭제됩니다.</p>
                 </div>
               </section>
             </div>

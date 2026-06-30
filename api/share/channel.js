@@ -6,9 +6,9 @@ module.exports = async function handler(req, res) {
   try {
     const query = req.query || Object.fromEntries(new URL(req.url || "/", "http://localhost").searchParams.entries())
     const channel = cleanChannel(query.channel || "")
-    if (!channel) return send(res, 400, { error: "공유 채널 번호를 적어 주세요." })
+    if (!channel) return send(res, 400, { error: "화음 갤러리 번호를 적어 주세요." })
 
-    // 채널이 비밀번호로 잠겨 있으면 비번이 맞아야 작품 목록을 내준다.
+    // 화음 갤러리가 비밀번호로 잠겨 있으면 비번이 맞아야 작품 목록을 내준다.
     const channelMeta = await loadChannelMeta(list, readJsonUrl, channel)
     if (channelMeta && channelMeta.passHash) {
       const pass = cleanPin(query.pass || "")
@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
         ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
         : error && error.message
           ? error.message
-          : "공유 채널을 불러오지 못했어요."
+          : "화음 갤러리를 불러오지 못했어요."
     send(res, 500, { error: message })
   }
 }

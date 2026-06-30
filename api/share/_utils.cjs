@@ -45,7 +45,7 @@ function hashAdmin(pin) {
   return cleanText(pin, 24) === ADMIN_PIN
 }
 
-// 채널 비밀번호는 숫자만. 채널 번호로 소금을 쳐서 같은 비번이라도 채널마다 해시가 달라지게 한다.
+// 화음 갤러리 비밀번호는 숫자만. 갤러리 번호로 소금을 쳐서 같은 비번이라도 갤러리마다 해시가 달라지게 한다.
 function cleanPin(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 12)
 }
@@ -58,7 +58,7 @@ function channelMetaPathname(channel) {
   return "share/channels/" + cleanChannel(channel) + "/channel.json"
 }
 
-// 채널 단위 레코드(channel.json)를 읽는다. 없으면 null(=아직 점유되지 않은 채널).
+// 화음 갤러리 단위 레코드(channel.json)를 읽는다. 없으면 null(=아직 점유되지 않은 갤러리).
 async function loadChannelMeta(list, readJson, channel) {
   const prefix = channelMetaPathname(channel)
   const blobs = await listAll(list, { prefix, limit: 10 })

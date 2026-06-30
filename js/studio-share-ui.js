@@ -93,7 +93,7 @@
       info.className = "shared-viewer-info"
       const eyebrow = document.createElement("p")
       eyebrow.className = "eyebrow"
-      eyebrow.textContent = "학급 채널 감상"
+      eyebrow.textContent = "화음 갤러리 감상"
       const title = document.createElement("h3")
       title.id = "sharedViewerTitle"
       title.className = "shared-viewer-title"
@@ -145,11 +145,11 @@
       const works = state.sharedWorks || []
       if (state.sharedLoading) {
         el.sharedEmpty.style.display = "block"
-        el.sharedEmpty.textContent = "채널을 불러오는 중입니다."
+        el.sharedEmpty.textContent = "화음 갤러리를 불러오는 중입니다."
         return
       }
       el.sharedEmpty.style.display = works.length ? "none" : "block"
-      el.sharedEmpty.textContent = state.sharedChannel ? "아직 이 채널에 공유된 음악이 없습니다." : "채널 번호를 입력하고 들어가기를 누르면 공유된 음악이 여기에 모입니다."
+      el.sharedEmpty.textContent = state.sharedChannel ? "아직 이 화음 갤러리에 공유된 음악이 없습니다." : "화음 갤러리 번호를 입력하고 들어가기를 누르면 공유된 음악이 여기에 모입니다."
       const adminReady = !!adminPinValue()
       works.forEach(function (work) {
         const meta = work.metadata || {}

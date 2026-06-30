@@ -2,30 +2,37 @@
 
 ## 1. Atmosphere & Identity
 
-Hwaeum feels like a modern classroom gallery: clear white surfaces, cool gray walls, ink controls, teal focus color, and a wide drawing surface. The signature is a gallery-like making table where students can see picture, sound, and timeline as one continuous composition.
+Hwaeum feels like a warm classroom gallery connected to the landing page: cream paper surfaces, quiet ink controls, gold selection moments, teal sound/focus accents, and subtle brush/music atmosphere behind the work area. The app should stay readable as a classroom tool while carrying the landing page's `畵 + 音` identity into the studio.
+
+The Hwaeum Gallery is the more premium viewing space: darker exhibition walls, gold rails and selection light, cream placards, and teal used only as a restrained sound/focus accent. Covers should feel framed and lit, not buried in decoration.
 
 ## 2. Color
 
 ### Palette
 
-| Role | Token | Light | Dark | Usage |
+| Role | Token | Studio | Dark | Usage |
 | --- | --- | --- | --- | --- |
-| Surface/page | `--paper` | `#f8fafc` | Not supported | App background start |
-| Surface/page alt | `--paper-2` | `#eef3f7` | Not supported | App background end |
-| Surface/canvas | `--canvas` | `#ffffff` | Not supported | Panels, buttons, drawing canvas |
-| Text/primary | `--ink` | `#161b22` | Not supported | Headings, controls, strong labels |
-| Text/secondary | `--muted` | `#667085` | Not supported | Help text, captions, inactive steps |
-| Border/default | `--line` | `rgba(20, 33, 45, 0.12)` | Not supported | Soft panel and control outlines |
-| Border/strong | `--line-strong` | `rgba(20, 33, 45, 0.22)` | Not supported | Emphasized outlines |
-| Accent/primary | `--accent` | `#00a6a6` | Not supported | Active controls, playhead, selected state |
-| Accent/soft | `--accent-soft` | `rgba(0, 166, 166, 0.1)` | Not supported | Mood tint, selected background |
-| Accent/line | `--accent-line` | `rgba(0, 166, 166, 0.42)` | Not supported | Guide lines, focus and active outlines |
+| Surface/page | `--paper` | `#fff7e4` | Not supported | App background start |
+| Surface/page alt | `--paper-2` | `#e8eee1` | Not supported | App background end |
+| Surface/canvas | `--canvas` | `#fffaf0` | Not supported | Panels, buttons, drawing canvas shell |
+| Text/primary | `--ink` | `#191b17` | Not supported | Headings, controls, strong labels |
+| Text/secondary | `--muted` | `#60695f` | Not supported | Help text, captions, inactive steps |
+| Border/default | `--line` | `rgba(73, 62, 35, 0.15)` | Not supported | Soft panel and control outlines |
+| Border/strong | `--line-strong` | `rgba(150, 113, 32, 0.34)` | Not supported | Emphasized outlines |
+| Accent/primary | `--accent` | `#158f8b` | Not supported | Sound/focus accent, mood tint fallback |
+| Accent/soft | `--accent-soft` | `rgba(21, 143, 139, 0.12)` | Not supported | Mood tint, selected background |
+| Accent/line | `--accent-line` | `rgba(21, 143, 139, 0.42)` | Not supported | Guide lines, focus and active outlines |
+| Brand/gold | `--brand-gold` | `#ffe08a` | Not supported | Primary actions and current step badges |
+| Brand/red | `--brand-red` | `#de6547` | Not supported | Playhead and rare emphasis |
 
 ### Rules
 
 - Mood colors from `js/manifest.js` may replace the accent tokens at runtime.
 - New UI for drawing controls must use existing tokens. Do not introduce standalone hex colors.
-- White text is allowed only on `--ink` or `--accent` filled controls.
+- Gold is for selection, current-step emphasis, and primary forward actions. Teal is for focus, preview, and sound-related activity.
+- Red is reserved for playhead/emphasis and danger states. It should not become a broad theme color.
+- White text is allowed only on `--ink`, `--accent`, or danger-filled controls.
+- Gallery pages may use dark exhibition surfaces, but captions, forms, and modal text must keep strong contrast through cream panels or cream text.
 
 ## 3. Typography
 
@@ -33,7 +40,7 @@ Hwaeum feels like a modern classroom gallery: clear white surfaces, cool gray wa
 
 | Level | Size | Weight | Line Height | Tracking | Usage |
 | --- | --- | --- | --- | --- | --- |
-| Brand | `clamp(1.7rem, 2.35vw, 2.45rem)` | 700 | 1.1 | 0 | App name |
+| Brand | `clamp(1.95rem, 2.65vw, 2.85rem)` | 400 | 1.0 | 0 | App name |
 | H2 | `clamp(1.55rem, 2vw, 2.1rem)` | 800 | 1.2 | 0 | Step and panel titles |
 | H3 | `1.1rem` to `1.3rem` | 800 | 1.3 | 0 | Section and card headings |
 | Body | `17px` | 400 | 1.5 | 0 | Default UI text |
@@ -42,14 +49,14 @@ Hwaeum feels like a modern classroom gallery: clear white surfaces, cool gray wa
 
 ### Font Stack
 
-- Primary: `Pretendard`, `Apple SD Gothic Neo`, `Malgun Gothic`, `Segoe UI`, `system-ui`, `sans-serif`
-- Display serif: `Iropke Batang`, `Nanum Myeongjo`, `Georgia`, `Apple SD Gothic Neo`, `serif`
+- Primary: `Apple SD Gothic Neo`, `Malgun Gothic`, `Segoe UI`, `system-ui`, `sans-serif`
+- Display: `Jua`, `Apple SD Gothic Neo`, `Malgun Gothic`, `system-ui`, `sans-serif`
 
 ### Rules
 
 - User-facing copy is Korean and should be plain enough for students.
 - Keep dense tool labels short. Buttons should not wrap on desktop.
-- Serif is reserved for brand and title moments, not dense controls.
+- Display type is reserved for brand and title moments, not dense controls.
 
 ## 4. Spacing & Layout
 
@@ -135,7 +142,7 @@ All spacing follows a 4px base.
 
 ### Strategy
 
-Mixed: clear white surfaces, cool gray page depth, restrained borders, and soft shadows.
+Mixed: warm cream work surfaces, soft gold borders, restrained shadows, and a subtle landing-page image atmosphere behind the studio. The drawing canvas remains bright and uncluttered.
 
 | Level | Token | Usage |
 | --- | --- | --- |
@@ -148,3 +155,4 @@ Mixed: clear white surfaces, cool gray page depth, restrained borders, and soft 
 - Do not nest visual cards inside other card-like panels unless the inner item is a repeated object.
 - Use tonal tint for selected states before adding new shadows.
 - Playhead and flow guides should sit above canvas content without covering controls.
+- Atmospheric images must stay behind the work surface and never compete with text or the drawing canvas.

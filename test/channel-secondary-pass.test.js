@@ -32,7 +32,7 @@ test("cleanPin keeps digits only and caps length", () => {
 test("hashPass is deterministic, salted by channel, and never the raw pin", () => {
   const a = utils.hashPass("77", "1234")
   assert.equal(a, utils.hashPass("77", "1234"))
-  // 같은 비번이라도 채널이 다르면 해시가 다르다(채널 번호로 소금).
+  // 같은 비번이라도 갤러리가 다르면 해시가 다르다(갤러리 번호로 소금).
   assert.notEqual(a, utils.hashPass("78", "1234"))
   // 비번이 다르면 해시도 다르다.
   assert.notEqual(a, utils.hashPass("77", "1235"))
@@ -61,10 +61,10 @@ test("sanitizeChannelMeta hides owner/pass hashes but reports hasPass", () => {
 test("server gates: publish + channel list verify the channel password", () => {
   const publish = fs.readFileSync(path.join(projectDir, "api", "share", "publish.js"), "utf8")
   const channel = fs.readFileSync(path.join(projectDir, "api", "share", "channel.js"), "utf8")
-  // 공유는 채널이 점유돼 있고 채널 비밀번호가 맞아야 한다.
+  // 공유는 화음 갤러리가 점유돼 있고 화음 갤러리 비밀번호가 맞아야 한다.
   assert.match(publish, /loadChannelMeta/)
   assert.match(publish, /hashPass\(channel, cleanPin\(body\.pass\)\) !== channelMeta\.passHash/)
-  // 목록은 잠긴 채널이면 비번이 맞아야 작품을 내준다.
+  // 목록은 잠긴 화음 갤러리면 비번이 맞아야 작품을 내준다.
   assert.match(channel, /channelMeta\.passHash/)
   assert.match(channel, /locked: true/)
 })
@@ -73,7 +73,7 @@ test("channel-claim rejects other teachers and requires the admin pin", () => {
   const claim = fs.readFileSync(path.join(projectDir, "api", "share", "channel-claim.js"), "utf8")
   assert.match(claim, /hashAdmin\(body\.adminPin\)/)
   assert.match(claim, /existing\.ownerHash !== ownerHash/)
-  assert.match(claim, /이미 다른 선생님이 점유한 채널/)
+  assert.match(claim, /이미 다른 선생님이 사용 중인 화음 갤러리/)
 })
 
 test("share-store exposes channel claim + pass-aware listing", () => {
@@ -91,20 +91,20 @@ test("share + channel pages carry the channel password UI", () => {
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const styles = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
-  assert.match(studio, /채널에 들어가 그림 음악을 감상합니다\./)
-  assert.match(studio, /채널 번호를 입력하면 같은 채널에 모인 그림 음악이 갤러리처럼 펼쳐집니다\./)
-  assert.doesNotMatch(studio, new RegExp("채널을 열면 선생님이 알려 준 " + "2" + "차 " + "비밀번호"))
-  assert.doesNotMatch(studio, new RegExp("채널 " + "열기"))
-  assert.match(studio, /id="channelOpenTitle">채널 들어가기/)
-  assert.doesNotMatch(studio, new RegExp("관리자 " + "채널 만들기"))
-  assert.match(studio, /id="channelAdminTitle">채널 관리하기/)
+  assert.match(studio, /화음 갤러리에 들어가 완성된 작품을 감상합니다\./)
+  assert.match(studio, /화음 갤러리 번호를 입력하면 같은 화음 갤러리에 모인 완성 작품이 펼쳐집니다\./)
+  assert.doesNotMatch(studio, new RegExp("화음 갤러리를 열면 선생님이 알려 준 " + "2" + "차 " + "비밀번호"))
+  assert.doesNotMatch(studio, new RegExp("화음 갤러리 " + "열기"))
+  assert.match(studio, /id="channelOpenTitle">화음 갤러리 들어가기/)
+  assert.doesNotMatch(studio, new RegExp("관리자 " + "화음 갤러리 만들기"))
+  assert.match(studio, /id="channelAdminTitle">화음 갤러리 관리하기/)
   assert.match(studio, /placeholder="관리자 번호 \(8624\)"/)
-  assert.match(studio, /placeholder="채널 이름 \(예: 3반 봄 음악\)"/)
-  assert.match(studio, /placeholder="채널 비밀번호 \(숫자 4자리 이상\)"/)
-  assert.match(studio, /id="claimChannelBtn">채널 만들기/)
-  assert.match(studio, /관리자 번호\(8624\)로 채널 생성이 가능하며/)
-  assert.match(studio, /학생은 교사가 설정한 채널 번호 \+ 비밀번호를 통해 들어갈 수 있습니다\./)
-  assert.match(studio, /채널 삭제 시에는 채널 비밀번호가 필요하며/)
+  assert.match(studio, /placeholder="화음 갤러리 이름 \(예: 3반 봄 음악\)"/)
+  assert.match(studio, /placeholder="화음 갤러리 비밀번호 \(숫자 4자리 이상\)"/)
+  assert.match(studio, /id="claimChannelBtn">화음 갤러리 만들기/)
+  assert.match(studio, /관리자 번호\(8624\)로 화음 갤러리 생성이 가능하며/)
+  assert.match(studio, /학생은 교사가 설정한 화음 갤러리 번호 \+ 비밀번호를 통해 들어갈 수 있습니다\./)
+  assert.match(studio, /화음 갤러리 삭제 시에는 화음 갤러리 비밀번호가 필요하며/)
   assert.match(studio, /class="channel-gate-grid"/)
   assert.match(studio, /id="claimChannelBtn"/)
   assert.match(studio, /id="deleteChannelBtn"/)
@@ -116,7 +116,7 @@ test("share + channel pages carry the channel password UI", () => {
   assert.match(styles, /\.channel-gate\[hidden\],\s*\.channel-empty\[hidden\]\s*\{[\s\S]*display:\s*none/)
   assert.match(channelHtml, /id="channelGate"/)
   assert.match(channelHtml, /id="channelGateInput"/)
-  assert.match(channelHtml, /placeholder="채널 비밀번호"/)
+  assert.match(channelHtml, /placeholder="화음 갤러리 비밀번호"/)
   assert.match(channelHtml, /id="channelDeleteBtn"/)
 })
 

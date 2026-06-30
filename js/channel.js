@@ -1,5 +1,5 @@
 /*
- * channel.js — 학급 채널을 갤러리처럼 보여 주는 전용 감상 화면.
+ * channel.js — 화음 갤러리 전용 감상 화면.
  */
 ;(function (root) {
   "use strict"
@@ -346,12 +346,12 @@
       if (el.adminFlag) el.title.appendChild(el.adminFlag)
     }
     el.count.textContent = state.loading
-      ? "채널을 불러옵니다."
+      ? "화음 갤러리를 불러옵니다."
       : channel
         ? state.locked
-          ? "비밀번호가 필요한 채널"
+          ? "비밀번호가 필요한 화음 갤러리"
           : ""
-        : "채널 번호를 입력해 주세요."
+        : "화음 갤러리 번호를 입력해 주세요."
     if (el.input && document.activeElement !== el.input) {
       el.input.value = channel || ""
       el.input.placeholder = channel ? "" : "예: 3021"
@@ -613,7 +613,7 @@
     el.empty.hidden = gated || state.loading || !!state.works.length || !state.channel
     if (gated) {
       const name = channelDisplayName()
-      if (el.gateTitle) el.gateTitle.textContent = (name ? name + " 채널" : state.channel + " 채널") + " — 비밀번호가 필요해요"
+      if (el.gateTitle) el.gateTitle.textContent = (name ? name + " 화음 갤러리" : state.channel + " 화음 갤러리") + " — 비밀번호가 필요해요"
       return
     }
     if (state.loading || !state.works.length) return
@@ -634,7 +634,7 @@
       state.works = []
       state.flowIndex = 0
       renderShelves()
-      setStatus("채널 번호를 적어 주세요.", true)
+      setStatus("화음 갤러리 번호를 적어 주세요.", true)
       return
     }
 
@@ -649,7 +649,7 @@
     }
     state.loading = true
     renderShelves()
-    setStatus(normalized + " 채널을 불러오는 중입니다.", false)
+    setStatus(normalized + " 화음 갤러리를 불러오는 중입니다.", false)
     try {
       const result = await ShareStore.listChannel(normalized, state.pass)
       state.channelMeta = result.meta || null
@@ -660,7 +660,7 @@
       state.loading = false
       renderShelves()
       if (state.locked) {
-        setStatus(result.passError ? "채널 비밀번호가 맞지 않아요." : "채널 비밀번호를 입력하세요.", !!result.passError)
+        setStatus(result.passError ? "화음 갤러리 비밀번호가 맞지 않아요." : "화음 갤러리 비밀번호를 입력하세요.", !!result.passError)
       } else {
         setStatus("", false)
       }
@@ -672,14 +672,14 @@
       state.flowIndex = 0
       state.loading = false
       renderShelves()
-      setStatus(error.message || "공유 채널을 불러오지 못했어요.", true)
+      setStatus(error.message || "화음 갤러리를 불러오지 못했어요.", true)
     }
   }
 
   function submitGatePass() {
     const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(el.gateInput ? el.gateInput.value : "") : ""
     if (!pin) {
-      setStatus("채널 비밀번호를 입력하세요.", true)
+      setStatus("화음 갤러리 비밀번호를 입력하세요.", true)
       return
     }
     state.openedFromHash = false
@@ -690,7 +690,7 @@
     if (!ShareStore || !ShareStore.claimChannel) return
     const channel = state.channel
     if (!channel) {
-      setStatus("먼저 채널에 들어가 주세요.", true)
+      setStatus("먼저 화음 갤러리에 들어가 주세요.", true)
       return
     }
     const displayName = el.nameInput ? el.nameInput.value.trim() : ""
@@ -700,20 +700,20 @@
       return
     }
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setStatus("채널 비밀번호(숫자)를 넣어 주세요.", true)
+      setStatus("화음 갤러리 비밀번호(숫자)를 넣어 주세요.", true)
       return
     }
     try {
-      setStatus("채널 이름을 저장하는 중입니다.", false)
+      setStatus("화음 갤러리 이름을 저장하는 중입니다.", false)
       const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: state.adminPin })
       state.channelMeta = result.channel || state.channelMeta
       if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
       updateHeader()
       setMenuOpen(false)
-      setStatus("채널 이름을 저장했어요.", false)
+      setStatus("화음 갤러리 이름을 저장했어요.", false)
     } catch (error) {
       console.error(error)
-      setStatus(error.message || "채널 이름을 저장하지 못했어요.", true)
+      setStatus(error.message || "화음 갤러리 이름을 저장하지 못했어요.", true)
     }
   }
 
@@ -721,18 +721,18 @@
     if (!ShareStore || !ShareStore.deleteChannel) return
     const channel = state.channel
     if (!channel) {
-      setStatus("먼저 채널에 들어가 주세요.", true)
+      setStatus("먼저 화음 갤러리에 들어가 주세요.", true)
       return
     }
     const pin = ShareStore.cleanPin(el.namePass ? el.namePass.value : "")
     if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setStatus("채널 비밀번호(숫자)를 넣어 주세요.", true)
+      setStatus("화음 갤러리 비밀번호(숫자)를 넣어 주세요.", true)
       return
     }
-    if (!confirm(channel + " 채널과 안에 있는 음악을 모두 삭제할까요?")) return
+    if (!confirm(channel + " 화음 갤러리와 안에 있는 음악을 모두 삭제할까요?")) return
     if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = true
     try {
-      setStatus("채널을 삭제하는 중입니다.", false)
+      setStatus("화음 갤러리를 삭제하는 중입니다.", false)
       const result = await ShareStore.deleteChannel(channel, pin)
       if (el.viewer && !el.viewer.hidden) closeViewer()
       state.channel = ""
@@ -749,10 +749,10 @@
       history.replaceState(null, "", channelUrl("", ""))
       setMenuOpen(false)
       renderShelves()
-      setStatus(channel + " 채널을 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
+      setStatus(channel + " 화음 갤러리를 삭제했어요." + (result.localOnly ? " (이 브라우저에서만 삭제됨)" : ""), false)
     } catch (error) {
       console.error(error)
-      setStatus(error.message || "채널을 삭제하지 못했어요.", true)
+      setStatus(error.message || "화음 갤러리를 삭제하지 못했어요.", true)
     } finally {
       if (el.deleteChannelBtn) el.deleteChannelBtn.disabled = false
     }
@@ -864,7 +864,7 @@
   function openInputChannel() {
     const channel = normalizeChannel(el.input.value)
     if (!channel) {
-      setStatus("채널 번호를 적어 주세요.", true)
+      setStatus("화음 갤러리 번호를 적어 주세요.", true)
       return
     }
     state.openedFromHash = false

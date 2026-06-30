@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>화음 갤러리 · 학급 채널</title>
+    <title>화음 갤러리</title>
     <link rel="icon" type="image/png" href="./assets/default-cover.png" />
-    <link rel="stylesheet" href="./styles.css?v=20260629-gallery-modern" />
+    <link rel="stylesheet" href="./styles.css?v=20260630-gallery-luxe" />
   </head>
   <body class="channel-body">
     <div class="channel-shell">
@@ -18,29 +18,29 @@
             <label class="channel-admin-field" for="channelAdminPin">
               <span>관리자 번호</span>
               <input id="channelAdminPin" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자만" />
-              <small>관리자 번호를 넣으면 어느 채널에서든 작품을 지울 수 있어요.</small>
+              <small>관리자 번호를 넣으면 어느 화음 갤러리에서든 작품을 지울 수 있어요.</small>
             </label>
             <label class="channel-admin-field" for="channelNameInput">
-              <span>채널 이름</span>
+              <span>화음 갤러리 이름</span>
               <input id="channelNameInput" type="text" autocomplete="off" maxlength="40" placeholder="예: 3반 봄 음악" />
-              <input id="channelNamePass" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="채널 비밀번호(숫자)" />
+              <input id="channelNamePass" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="화음 갤러리 비밀번호(숫자)" />
               <button class="channel-menu-item" id="channelRenameBtn" type="button">이름 저장</button>
-              <button class="channel-menu-item danger" id="channelDeleteBtn" type="button">채널 삭제하기</button>
-              <small>이름 저장은 관리자 번호와 채널 비밀번호가 필요합니다. 채널 삭제는 채널 비밀번호로 할 수 있고, 채널 안의 음악도 함께 지워집니다.</small>
+              <button class="channel-menu-item danger" id="channelDeleteBtn" type="button">화음 갤러리 삭제하기</button>
+              <small>이름 저장은 관리자 번호와 화음 갤러리 비밀번호가 필요합니다. 화음 갤러리 삭제는 화음 갤러리 비밀번호로 할 수 있고, 안의 음악도 함께 지워집니다.</small>
             </label>
           </div>
         </div>
 
         <div class="channel-title-block">
           <h1 id="channelTitle">화음 갤러리<span class="channel-admin-flag" id="channelAdminFlag" hidden>관리자 모드</span></h1>
-          <p id="channelCount">채널을 불러옵니다.</p>
+          <p id="channelCount">화음 갤러리를 불러옵니다.</p>
         </div>
 
         <div class="channel-top-actions">
           <p class="channel-status" id="channelStatus" aria-live="polite"></p>
-          <section class="channel-gate" id="channelGate" hidden aria-label="채널 비밀번호 입력">
+          <section class="channel-gate" id="channelGate" hidden aria-label="화음 갤러리 비밀번호 입력">
             <form class="channel-gate-form" id="channelGateForm">
-              <input id="channelGateInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="채널 비밀번호" aria-label="채널 비밀번호" />
+              <input id="channelGateInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="화음 갤러리 비밀번호" aria-label="화음 갤러리 비밀번호" />
               <button class="channel-open-button" type="submit">열기</button>
             </form>
           </section>
@@ -55,7 +55,7 @@
             </div>
           </div>
           <form class="channel-open-form" id="channelOpenForm">
-            <label for="channelInput">현재 채널</label>
+            <label for="channelInput">현재 화음 갤러리</label>
             <input id="channelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="예: 3021" />
             <button class="channel-open-button" type="submit">열기</button>
             <button class="channel-icon-button" id="channelRefreshBtn" type="button" aria-label="새로고침">↻</button>
@@ -66,8 +66,8 @@
       <main class="channel-library" id="channelLibrary">
         <div class="channel-shelves" id="channelShelves"></div>
         <div class="channel-empty" id="channelEmpty" hidden>
-          <strong>아직 이 채널에 음악이 없습니다.</strong>
-          <span>스튜디오에서 완성한 음악을 채널에 공유하면 여기에 모입니다.</span>
+          <strong>아직 이 화음 갤러리에 음악이 없습니다.</strong>
+          <span>스튜디오에서 완성한 음악을 화음 갤러리에 공유하면 여기에 모입니다.</span>
         </div>
       </main>
     </div>
@@ -80,7 +80,7 @@
           <button class="channel-viewer-play" id="viewerPlayBtn" type="button" aria-label="재생">▶</button>
         </figure>
         <section class="channel-viewer-info">
-          <p class="channel-eyebrow">학급 채널 감상</p>
+          <p class="channel-eyebrow">화음 갤러리 감상</p>
           <h2 id="viewerTitle">무제</h2>
           <p class="channel-viewer-meta" id="viewerMeta"></p>
           <audio class="channel-viewer-audio" id="viewerAudio" controls preload="auto"></audio>
