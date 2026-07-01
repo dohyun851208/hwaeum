@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 갤러리</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260701-channel-code-length" />
+    <link rel="stylesheet" href="./styles.css?v=20260702-gallery-focus-clean" />
   </head>
   <body class="channel-body">
     <div class="channel-shell">
@@ -47,8 +47,10 @@
           <p class="channel-status" id="channelStatus" aria-live="polite"></p>
           <form class="channel-open-form" id="channelOpenForm">
             <input id="channelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="번호" aria-label="갤러리 번호" />
-            <input id="channelCodeInput" class="channel-code-input" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="코드" aria-label="갤러리 코드" />
-            <button class="channel-open-button" type="submit">열기</button>
+            <span class="channel-code-open">
+              <input id="channelCodeInput" class="channel-code-input" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="코드" aria-label="갤러리 코드" />
+              <button class="channel-open-button" type="submit">열기</button>
+            </span>
           </form>
         </div>
       </header>
