@@ -5,6 +5,22 @@ const path = require("node:path")
 
 const projectDir = path.join(__dirname, "..")
 
+function functionBody(source, name) {
+  const marker = "function " + name + "("
+  const start = source.indexOf(marker)
+  assert.notEqual(start, -1, name + " should exist")
+  const open = source.indexOf("{", start)
+  let depth = 0
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === "{") depth += 1
+    else if (source[i] === "}") {
+      depth -= 1
+      if (depth === 0) return source.slice(open + 1, i)
+    }
+  }
+  throw new Error("Could not parse function body for " + name)
+}
+
 test("화음 갤러리는 한눈에 보기와 커버플로우 보기 모드를 제공한다", () => {
   const html = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
@@ -42,6 +58,19 @@ test("커버플로우는 마우스 드래그와 휠로 부드럽게 움직인다
   assert.match(css, /cursor:\s*grab/)
 })
 
+test("coverflow card clicks are not swallowed by drag pointer capture", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+  const body = functionBody(source, "bindFlowInteractions")
+  const downStart = body.indexOf('stage.addEventListener("pointerdown"')
+  const moveStart = body.indexOf('stage.addEventListener("pointermove"')
+
+  assert.notEqual(downStart, -1)
+  assert.notEqual(moveStart, -1)
+  assert.doesNotMatch(body.slice(downStart, moveStart), /setPointerCapture/)
+  assert.match(body, /if \(!state\.flowDragMoved\) \{[\s\S]*Math\.abs\(dx\) <= 4[\s\S]*return[\s\S]*state\.flowDragMoved = true[\s\S]*stage\.setPointerCapture\(pointerId\)/)
+  assert.match(body, /if \(state\.flowDragMoved\) setFlowIndex\(Math\.round\(state\.flowPosition\)\)/)
+})
+
 test("화음 갤러리 화면은 저장된 갤러리 이름을 주제목으로 보여주고 현재 번호를 입력칸에 보여 준다", () => {
   const html = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
@@ -59,10 +88,12 @@ test("화음 갤러리 화면은 저장된 갤러리 이름을 주제목으로 �
   assert.match(css, /\.channel-title-block h1\s*\{[\s\S]*color:\s*var\(--channel-accent\)/)
   assert.match(css, /\.channel-title-block h1\s*\{[\s\S]*font-size:\s*2\.1rem/)
   assert.match(css, /\.channel-title-block p:last-child:empty\s*\{[\s\S]*display:\s*none/)
-  assert.match(css, /\.channel-top-actions\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto\s*minmax\(0,\s*1fr\)/)
-  assert.match(css, /\.channel-viewbar\s*\{[\s\S]*left:\s*50%/)
-  assert.match(css, /\.channel-viewbar\s*\{[\s\S]*transform:\s*translate\(-50%,\s*-50%\)/)
-  assert.match(css, /\.channel-flow-controls\s*\{[\s\S]*position:\s*absolute/)
+  assert.match(css, /\.channel-top-actions\s*\{[^}]*display:\s*flex/)
+  assert.match(css, /\.channel-top-actions\s*\{[^}]*flex-wrap:\s*wrap/)
+  assert.match(css, /\.channel-viewbar\s*\{[^}]*flex:\s*0 0 auto/)
+  assert.doesNotMatch(css, /\.channel-viewbar\s*\{[^}]*position:\s*absolute/)
+  assert.doesNotMatch(css, /\.channel-flow-controls\s*\{[^}]*position:\s*absolute/)
+  assert.match(css, /body:not\(\[data-gallery-view="flow"\]\) \.channel-flow-controls\s*\{[^}]*visibility:\s*hidden/)
   assert.match(css, /\.channel-open-form\s*\{[\s\S]*grid-template-columns:\s*auto\s*92px\s*118px\s*62px/)
 })
 

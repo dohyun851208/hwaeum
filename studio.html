@@ -103,7 +103,7 @@
                 </div>
                 <div class="panel-tools">
                   <div class="draw-mode-tabs" role="group" aria-label="드로잉 방식">
-                    <button class="draw-mode-tab active" id="drawModePictureBtn" type="button" aria-pressed="true">자유 그리기</button>
+                    <button class="draw-mode-tab active" id="drawModePictureBtn" type="button" aria-pressed="true" aria-current="true">자유 그리기</button>
                     <button class="draw-mode-tab" id="drawModeSoundBtn" type="button" aria-pressed="false">음악에 맞춰 그리기</button>
                   </div>
                   <button class="btn small tool-icon-btn active" id="penBtn" type="button" aria-label="펜, 키보드 1" aria-pressed="true" aria-keyshortcuts="1" title="펜 (키보드 1)">
@@ -261,11 +261,11 @@
               <div class="reflection-fields">
                 <label class="reflection-field" for="bgReasonInput">
                   <span>배경음악을 고른 이유</span>
-                  <textarea id="bgReasonInput" rows="3" maxlength="180" placeholder="그림 배경과 어울린다고 생각한 이유를 적어보세요."></textarea>
+                  <textarea id="bgReasonInput" rows="3" maxlength="180" placeholder="그림의 분위기와 느낌을 표현하기 위해 이 배경음악을 선택한 이유를 적어보세요."></textarea>
                 </label>
                 <label class="reflection-field" for="melodyIntentInput">
                   <span>선율을 표현한 의도</span>
-                  <textarea id="melodyIntentInput" rows="3" maxlength="180" placeholder="선의 움직임, 높낮이, 악기로 표현하고 싶은 느낌을 적어보세요."></textarea>
+                  <textarea id="melodyIntentInput" rows="3" maxlength="180" placeholder="악기 음색, 선의 움직임(높낮이·길이), 소리의 어울림, 효과음 등을 어떻게 활용하여 음악을 표현했는지 적어 보세요."></textarea>
                 </label>
                 <label class="hashtag-field" for="hashtagsInput">
                   <span>해시태그</span>
@@ -276,8 +276,6 @@
 
               <div class="actions-row take-save-actions">
                 <button class="btn small primary" id="saveTakeBtn" type="button">저장</button>
-              </div>
-              <div class="completion-share-panel">
                 <button class="btn primary completion-share-button" id="publishShareBtn" type="button">화음 갤러리에 공유하기</button>
               </div>
               <div class="publish-progress" id="publishProgress" hidden role="status" aria-label="공유 진행률">
@@ -288,10 +286,6 @@
               <p class="upload-status" id="exportStatus" aria-live="polite"></p>
             </div>
           </section>
-          <div class="screen-actions">
-            <button class="btn" type="button" data-step-prev>이전</button>
-            <button class="btn primary" type="button" data-step-next>화음 갤러리 입장하기</button>
-          </div>
         </section>
 
         <!-- 5단계: 화음 갤러리에 공유하기 -->

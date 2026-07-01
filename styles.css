@@ -429,16 +429,16 @@ body:not([data-step="2"]) .transport {
 }
 .drawing-save-btn.btn.small {
   min-width: 96px;
-  border-color: #cfb66a;
-  background: #fff7d7;
-  color: #3f3515;
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
   font-size: 0.98rem;
-  box-shadow: 0 6px 14px rgba(63, 53, 21, 0.1);
+  box-shadow: none;
 }
 .drawing-save-btn.btn.small:hover,
 .drawing-save-btn.btn.small:focus-visible {
-  border-color: #a9822f;
-  background: #ffefba;
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .drawing-new-take-btn.btn.small,
 .take-new-save-btn.btn.small {
@@ -1149,7 +1149,6 @@ body.is-publishing #saveTakeBtn {
 }
 .draw-panel {
   position: relative;
-  --draw-mode-toolbar-left: 50%;
 }
 .panel-head {
   display: flex;
@@ -1201,7 +1200,7 @@ body.is-publishing #saveTakeBtn {
 
 .channel-shell {
   display: grid;
-  grid-template-rows: 96px 1fr;
+  grid-template-rows: auto 1fr;
   min-height: 100vh;
 }
 
@@ -1209,11 +1208,11 @@ body.is-publishing #saveTakeBtn {
   position: relative;
   z-index: 30;
   display: grid;
-  grid-template-columns: 56px minmax(300px, 0.7fr) minmax(0, 1.3fr);
+  grid-template-columns: 56px minmax(260px, 0.56fr) minmax(640px, 1.44fr);
   align-items: center;
   gap: 14px;
   min-height: 96px;
-  padding: 0 18px;
+  padding: 10px 18px;
   border-bottom: 1px solid var(--channel-line);
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
@@ -1421,17 +1420,16 @@ body.is-publishing #saveTakeBtn {
 }
 
 .channel-top-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px 10px;
   min-width: 0;
 }
 
 .channel-open-form {
-  grid-column: 3;
-  grid-row: 1;
-  justify-self: end;
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: auto 92px 118px 62px;
   align-items: center;
@@ -1515,11 +1513,10 @@ body.is-publishing #saveTakeBtn {
 }
 
 .channel-status {
-  grid-column: 1;
-  grid-row: 1;
-  justify-self: start;
+  flex: 1 1 132px;
   overflow: hidden;
-  min-width: 0;
+  min-width: 118px;
+  max-width: 220px;
   margin: 0;
   color: var(--channel-muted);
   font-size: 0.82rem;
@@ -1533,11 +1530,8 @@ body.is-publishing #saveTakeBtn {
 }
 
 .channel-viewbar {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  flex: 0 0 auto;
   z-index: 2;
-  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1573,10 +1567,6 @@ body.is-publishing #saveTakeBtn {
 }
 
 .channel-flow-controls {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + 10px);
-  transform: translateY(-50%);
   display: inline-flex;
   gap: 6px;
   transition: opacity 140ms ease;
@@ -1584,6 +1574,7 @@ body.is-publishing #saveTakeBtn {
 
 body:not([data-gallery-view="flow"]) .channel-flow-controls {
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -2137,16 +2128,15 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #eef4f8;
+  flex: 0 0 auto;
 }
 .draw-panel .draw-mode-tabs {
-  position: absolute;
-  top: 18px;
-  left: var(--draw-mode-toolbar-left);
-  z-index: 8;
-  transform: translateX(-50%);
   box-shadow: 0 8px 20px rgba(42, 35, 18, 0.12);
 }
 .draw-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   min-height: 34px;
   padding: 0 12px;
   border: 0;
@@ -2156,10 +2146,22 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   font-weight: 900;
   white-space: nowrap;
 }
-.draw-mode-tab.active {
-  background: var(--canvas);
+.draw-mode-tabs .draw-mode-tab.active {
+  background: #ffffff;
   color: var(--ink);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm);
+}
+.draw-mode-tabs .draw-mode-tab.active::after {
+  content: "선택됨";
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 900;
 }
 
 /* 캔버스 */
@@ -3466,9 +3468,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 /* 화음 갤러리 감상 페이지의 코드 게이트 */
 .channel-gate {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: center;
+  flex: 0 0 auto;
   margin: 0;
 }
 .channel-gate-form {
@@ -4786,9 +4786,6 @@ body:not(.channel-body)::after {
   body[data-step="2"] .panel-head {
     padding: 14px 18px;
   }
-  body[data-step="2"] .draw-panel .draw-mode-tabs {
-    top: 14px;
-  }
   body[data-step="2"] .panel-head h2 {
     font-size: clamp(1.35rem, 1.8vw, 1.8rem);
   }
@@ -5014,9 +5011,6 @@ body:not(.channel-body)::after {
   }
   body[data-step="2"] .panel-head {
     padding: 11px 16px;
-  }
-  body[data-step="2"] .draw-panel .draw-mode-tabs {
-    top: 11px;
   }
   body[data-step="2"] .panel-head h2 {
     font-size: 1.35rem;

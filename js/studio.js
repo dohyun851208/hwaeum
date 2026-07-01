@@ -531,7 +531,6 @@
     const wrap = canvasWrap()
     if (!wrap) return
     wrap.style.setProperty("--canvas-scroll-left", Math.max(0, wrap.scrollLeft || 0) + "px")
-    syncDrawModeToolbarPosition()
   }
 
   function syncDrawingReferenceToggle() {
@@ -572,22 +571,6 @@
   function timelineCssX(progress) {
     const g = canvasTimelineGeometry()
     return g.labelWidth + clampUnit(progress) * g.width
-  }
-
-  function syncDrawModeToolbarPosition() {
-    if (!el.canvas || !el.drawModePictureBtn) return
-    const panel = el.canvas.closest(".draw-panel")
-    const modeTabs = el.drawModePictureBtn.closest(".draw-mode-tabs")
-    if (!panel || !modeTabs) return
-    const canvasRect = el.canvas.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
-    if (!canvasRect.width || !panelRect.width) return
-    const duration = Math.max(MIN_DURATION_SECONDS, state.duration || DEFAULT_DURATION_SECONDS)
-    const anchorTime = Math.min(7.5, duration)
-    const rawX = canvasRect.left - panelRect.left + timelineCssX(anchorTime / duration)
-    const half = Math.max(0, (modeTabs.offsetWidth || 0) / 2)
-    const x = clampNumber(rawX, half + 16, Math.max(half + 16, panelRect.width - half - 16))
-    panel.style.setProperty("--draw-mode-toolbar-left", Math.round(x) + "px")
   }
 
   function timelineProgressFromClientX(clientX) {
@@ -1390,7 +1373,7 @@
     renderTakes()
     if (paused) pausePlayhead()
     else if (playing) startPlayhead(wasPaused)
-    else stopPlayhead()
+    else stopPlayhead(engine.lastStopReason === "ended")
   }
 
   // 드로잉(3단계) 화면에서만 배경음을 깐다. 완성곡 재생 중엔 engine 이 끈다.
@@ -1555,10 +1538,23 @@
     silentFlowRAF = null
   }
 
-  function stopPlayhead() {
+  function stopPlayhead(finished) {
     if (playheadRAF) cancelAnimationFrame(playheadRAF)
     playheadRAF = null
+    const durMs = Math.max(1, state.duration * 1000)
     playheadStartedAt = 0
+    if (finished) {
+      playheadElapsedMs = durMs
+      if (el.playhead) {
+        if (state.step === DRAWING_STEP) {
+          el.playhead.hidden = false
+          positionPlayhead(1, { follow: false })
+        } else {
+          el.playhead.hidden = true
+        }
+      }
+      return
+    }
     playheadElapsedMs = selectedPlaybackStartSec() * 1000
     if (el.playhead) {
       if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
@@ -1608,7 +1604,7 @@
           draw.flowRecord(1)
           draw.finishFlowStroke(true)
         }
-        stopPlayhead()
+        stopPlayhead(prog >= 1)
       }
     }
     if (playheadRAF) cancelAnimationFrame(playheadRAF)
@@ -2095,10 +2091,14 @@
     if (el.drawModePictureBtn) {
       el.drawModePictureBtn.classList.toggle("active", !soundMode)
       el.drawModePictureBtn.setAttribute("aria-pressed", soundMode ? "false" : "true")
+      if (soundMode) el.drawModePictureBtn.removeAttribute("aria-current")
+      else el.drawModePictureBtn.setAttribute("aria-current", "true")
     }
     if (el.drawModeSoundBtn) {
       el.drawModeSoundBtn.classList.toggle("active", soundMode)
       el.drawModeSoundBtn.setAttribute("aria-pressed", soundMode ? "true" : "false")
+      if (soundMode) el.drawModeSoundBtn.setAttribute("aria-current", "true")
+      else el.drawModeSoundBtn.removeAttribute("aria-current")
     }
   }
 

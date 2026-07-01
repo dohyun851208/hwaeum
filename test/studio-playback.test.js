@@ -152,6 +152,21 @@ test("paused playback stores the visible playhead position for later controls", 
   assert.match(stopBody, /playheadElapsedMs = selectedPlaybackStartSec\(\) \* 1000/)
 })
 
+test("finished full playback leaves the playhead at the end", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const onStateAt = source.indexOf("engine.onState = function")
+  const stopBody = functionBody(source, "stopPlayhead")
+  const startBody = functionBody(source, "startPlayhead")
+
+  assert.notEqual(onStateAt, -1)
+  assert.match(source.slice(onStateAt, onStateAt + 1600), /stopPlayhead\(engine\.lastStopReason === "ended"\)/)
+  assert.match(startBody, /stopPlayhead\(prog >= 1\)/)
+  assert.match(stopBody, /if \(finished\)/)
+  assert.match(stopBody, /playheadElapsedMs = durMs/)
+  assert.match(stopBody, /positionPlayhead\(1, \{ follow: false \}\)/)
+  assert.match(stopBody, /playheadElapsedMs = selectedPlaybackStartSec\(\) \* 1000/)
+})
+
 test("switching to the eraser keeps the playhead in place instead of resetting to the start", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const eraserBody = functionBody(source, "activateEraserTool")

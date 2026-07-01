@@ -290,7 +290,7 @@
       { midi: 85, note: "C#6", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_Cs6.mp3" },
       { midi: 86, note: "D6", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_D6.mp3" },
       { midi: 87, note: "D#6", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_Ds6.mp3" },
-      { midi: 88, note: "E6", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_E6.mp3" },
+      { midi: 88, note: "E6", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_F6.mp3", cents: 100 },
       { midi: 89, note: "F6", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_F6.mp3" },
       { midi: 90, note: "F#6", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_Fs6.mp3" },
       { midi: 91, note: "G6", src: "sound/선율-서양(필하모니아)/관/oboe/oboe_G6.mp3" },

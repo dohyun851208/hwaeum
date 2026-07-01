@@ -368,9 +368,9 @@ check(
 check(
   "완성 탭 공유 진행률은 공유 버튼 바로 아래에 있다",
   qc(".share-publish-panel") === 0 &&
-    qc(".completion-share-panel #publishShareBtn") === 1 &&
-    window.document.querySelector(".completion-detail-panel > .completion-share-panel + .publish-progress") != null,
-  qc(".share-publish-panel") + "/" + qc(".completion-share-panel #publishShareBtn") + "/" + qc(".completion-detail-panel > .completion-share-panel + .publish-progress"),
+    qc(".take-save-actions #publishShareBtn") === 1 &&
+    window.document.querySelector(".completion-detail-panel > .take-save-actions + .publish-progress") != null,
+  qc(".share-publish-panel") + "/" + qc(".take-save-actions #publishShareBtn") + "/" + qc(".completion-detail-panel > .take-save-actions + .publish-progress"),
 )
 check("완성 탭 관리자 모드 버튼 제거", qc("#adminModeBtn") === 0, qc("#adminModeBtn"))
 check("완성 탭 음악 멈춤 버튼 제거", qc("#completeStopBtn") === 0, qc("#completeStopBtn"))

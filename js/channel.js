@@ -628,6 +628,7 @@
     let pointerId = null
     let startX = 0
     let startPos = 0
+    let pointerCaptured = false
 
     function maxIndex() {
       return Math.max(0, state.works.length - 1)
@@ -640,16 +641,21 @@
       startX = event.clientX
       startPos = state.flowPosition
       state.flowDragMoved = false
-      setFlowDragging(true)
-      try {
-        stage.setPointerCapture(pointerId)
-      } catch (error) {}
+      pointerCaptured = false
     })
 
     stage.addEventListener("pointermove", function (event) {
       if (pointerId === null || event.pointerId !== pointerId) return
       const dx = event.clientX - startX
-      if (Math.abs(dx) > 4) state.flowDragMoved = true
+      if (!state.flowDragMoved) {
+        if (Math.abs(dx) <= 4) return
+        state.flowDragMoved = true
+        setFlowDragging(true)
+        try {
+          stage.setPointerCapture(pointerId)
+          pointerCaptured = true
+        } catch (error) {}
+      }
       const max = maxIndex()
       let pos = startPos - dx / SPACING
       // 양 끝에서는 고무줄처럼 살짝만 끌려 나가게 한다.
@@ -661,11 +667,15 @@
 
     function endDrag(event) {
       if (pointerId === null || (event && event.pointerId !== pointerId)) return
-      try {
-        stage.releasePointerCapture(pointerId)
-      } catch (error) {}
+      if (pointerCaptured) {
+        try {
+          stage.releasePointerCapture(pointerId)
+        } catch (error) {}
+      }
       pointerId = null
-      setFlowIndex(Math.round(state.flowPosition))
+      pointerCaptured = false
+      setFlowDragging(false)
+      if (state.flowDragMoved) setFlowIndex(Math.round(state.flowPosition))
     }
 
     stage.addEventListener("pointerup", endDrag)

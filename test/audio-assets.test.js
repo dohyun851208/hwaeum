@@ -210,6 +210,16 @@ test("detected sample maps provide playable note segments for gugak melody asset
   }
 })
 
+test("sustained wind sample maps avoid short repeated loop sources", () => {
+  const data = loadManifest()
+  const dansoLow = data.melodies.danso.sampleMap.find((item) => item.midi === 68)
+  const oboeE6 = data.melodies.oboe.sampleMap.find((item) => item.midi === 88)
+
+  assert.equal(dansoLow.duration, 2.4)
+  assert.match(oboeE6.src, /oboe_F6\.mp3$/)
+  assert.equal(oboeE6.cents, 100)
+})
+
 test("index loads detected sample maps before the audio engine", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   assert.ok(html.indexOf("./js/manifest.js") < html.indexOf("./js/sample-maps.js"))

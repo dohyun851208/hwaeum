@@ -37,7 +37,7 @@
       { midi: 88, note: "E6", src: "sound/선율-국악(국립국악원)/관/daegeum/daegeum_E6.mp3", offset: 146.03, duration: 2.4, detectedHz: 1290.21, confidence: 0.994, cents: -38 },
     ],
     danso: [
-      { midi: 68, note: "G#4", offset: 0.56, duration: 1.2, detectedHz: 416.93, confidence: 0.982, cents: 7 },
+      { midi: 68, note: "G#4", offset: 0.56, duration: 2.4, detectedHz: 416.93, confidence: 0.982, cents: 7 },
       { midi: 70, note: "A#4", offset: 6.26, duration: 2.4, detectedHz: 472.72, confidence: 0.982, cents: 24 },
       { midi: 73, note: "C#5", offset: 12.01, duration: 2.4, detectedHz: 559.57, confidence: 0.984, cents: 16 },
       { midi: 75, note: "D#5", offset: 17.76, duration: 2.4, detectedHz: 632.44, confidence: 0.983, cents: 28 },
