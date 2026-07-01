@@ -553,6 +553,25 @@ test("gugak multi-sample long horizontal notes loop the stable region of the sam
   assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 8)
 })
 
+test("violin bottom G uses a shorter front sustain loop", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "violin", style: "bright", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 8, midi: 55, velocity: 0.7 }],
+  )
+  const duration = 2.194
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: null, melodySamples: { 55: { duration } } }, 0, noop)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.equal(ctx.created.buffers[0].loop, true)
+  assert.ok(Math.abs(ctx.created.buffers[0].loopStart - duration * 0.28) < 1e-9)
+  assert.ok(Math.abs(ctx.created.buffers[0].loopEnd - duration * 0.58) < 1e-9)
+})
+
 test("multi-sample melody sustains contiguous notes as one connected phrase", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
@@ -717,7 +736,7 @@ test("live drawing preview uses the full-playback melody gain target", () => {
   engine._createSampleLivePreview(ctx, plan, { duration: 2.4 }, 0.5)
 
   const target = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const expected = plan.version.melodyGain * 1.5 * 0.81 * (0.7 * 0.85) * 0.70
+  const expected = plan.version.melodyGain * 1.5 * 0.81 * (0.7 * 0.85) * 0.56
   const noteGain = ctx.created.gains[1].gain.events.find((event) => event[0] === "set")[1]
   assert.ok(Math.abs(noteGain - Math.min(0.95, expected * 1.329) / expected) < 1e-9)
   assert.ok(Math.abs(target - expected) < 1e-9, "드로잉 중 미리듣기 음량은 전체 재생 선율 기준을 따라야 한다")
@@ -736,7 +755,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine._createSampleLivePreview(previewCtx, plan, { duration: 2.4 }, 0.5)
 
   const previewTarget = previewCtx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const previousDrawingTarget = plan.version.melodyGain * 0.52 * (0.7 * 0.85) * 0.70
+  const previousDrawingTarget = plan.version.melodyGain * 0.52 * (0.7 * 0.85) * 0.56
   assert.ok(Math.abs(previewTarget - previousDrawingTarget * 1.3) < 1e-9)
 
   const ctx = makeAudioContext()
@@ -744,7 +763,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
   const phrasePeak = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.52 * 0.70
+  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.52 * 0.56
   assert.ok(Math.abs(playbackOutputTarget - previewTarget) < 1e-9)
 
   const toneFilter = ctx.created.filters.find((filter) => filter.frequency.events.some((event) => event[1] === 2300))

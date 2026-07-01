@@ -54,7 +54,7 @@
     gayageum: { 55: 1, 57: 1, 60: 1, 62: 1, 64: 1, 67: 1, 69: 1, 72: 1, 74: 1, 76: 1 },
   }
   const LIVE_PREVIEW_MAX_GAIN = 0.95
-  const MASTER_OUTPUT_GAIN = 0.70
+  const MASTER_OUTPUT_GAIN = 0.56
   const NOTE_PREVIEW_GAIN_BOOST = 2
   const NOTE_PREVIEW_SYNTH_GAIN = 0.24 * NOTE_PREVIEW_GAIN_BOOST
   const NOTE_PREVIEW_SAMPLE_GAIN = 0.34 * NOTE_PREVIEW_GAIN_BOOST
@@ -262,10 +262,15 @@
   }
   // === § 4  Sustain Loop 시스템 ===
 
-  function sampleSustainLoopRegion(offset, duration) {
+  function sampleSustainLoopRegion(offset, duration, loopHint) {
     const dur = Number(duration) || 0
     if (dur <= 0.25) return null
     const minLoop = Math.min(0.22, dur * 0.35)
+    if (loopHint && loopHint.startRatio != null && loopHint.endRatio != null) {
+      const relStart = clamp(dur * loopHint.startRatio, Math.min(0.18, Math.max(0, dur - minLoop)), Math.max(0, dur - minLoop - 0.06))
+      const relEnd = clamp(dur * loopHint.endRatio, relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
+      if (relEnd > relStart + 0.06) return { start: offset + relStart, end: offset + relEnd }
+    }
     const relStart = clamp(dur * 0.28, Math.min(0.18, Math.max(0, dur - minLoop)), Math.max(0, dur - minLoop - 0.06))
     const relEnd = clamp(Math.max(relStart + minLoop, dur * 0.78), relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
     if (relEnd <= relStart + 0.06) return null
@@ -321,15 +326,15 @@
     if (end <= start + 0.06) return region
     return { start: start, end: end }
   }
-  function applySustainLoop(source, offset, duration) {
-    const region = refineSustainLoopRegion(sampleSustainLoopRegion(offset || 0, duration), offset || 0, duration, source && source.buffer)
+  function applySustainLoop(source, offset, duration, loopHint) {
+    const region = refineSustainLoopRegion(sampleSustainLoopRegion(offset || 0, duration, loopHint), offset || 0, duration, source && source.buffer)
     if (!region) return false
     source.loop = true
     source.loopStart = region.start
     source.loopEnd = region.end
     return true
   }
-  function createCrossfadedSustainBuffer(ctx, buffer, offset, duration) {
+  function createCrossfadedSustainBuffer(ctx, buffer, offset, duration, loopHint) {
     if (!ctx || typeof ctx.createBuffer !== "function") return null
     if (!buffer || typeof buffer.getChannelData !== "function" || !buffer.sampleRate || !buffer.numberOfChannels) return null
     const total = audioBufferDuration(buffer)
@@ -337,7 +342,7 @@
     const safeOffset = clamp(Number(offset) || 0, 0, Math.max(0, total - 0.01))
     const safeDuration = Math.min(Math.max(0, Number(duration) || 0), Math.max(0, total - safeOffset))
     if (!(safeDuration > 0.08)) return null
-    const region = refineSustainLoopRegion(sampleSustainLoopRegion(safeOffset, safeDuration), safeOffset, safeDuration, buffer)
+    const region = refineSustainLoopRegion(sampleSustainLoopRegion(safeOffset, safeDuration, loopHint), safeOffset, safeDuration, buffer)
     if (!region) return null
     const sampleRate = buffer.sampleRate
     const sourceLength = buffer.length || Math.round(total * sampleRate)
@@ -371,7 +376,7 @@
       loopEnd: loopEndFrame / sampleRate,
     }
   }
-  function preparePlaybackSustain(ctx, source, offset, duration) {
+  function preparePlaybackSustain(ctx, source, offset, duration, loopHint) {
     const total = audioBufferDuration(source && source.buffer)
     const safeOffset = total > 0 ? clamp(Number(offset) || 0, 0, Math.max(0, total - 0.01)) : 0
     const fallbackDuration = total > 0 ? Math.max(0, total - safeOffset) : 0
@@ -379,7 +384,7 @@
     const safeDuration = isFinite(requestedDuration) && requestedDuration > 0
       ? Math.min(requestedDuration, fallbackDuration)
       : fallbackDuration
-    const baked = createCrossfadedSustainBuffer(ctx, source && source.buffer, safeOffset, safeDuration)
+    const baked = createCrossfadedSustainBuffer(ctx, source && source.buffer, safeOffset, safeDuration, loopHint)
     if (baked) {
       source.buffer = baked.buffer
       source.loop = true
@@ -387,7 +392,7 @@
       source.loopEnd = baked.loopEnd
       return baked
     }
-    if (safeDuration > 0.01 && applySustainLoop(source, safeOffset, safeDuration)) {
+    if (safeDuration > 0.01 && applySustainLoop(source, safeOffset, safeDuration, loopHint)) {
       return { buffer: source.buffer, offset: safeOffset, duration: safeDuration, loopStart: source.loopStart, loopEnd: source.loopEnd }
     }
     return { buffer: source.buffer, offset: safeOffset, duration: safeDuration }
@@ -398,7 +403,15 @@
   //   호출부가 반환된 buffer 를 source.buffer 에 "딱 한 번" 설정한다.
   // 기준: 샘플이 충분히 길면(원본 >0.45s, 사용 구간 >0.45s) 무조건 안정 구간을 루프 → 드로잉 중과 재생이
   //   같은 연속감. 루프는 preparePlaybackSustain(크로스페이드로 구운 버퍼)로 통일 → 이음매 잡음 제거.
-  function continuousSustainPlan(ctx, buffer, offset, usableSourceDur, plan) {
+  function sustainLoopHint(plan, segment) {
+    const instrumentId = plan && plan.instrument && plan.instrument.id
+    if (instrumentId === "violin" && segment && segment.midi === 55) {
+      return { startRatio: 0.28, endRatio: 0.58 }
+    }
+    return null
+  }
+
+  function continuousSustainPlan(ctx, buffer, offset, usableSourceDur, plan, segment) {
     const bufferDuration = audioBufferDuration(buffer)
     if (!shouldSustainSample(plan) || !(bufferDuration > 0.45 && usableSourceDur > 0.45)) {
       return { buffer: buffer, offset: offset, duration: usableSourceDur, loop: false }
@@ -406,7 +419,7 @@
     // preparePlaybackSustain 의 baking/clamp/loop 로직을 그대로 재사용하되, 실제 source 가 아니라
     // 가짜 probe 에 적용해 결과만 읽는다(실제 source.buffer 이중 설정 방지).
     const probe = { buffer: buffer }
-    const sustain = preparePlaybackSustain(ctx, probe, offset, usableSourceDur)
+    const sustain = preparePlaybackSustain(ctx, probe, offset, usableSourceDur, sustainLoopHint(plan, segment))
     return {
       buffer: probe.buffer,
       offset: sustain.offset,
@@ -1340,7 +1353,7 @@
       const offset = sourceBounds.offset
       const usableSourceDur = sourceBounds.duration
       if (!(usableSourceDur > 0.01)) continue
-      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan)
+      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan, segment)
       _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
         phraseStart, phraseDuration, phraseStop,
         stroke.events, start, glideSeconds, attackSeconds, 0.7, register)
@@ -1379,7 +1392,7 @@
         const usableSourceDur = audioBufferDuration(srcBuffer)
         if (!(usableSourceDur > 0.01)) continue
         // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다. source.buffer 는 한 번만 설정.
-        const sustain = continuousSustainPlan(ctx, srcBuffer, 0, usableSourceDur, plan)
+        const sustain = continuousSustainPlan(ctx, srcBuffer, 0, usableSourceDur, plan, segment)
         _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
           phraseStart, phraseDuration, phraseStop,
           phraseNotes, start, glideSeconds, attackSeconds, first.velocity, register)
@@ -1403,7 +1416,7 @@
       const usableSourceDur = sourceBounds.duration
       if (!(usableSourceDur > 0.01)) continue
       // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지고, 짧게 그려도 라이브처럼 안 끊긴다.
-      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan)
+      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan, segment)
       _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
         phraseStart, phraseDuration, phraseStop,
         notes, start, glideSeconds, attackSeconds, first.velocity, register)
@@ -1697,7 +1710,7 @@
     noteGain.connect(ctx.destination)
 
     // 재생 스케줄러와 똑같은 지속음 정책. source.buffer 는 "한 번만" 설정(이중 설정 시 무음).
-    const sustain = continuousSustainPlan(ctx, buffer, offset, segmentDur, plan)
+    const sustain = continuousSustainPlan(ctx, buffer, offset, segmentDur, plan, segment)
     const source = ctx.createBufferSource()
     source.buffer = sustain.buffer
     applySustainPlanToSource(source, sustain)
