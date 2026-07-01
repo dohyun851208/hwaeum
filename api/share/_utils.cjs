@@ -139,6 +139,7 @@ function metadataFromInput(input) {
     atmosphereLabel: cleanText(raw.atmosphereLabel, 40),
     instrumentLabel: cleanText(raw.instrumentLabel, 40),
     duration: Math.max(1, Math.min(120, Number(raw.duration) || 30)),
+    actionCount: Math.max(0, Math.floor(Number(raw.actionCount) || 0)),
     coverHasEmbeddedPlay: raw.coverHasEmbeddedPlay === false ? false : true,
   }
 }

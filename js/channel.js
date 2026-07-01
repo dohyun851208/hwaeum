@@ -329,15 +329,19 @@
     el.menuBtn.setAttribute("aria-expanded", open ? "true" : "false")
   }
 
-  function formatDate(value) {
-    const d = new Date(value || "")
-    if (!isFinite(d.getTime())) return ""
-    return d.toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+  function normalizeActionCount(value) {
+    const n = Math.floor(Number(value) || 0)
+    return Math.max(0, n)
   }
 
-  function secondsLabel(seconds) {
-    const s = Math.max(1, Math.round(Number(seconds) || 30))
-    return s + "초"
+  function workActionCount(work) {
+    const meta = (work && work.metadata) || {}
+    const recipe = (work && work.recipe) || {}
+    return normalizeActionCount(meta.actionCount != null ? meta.actionCount : recipe.actionCount)
+  }
+
+  function actionCountLine(work) {
+    return "시도한 횟수 " + workActionCount(work) + "회"
   }
 
   function tagsText(tags) {
@@ -370,18 +374,16 @@
     return [
       cleanText(meta.atmosphereLabel, 32),
       cleanText(meta.instrumentLabel, 72),
-      secondsLabel(meta.duration || 30),
     ]
       .filter(Boolean)
       .join(" · ")
   }
 
   function workViewerMetaText(work) {
-    const uploadedAt = formatDate(work && work.createdAt)
     return [
       workComposer(work) ? "작곡가 " + workComposer(work) : "작곡가 이름 없음",
       workDescriptionLine(work),
-      uploadedAt ? "업로드 " + uploadedAt : "업로드 시간 없음",
+      actionCountLine(work),
     ]
       .filter(Boolean)
       .join("\n")
@@ -1124,8 +1126,8 @@
     const url = musicUrl(work)
     state.activeWork = work
     el.viewerCover.src = coverUrl(work, true)
-    el.viewerCover.alt = workDisplayTitle(work) + " 표지"
-    el.viewerTitle.textContent = workDisplayTitle(work)
+    el.viewerCover.alt = workTitle(work) + " 표지"
+    el.viewerTitle.textContent = workTitle(work)
     el.viewerMeta.textContent = workViewerMetaText(work)
     setOptionalText(el.viewerBackground, "배경", meta.backgroundReason)
     setOptionalText(el.viewerMelody, "선율", meta.melodyIntent)

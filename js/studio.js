@@ -517,7 +517,6 @@
   })
   const {
     adminPinValue,
-    formatSharedDate,
     pauseSharedAudioExcept,
     closeSharedViewer,
     handleSharedViewerKeydown,
@@ -2869,6 +2868,7 @@
       atmosphereLabel: atmos.label,
       instrumentLabel: instrumentLabel,
       duration: state.duration,
+      actionCount: normalizeActionCount(recipe && recipe.actionCount),
       coverHasEmbeddedPlay: false,
     }
   }
@@ -2910,12 +2910,13 @@
 
   function sharedViewerMetaText(work) {
     const meta = (work && work.metadata) || {}
-    const uploadedAt = formatSharedDate(work && work.createdAt)
-    const description = [meta.atmosphereLabel, meta.instrumentLabel, secondsLabel(meta.duration || 30)].filter(Boolean).join(" · ")
+    const recipe = (work && work.recipe) || {}
+    const actionCount = normalizeActionCount(meta.actionCount != null ? meta.actionCount : recipe.actionCount)
+    const description = [meta.atmosphereLabel, meta.instrumentLabel].filter(Boolean).join(" · ")
     return [
       meta.composerName ? "작곡가 " + cleanText(meta.composerName, COMPOSER_NAME_MAX) : "작곡가 이름 없음",
       description,
-      uploadedAt ? "업로드 " + uploadedAt : "업로드 시간 없음",
+      "시도한 횟수 " + actionCount + "회",
     ]
       .filter(Boolean)
       .join("\n")

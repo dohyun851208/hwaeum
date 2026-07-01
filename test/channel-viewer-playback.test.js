@@ -41,14 +41,25 @@ test("channel viewer audio starts only from the play button handler", () => {
   assert.match(bindBody, /el\.viewerAudio\.play\(\)/)
 })
 
-test("shared gallery viewers separate composer, description, and uploaded time", () => {
+test("shared gallery viewers separate composer, description, and attempt count", () => {
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
   const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+  const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
 
   assert.match(functionBody(channel, "workViewerMetaText"), /workDescriptionLine\(work\)/)
+  assert.match(functionBody(channel, "workViewerMetaText"), /actionCountLine\(work\)/)
+  assert.doesNotMatch(functionBody(channel, "workViewerMetaText"), /업로드|createdAt|formatDate/)
+  assert.doesNotMatch(functionBody(channel, "workDescriptionLine"), /secondsLabel|duration/)
   assert.match(functionBody(channel, "workViewerMetaText"), /join\("\\n"\)/)
+  assert.match(functionBody(channel, "openViewer"), /viewerTitle\.textContent = workTitle\(work\)/)
+  assert.doesNotMatch(functionBody(channel, "openViewer"), /viewerTitle\.textContent = workDisplayTitle\(work\)/)
   assert.match(functionBody(channel, "openViewer"), /viewerMeta\.textContent = workViewerMetaText\(work\)/)
+  assert.doesNotMatch(channelHtml, /화음 갤러리 감상/)
+  assert.match(functionBody(studio, "sharedMetadata"), /actionCount:\s*normalizeActionCount\(recipe && recipe\.actionCount\)/)
+  assert.match(functionBody(studio, "sharedViewerMetaText"), /시도한 횟수/)
+  assert.doesNotMatch(functionBody(studio, "sharedViewerMetaText"), /업로드|createdAt|formatSharedDate/)
+  assert.doesNotMatch(functionBody(studio, "sharedViewerMetaText"), /secondsLabel\(meta\.duration/)
   assert.match(functionBody(studio, "sharedViewerMetaText"), /join\("\\n"\)/)
   assert.match(functionBody(studio, "openSharedViewer"), /viewer\.meta\.textContent = sharedViewerMetaText\(work\)/)
   assert.match(css, /\.channel-viewer-meta\s*\{[\s\S]*white-space:\s*pre-line/)
