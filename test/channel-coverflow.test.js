@@ -117,6 +117,7 @@ test("화음 갤러리 화면은 저장된 갤러리 이름을 주제목으로 �
   assert.match(css, /\.channel-open-form\s*\{[\s\S]*border:\s*0/)
   assert.match(css, /\.channel-open-form\s*\{[\s\S]*box-shadow:\s*none/)
   assert.match(css, /\.channel-open-form input\s*\{[\s\S]*text-align:\s*center/)
+  assert.match(css, /\.channel-open-form input\s*\{[\s\S]*background:\s*rgba\(255,\s*247,\s*223,\s*0\.08\)/)
   assert.doesNotMatch(css, /\.channel-open-form label\s*\{/)
   assert.match(css, /\.channel-open-form #channelInput\s*\{[\s\S]*grid-column:\s*1/)
   assert.match(css, /\.channel-code-open\s*\{[\s\S]*grid-column:\s*2/)

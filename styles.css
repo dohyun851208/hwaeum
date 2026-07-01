@@ -4485,6 +4485,7 @@ body:not(.channel-body)::after {
 
 .channel-open-form input {
   color: var(--channel-ink);
+  background: rgba(255, 247, 223, 0.08);
 }
 
 .channel-open-form input::placeholder {
