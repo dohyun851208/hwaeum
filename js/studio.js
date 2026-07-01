@@ -2163,6 +2163,12 @@
     } else if (event.key === "2") {
       event.preventDefault()
       activateEraserTool(true)
+    } else if (event.key === "3") {
+      event.preventDefault()
+      announceUndoLastAction()
+    } else if (event.key === "4") {
+      event.preventDefault()
+      resetCompose()
     }
   }
 
@@ -2277,6 +2283,13 @@
     }
     syncUndoButton()
     return ""
+  }
+
+  function announceUndoLastAction() {
+    const undone = undoLastAction()
+    if (!undone) return
+    el.exportStatus.textContent =
+      undone === "효과음" ? "마지막 효과음 작업을 되돌렸어요." : "마지막 드로잉 작업을 되돌렸어요."
   }
 
   function syncUndoButton() {
@@ -3445,12 +3458,7 @@
     })
     document.addEventListener("keydown", handleKeyboardShortcut)
     if (el.undoBtn) {
-      el.undoBtn.addEventListener("click", () => {
-        const undone = undoLastAction()
-        if (!undone) return
-        el.exportStatus.textContent =
-          undone === "효과음" ? "마지막 효과음 작업을 되돌렸어요." : "마지막 드로잉 작업을 되돌렸어요."
-      })
+      el.undoBtn.addEventListener("click", announceUndoLastAction)
     }
     el.resetComposeBtn.addEventListener("click", resetCompose)
 

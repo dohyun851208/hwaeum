@@ -175,13 +175,18 @@ test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", (
   assert.match(css, /\.drawing-workspace\.reference-collapsed > \.transport[\s\S]*grid-column:\s*2/)
 })
 
-test("펜과 지우개 도구 버튼은 키보드 숫자 배지를 보인다", () => {
+test("드로잉 도구 버튼은 키보드 숫자 배지를 보인다", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
   assert.match(html, /id="penBtn"[\s\S]*aria-keyshortcuts="1"[\s\S]*class="tool-shortcut-badge"[^>]*>1<\/span>[\s\S]*id="clearBtn"/)
   assert.match(html, /id="clearBtn"[\s\S]*aria-keyshortcuts="2"[\s\S]*class="tool-shortcut-badge"[^>]*>2<\/span>/)
+  assert.match(html, /id="undoBtn"[\s\S]*aria-keyshortcuts="3"[\s\S]*class="tool-shortcut-badge"[^>]*>3<\/span>[\s\S]*id="resetComposeBtn"/)
+  assert.match(html, /id="resetComposeBtn"[\s\S]*aria-keyshortcuts="4"[\s\S]*class="tool-shortcut-badge"[^>]*>4<\/span>/)
   assert.match(css, /\.tool-shortcut-badge\s*\{[\s\S]*position:\s*absolute[\s\S]*right:\s*5px[\s\S]*bottom:\s*4px/)
+  assert.match(source, /event\.key === "3"[\s\S]*announceUndoLastAction\(\)/)
+  assert.match(source, /event\.key === "4"[\s\S]*resetCompose\(\)/)
 })
 
 test("드로잉 읽기 표시는 길이 다음에 시도한 횟수를 보여준다", () => {

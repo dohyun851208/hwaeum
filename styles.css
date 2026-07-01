@@ -2123,45 +2123,49 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 .draw-mode-tabs {
   display: inline-flex;
-  gap: 4px;
+  gap: 3px;
   padding: 4px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(150, 113, 32, 0.18);
   border-radius: 8px;
-  background: #eef4f8;
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.82), rgba(255, 244, 213, 0.74)),
+    rgba(255, 250, 238, 0.88);
   flex: 0 0 auto;
 }
 .draw-panel .draw-mode-tabs {
-  box-shadow: 0 8px 20px rgba(42, 35, 18, 0.12);
+  box-shadow: 0 8px 18px rgba(42, 35, 18, 0.08);
 }
 .draw-mode-tab {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
   min-height: 34px;
-  padding: 0 12px;
-  border: 0;
+  padding: 0 14px;
+  border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
   color: var(--muted);
   font-weight: 900;
   white-space: nowrap;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 .draw-mode-tabs .draw-mode-tab.active {
-  background: #ffffff;
-  color: var(--ink);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm);
+  border-color: rgba(150, 113, 32, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 226, 0.94)),
+    var(--canvas);
+  color: #5f4612;
+  box-shadow:
+    inset 0 0 0 1px rgba(244, 201, 87, 0.34),
+    0 6px 14px rgba(42, 35, 18, 0.1);
 }
 .draw-mode-tabs .draw-mode-tab.active::after {
-  content: "선택됨";
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #ffffff;
-  font-size: 0.72rem;
-  font-weight: 900;
+  content: none;
 }
 
 /* 캔버스 */
@@ -4189,8 +4193,10 @@ body:not(.channel-body)::after {
 }
 
 .draw-mode-tabs {
-  background: rgba(255, 250, 238, 0.92);
-  border-color: rgba(150, 113, 32, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.82), rgba(255, 244, 213, 0.74)),
+    rgba(255, 250, 238, 0.9);
+  border-color: rgba(150, 113, 32, 0.18);
 }
 
 .canvas-wrap {

@@ -220,6 +220,23 @@ test("sustained wind sample maps avoid short repeated loop sources", () => {
   assert.equal(oboeE6.cents, 100)
 })
 
+test("violin drawing rows use stable sustain sample sources", () => {
+  const data = loadManifest()
+  const violin = data.melodies.violin.sampleMap
+  const byMidi = new Map(violin.map((item) => [item.midi, item]))
+
+  assert.match(byMidi.get(55).src, /violin_C4\.mp3$/)
+  assert.equal(byMidi.get(55).cents, 500)
+  assert.match(byMidi.get(62).src, /violin_C4\.mp3$/)
+  assert.equal(byMidi.get(62).cents, -200)
+  assert.match(byMidi.get(74).src, /violin_E5\.mp3$/)
+  assert.equal(byMidi.get(74).cents, 200)
+  assert.match(byMidi.get(79).src, /violin_F5\.mp3$/)
+  assert.equal(byMidi.get(79).cents, -200)
+  assert.match(byMidi.get(76).src, /violin_E5\.mp3$/)
+  assert.equal(byMidi.get(76).cents, undefined)
+})
+
 test("index loads detected sample maps before the audio engine", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   assert.ok(html.indexOf("./js/manifest.js") < html.indexOf("./js/sample-maps.js"))
