@@ -501,7 +501,7 @@
         : "번호를 입력해 주세요."
     if (el.input && document.activeElement !== el.input) {
       el.input.value = channel || ""
-      el.input.placeholder = channel ? "" : "번호 (예 #107)"
+      el.input.placeholder = channel ? "" : "갤러리 번호"
     }
     if (el.shareBtn) el.shareBtn.hidden = !channel || state.locked || state.loading
     if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
