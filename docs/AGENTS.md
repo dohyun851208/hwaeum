@@ -20,6 +20,7 @@
 - `decisions/2026-06-28-channel-secondary-password.md` — 채널 이원화(고유번호/채널 이름) + 갤러리 코드 점유
 - `decisions/2026-06-29-fixed-drawing-pitch-grid.md` — 악기 변경 시 도화지 음높이 행 고정
 - `decisions/2026-06-29-modern-gallery-frontdoor.md` — 메인·스튜디오 첫 화면 모던 갤러리 톤 적용
+- `decisions/2026-07-01-channel-code-length.md` — 화음 갤러리 번호·코드 길이 축소
 
 ## 작성 규칙
 

@@ -132,13 +132,13 @@
   }
 
   function normalizeChannel(value) {
-    const digits = String(value || "").replace(/\D/g, "").slice(0, 6)
+    const digits = String(value || "").replace(/\D/g, "").slice(0, 4)
     return digits
   }
 
   // 갤러리 코드는 숫자만 받는다.
   function cleanPin(value) {
-    return String(value || "").replace(/\D/g, "").slice(0, 12)
+    return String(value || "").replace(/\D/g, "").slice(0, 6)
   }
 
   // 입력한 갤러리 코드를 세션에 잠깐 둔다(갤러리별). 새로고침해도 다시 안 묻게.

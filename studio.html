@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 스튜디오 · 그림으로 만드는 음악</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260630-five-step-flow" />
+    <link rel="stylesheet" href="./styles.css?v=20260701-channel-code-length" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -301,8 +301,8 @@
                 </div>
                 <form class="channel-open-bar" id="channelOpenForm">
                   <span class="channel-open-hash" aria-hidden="true">#</span>
-                  <input id="channelBrowseInput" class="channel-open-input" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="번호 (예 107)" aria-label="번호" />
-                  <input id="channelBrowsePassInput" class="channel-open-pass" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="갤러리 코드" aria-label="갤러리 코드" />
+                  <input id="channelBrowseInput" class="channel-open-input" type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="번호 (예 107)" aria-label="번호" />
+                  <input id="channelBrowsePassInput" class="channel-open-pass" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="갤러리 코드" aria-label="갤러리 코드" />
                   <button class="channel-open-go" id="loadChannelBtn" type="submit">들어가기 →</button>
                 </form>
               </section>
@@ -315,10 +315,10 @@
                   <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 번호 (8624)" aria-label="관리자 번호" />
                   <label class="channel-number-field" for="claimChannelInput">
                     <span class="channel-open-hash" aria-hidden="true">#</span>
-                    <input id="claimChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="번호 (예 107)" aria-label="만들 번호" />
+                    <input id="claimChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="번호 (예 107)" aria-label="만들 번호" />
                   </label>
                   <input id="shareDisplayNameInput" type="text" autocomplete="off" maxlength="40" placeholder="갤러리 이름 (예: 여름 빛깔을 담은 노래)" aria-label="갤러리 이름" />
-                  <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="갤러리 코드 (숫자 4자리 이상)" aria-label="갤러리 코드" />
+                  <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="갤러리 코드 (4~6자리)" aria-label="갤러리 코드" />
                   <button class="btn primary" type="button" id="claimChannelBtn">화음 갤러리 생성하기</button>
                   <button class="btn" type="button" id="openClaimedChannelBtn" hidden>방금 만든 화음 갤러리 들어가기 →</button>
                   <p class="muted">관리자 번호(8624)로 화음 갤러리 생성이 가능하며, 교사가 번호, 갤러리 이름, 갤러리 코드를 설정하여 화음 갤러리를 만듭니다.<br />학생은 교사가 알려 준 번호 + 갤러리 코드를 통해 들어갈 수 있습니다.</p>

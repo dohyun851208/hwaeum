@@ -2744,7 +2744,7 @@
   const CHANNEL_ENTRY_PASS_SESSION_KEY = "hwaeum.channelEntryPass"
   function rememberChannelEntryPass(channel, pass) {
     const normalized = normalizeSharedChannel(channel)
-    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(pass) : String(pass || "").replace(/\D/g, "").slice(0, 12)
+    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(pass) : String(pass || "").replace(/\D/g, "").slice(0, 6)
     try {
       const s = window.sessionStorage
       if (!s || !normalized) return pin

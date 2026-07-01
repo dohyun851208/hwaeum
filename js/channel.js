@@ -85,7 +85,7 @@
   }
 
   function normalizeChannel(value) {
-    if (!ShareStore || !ShareStore.normalizeChannel) return String(value || "").replace(/\D/g, "").slice(0, 6)
+    if (!ShareStore || !ShareStore.normalizeChannel) return String(value || "").replace(/\D/g, "").slice(0, 4)
     return ShareStore.normalizeChannel(value)
   }
 
@@ -439,7 +439,7 @@
       s.removeItem(CHANNEL_ENTRY_PASS_SESSION_KEY)
       const parsed = JSON.parse(raw)
       if (!parsed || normalizeChannel(parsed.channel) !== normalized) return ""
-      return ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(parsed.pass) : String(parsed.pass || "").replace(/\D/g, "").slice(0, 12)
+      return ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(parsed.pass) : String(parsed.pass || "").replace(/\D/g, "").slice(0, 6)
     } catch (e) {
       return ""
     }
@@ -464,7 +464,7 @@
   }
 
   function currentGalleryPass() {
-    return ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(state.pass) : String(state.pass || "").replace(/\D/g, "").slice(0, 12)
+    return ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(state.pass) : String(state.pass || "").replace(/\D/g, "").slice(0, 6)
   }
 
   function promptTrimmed(message, fallback) {
@@ -495,13 +495,11 @@
     el.count.textContent = state.loading
       ? "화음 갤러리를 불러옵니다."
       : channel
-        ? state.locked
-          ? "갤러리 코드가 필요해요"
-          : ""
+        ? ""
         : "번호를 입력해 주세요."
     if (el.input && document.activeElement !== el.input) {
       el.input.value = channel || ""
-      el.input.placeholder = channel ? "" : "갤러리 번호"
+      el.input.placeholder = channel ? "" : "번호"
     }
     if (el.shareBtn) el.shareBtn.hidden = !channel || state.locked || state.loading
     if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
@@ -866,7 +864,7 @@
       state.pass = ""
     }
     if (options.pass != null) {
-      state.pass = ShareStore.cleanPin ? ShareStore.cleanPin(options.pass) : String(options.pass || "").replace(/\D/g, "").slice(0, 12)
+      state.pass = ShareStore.cleanPin ? ShareStore.cleanPin(options.pass) : String(options.pass || "").replace(/\D/g, "").slice(0, 6)
     }
     state.loading = true
     renderShelves()
@@ -881,7 +879,7 @@
       state.loading = false
       renderShelves()
       if (state.locked) {
-        setStatus(result.passError ? "갤러리 코드가 맞지 않아요." : "갤러리 코드를 입력하세요.", !!result.passError)
+        setStatus(result.passError ? "갤러리 코드가 맞지 않아요." : "", !!result.passError)
       } else {
         setStatus("", false)
       }
@@ -1233,9 +1231,9 @@
       return
     }
     const codeValue = el.codeInput ? el.codeInput.value : ""
-    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(codeValue) : String(codeValue || "").replace(/\D/g, "").slice(0, 12)
+    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(codeValue) : String(codeValue || "").replace(/\D/g, "").slice(0, 6)
     if (!pin) {
-      setStatus("갤러리 코드를 넣어 주세요.", true)
+      setStatus("", false)
       if (el.codeInput) el.codeInput.focus()
       return
     }

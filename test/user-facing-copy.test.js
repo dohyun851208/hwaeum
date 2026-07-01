@@ -37,7 +37,7 @@ test("studio and gallery user-facing labels avoid leftover English section words
   assert.match(studio, /관리자 번호 \(8624\)/)
   assert.match(studio, /번호 \(예 107\)/)
   assert.match(studio, /갤러리 이름 \(예: 여름 빛깔을 담은 노래\)/)
-  assert.match(studio, /갤러리 코드 \(숫자 4자리 이상\)/)
+  assert.match(studio, /갤러리 코드 \(4~6자리\)/)
   assert.doesNotMatch(studio, new RegExp("갤러리 " + "비밀" + "번호"))
   assert.match(studio, /관리자 번호\(8624\)로 화음 갤러리 생성이 가능하며/)
   assert.doesNotMatch(studio, /화음 갤러리 삭제/)

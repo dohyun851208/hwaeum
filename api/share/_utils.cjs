@@ -3,7 +3,7 @@ const crypto = require("crypto")
 const ADMIN_PIN = process.env.HWAEUM_ADMIN_PIN || "8624"
 const MAX_TITLE_LENGTH = 40
 const MAX_TEXT_LENGTH = 220
-const MAX_CHANNEL_LENGTH = 6
+const MAX_CHANNEL_LENGTH = 4
 const MAX_FILE_BYTES = 2.5 * 1024 * 1024
 const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024
 
@@ -47,7 +47,7 @@ function hashAdmin(pin) {
 
 // 갤러리 코드는 숫자만. 갤러리 번호로 소금을 쳐서 같은 코드라도 갤러리마다 해시가 달라지게 한다.
 function cleanPin(value) {
-  return String(value || "").replace(/\D/g, "").slice(0, 12)
+  return String(value || "").replace(/\D/g, "").slice(0, 6)
 }
 
 function hashPass(channel, pin) {

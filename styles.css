@@ -1440,9 +1440,9 @@ body.is-publishing #saveTakeBtn {
   box-sizing: border-box;
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: 112px 138px 66px;
+  grid-template-columns: 58px 76px 56px;
   align-items: center;
-  width: 320px;
+  width: 196px;
   min-height: 44px;
   padding: 2px;
   gap: 0;
