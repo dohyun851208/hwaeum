@@ -23,10 +23,48 @@
   }
 
   const NOTE_NAMES = ["도", "도#", "레", "레#", "미", "파", "파#", "솔", "솔#", "라", "라#", "시"]
+  const NOTE_COLORS = [
+    "#c96f66",
+    "#c77a59",
+    "#c9854b",
+    "#c29148",
+    "#b89d45",
+    "#789b69",
+    "#5d9680",
+    "#3f918d",
+    "#4b869f",
+    "#587bb0",
+    "#716fa8",
+    "#897da7",
+  ]
   // 계이름만 반환(옥타브 숫자 없음). 악기마다 음역대가 달라 적힌 옥타브 숫자가
   // 실제 들리는 소리와 어긋날 수 있어, 축 라벨에는 계이름만 표시한다.
   function noteLetter(midi) {
     return NOTE_NAMES[((midi % 12) + 12) % 12]
+  }
+
+  function soundingMidi(midi, asset) {
+    const tr = asset && Number.isFinite(asset.playbackTranspose) ? asset.playbackTranspose : 0
+    return midi + tr
+  }
+
+  function noteColorForMidi(midi, asset) {
+    if (midi == null) return "#6f7472"
+    return NOTE_COLORS[((soundingMidi(midi, asset) % 12) + 12) % 12] || NOTE_COLORS[0]
+  }
+
+  function hexToRgba(hex, alpha) {
+    const value = String(hex || "").replace("#", "")
+    if (value.length !== 6) return "rgba(31,38,38," + alpha + ")"
+    const n = parseInt(value, 16)
+    const r = (n >> 16) & 255
+    const g = (n >> 8) & 255
+    const b = n & 255
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")"
+  }
+
+  function noteColorRgba(midi, asset, alpha) {
+    return hexToRgba(noteColorForMidi(midi, asset), alpha)
   }
 
   // 화면에 보이는 음높이 행 목록. 악기에 따라 낼 수 없는 음은 행을 없애지 않고 비활성으로 둔다.
@@ -41,14 +79,14 @@
   // 축 라벨에 쓸 계이름. 악기 transpose 를 반영하되 옥타브 숫자는 떼고 계이름만 보여준다.
   // (악기마다 음역대가 달라 옥타브 숫자가 실제 소리와 어긋날 수 있어서. 높은 음=위, 낮은 음=아래는 그대로.)
   function soundingLabel(midi, asset) {
-    const tr = asset && asset.playbackTranspose ? asset.playbackTranspose : 0
-    return noteLetter(midi + tr)
+    return noteLetter(soundingMidi(midi, asset))
   }
 
   function pitchRowsForStyle(style, asset) {
     const rows = drawableScaleFor(style, asset)
     return rows.map((midi, i) => {
       const bounds = pitchRowBoundsRatio(i, rows.length)
+      const selected = isPitchPlayableFor(midi, style, asset)
       return {
         midi: midi,
         label: soundingLabel(midi, asset),
@@ -56,7 +94,9 @@
         rowTop: bounds.top * 100,
         rowBottom: bounds.bottom * 100,
         rowHeight: (bounds.bottom - bounds.top) * 100,
-        selected: true,
+        selected: selected,
+        color: noteColorForMidi(midi, asset),
+        softColor: selected ? noteColorRgba(midi, asset, 0.12) : "rgba(31,38,38,0.035)",
       }
     })
   }
@@ -221,6 +261,12 @@
       if (asset) return asset
     }
     return state && state.melodyAsset ? state.melodyAsset : null
+  }
+
+  DrawingCanvas.prototype._pitchColorForPoint = function (point, state, asset, fallback) {
+    if (!point || !state || !Core.quantizePitch) return fallback
+    const midi = Core.quantizePitch(point.y, state.style, asset)
+    return midi == null ? fallback : noteColorForMidi(midi, asset)
   }
 
   DrawingCanvas.prototype._pointIsDrawable = function (p, state, asset) {
@@ -774,6 +820,11 @@
     const rowCount = rowInfo.length
     const gridLineWidth = Math.max(1, Math.round(px))
     const duration = Math.max(1, Number(st.duration) || 30)
+    for (let i = 0; i < rowCount; i++) {
+      const bounds = pitchRowBoundsY(i, rowCount, H)
+      ctx.fillStyle = rowInfo[i].selected ? noteColorRgba(rowInfo[i].midi, st.melodyAsset, 0.035) : "rgba(31,38,38,0.035)"
+      ctx.fillRect(labelGutter, bounds.top, W - labelGutter, Math.max(1, bounds.bottom - bounds.top))
+    }
     ctx.lineWidth = gridLineWidth
     const drawVerticalLine = function (t) {
       const x = labelGutter + ((W - labelGutter) * t) / duration
@@ -836,6 +887,11 @@
     if (typeof ctx.save === "function") ctx.save()
     ctx.fillStyle = "#fbf6ec"
     ctx.fillRect(0, 0, labelGutter, H)
+    for (let i = 0; i < rowInfo.length; i++) {
+      const bounds = pitchRowBoundsY(i, rowInfo.length, H)
+      ctx.fillStyle = rowInfo[i].selected ? noteColorRgba(rowInfo[i].midi, asset, 0.08) : "rgba(31,38,38,0.035)"
+      ctx.fillRect(0, bounds.top, labelGutter, Math.max(1, bounds.bottom - bounds.top))
+    }
     const gridLineWidth = Math.max(1, Math.round(px))
     ctx.strokeStyle = "rgba(32,41,42,0.09)"
     ctx.lineWidth = gridLineWidth
@@ -851,7 +907,7 @@
     ctx.textBaseline = "middle"
     for (let i = 0; i < rows.length; i++) {
       const y = pitchRowCenterY(i, rows.length, H)
-      ctx.fillStyle = "rgba(31,38,38,0.74)"
+      ctx.fillStyle = rowInfo[i].selected ? noteColorForMidi(rows[i], asset) : "rgba(31,38,38,0.3)"
       ctx.fillText(soundingLabel(rows[i], asset), labelGutter / 2, clamp(y, fontSize, H - fontSize))
     }
     if (typeof ctx.restore === "function") ctx.restore()
@@ -860,32 +916,47 @@
   // 각 획을 따로 그린다 — 획끼리 자동으로 이어지지 않음(그린 대로)
   DrawingCanvas.prototype.renderStroke = function () {
     const ctx = this.ctx
-    const W = this.canvas.width
     const H = this.canvas.height
     const px = this.pixelRatio || 1
+    const st = this.getState()
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
-    ctx.lineWidth = 19.2 * px
-    ctx.globalAlpha = 0.6
-    // 획마다 그 획의 악기 색으로 — 오케스트라에서 어떤 줄이 어떤 악기인지 한눈에
     for (let si = 0; si < this.strokes.length; si++) {
       const stroke = this.strokes[si]
-      const color = this._colorFor(this.strokeInstruments[si])
-      ctx.strokeStyle = color
+      const instrumentId = this.strokeInstruments[si]
+      const instrumentColor = this._colorFor(instrumentId)
+      const asset = this._assetForInstrument(instrumentId, st)
       if (stroke.length < 2) {
         // 점 하나짜리 획은 작은 점으로 표시
         if (stroke.length === 1) {
+          const color = this._pitchColorForPoint(stroke[0], st, asset, instrumentColor)
           ctx.beginPath()
           ctx.arc(this._timeToX(stroke[0].x), stroke[0].y * H, 10.24 * px, 0, Math.PI * 2)
           ctx.fillStyle = color
+          ctx.globalAlpha = 0.78
           ctx.fill()
         }
         continue
       }
+      ctx.lineWidth = 19.2 * px
+      ctx.globalAlpha = 0.18
+      ctx.strokeStyle = instrumentColor
       ctx.beginPath()
       ctx.moveTo(this._timeToX(stroke[0].x), stroke[0].y * H)
       for (let i = 1; i < stroke.length; i++) ctx.lineTo(this._timeToX(stroke[i].x), stroke[i].y * H)
       ctx.stroke()
+      ctx.lineWidth = 9.6 * px
+      ctx.globalAlpha = 0.72
+      for (let i = 1; i < stroke.length; i++) {
+        const prev = stroke[i - 1]
+        const next = stroke[i]
+        const mid = { x: (prev.x + next.x) / 2, y: (prev.y + next.y) / 2 }
+        ctx.strokeStyle = this._pitchColorForPoint(mid, st, asset, instrumentColor)
+        ctx.beginPath()
+        ctx.moveTo(this._timeToX(prev.x), prev.y * H)
+        ctx.lineTo(this._timeToX(next.x), next.y * H)
+        ctx.stroke()
+      }
     }
     ctx.globalAlpha = 1
   }
@@ -933,7 +1004,8 @@
       const w = Math.max(6 * px, (n.duration / st.duration) * timelineWidth - 3 * px)
       const y = this._pitchToY(n.midi, rows)
       const instrumentId = this._instrumentForNote(n)
-      const color = this._colorFor(instrumentId)
+      const asset = this._assetForInstrument(instrumentId, st)
+      const color = noteColorForMidi(n.midi, asset)
       const x1 = x + 2 * px
       const x2 = x + w
       ctx.strokeStyle = color
@@ -998,6 +1070,8 @@
 
   DrawingCanvas.pitchLabelsForStyle = pitchLabelsForStyle
   DrawingCanvas.pitchRowsForStyle = pitchRowsForStyle
+  DrawingCanvas.noteColorForMidi = noteColorForMidi
+  DrawingCanvas.noteColorRgba = noteColorRgba
 
   root.DrawingCanvas = DrawingCanvas
 })(typeof self !== "undefined" ? self : this)

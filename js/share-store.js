@@ -261,21 +261,6 @@
     const img = await loadImage(options.pictureSrc || options.defaultCoverSrc)
     if (img) drawCoverFit(ctx, img, size)
     else drawFallback(ctx, size, options.accent)
-
-    const tags = options.hashtags || ""
-    const composer = String(options.composerName || "").replace(/\s+/g, " ").trim()
-    const titleLine = composer ? (options.title || "무제") + " (" + composer + ")" : options.title || "무제"
-    const padH = tags ? Math.round(size * 0.2) : Math.round(size * 0.15)
-    ctx.fillStyle = "rgba(20,26,26,0.82)"
-    ctx.fillRect(0, size - padH, size, padH)
-    ctx.fillStyle = "#fbf6ec"
-    ctx.font = "700 " + Math.round(size * 0.052) + "px Georgia, serif"
-    ctx.fillText(fitCanvasLine(ctx, titleLine, size - Math.round(size * 0.1)), Math.round(size * 0.047), size - padH + Math.round(size * 0.064))
-    if (tags) {
-      ctx.font = "800 " + Math.round(size * 0.03) + "px 'Segoe UI', sans-serif"
-      ctx.fillText(fitCanvasLine(ctx, tags, size - Math.round(size * 0.1)), Math.round(size * 0.047), size - padH + Math.round(size * 0.12))
-    }
-
     return canvas
   }
 

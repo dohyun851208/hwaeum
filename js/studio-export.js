@@ -150,13 +150,17 @@
       if (progress == null) return
       const x = snapshotTimelineX(w, progress)
       ctx.save()
-      ctx.strokeStyle = "rgba(185,67,54,0.92)"
-      ctx.lineWidth = Math.max(3, Math.round(w * 0.0025))
+      ctx.strokeStyle = "rgba(31,38,38,0.92)"
+      ctx.lineWidth = Math.max(3, Math.round(w * 0.0022))
+      ctx.shadowColor = "rgba(251,246,236,0.74)"
+      ctx.shadowBlur = Math.max(2, Math.round(w * 0.0015))
       ctx.beginPath()
       ctx.moveTo(x, 0)
       ctx.lineTo(x, h)
       ctx.stroke()
-      ctx.fillStyle = "rgba(185,67,54,0.94)"
+      ctx.shadowColor = "rgba(31,38,38,0.18)"
+      ctx.shadowBlur = Math.max(4, Math.round(w * 0.003))
+      ctx.fillStyle = "rgba(183,138,47,0.96)"
       ctx.beginPath()
       ctx.arc(x, Math.max(18, h * 0.055), Math.max(8, Math.round(w * 0.007)), 0, Math.PI * 2)
       ctx.fill()

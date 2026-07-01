@@ -35,10 +35,16 @@ test("화음 갤러리는 한눈에 보기와 커버플로우 보기 모드를 �
   assert.match(source, /function renderCoverFlow\(\)/)
   assert.match(source, /function setViewMode\(mode\)/)
   assert.match(source, /function shiftFlowIndex\(delta\)/)
+  assert.match(source, /channel-coverflow-counter/)
+  assert.doesNotMatch(source, /channel-coverflow-caption/)
 
   assert.match(css, /\.channel-coverflow-stage/)
   assert.match(css, /\.channel-coverflow \.channel-flow-album/)
-  assert.match(css, /-webkit-box-reflect/)
+  assert.match(css, /\.channel-coverflow-counter/)
+  assert.match(css, /\.channel-coverflow \.channel-album-overlay\s*\{[^}]*bottom:\s*18px/)
+  assert.doesNotMatch(css, /\.channel-coverflow \.channel-album-overlay\s*\{[^}]*display:\s*none/)
+  assert.doesNotMatch(css, /\.channel-coverflow-caption/)
+  assert.doesNotMatch(css, /-webkit-box-reflect/)
 })
 
 test("커버플로우는 마우스 드래그와 휠로 부드럽게 움직인다", () => {

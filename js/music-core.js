@@ -94,14 +94,10 @@
     return allowed.indexOf(midi) !== -1 || allowed.indexOf(midi + tr) !== -1
   }
 
-  // 그릴 수 있는 음 목록 = 음계 ∩ 악기 연주가능음(playableMidi).
-  // 서양 악기는 playableMidi가 없어 음계 전체. 국악기는 연주 가능한 음만 남긴다.
+  // 화면에 그릴 음높이 축. 국악풍은 draw* 설정으로 서양 기본 15칸 축을 유지하고,
+  // 실제 발음 가능 여부는 isPitchPlayable()/quantizePitch()에서 따로 관리한다.
   function drawableScale(style, asset) {
-    const scale = buildScale(style)
-    if (!asset || !Array.isArray(asset.playableMidi) || !asset.playableMidi.length) return scale
-    const tr = asset && Number.isFinite(asset.playbackTranspose) ? asset.playbackTranspose : 0
-    const filtered = scale.filter((m) => asset.playableMidi.indexOf(m) !== -1 || asset.playableMidi.indexOf(m + tr) !== -1)
-    return filtered.length ? filtered : scale
+    return buildDisplayScale(style)
   }
 
   function playableScale(style, asset) {
@@ -131,7 +127,7 @@
     const fromBottom = 1 - playableY
     const idx = Math.floor(fromBottom * scale.length)
     const midi = scale[Math.max(0, Math.min(scale.length - 1, idx))]
-    return midi
+    return isPitchPlayable(midi, style, asset) ? midi : null
   }
 
   // --- 시간 재샘플링 (속도 무관) ---

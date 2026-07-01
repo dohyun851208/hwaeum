@@ -395,8 +395,9 @@ SD.draw.setEraseMode(false)
 // 재생 헤드 요소 존재
 check("재생 헤드 요소 존재", qc("#playhead") === 1)
 check("상단 재생 제어는 재생/정지 버튼만 표시", qc("#playBtn") === 1 && qc("#pauseBtn") === 0 && qc("#stopBtn") === 1)
-check("효과음 도장 버튼 존재", qc("#effectList .effect-btn") >= 22, qc("#effectList .effect-btn"))
-check("효과음 도장 버튼 이미지 표시", qc("#effectList .effect-btn img") >= 22, qc("#effectList .effect-btn img"))
+const effectCount = Object.keys(window.SDStudioData.effects).length
+check("효과음 도장 버튼 존재", qc("#effectList .effect-btn") === effectCount, qc("#effectList .effect-btn") + "/" + effectCount)
+check("효과음 도장 버튼 이미지 표시", qc("#effectList .effect-btn img") === effectCount, qc("#effectList .effect-btn img") + "/" + effectCount)
 check("새 동물 효과음 도장 표시", /귀뚜라미/.test(window.document.getElementById("effectList").textContent), window.document.getElementById("effectList").textContent)
 check("새 효과 도장 표시", /방울pop/.test(window.document.getElementById("effectList").textContent), window.document.getElementById("effectList").textContent)
 

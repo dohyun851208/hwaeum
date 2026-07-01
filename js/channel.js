@@ -13,6 +13,7 @@
   const WORK_ORDER_STORAGE_PREFIX = "hwaeum.channelWorkOrder."
   const STUDIO_COPY_STORAGE_PREFIX = "hwaeum.studioCopy."
   const STUDENT_UPLOAD_ATMOSPHERE_PREFIX = "custom-"
+  const COVERFLOW_SPACING = 236
 
   const $ = (id) => document.getElementById(id)
   const el = {
@@ -31,10 +32,6 @@
     library: $("channelLibrary"),
     status: $("channelStatus"),
     viewbar: $("channelViewbar"),
-    gate: $("channelGate"),
-    gateForm: $("channelGateForm"),
-    gateInput: $("channelGateInput"),
-    gateTitle: $("channelGateTitle"),
     nameInput: $("channelNameInput"),
     renameBtn: $("channelRenameBtn"),
     deleteChannelBtn: $("channelDeleteBtn"),
@@ -43,11 +40,7 @@
     flowPrevBtn: $("channelFlowPrevBtn"),
     flowNextBtn: $("channelFlowNextBtn"),
     flowStage: null,
-    flowCaption: null,
     flowCount: null,
-    flowTitle: null,
-    flowMeta: null,
-    flowTags: null,
     shelves: $("channelShelves"),
     empty: $("channelEmpty"),
     viewer: $("channelViewer"),
@@ -293,7 +286,7 @@
     if (state.viewMode === VIEW_MODE_FLOW && state.flowCards.length) {
       setFlowDragging(false)
       layoutFlowCards(next)
-      updateFlowCaption()
+      updateFlowCounter()
       syncViewModeUI()
       return
     }
@@ -319,16 +312,9 @@
     })
   }
 
-  function updateFlowCaption() {
-    const active = state.works[state.flowIndex]
-    if (!active || !el.flowCaption) return
-    const meta = active.metadata || {}
+  function updateFlowCounter() {
+    if (!el.flowCount) return
     el.flowCount.textContent = state.flowIndex + 1 + " / " + state.works.length
-    el.flowTitle.textContent = workDisplayTitle(active)
-    el.flowMeta.textContent = workMetaLine(active)
-    const tags = tagsText(meta.hashtags)
-    el.flowTags.hidden = !tags
-    el.flowTags.textContent = tags
   }
 
   function isTypingTarget(target) {
@@ -390,16 +376,6 @@
       .join(" · ")
   }
 
-  function workMetaLine(work) {
-    return [
-      workComposer(work) ? "작곡가 " + workComposer(work) : "",
-      workDescriptionLine(work),
-      formatDate(work && work.createdAt),
-    ]
-      .filter(Boolean)
-      .join(" · ")
-  }
-
   function workViewerMetaText(work) {
     const uploadedAt = formatDate(work && work.createdAt)
     return [
@@ -411,9 +387,14 @@
       .join("\n")
   }
 
+  function recipePictureUrl(work) {
+    const picture = work && work.recipe && typeof work.recipe.picture === "string" ? work.recipe.picture.trim() : ""
+    return /^data:image\//.test(picture) ? picture : ""
+  }
+
   function coverUrl(work, large) {
     const files = (work && work.files) || {}
-    return (large ? files.coverUrl || files.thumbUrl : files.thumbUrl || files.coverUrl) || DEFAULT_COVER_SRC
+    return recipePictureUrl(work) || (large ? files.coverUrl || files.thumbUrl : files.thumbUrl || files.coverUrl) || DEFAULT_COVER_SRC
   }
 
   function shouldShowCoverPlayOverlay(work) {
@@ -592,7 +573,7 @@
     const sign = offset === 0 ? 0 : offset > 0 ? 1 : -1
     const visible = abs <= 4.6
     const clamped = Math.max(-4, Math.min(4, offset))
-    const x = clamped * 184
+    const x = clamped * COVERFLOW_SPACING
     // 회전은 가운데(0)에서 옆칸(±1)까지 부드럽게 ±58도로 차오른 뒤 그대로 유지한다.
     const rotate = -sign * Math.min(abs, 1) * 58
     const z = -Math.min(abs, 4) * 112
@@ -613,7 +594,6 @@
   function renderCoverFlow() {
     state.flowIndex = clampFlowIndex(state.flowIndex)
     state.flowPosition = state.flowIndex
-    const active = state.works[state.flowIndex]
     const section = document.createElement("section")
     section.className = "channel-coverflow"
     section.setAttribute("aria-label", "커버플로우 보기")
@@ -633,49 +613,22 @@
       stage.appendChild(card)
       return card
     })
+    const counter = document.createElement("p")
+    counter.className = "channel-coverflow-counter"
+    counter.setAttribute("aria-live", "polite")
+    stage.appendChild(counter)
+    el.flowCount = counter
     el.flowStage = stage
     layoutFlowCards(state.flowIndex)
+    updateFlowCounter()
     bindFlowInteractions(stage)
     section.appendChild(stage)
-
-    if (active) {
-      const caption = document.createElement("section")
-      caption.className = "channel-coverflow-caption"
-      const count = document.createElement("p")
-      count.className = "channel-coverflow-count"
-      const title = document.createElement("h2")
-      const detail = document.createElement("p")
-      detail.className = "channel-coverflow-meta"
-      const tagLine = document.createElement("p")
-      tagLine.className = "channel-coverflow-tags"
-      const open = document.createElement("button")
-      open.type = "button"
-      open.className = "channel-action-button primary"
-      open.textContent = "크게 보기"
-      open.addEventListener("click", function () {
-        const current = state.works[state.flowIndex]
-        if (current) openViewer(current, { updateHash: true })
-      })
-      caption.appendChild(count)
-      caption.appendChild(title)
-      caption.appendChild(detail)
-      caption.appendChild(tagLine)
-      caption.appendChild(open)
-      section.appendChild(caption)
-      el.flowCaption = caption
-      el.flowCount = count
-      el.flowTitle = title
-      el.flowMeta = detail
-      el.flowTags = tagLine
-      updateFlowCaption()
-    }
 
     el.shelves.appendChild(section)
   }
 
   // 마우스/터치 드래그·휠로 커버플로우를 굴린다.
   function bindFlowInteractions(stage) {
-    const SPACING = 184
     let pointerId = null
     let startX = 0
     let startPos = 0
@@ -708,7 +661,7 @@
         } catch (error) {}
       }
       const max = maxIndex()
-      let pos = startPos - dx / SPACING
+      let pos = startPos - dx / COVERFLOW_SPACING
       // 양 끝에서는 고무줄처럼 살짝만 끌려 나가게 한다.
       if (pos < 0) pos *= 0.35
       else if (pos > max) pos = max + (pos - max) * 0.35
@@ -874,19 +827,14 @@
     // 카드를 새로 그리므로 옛 커버플로우 참조는 버린다.
     state.flowCards = []
     el.flowStage = null
-    el.flowCaption = null
+    el.flowCount = null
     state.flowIndex = clampFlowIndex(state.flowIndex)
     updateHeader()
     syncViewModeUI()
     const gated = state.locked && !!state.channel
-    if (el.gate) el.gate.hidden = !gated
     if (el.viewbar) el.viewbar.hidden = gated
     el.empty.hidden = gated || state.loading || !!state.works.length || !state.channel
-    if (gated) {
-      const name = channelDisplayName()
-      if (el.gateTitle) el.gateTitle.textContent = (name || "#" + state.channel) + " — 갤러리 코드가 필요해요"
-      return
-    }
+    if (gated) return
     if (state.loading || !state.works.length) return
     if (state.viewMode === VIEW_MODE_FLOW) renderCoverFlow()
     else renderShelfView()
@@ -945,16 +893,6 @@
       renderShelves()
       setStatus(error.message || "화음 갤러리를 불러오지 못했어요.", true)
     }
-  }
-
-  function submitGatePass() {
-    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(el.gateInput ? el.gateInput.value : "") : ""
-    if (!pin) {
-      setStatus("갤러리 코드를 입력하세요.", true)
-      return
-    }
-    state.openedFromHash = false
-    loadChannel(state.channel, { pass: pin })
   }
 
   async function renameChannel() {
@@ -1326,12 +1264,6 @@
       if (history.length > 1) history.back()
       else location.href = studioUrl()
     })
-    if (el.gateForm) {
-      el.gateForm.addEventListener("submit", function (event) {
-        event.preventDefault()
-        submitGatePass()
-      })
-    }
     if (el.renameBtn) {
       el.renameBtn.addEventListener("click", renameChannel)
     }

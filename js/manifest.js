@@ -72,7 +72,6 @@
     rain1: { label: "가랑비", src: "sound/효과-자연음(유자레코즈)/비1.mp3", image: "./assets/effects/rain-drizzle.webp" },
     rain2: { label: "소나기", src: "sound/효과-자연음(유자레코즈)/비2.mp3", image: "./assets/effects/rain-shower.webp" },
     rain3: { label: "큰 빗방울", src: "sound/효과-자연음(유자레코즈)/비3.mp3", image: "./assets/effects/rain-drops.webp" },
-    rain4: { label: "장대비", src: "sound/효과-자연음(유자레코즈)/비4.mp3", image: "./assets/effects/rain-heavy.webp" },
     forest1: { label: "새소리 숲", src: "sound/효과-자연음(유자레코즈)/숲1.mp3", image: "./assets/effects/forest-birds.webp" },
     forest2: { label: "흔들리는 잎", src: "sound/효과-자연음(유자레코즈)/숲2.mp3", image: "./assets/effects/forest-leaves.webp" },
     forest3: { label: "깊은 숲", src: "sound/효과-자연음(유자레코즈)/숲3.mp3", image: "./assets/effects/forest-deep.webp" },

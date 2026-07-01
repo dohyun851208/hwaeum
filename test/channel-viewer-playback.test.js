@@ -30,7 +30,7 @@ test("opening a channel work does not auto-play audio", () => {
   assert.doesNotMatch(openViewerBody, /viewerAudio\.play\(\)/)
   assert.doesNotMatch(createCardBody, /play:\s*true/)
   assert.doesNotMatch(renderFlowBody, /play:\s*true/)
-  assert.match(renderFlowBody, /open\.textContent = "크게 보기"/)
+  assert.match(renderFlowBody, /openViewer\(work, \{ updateHash: true \}\)/)
 })
 
 test("channel viewer audio starts only from the play button handler", () => {
@@ -85,6 +85,17 @@ test("shared publish stores a drawing image file for channel viewers", () => {
   assert.match(publishApi, /const drawing = files\.drawing \? decodeFile\(files\.drawing, "image\/webp"\) : null/)
   assert.match(publishApi, /base \+ "drawing\.webp"/)
   assert.match(publishApi, /drawingUrl: drawingBlob \? drawingBlob\.url : ""/)
+})
+
+test("shared publish uploads meta json once", () => {
+  const publishApi = fs.readFileSync(path.join(projectDir, "api", "share", "publish.js"), "utf8")
+  const metaPutCalls = publishApi.match(/await put\(base \+ "meta\.json"/g) || []
+
+  assert.equal(metaPutCalls.length, 1)
+  assert.match(publishApi, /metaUrl: ""/)
+  assert.match(publishApi, /metaPathname: base \+ "meta\.json"/)
+  assert.match(publishApi, /meta\.files\.metaUrl = metaBlob\.url/)
+  assert.match(publishApi, /meta\.files\.metaPathname = metaBlob\.pathname/)
 })
 
 test("saved takes and shared works describe every used instrument", () => {

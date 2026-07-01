@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 갤러리</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260630-drawing-image-delete" />
+    <link rel="stylesheet" href="./styles.css?v=20260701-channel-header-clean" />
   </head>
   <body class="channel-body">
     <div class="channel-shell">
@@ -34,12 +34,6 @@
 
         <div class="channel-top-actions">
           <p class="channel-status" id="channelStatus" aria-live="polite"></p>
-          <section class="channel-gate" id="channelGate" hidden aria-label="갤러리 코드 입력">
-            <form class="channel-gate-form" id="channelGateForm">
-              <input id="channelGateInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="갤러리 코드" aria-label="갤러리 코드" />
-              <button class="channel-open-button" type="submit">열기</button>
-            </form>
-          </section>
           <div class="channel-viewbar" id="channelViewbar" aria-label="갤러리 보기 방식">
             <div class="channel-view-tabs" role="group" aria-label="보기 방식">
               <button class="channel-view-tab active" id="channelShelfModeBtn" type="button" aria-pressed="true">한눈에 보기</button>
@@ -93,6 +87,6 @@
     </div>
 
     <script src="./js/share-store.js?v=20260630-drawing-image-delete" defer></script>
-    <script src="./js/channel.js?v=20260701-studio-copy" defer></script>
+    <script src="./js/channel.js?v=20260701-channel-header-clean" defer></script>
   </body>
 </html>

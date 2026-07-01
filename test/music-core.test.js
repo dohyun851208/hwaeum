@@ -58,9 +58,16 @@ test("buildScale: 국악 공통 팔레트는 G-A-C-D-E-G-A-C-D-E 10칸이다", (
   assert.deepStrictEqual(core.buildScale(GUGAK_COMMON), [55, 57, 60, 62, 64, 67, 69, 72, 74, 76])
 })
 
-test("drawableScale: 국악기는 playableMidi 교집합으로 음계를 줄인다", () => {
+test("drawableScale: 국악기는 서양 기본 축 15칸을 유지한다", () => {
   const rows = core.drawableScale(GUGAK_FIXED_GRID, GUGAK_ASSET)
-  assert.deepStrictEqual(rows, [55, 57, 60, 62, 64, 67, 69, 72, 74, 76])
+  assert.deepStrictEqual(rows, [55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79])
+})
+
+test("quantizePitch: 국악 비활성 칸은 음을 만들지 않는다", () => {
+  const rows = core.drawableScale(GUGAK_FIXED_GRID, GUGAK_ASSET)
+  assert.strictEqual(core.quantizePitch(rowCenterY(rows, 59), GUGAK_FIXED_GRID, GUGAK_ASSET), null)
+  assert.strictEqual(core.quantizePitch(rowCenterY(rows, 65), GUGAK_FIXED_GRID, GUGAK_ASSET), null)
+  assert.strictEqual(core.quantizePitch(rowCenterY(rows, 67), GUGAK_FIXED_GRID, GUGAK_ASSET), 67)
 })
 
 test("resampleByTime: 그리는 속도와 무관 — 점 밀도가 달라도 같은 결과", () => {

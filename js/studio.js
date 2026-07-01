@@ -1100,6 +1100,8 @@
       if (row.rowTop == null || row.rowHeight == null) return
       const d = document.createElement("span")
       d.className = "pitch-label-row" + (row.selected ? " selected" : "") + (!row.label ? " silent" : "")
+      if (row.color) d.style.setProperty("--pitch-color", row.color)
+      if (row.softColor) d.style.setProperty("--pitch-soft", row.softColor)
       const rowTop = axisY(row.rowTop)
       const rowBottom = axisY(row.rowBottom != null ? row.rowBottom : row.rowTop + row.rowHeight)
       if (rowTop != null && rowBottom != null) {
@@ -1119,6 +1121,7 @@
         (label.selected ? " selected" : "") +
         (label.top <= 0 ? " edge-high" : "") +
         (label.top >= 100 ? " edge-low" : "")
+      if (label.color) d.style.setProperty("--pitch-color", label.color)
       const labelTop = axisY(label.top)
       d.style.top = labelTop != null ? labelTop + "px" : label.top + "%"
       d.textContent = label.label

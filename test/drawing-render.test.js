@@ -97,7 +97,7 @@ function makeCanvas(ctx) {
   }
 }
 
-test("renderNotes keeps stroke instrument colors and uses the same line treatment for every instrument", () => {
+test("renderNotes uses pitch colors and keeps the same line treatment for every instrument", () => {
   const DrawingCanvas = loadDrawing()
   const ctx = makeContext()
   const draw = new DrawingCanvas(makeCanvas(ctx), {
@@ -115,14 +115,14 @@ test("renderNotes keeps stroke instrument colors and uses the same line treatmen
 
   draw.renderNotes()
 
-  const violinStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c0504d")
-  const fluteStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#4f9bb8")
-  const violinWidths = violinStrokes.map((call) => call[2])
-  const fluteWidths = fluteStrokes.map((call) => call[2])
+  const doStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c96f66")
+  const miStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#b89d45")
+  const doWidths = doStrokes.map((call) => call[2])
+  const miWidths = miStrokes.map((call) => call[2])
 
-  assert.equal(violinStrokes.length, 2, "each violin note should render as a stroked line")
-  assert.equal(fluteStrokes.length, 2, "each flute note should render as a stroked line")
-  assert.deepEqual(fluteWidths, violinWidths, "line widths should not vary by instrument")
+  assert.equal(doStrokes.length, 2, "each do note should render as a stroked line")
+  assert.equal(miStrokes.length, 2, "each mi note should render as a stroked line")
+  assert.deepEqual(miWidths, doWidths, "line widths should not vary by instrument")
 })
 
 test("pitch rendering places edge pitches at row centers on the G3..G5 axis", () => {
@@ -153,7 +153,8 @@ test("renderGrid draws pitch-row cells with timeline vertical lines", () => {
   draw.renderGrid()
 
   const fills = ctx.calls.filter((call) => call[0] === "fillRect")
-  assert.equal(fills.length, 2, "grid should only fill the paper and pitch-label gutter without row shading")
+  assert.equal(fills.length, rowCount + 2, "grid should fill the paper, pitch-label gutter, and subtle pitch row tints")
+  assert.ok(fills.slice(2).every((call) => call[1] === draw._timelineLeft()), "pitch row tints should start after the pitch labels")
 
   const verticals = []
   for (let i = 0; i < ctx.calls.length - 1; i++) {
@@ -213,14 +214,19 @@ test("pitch axis labels use requested Korean order for western and gugak palette
   const westernLabels = loadDrawing(() => westernMidis).pitchLabelsForStyle({}).map((label) => label.label)
   const gugakRows = loadDrawing(null, {
     drawableScale() {
-      return gugakMidis
+      return westernMidis
     },
-  }).pitchRowsForStyle({}, {})
+    isPitchPlayable(midi) {
+      return gugakMidis.indexOf(midi) !== -1
+    },
+  }).pitchRowsForStyle({}, { playableMidi: gugakMidis })
   const gugakLabels = gugakRows.map((row) => row.label)
+  const inactiveLabels = gugakRows.filter((row) => !row.selected).map((row) => row.label)
 
   assert.deepEqual(westernLabels, ["솔", "라", "시", "도", "레", "미", "파", "솔", "라", "시", "도", "레", "미", "파", "솔"])
-  assert.deepEqual(gugakLabels, ["솔", "라", "도", "레", "미", "솔", "라", "도", "레", "미"])
-  assert.ok(gugakRows.every((row) => row.selected))
+  assert.deepEqual(gugakLabels, ["솔", "라", "시", "도", "레", "미", "파", "솔", "라", "시", "도", "레", "미", "파", "솔"])
+  assert.deepEqual(inactiveLabels, ["시", "파", "시", "파", "솔"])
+  assert.equal(gugakRows.find((row) => row.label === "도").color, "#c96f66")
 })
 
 test("inactive pitch rows do not start a new drawing stroke", () => {

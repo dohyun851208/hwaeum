@@ -77,6 +77,8 @@ module.exports = async function handler(req, res) {
         drawingBytes: drawing ? drawing.size : 0,
         musicBytes: music.size,
         totalBytes,
+        metaUrl: "",
+        metaPathname: base + "meta.json",
       },
       shareUrl: sharedUrl(req, id, channel),
       schemaVersion: 1,
@@ -84,7 +86,6 @@ module.exports = async function handler(req, res) {
     const metaBlob = await put(base + "meta.json", JSON.stringify(meta), Object.assign({}, putOptions, { contentType: "application/json; charset=utf-8" }))
     meta.files.metaUrl = metaBlob.url
     meta.files.metaPathname = metaBlob.pathname
-    await put(base + "meta.json", JSON.stringify(meta), Object.assign({}, putOptions, { contentType: "application/json; charset=utf-8", allowOverwrite: true }))
 
     send(res, 200, { work: sanitizeMeta(meta) })
   } catch (error) {

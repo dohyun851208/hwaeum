@@ -1777,13 +1777,13 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 
 .channel-coverflow {
   display: grid;
-  gap: 14px;
+  gap: 0;
 }
 
 .channel-coverflow-stage {
   position: relative;
-  height: min(60vh, 620px);
-  min-height: 470px;
+  height: min(76vh, 780px);
+  min-height: 620px;
   overflow: hidden;
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 8px;
@@ -1815,14 +1815,15 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   position: absolute;
   left: 0;
   right: 0;
+  z-index: 1;
   pointer-events: none;
 }
 
 .channel-coverflow-stage::before {
   top: auto;
-  bottom: 108px;
-  height: 92px;
-  background: url("./assets/channel/acrylic-rail.webp") center bottom / 88% 100% no-repeat;
+  bottom: 132px;
+  height: 112px;
+  background: url("./assets/channel/acrylic-rail.webp") center bottom / 92% 100% no-repeat;
   filter: drop-shadow(0 20px 20px rgba(15, 23, 42, 0.18));
 }
 
@@ -1837,8 +1838,8 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .channel-coverflow .channel-flow-album {
   position: absolute;
   left: 50%;
-  bottom: 154px;
-  width: 292px;
+  bottom: 178px;
+  width: 380px;
   transform:
     translateX(calc(-50% + var(--flow-x, 0px)))
     translateZ(var(--flow-z, 0px))
@@ -1861,14 +1862,13 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 
 .channel-coverflow .channel-album-cover {
-  width: 292px;
+  width: 380px;
   border-color: rgba(15, 23, 42, 0.16);
   border-radius: 6px;
   box-shadow:
     0 28px 48px rgba(15, 23, 42, 0.24),
     1px 0 0 rgba(255, 255, 255, 0.44) inset;
   transition: box-shadow 320ms ease;
-  -webkit-box-reflect: below 10px linear-gradient(transparent 38%, rgba(255, 255, 255, 0.22));
 }
 
 /* 가운데 표지는 얇은 청록 라인과 그림자로 선택 상태를 드러낸다. */
@@ -1885,85 +1885,36 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   opacity: 0;
 }
 
+.channel-coverflow .channel-album-overlay {
+  right: 14px;
+  bottom: 18px;
+  left: 14px;
+  min-height: 66px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+}
+
 .channel-coverflow .channel-album-play,
 .channel-coverflow .channel-album-overlay {
   transition: opacity 160ms ease;
 }
 
-.channel-coverflow-caption {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 18px;
-  align-items: center;
-  min-height: 104px;
-  padding: 20px 22px 17px;
-  border: 1px solid var(--channel-line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow:
-    0 16px 32px rgba(15, 23, 42, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  overflow: hidden;
-}
-
-/* 상단 그라데이션 하이라이트 — 선택된 표지와 설명을 잇는 세련된 구분선 */
-.channel-coverflow-caption::before {
-  content: "";
+.channel-coverflow-counter {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--channel-accent), var(--channel-gold) 60%, var(--channel-accent));
-  opacity: 0.85;
-}
-
-.channel-coverflow-count,
-.channel-coverflow-meta,
-.channel-coverflow-tags {
+  right: 24px;
+  bottom: 22px;
+  z-index: 130;
   margin: 0;
-}
-
-.channel-coverflow-count {
-  grid-column: 1;
-  color: var(--channel-teal);
-  font-size: 0.78rem;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.66);
+  color: #ffffff;
+  font-size: 0.92rem;
   font-weight: 900;
-  letter-spacing: 0.09em;
-}
-
-.channel-coverflow-caption h2 {
-  grid-column: 1;
-  margin: 0;
-  color: var(--channel-ink);
-  font-family: var(--serif);
-  font-size: 1.55rem;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-}
-
-.channel-coverflow-meta {
-  grid-column: 1;
-  color: var(--channel-muted);
-  font-size: 0.9rem;
-  font-weight: 800;
-  line-height: 1.35;
-}
-
-.channel-coverflow-tags {
-  grid-column: 1;
-  color: var(--channel-accent);
-  font-size: 0.88rem;
-  font-weight: 850;
-  letter-spacing: 0.01em;
-}
-
-.channel-coverflow-caption .channel-action-button {
-  grid-row: 1 / span 4;
-  grid-column: 2;
-  align-self: center;
-  min-width: 112px;
+  line-height: 1;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(12px);
 }
 .palette-label-end span {
   left: -6px;
@@ -2353,6 +2304,8 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   --timeline-width: 100%;
   --canvas-scroll-left: 0px;
   --pitch-label-width: 56px;
+  --playhead-line: rgba(31, 38, 38, 0.92);
+  --playhead-handle: #b78a2f;
   --canvas-pad-x: 16px;
   --timeline-label-top: 10px;
   overflow-x: auto;
@@ -2402,10 +2355,10 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: transparent;
 }
 .pitch-label-row.selected {
-  background: transparent;
+  background: linear-gradient(90deg, var(--pitch-soft, transparent) 0%, rgba(255, 255, 255, 0) 86%);
 }
 .pitch-label-row:not(.selected) {
-  background: rgba(31, 38, 38, 0.045);
+  background: rgba(31, 38, 38, 0.05);
 }
 .pitch-label-row.silent {
   background: transparent;
@@ -2431,10 +2384,11 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   white-space: nowrap;
 }
 .pitch-label.selected {
-  color: rgba(31, 38, 38, 0.88);
+  color: var(--pitch-color, rgba(31, 38, 38, 0.88));
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 .pitch-label:not(.selected) {
-  color: rgba(31, 38, 38, 0.3);
+  color: rgba(31, 38, 38, 0.28);
 }
 .pitch-label.edge-high {
   transform: translateY(0);
@@ -2525,12 +2479,13 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .playhead::before {
   content: "";
   position: absolute;
-  top: -18px;
+  top: -17px;
   left: 50%;
   transform: translateX(-50%);
-  border-left: 18px solid transparent;
-  border-right: 18px solid transparent;
-  border-top: 24px solid var(--accent);
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 22px solid var(--playhead-handle);
+  filter: drop-shadow(0 2px 3px rgba(31, 38, 38, 0.18));
 }
 .playhead::after {
   content: "";
@@ -2541,11 +2496,11 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   width: 2.5px;
   transform: translateX(-50%);
   border-radius: 2px;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent-line);
+  background: var(--playhead-line);
+  box-shadow: 0 0 0 1px rgba(251, 246, 236, 0.72), 0 0 10px rgba(31, 38, 38, 0.16);
 }
 .playhead:focus-visible::after {
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 5px var(--accent-line);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 5px rgba(183, 138, 47, 0.38);
 }
 
 #penBtn.active,
@@ -3475,40 +3430,6 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .channel-claim-form #shareChannelPassInput {
   grid-column: 1 / -1;
 }
-/* 화음 갤러리 감상 페이지의 코드 게이트 */
-.channel-gate {
-  flex: 0 0 auto;
-  margin: 0;
-}
-.channel-gate-form {
-  display: grid;
-  grid-template-columns: minmax(176px, 1fr) 64px;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-}
-.channel-gate-form input {
-  min-height: 42px;
-  width: 100%;
-  padding: 0 14px;
-  border: 1px solid var(--channel-line-strong);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--channel-ink);
-  font: inherit;
-  font-weight: 850;
-  letter-spacing: 0;
-}
-.channel-gate-form input:focus {
-  outline: none;
-  border-color: var(--channel-accent);
-  box-shadow: 0 0 0 3px rgba(0, 166, 166, 0.14);
-}
-.channel-gate-form .channel-open-button {
-  min-height: 42px;
-  padding: 0 16px;
-}
-.channel-gate[hidden],
 .channel-empty[hidden] {
   display: none;
 }
@@ -4222,12 +4143,12 @@ body:not(.channel-body)::after {
 }
 
 .playhead::before {
-  border-top-color: var(--brand-red);
+  border-top-color: var(--playhead-handle);
 }
 
 .playhead::after {
-  background: var(--brand-red);
-  box-shadow: 0 0 14px rgba(222, 101, 71, 0.56);
+  background: var(--playhead-line);
+  box-shadow: 0 0 0 1px rgba(251, 246, 236, 0.72), 0 0 10px rgba(31, 38, 38, 0.16);
 }
 
 #penBtn.active,
@@ -4457,7 +4378,6 @@ body:not(.channel-body)::after {
 .channel-status,
 .channel-view-tab,
 .channel-open-form label,
-.channel-coverflow-meta,
 .channel-album-overlay span,
 .channel-viewer-meta,
 .channel-viewer-text {
@@ -4498,8 +4418,7 @@ body:not(.channel-body)::after {
 
 .channel-menu-field input,
 .channel-admin-field input,
-.channel-open-form input,
-.channel-gate-form input {
+.channel-open-form input {
   border-color: rgba(255, 224, 138, 0.3);
   background: rgba(255, 250, 238, 0.96);
   color: var(--channel-text-dark);
@@ -4612,7 +4531,6 @@ body:not(.channel-body)::after {
 }
 
 .channel-album-overlay strong,
-.channel-coverflow-caption h2,
 .channel-empty strong,
 .channel-viewer-info h2 {
   color: var(--channel-ink);
@@ -4648,7 +4566,6 @@ body:not(.channel-body)::after {
   box-shadow:
     0 32px 58px rgba(0, 0, 0, 0.5),
     1px 0 0 rgba(255, 255, 255, 0.22) inset;
-  -webkit-box-reflect: below 10px linear-gradient(transparent 42%, rgba(255, 224, 138, 0.18));
 }
 
 .channel-coverflow .channel-flow-album.is-center .channel-album-cover {
@@ -4660,23 +4577,18 @@ body:not(.channel-body)::after {
     1px 0 0 rgba(255, 255, 255, 0.28) inset;
 }
 
-.channel-coverflow-caption {
-  border-color: rgba(255, 224, 138, 0.2);
-  background: rgba(14, 18, 17, 0.84);
-  box-shadow:
-    0 24px 54px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 224, 138, 0.16);
-}
-
-.channel-coverflow-caption::before {
-  background: linear-gradient(90deg, var(--channel-teal), var(--channel-gold) 58%, var(--channel-teal));
-}
-
-.channel-coverflow-count,
-.channel-coverflow-tags,
+.channel-coverflow-counter,
 .channel-viewer-tags,
 .channel-eyebrow {
   color: var(--channel-gold);
+}
+
+.channel-coverflow-counter {
+  border-color: rgba(255, 224, 138, 0.24);
+  background: rgba(14, 18, 17, 0.74);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 224, 138, 0.16);
 }
 
 .channel-empty {
@@ -4717,7 +4629,6 @@ body:not(.channel-body)::after {
   filter: sepia(0.18) saturate(0.9);
 }
 
-.channel-gate-form input:focus,
 .channel-menu-field input:focus,
 .channel-admin-field input:focus,
 .channel-open-form input:focus {
