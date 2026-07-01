@@ -55,20 +55,22 @@ test("shared gallery viewers separate composer, description, and uploaded time",
   assert.match(css, /\.shared-viewer-meta\s*\{[\s\S]*white-space:\s*pre-line/)
 })
 
-test("channel viewer opens drawing image instead of copying a work link", () => {
+test("channel viewer opens a studio copy instead of a drawing image", () => {
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
   const openViewerBody = functionBody(channel, "openViewer")
   const bindBody = functionBody(channel, "bind")
 
-  assert.match(channelHtml, /id="viewerDrawingBtn"[^>]*>드로잉 이미지/)
+  assert.match(channelHtml, /id="viewerDrawingBtn"[^>]*>스튜디오에서 보기/)
   assert.doesNotMatch(channelHtml, /id="viewerCopyBtn"|>링크 복사</)
   assert.match(channelHtml, /id="viewerDeleteBtn"[^>]*>작품 삭제/)
   assert.doesNotMatch(channelHtml, /id="viewerDeleteBtn"[^>]*hidden/)
-  assert.match(openViewerBody, /viewerDrawing\.disabled = !drawingUrl\(work\) && !recipeStrokes\(work\.recipe\)\.length/)
-  assert.match(bindBody, /viewerDrawing[\s\S]*addEventListener\("click", openActiveDrawingImage\)/)
-  assert.match(functionBody(channel, "openActiveDrawingImage"), /root\.open\("about:blank", "_blank"\)/)
-  assert.match(functionBody(channel, "drawingImageUrl"), /drawingUrl\(work\) \|\| generatedDrawingUrl\(work\)/)
+  assert.match(openViewerBody, /viewerDrawing\.disabled = !canOpenStudioCopy\(work\)/)
+  assert.match(bindBody, /viewerDrawing[\s\S]*addEventListener\("click", openActiveStudioCopy\)/)
+  assert.match(functionBody(channel, "openActiveStudioCopy"), /root\.open\("about:blank", "_blank"\)/)
+  assert.match(functionBody(channel, "openActiveStudioCopy"), /studioCopyUrl\(storeStudioCopy\(state\.activeWork\)\)/)
+  assert.match(functionBody(channel, "storeStudioCopy"), /STUDIO_COPY_STORAGE_PREFIX \+ token/)
+  assert.match(functionBody(channel, "studioCopyRecipe"), /recipe\.atmosphere = "none"/)
 })
 
 test("shared publish stores a drawing image file for channel viewers", () => {

@@ -1200,8 +1200,9 @@ body.is-publishing #saveTakeBtn {
 
 .channel-shell {
   display: grid;
-  grid-template-rows: auto 1fr;
-  min-height: 100vh;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
 }
 
 .channel-topbar {
@@ -1503,7 +1504,10 @@ body.is-publishing #saveTakeBtn {
 
 .channel-library {
   position: relative;
-  overflow: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 28px 42px 46px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(238, 243, 247, 0.84)),
@@ -1601,6 +1605,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 
 .channel-shelves {
   display: grid;
+  align-content: start;
   gap: 38px;
 }
 
@@ -1615,7 +1620,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   align-items: end;
   gap: 18px;
   min-height: 250px;
-  padding: 18px 22px 110px;
+  padding: 18px 22px 56px;
 }
 
 .channel-shelf::before,

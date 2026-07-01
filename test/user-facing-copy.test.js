@@ -49,7 +49,7 @@ test("studio and gallery user-facing labels avoid leftover English section words
   assert.match(channel, /갤러리 코드/)
   assert.match(channel, /이름 변경/)
   assert.match(channel, /화음 갤러리 삭제하기/)
-  assert.match(channel, /드로잉 이미지/)
+  assert.match(channel, /스튜디오에서 보기/)
   assert.match(channel, /작품 삭제/)
   assert.doesNotMatch(channel, /링크 복사/)
   assert.doesNotMatch(channel, /id="channelAdminPin"/)

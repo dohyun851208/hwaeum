@@ -310,6 +310,21 @@ test("레시피 링크 공유는 드로잉 단계에서 시작하고 완성 탭 
   assert.match(source, /const items = state\.sharedRecipeLoaded \? \[\] : takes\.list\(\)/)
 })
 
+test("갤러리 스튜디오 보기는 복사본을 3단계로 복원한다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+
+  assert.match(source, /const STUDIO_COPY_STORAGE_PREFIX = "hwaeum\.studioCopy\."/)
+  assert.match(source, /if \(h\.indexOf\("#copy="\) === 0\)/)
+  assert.match(source, /const payload = takeStudioCopyPayload\(decodeURIComponent\(h\.slice\(6\)\)\)/)
+  assert.match(source, /loadRecipe\(studioCopyRecipe\(payload\.recipe\)\)/)
+  assert.match(source, /state\.sharedRecipeLoaded = true/)
+  assert.match(source, /state\.activeTakeId = null/)
+  assert.match(source, /const atmosphere = D\.atmospheres\.find\(\(a\) => a\.id === copy\.atmosphere\)/)
+  assert.match(source, /copy\.atmosphere = defaultAtmosphere\(\)\.id/)
+  assert.match(source, /copy\.bgOffset = 0/)
+  assert.match(source, /copy\.bgEndOffset = 0/)
+})
+
 test("step 2 default atmosphere selection is no background music", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const stateStart = source.indexOf("const state = {")

@@ -11,6 +11,8 @@
   const VIEW_MODE_FLOW = "flow"
   const VIEW_MODE_STORAGE_KEY = "hwaeum.channelViewMode"
   const WORK_ORDER_STORAGE_PREFIX = "hwaeum.channelWorkOrder."
+  const STUDIO_COPY_STORAGE_PREFIX = "hwaeum.studioCopy."
+  const STUDENT_UPLOAD_ATMOSPHERE_PREFIX = "custom-"
 
   const $ = (id) => document.getElementById(id)
   const el = {
@@ -128,6 +130,55 @@
     } catch (e) {
       return "./studio.html"
     }
+  }
+
+  function studioCopyUrl(token) {
+    try {
+      const url = new URL("./studio.html", location.href)
+      url.search = ""
+      url.hash = "copy=" + encodeURIComponent(token)
+      return url.href
+    } catch (e) {
+      return "./studio.html#copy=" + encodeURIComponent(token)
+    }
+  }
+
+  function studioCopyToken() {
+    try {
+      const bytes = new Uint32Array(2)
+      root.crypto.getRandomValues(bytes)
+      return bytes[0].toString(36) + bytes[1].toString(36) + Date.now().toString(36)
+    } catch (e) {
+      return Math.random().toString(36).slice(2) + Date.now().toString(36)
+    }
+  }
+
+  function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value || {}))
+  }
+
+  function studioCopyRecipe(work) {
+    const recipe = cloneJson(work && work.recipe)
+    if (String(recipe.atmosphere || "").indexOf(STUDENT_UPLOAD_ATMOSPHERE_PREFIX) === 0) {
+      recipe.atmosphere = "none"
+      recipe.bgOffset = 0
+      recipe.bgEndOffset = 0
+    }
+    recipe.copySource = "channel"
+    return recipe
+  }
+
+  function storeStudioCopy(work) {
+    if (!root.localStorage) throw new Error("브라우저 저장소를 사용할 수 없어요.")
+    const token = studioCopyToken()
+    root.localStorage.setItem(
+      STUDIO_COPY_STORAGE_PREFIX + token,
+      JSON.stringify({
+        createdAt: Date.now(),
+        recipe: studioCopyRecipe(work),
+      }),
+    )
+    return token
   }
 
   function setStatus(text, error) {
@@ -1025,6 +1076,10 @@
     return Array.isArray(recipe.path) && recipe.path.length ? [recipe.path] : []
   }
 
+  function canOpenStudioCopy(work) {
+    return !!(work && work.recipe && recipeStrokes(work.recipe).length)
+  }
+
   function strokeColor(index) {
     const palette = ["#00a6a6", "#c8a344", "#5b8def", "#d76f51", "#7f6fd6", "#6aa84f"]
     return palette[index % palette.length]
@@ -1142,7 +1197,7 @@
     el.viewerAudio.src = url
     el.viewerAudio.hidden = !url
     el.viewerDelete.hidden = !canDeleteActive()
-    if (el.viewerDrawing) el.viewerDrawing.disabled = !drawingUrl(work) && !recipeStrokes(work.recipe).length
+    if (el.viewerDrawing) el.viewerDrawing.disabled = !canOpenStudioCopy(work)
     el.viewer.hidden = false
     el.body.classList.add("channel-viewer-open")
     updateViewerPlayState()
@@ -1182,12 +1237,12 @@
     done()
   }
 
-  async function openActiveDrawingImage() {
+  function openActiveStudioCopy() {
     if (!state.activeWork) return
     const win = typeof root.open === "function" ? root.open("about:blank", "_blank") : null
     try {
-      const url = await drawingImageUrl(state.activeWork)
-      if (!url) throw new Error("드로잉 이미지를 찾지 못했어요.")
+      if (!canOpenStudioCopy(state.activeWork)) throw new Error("스튜디오에서 볼 수 있는 드로잉 정보가 없어요.")
+      const url = studioCopyUrl(storeStudioCopy(state.activeWork))
       if (win) {
         win.location.href = url
       } else if (typeof root.open === "function") {
@@ -1195,11 +1250,11 @@
       } else {
         location.href = url
       }
-      setStatus("드로잉 이미지를 새 창으로 열었어요.", false)
+      setStatus("스튜디오에서 복사본을 열었어요.", false)
     } catch (error) {
       if (win && !win.closed) win.close()
       console.error(error)
-      setStatus(error.message || "드로잉 이미지를 열지 못했어요.", true)
+      setStatus(error.message || "스튜디오에서 열지 못했어요.", true)
     }
   }
 
@@ -1326,7 +1381,7 @@
     el.viewerAudio.addEventListener("play", updateViewerPlayState)
     el.viewerAudio.addEventListener("pause", updateViewerPlayState)
     el.viewerAudio.addEventListener("ended", updateViewerPlayState)
-    if (el.viewerDrawing) el.viewerDrawing.addEventListener("click", openActiveDrawingImage)
+    if (el.viewerDrawing) el.viewerDrawing.addEventListener("click", openActiveStudioCopy)
     if (el.viewerDelete) el.viewerDelete.addEventListener("click", deleteActiveWork)
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {

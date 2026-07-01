@@ -124,3 +124,12 @@ test("한눈에 보기 작품 카드는 드래그로 순서를 바꾸고 갤러�
   assert.match(css, /\.channel-album\.is-drop-before::before/)
   assert.match(css, /\.channel-album\.is-drop-after::after/)
 })
+
+test("한눈에 보기는 작품 목록 안에서 스크롤되고 앨범은 선반에 더 가깝게 놓인다", () => {
+  const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+
+  assert.match(css, /\.channel-shell\s*\{[\s\S]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)[\s\S]*height:\s*100vh/)
+  assert.match(css, /\.channel-library\s*\{[\s\S]*min-height:\s*0[\s\S]*overflow-x:\s*hidden[\s\S]*overflow-y:\s*auto/)
+  assert.match(css, /\.channel-shelves\s*\{[\s\S]*align-content:\s*start/)
+  assert.match(css, /\.channel-shelf\s*\{[\s\S]*padding:\s*18px\s*22px\s*56px/)
+})

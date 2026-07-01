@@ -21,6 +21,8 @@
   const MIN_DURATION_SECONDS = 1
   const DEFAULT_COVER_SRC = "./assets/default-cover.webp"
   const ADMIN_STORAGE_KEY = "sda.adminMode"
+  const STUDIO_COPY_STORAGE_PREFIX = "hwaeum.studioCopy."
+  const STUDIO_COPY_MAX_AGE_MS = 60 * 60 * 1000
   const TAKE_NAME_MAX = 24
   const COMPOSER_NAME_MAX = 24
   const PICTURE_NAME_MAX = 80
@@ -80,6 +82,33 @@
     try {
       if (window.localStorage) window.localStorage.setItem(ADMIN_STORAGE_KEY, on ? "1" : "0")
     } catch (e) {}
+  }
+
+  function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value || {}))
+  }
+
+  function takeStudioCopyPayload(token) {
+    if (!window.localStorage || !token) throw new Error("복사본을 찾지 못했어요.")
+    const key = STUDIO_COPY_STORAGE_PREFIX + token
+    const raw = window.localStorage.getItem(key)
+    if (!raw) throw new Error("복사본을 찾지 못했어요.")
+    window.localStorage.removeItem(key)
+    const payload = JSON.parse(raw)
+    const createdAt = Number(payload && payload.createdAt)
+    if (createdAt && Date.now() - createdAt > STUDIO_COPY_MAX_AGE_MS) throw new Error("복사본 시간이 지나 다시 열어야 해요.")
+    return payload || {}
+  }
+
+  function studioCopyRecipe(recipe) {
+    const copy = cloneJson(recipe)
+    const atmosphere = D.atmospheres.find((a) => a.id === copy.atmosphere)
+    if (!atmosphere || atmosphere.custom || String(copy.atmosphere || "").indexOf("custom-") === 0) {
+      copy.atmosphere = defaultAtmosphere().id
+      copy.bgOffset = 0
+      copy.bgEndOffset = 0
+    }
+    return copy
   }
 
   const state = {
@@ -3320,6 +3349,19 @@
 
   function restoreFromHash() {
     const h = location.hash || ""
+    if (h.indexOf("#copy=") === 0) {
+      try {
+        const payload = takeStudioCopyPayload(decodeURIComponent(h.slice(6)))
+        loadRecipe(studioCopyRecipe(payload.recipe))
+        state.sharedRecipeLoaded = true
+        state.activeTakeId = null
+        state.playingTakeId = null
+        el.exportStatus.textContent = "갤러리 작품을 스튜디오에서 열었어요. 바꿔도 원래 작품은 그대로예요."
+        return true
+      } catch (e) {
+        console.warn("스튜디오 복사본 복원 실패", e)
+      }
+    }
     if (h.indexOf("#r=") === 0) {
       try {
         const recipe = Core.decodeRecipe(h.slice(3))
