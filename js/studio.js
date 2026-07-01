@@ -265,10 +265,10 @@
   // === § 5  악기 색 · Undo 변수 ===
   // 악기별 줄 색 — 오케스트라에서 어떤 줄이 어떤 악기인지 색으로 구분
   const INSTRUMENT_COLORS = {
-    violin: "#c0504d", viola: "#d18a4e", cello: "#9b5a3c", doubleBass: "#5b4a3a",
-    clarinet: "#4f6fae", oboe: "#5f8d4e", flute: "#4f9bb8", frenchHorn: "#c08a3c",
-    daegeum: "#2f8f86", danso: "#6aa39a", sogeum: "#3f93ad", piri: "#b5614b",
-    gayageum: "#9a6a3a", haegeum: "#9c5b76",
+    violin: "#c85f4d", viola: "#b8793f", cello: "#8f6046", doubleBass: "#5f5040",
+    flute: "#2f9c95", oboe: "#788f4a", clarinet: "#5f6f9f", frenchHorn: "#c49732",
+    sogeum: "#4b98a1", daegeum: "#2f8f86", danso: "#73986c", piri: "#b5614b",
+    gayageum: "#9a7138", haegeum: "#985b76",
   }
   function colorForInstrument(id) {
     return INSTRUMENT_COLORS[id] || (state.atmosphere && state.atmosphere.color) || "#5f8f63"

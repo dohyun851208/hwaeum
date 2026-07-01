@@ -263,12 +263,6 @@
     return state && state.melodyAsset ? state.melodyAsset : null
   }
 
-  DrawingCanvas.prototype._pitchColorForPoint = function (point, state, asset, fallback) {
-    if (!point || !state || !Core.quantizePitch) return fallback
-    const midi = Core.quantizePitch(point.y, state.style, asset)
-    return midi == null ? fallback : noteColorForMidi(midi, asset)
-  }
-
   DrawingCanvas.prototype._pointIsDrawable = function (p, state, asset) {
     const st = state || (this.getState ? this.getState() : null)
     if (!st || st.mode === "rhythm" || !Core.quantizePitch) return true
@@ -925,14 +919,12 @@
       const stroke = this.strokes[si]
       const instrumentId = this.strokeInstruments[si]
       const instrumentColor = this._colorFor(instrumentId)
-      const asset = this._assetForInstrument(instrumentId, st)
       if (stroke.length < 2) {
         // 점 하나짜리 획은 작은 점으로 표시
         if (stroke.length === 1) {
-          const color = this._pitchColorForPoint(stroke[0], st, asset, instrumentColor)
           ctx.beginPath()
           ctx.arc(this._timeToX(stroke[0].x), stroke[0].y * H, 10.24 * px, 0, Math.PI * 2)
-          ctx.fillStyle = color
+          ctx.fillStyle = instrumentColor
           ctx.globalAlpha = 0.78
           ctx.fill()
         }
@@ -950,8 +942,7 @@
       for (let i = 1; i < stroke.length; i++) {
         const prev = stroke[i - 1]
         const next = stroke[i]
-        const mid = { x: (prev.x + next.x) / 2, y: (prev.y + next.y) / 2 }
-        ctx.strokeStyle = this._pitchColorForPoint(mid, st, asset, instrumentColor)
+        ctx.strokeStyle = instrumentColor
         ctx.beginPath()
         ctx.moveTo(this._timeToX(prev.x), prev.y * H)
         ctx.lineTo(this._timeToX(next.x), next.y * H)
@@ -1004,8 +995,7 @@
       const w = Math.max(6 * px, (n.duration / st.duration) * timelineWidth - 3 * px)
       const y = this._pitchToY(n.midi, rows)
       const instrumentId = this._instrumentForNote(n)
-      const asset = this._assetForInstrument(instrumentId, st)
-      const color = noteColorForMidi(n.midi, asset)
+      const color = this._colorFor(instrumentId)
       const x1 = x + 2 * px
       const x2 = x + w
       ctx.strokeStyle = color

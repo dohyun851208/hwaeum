@@ -1209,7 +1209,7 @@ body.is-publishing #saveTakeBtn {
   position: relative;
   z-index: 30;
   display: grid;
-  grid-template-columns: 56px minmax(260px, 0.56fr) minmax(640px, 1.44fr);
+  grid-template-columns: 56px minmax(260px, 1fr) auto minmax(412px, 1fr);
   align-items: center;
   gap: 14px;
   min-height: 96px;
@@ -1422,7 +1422,7 @@ body.is-publishing #saveTakeBtn {
 
 .channel-top-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 8px 10px;
@@ -1430,9 +1430,9 @@ body.is-publishing #saveTakeBtn {
 }
 
 .channel-open-form {
-  flex: 0 0 auto;
+  flex: 0 0 412px;
   display: grid;
-  grid-template-columns: auto 92px 118px 62px;
+  grid-template-columns: 116px 92px 118px 62px;
   align-items: center;
   gap: 8px;
 }
@@ -1451,19 +1451,26 @@ body.is-publishing #saveTakeBtn {
 }
 
 .channel-open-form input {
-  width: 92px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0 10px;
   font-weight: 950;
   letter-spacing: 0;
   text-align: center;
 }
 
+.channel-open-form #channelInput {
+  grid-column: 2;
+}
+
 .channel-open-form .channel-code-input {
-  width: 118px;
+  grid-column: 3;
 }
 
 .channel-share-button {
-  min-width: 106px;
+  grid-column: 1;
+  width: 100%;
+  min-width: 0;
   padding: 0 12px;
   white-space: nowrap;
 }
@@ -1517,9 +1524,9 @@ body.is-publishing #saveTakeBtn {
 }
 
 .channel-status {
-  flex: 1 1 132px;
+  flex: 1 1 0;
   overflow: hidden;
-  min-width: 118px;
+  min-width: 0;
   max-width: 220px;
   margin: 0;
   color: var(--channel-muted);
@@ -1574,6 +1581,11 @@ body.is-publishing #saveTakeBtn {
   display: inline-flex;
   gap: 6px;
   transition: opacity 140ms ease;
+}
+
+.channel-open-form > .channel-open-button[type="submit"] {
+  grid-column: 4;
+  width: 100%;
 }
 
 body:not([data-gallery-view="flow"]) .channel-flow-controls {
@@ -1886,12 +1898,12 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 
 .channel-coverflow .channel-album-overlay {
-  right: 14px;
-  bottom: 18px;
-  left: 14px;
+  right: 0;
+  bottom: 0;
+  left: 0;
   min-height: 66px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 6px;
+  border-width: 1px 0 0;
+  border-radius: 0 0 6px 6px;
 }
 
 .channel-coverflow .channel-album-play,
@@ -5034,9 +5046,9 @@ body:not(.channel-body)::after {
 body[data-step="2"] .instrument-strip .compose-instrument {
   width: 100%;
   min-width: 0;
-  min-height: 64px;
-  padding: 5px 4px 6px;
-  border-radius: 10px;
+  min-height: 72px;
+  padding: 6px 6px 7px;
+  border-radius: 11px;
   display: grid;
   justify-items: center;
   align-content: center;
@@ -5044,8 +5056,8 @@ body[data-step="2"] .instrument-strip .compose-instrument {
   text-align: center;
 }
 body[data-step="2"] .instrument-strip .compose-instrument img {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: 0;
   border-radius: 7px;
   object-fit: contain;
@@ -5068,7 +5080,7 @@ body[data-step="2"] .instrument-strip .compose-instrument-group {
 }
 body[data-step="2"] .instrument-strip .compose-instrument-group-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(62px, 68px));
+  grid-template-columns: repeat(auto-fit, 72px);
   justify-content: start;
   gap: 7px;
   min-width: 0;
@@ -5087,7 +5099,7 @@ body[data-step="2"] .instrument-strip .compose-instrument-group-head {
   justify-content: center;
   align-self: stretch;
   width: var(--control-label-width);
-  min-height: 64px;
+  min-height: 72px;
   padding: 0 5px;
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.56);
@@ -5116,6 +5128,22 @@ body[data-step="2"] .instrument-strip .compose-instrument-text strong {
   word-break: keep-all;
   font-size: 0.66rem;
   font-weight: 850;
+}
+@media (min-width: 1081px) and (max-height: 820px) {
+  body[data-step="2"] .instrument-strip .compose-instrument {
+    min-height: 66px;
+    padding: 5px 5px 6px;
+  }
+  body[data-step="2"] .instrument-strip .compose-instrument img {
+    width: 36px;
+    height: 36px;
+  }
+  body[data-step="2"] .instrument-strip .compose-instrument-group-list {
+    grid-template-columns: repeat(auto-fit, 66px);
+  }
+  body[data-step="2"] .instrument-strip .compose-instrument-group-head {
+    min-height: 66px;
+  }
 }
 @media (max-width: 720px) {
   body {

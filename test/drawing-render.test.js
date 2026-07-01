@@ -97,13 +97,13 @@ function makeCanvas(ctx) {
   }
 }
 
-test("renderNotes uses pitch colors and keeps the same line treatment for every instrument", () => {
+test("renderNotes uses instrument colors and keeps the same line treatment for every instrument", () => {
   const DrawingCanvas = loadDrawing()
   const ctx = makeContext()
   const draw = new DrawingCanvas(makeCanvas(ctx), {
     activeInstrument: "violin",
     getState: () => ({ duration: 30, style: {}, mode: "melody" }),
-    instrumentColor: (id) => ({ violin: "#c0504d", flute: "#4f9bb8" })[id],
+    instrumentColor: (id) => ({ violin: "#c85f4d", flute: "#2f9c95" })[id],
   })
 
   ctx.calls.length = 0
@@ -115,14 +115,43 @@ test("renderNotes uses pitch colors and keeps the same line treatment for every 
 
   draw.renderNotes()
 
-  const doStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c96f66")
-  const miStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#b89d45")
-  const doWidths = doStrokes.map((call) => call[2])
-  const miWidths = miStrokes.map((call) => call[2])
+  const violinStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c85f4d")
+  const fluteStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#2f9c95")
+  const violinWidths = violinStrokes.map((call) => call[2])
+  const fluteWidths = fluteStrokes.map((call) => call[2])
 
-  assert.equal(doStrokes.length, 2, "each do note should render as a stroked line")
-  assert.equal(miStrokes.length, 2, "each mi note should render as a stroked line")
-  assert.deepEqual(miWidths, doWidths, "line widths should not vary by instrument")
+  assert.equal(violinStrokes.length, 2, "each violin note should render as a stroked line")
+  assert.equal(fluteStrokes.length, 2, "each flute note should render as a stroked line")
+  assert.deepEqual(fluteWidths, violinWidths, "line widths should not vary by instrument")
+  assert.equal(ctx.calls.some((call) => call[1] === "#c96f66" || call[1] === "#b89d45"), false)
+})
+
+test("renderStroke uses instrument colors instead of pitch colors", () => {
+  const DrawingCanvas = loadDrawing()
+  const ctx = makeContext()
+  const draw = new DrawingCanvas(makeCanvas(ctx), {
+    activeInstrument: "violin",
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+    instrumentColor: (id) => ({ violin: "#c85f4d", flute: "#2f9c95" })[id],
+  })
+
+  ctx.calls.length = 0
+  draw.strokes = [
+    [
+      { x: 0, y: 0.5 },
+      { x: 0.2, y: 0.5 },
+    ],
+    [{ x: 0.4, y: 0.36 }],
+  ]
+  draw.strokeInstruments = ["violin", "flute"]
+
+  draw.renderStroke()
+
+  const violinStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c85f4d")
+  const fluteDots = ctx.calls.filter((call) => call[0] === "fill" && call[1] === "#2f9c95")
+  assert.equal(violinStrokes.length, 2)
+  assert.equal(fluteDots.length, 1)
+  assert.equal(ctx.calls.some((call) => call[1] === "#c96f66" || call[1] === "#b89d45"), false)
 })
 
 test("pitch rendering places edge pitches at row centers on the G3..G5 axis", () => {
