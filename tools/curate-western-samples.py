@@ -112,24 +112,6 @@ MAX_LOOP_SPREAD_DB = 12.0
 # Hand curation for samples whose exact note source is too short for visible sustain.
 # cents describes the source pitch relative to the target midi entry.
 SAMPLE_OVERRIDES = {
-    ("violin", 55): {"srcMidi": 60, "srcToken": "C4", "cents": 500},
-    ("violin", 56): {"srcMidi": 60, "srcToken": "C4", "cents": 400},
-    ("violin", 57): {"srcMidi": 60, "srcToken": "C4", "cents": 300},
-    ("violin", 58): {"srcMidi": 60, "srcToken": "C4", "cents": 200},
-    ("violin", 59): {"srcMidi": 60, "srcToken": "C4", "cents": 100},
-    ("violin", 62): {"srcMidi": 60, "srcToken": "C4", "cents": -200},
-    ("violin", 64): {"srcMidi": 65, "srcToken": "F4", "cents": 100},
-    ("violin", 66): {"srcMidi": 65, "srcToken": "F4", "cents": -100},
-    ("violin", 67): {"srcMidi": 65, "srcToken": "F4", "cents": -200},
-    ("violin", 68): {"srcMidi": 72, "srcToken": "C5", "cents": 400},
-    ("violin", 69): {"srcMidi": 72, "srcToken": "C5", "cents": 300},
-    ("violin", 70): {"srcMidi": 72, "srcToken": "C5", "cents": 200},
-    ("violin", 71): {"srcMidi": 72, "srcToken": "C5", "cents": 100},
-    ("violin", 73): {"srcMidi": 72, "srcToken": "C5", "cents": -100},
-    ("violin", 74): {"srcMidi": 76, "srcToken": "E5", "cents": 200},
-    ("violin", 75): {"srcMidi": 76, "srcToken": "E5", "cents": 100},
-    ("violin", 78): {"srcMidi": 77, "srcToken": "F5", "cents": -100},
-    ("violin", 79): {"srcMidi": 77, "srcToken": "F5", "cents": -200},
     ("oboe", 88): {"srcMidi": 89, "srcToken": "F6", "cents": 100},
 }
 

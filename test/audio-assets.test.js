@@ -220,21 +220,21 @@ test("sustained wind sample maps avoid short repeated loop sources", () => {
   assert.equal(oboeE6.cents, 100)
 })
 
-test("violin drawing rows use stable sustain sample sources", () => {
+test("violin drawing rows keep distinct source pitches", () => {
   const data = loadManifest()
   const violin = data.melodies.violin.sampleMap
   const byMidi = new Map(violin.map((item) => [item.midi, item]))
 
-  assert.match(byMidi.get(55).src, /violin_C4\.mp3$/)
-  assert.equal(byMidi.get(55).cents, 500)
-  assert.match(byMidi.get(62).src, /violin_C4\.mp3$/)
-  assert.equal(byMidi.get(62).cents, -200)
-  assert.match(byMidi.get(74).src, /violin_E5\.mp3$/)
-  assert.equal(byMidi.get(74).cents, 200)
-  assert.match(byMidi.get(79).src, /violin_F5\.mp3$/)
-  assert.equal(byMidi.get(79).cents, -200)
+  assert.match(byMidi.get(55).src, /violin_G3\.mp3$/)
+  assert.match(byMidi.get(57).src, /violin_A3\.mp3$/)
+  assert.match(byMidi.get(59).src, /violin_B3\.mp3$/)
+  assert.match(byMidi.get(62).src, /violin_D4\.mp3$/)
+  assert.match(byMidi.get(74).src, /violin_D5\.mp3$/)
+  assert.match(byMidi.get(79).src, /violin_G5\.mp3$/)
   assert.match(byMidi.get(76).src, /violin_E5\.mp3$/)
-  assert.equal(byMidi.get(76).cents, undefined)
+  for (const midi of [55, 57, 59, 62, 74, 76, 79]) {
+    assert.equal(byMidi.get(midi).cents, undefined)
+  }
 })
 
 test("index loads detected sample maps before the audio engine", () => {

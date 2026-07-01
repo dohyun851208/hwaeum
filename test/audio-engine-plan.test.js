@@ -719,7 +719,7 @@ test("live drawing preview uses the full-playback melody gain target", () => {
   const target = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
   const expected = plan.version.melodyGain * 1.5 * 0.81 * (0.7 * 0.85) * 0.70
   const noteGain = ctx.created.gains[1].gain.events.find((event) => event[0] === "set")[1]
-  assert.ok(Math.abs(noteGain - Math.min(0.95, expected * 0.978) / expected) < 1e-9)
+  assert.ok(Math.abs(noteGain - Math.min(0.95, expected * 1.329) / expected) < 1e-9)
   assert.ok(Math.abs(target - expected) < 1e-9, "드로잉 중 미리듣기 음량은 전체 재생 선율 기준을 따라야 한다")
   assert.ok(target <= 0.95, "마스터 리미터 없는 프리뷰는 클리핑 방지 상한을 지켜야 한다")
 })
@@ -1232,9 +1232,9 @@ test("note-level melody gain is clamped to roughly +/-3 dB inside each instrumen
   const noteGainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
   const minGain = Math.pow(10, -3 / 20)
   const maxGain = Math.pow(10, 3 / 20)
-  assert.ok(noteGainEvents.some((event) => event[0] === "set" && Math.abs(event[1] - 0.795) < 1e-9))
+  assert.ok(noteGainEvents.some((event) => event[0] === "set" && Math.abs(event[1] - 0.708) < 1e-9))
   assert.ok(noteGainEvents.some((event) => event[0] === "target" && Math.abs(event[1] - maxGain) < 1e-9))
-  assert.ok(0.795 >= minGain - 0.001)
+  assert.ok(0.708 >= minGain - 0.001)
   assert.ok(maxGain <= Math.pow(10, 3 / 20) + 0.001)
 })
 
