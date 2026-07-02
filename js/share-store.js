@@ -433,6 +433,58 @@
     return { work: localPublicWork(record), localOnly: true }
   }
 
+  async function getLocalWork(channel, workId) {
+    return (
+      (await withLocalStore("readonly", function (store, setResult) {
+        const req = store.get(workId)
+        req.onsuccess = function () {
+          const record = req.result
+          setResult(record && record.channel === channel ? record : null)
+        }
+      })) || null
+    )
+  }
+
+  async function copyLocalWork(work, targetChannel, targetPass, sourcePass, owner) {
+    const sourceChannel = normalizeChannel(work && work.channel)
+    const workId = work && work.id
+    if (!sourceChannel || !workId) throw new Error("복사할 작품을 찾지 못했어요.")
+    if (!targetChannel) throw new Error("복사할 갤러리 번호를 적어 주세요.")
+    if (sourceChannel === targetChannel) throw new Error("다른 갤러리 번호를 적어 주세요.")
+
+    const sourceChannelRecord = await getLocalChannel(sourceChannel)
+    if (sourceChannelRecord && sourceChannelRecord.pass && sourcePass !== sourceChannelRecord.pass) {
+      throw new Error("원래 갤러리 코드를 다시 확인해 주세요.")
+    }
+    const targetChannelRecord = await getLocalChannel(targetChannel)
+    if (!targetChannelRecord) throw new Error("아직 만들어지지 않은 화음 갤러리예요. 관리자가 먼저 화음 갤러리를 만들어 주세요.")
+    if (targetChannelRecord.pass && targetPass !== targetChannelRecord.pass) throw new Error("갤러리 코드가 맞지 않아요.")
+
+    const source = await getLocalWork(sourceChannel, workId)
+    if (!source) throw new Error("복사할 작품을 찾지 못했어요.")
+    const now = new Date().toISOString()
+    const record = {
+      id: randomId("local_"),
+      channel: targetChannel,
+      title: source.title || "무제",
+      createdAt: now,
+      updatedAt: now,
+      ownerId: owner.id,
+      metadata: JSON.parse(JSON.stringify(source.metadata || {})),
+      recipe: JSON.parse(JSON.stringify(source.recipe || {})),
+      files: {
+        cover: source.files && source.files.cover,
+        thumb: source.files && source.files.thumb,
+        drawing: source.files && source.files.drawing ? source.files.drawing : null,
+        music: source.files && source.files.music,
+      },
+    }
+    await withLocalStore("readwrite", function (store) {
+      store.put(record)
+    })
+    return { work: localPublicWork(record), localOnly: true }
+  }
+
   async function listLocalWorks(channel, pin) {
     const channelRecord = await getLocalChannel(channel)
     const meta = channelRecord ? publicLocalChannel(channelRecord) : null
@@ -603,6 +655,34 @@
     }
   }
 
+  async function copyWork(work, options) {
+    options = options || {}
+    if (!work || !work.id || !work.channel) throw new Error("복사할 작품을 찾지 못했어요.")
+    const sourceChannel = normalizeChannel(work.channel)
+    const targetChannel = normalizeChannel(options.channel)
+    if (!targetChannel) throw new Error("복사할 갤러리 번호를 적어 주세요.")
+    if (sourceChannel === targetChannel) throw new Error("다른 갤러리 번호를 적어 주세요.")
+    const pin = cleanPin(options.pass)
+    if (pin.length < MIN_PIN_LENGTH) throw new Error("갤러리 코드는 숫자 " + MIN_PIN_LENGTH + "자리 이상으로 정해 주세요.")
+    const sourcePass = cleanPin(options.sourcePass)
+    const owner = getOwner()
+    if (work.localOnly) return copyLocalWork(work, targetChannel, pin, sourcePass, owner)
+    try {
+      return await postJson("/copy", {
+        sourceChannel: sourceChannel,
+        workId: work.id,
+        sourcePass: sourcePass,
+        targetChannel: targetChannel,
+        pass: pin,
+        ownerKey: owner.key,
+        ownerId: owner.id,
+      })
+    } catch (error) {
+      if (/^local_/.test(work.id || "") || shouldUseLocalShare(error)) return copyLocalWork(work, targetChannel, pin, sourcePass, owner)
+      throw error
+    }
+  }
+
   async function listChannel(channel, pass) {
     const normalized = rememberChannel(channel)
     if (!normalized) throw new Error("번호를 적어 주세요.")
@@ -676,6 +756,7 @@
     createImageBlobs: createImageBlobs,
     claimChannel: claimChannel,
     publishWork: publishWork,
+    copyWork: copyWork,
     listChannel: listChannel,
     deleteWork: deleteWork,
     deleteChannel: deleteChannel,

@@ -54,6 +54,7 @@
     viewerMelody: $("viewerMelody"),
     viewerTags: $("viewerTags"),
     viewerDrawing: $("viewerDrawingBtn"),
+    viewerCopy: $("viewerCopyBtn"),
     viewerDelete: $("viewerDeleteBtn"),
   }
 
@@ -349,7 +350,6 @@
     return tags
       .map((tag) => cleanText(tag, 24))
       .filter(Boolean)
-      .map((tag) => (tag.charAt(0) === "#" ? tag : "#" + tag))
       .join(" ")
   }
 
@@ -416,6 +416,10 @@
 
   function canDeleteActive() {
     return !!state.activeWork
+  }
+
+  function canCopyActive() {
+    return !!(state.activeWork && ShareStore && ShareStore.copyWork)
   }
 
   const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
@@ -1136,6 +1140,7 @@
     el.viewerAudio.hidden = !url
     el.viewerDelete.hidden = !canDeleteActive()
     if (el.viewerDrawing) el.viewerDrawing.disabled = !canOpenStudioCopy(work)
+    if (el.viewerCopy) el.viewerCopy.disabled = !canCopyActive()
     el.viewer.hidden = false
     el.body.classList.add("channel-viewer-open")
     updateViewerPlayState()
@@ -1193,6 +1198,47 @@
       if (win && !win.closed) win.close()
       console.error(error)
       setStatus(error.message || "스튜디오에서 열지 못했어요.", true)
+    }
+  }
+
+  async function copyActiveWork() {
+    if (!state.activeWork || !ShareStore || !ShareStore.copyWork) return
+    const sourceChannel = normalizeChannel(state.activeWork.channel || state.channel)
+    const askedChannel = promptTrimmed("복사할 갤러리 번호를 입력하세요.", "")
+    if (askedChannel == null) return
+    const targetChannel = normalizeChannel(askedChannel)
+    if (!targetChannel) {
+      setStatus("복사할 갤러리 번호를 적어 주세요.", true)
+      return
+    }
+    if (targetChannel === sourceChannel) {
+      setStatus("다른 갤러리 번호를 적어 주세요.", true)
+      return
+    }
+    const savedPass = ShareStore.loadPass ? ShareStore.loadPass(targetChannel) : ""
+    const askedPass = promptTrimmed("복사할 갤러리 코드(숫자)를 입력하세요.", savedPass || "")
+    if (askedPass == null) return
+    const pass = ShareStore.cleanPin ? ShareStore.cleanPin(askedPass) : String(askedPass || "").replace(/\D/g, "").slice(0, 6)
+    if (pass.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
+      setStatus("갤러리 코드는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 적어 주세요.", true)
+      return
+    }
+    if (el.viewerCopy) el.viewerCopy.disabled = true
+    try {
+      setStatus("#" + targetChannel + " 갤러리에 작품을 복사하는 중입니다.", false)
+      const result = await ShareStore.copyWork(state.activeWork, {
+        channel: targetChannel,
+        pass: pass,
+        sourcePass: currentGalleryPass(),
+      })
+      if (ShareStore.rememberPass) ShareStore.rememberPass(targetChannel, pass)
+      const copied = result && result.work
+      setStatus("#" + targetChannel + " 갤러리에 작품을 복사했어요." + (copied && copied.localOnly ? " (이 브라우저에만 저장됨)" : ""), false)
+    } catch (error) {
+      console.error(error)
+      setStatus(error.message || "작품을 복사하지 못했어요.", true)
+    } finally {
+      if (el.viewerCopy) el.viewerCopy.disabled = !canCopyActive()
     }
   }
 
@@ -1314,6 +1360,7 @@
     el.viewerAudio.addEventListener("pause", updateViewerPlayState)
     el.viewerAudio.addEventListener("ended", updateViewerPlayState)
     if (el.viewerDrawing) el.viewerDrawing.addEventListener("click", openActiveStudioCopy)
+    if (el.viewerCopy) el.viewerCopy.addEventListener("click", copyActiveWork)
     if (el.viewerDelete) el.viewerDelete.addEventListener("click", deleteActiveWork)
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {

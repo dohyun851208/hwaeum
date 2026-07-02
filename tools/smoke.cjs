@@ -611,14 +611,14 @@ bgReasonInput.value = "잔잔한 색과 어울리는 배경을 골랐어요."
 bgReasonInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 melodyIntentInput.value = "위로 올라가는 선으로 밝아지는 느낌을 표현했어요."
 melodyIntentInput.dispatchEvent(new window.Event("input", { bubbles: true }))
-hashtagsInput.value = "#잔잔함 #기대 #봄"
+hashtagsInput.value = "잔잔함 기대 봄"
 hashtagsInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 const reflectionRecipe = SD.buildRecipe()
 check("레시피에 작품 제목 저장", reflectionRecipe.title === "잔잔한 선", reflectionRecipe.title)
 check("레시피에 작곡가 이름 저장", reflectionRecipe.composerName === "3반 김하음", reflectionRecipe.composerName)
 check("레시피에 배경 선택 이유 저장", reflectionRecipe.backgroundReason === "잔잔한 색과 어울리는 배경을 골랐어요.")
 check("레시피에 선율 의도 저장", reflectionRecipe.melodyIntent === "위로 올라가는 선으로 밝아지는 느낌을 표현했어요.")
-check("레시피에 해시태그 3개 저장", JSON.stringify(reflectionRecipe.hashtags) === '["잔잔함","기대","봄"]', JSON.stringify(reflectionRecipe.hashtags))
+check("레시피에 설명 단어 3개 저장", JSON.stringify(reflectionRecipe.hashtags) === '["잔잔함","기대","봄"]', JSON.stringify(reflectionRecipe.hashtags))
 const linkRecipe = SD.buildSharedRecipe()
 check("링크 공유용 레시피는 제목을 초기화", linkRecipe.title === "무제", linkRecipe.title)
 check("링크 공유용 레시피는 작곡가 이름을 유지", linkRecipe.composerName === "3반 김하음", linkRecipe.composerName)
@@ -670,7 +670,7 @@ check("loadRecipe 무드색 적용", window.document.documentElement.style.getPr
 check("loadRecipe 업로드 배경 끝 지점 복원", SD.buildRecipe().bgEndOffset === 8, SD.buildRecipe().bgEndOffset)
 check("loadRecipe 업로드 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
 check("loadRecipe 회고 입력 복원", window.document.getElementById("bgReasonInput").value === "불러온 이유")
-check("loadRecipe 해시태그 입력 복원", window.document.getElementById("hashtagsInput").value === "#하나 #둘")
+check("loadRecipe 설명 단어 입력 복원", window.document.getElementById("hashtagsInput").value === "하나 둘")
 SD.draw.setStrokes([[{ x: 0.2, y: 0.4 }, { x: 0.4, y: 0.5 }]], ["daegeum"])
 window.document.getElementById("resetComposeBtn").click()
 check("초기화는 업로드 배경 시작 구간 유지", SD.buildRecipe().bgOffset === 2, SD.buildRecipe().bgOffset)
@@ -733,8 +733,8 @@ check("localStorage 재로드 유지", new window.TakesStore("sda.takes").list()
 const newestTake = SD.takes.add(recipe, "마지막")
 const orderedTakes = SD.takes.list()
 check(
-  "내 작품은 마지막 작품이 아래로 쌓임",
-  orderedTakes.length === 2 && orderedTakes[orderedTakes.length - 1].id === newestTake.id,
+  "내 작품은 마지막 작품이 위로 쌓임",
+  orderedTakes.length === 2 && orderedTakes[0].id === newestTake.id,
   orderedTakes.map((take) => take.name).join("/"),
 )
 

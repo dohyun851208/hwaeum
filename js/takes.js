@@ -8,13 +8,13 @@
   "use strict"
   const DrawingCanvas = root.DrawingCanvas
 
-  function createdTime(take) {
-    const n = Date.parse((take && take.createdAt) || "")
+  function savedTime(take) {
+    const n = Date.parse((take && (take.updatedAt || take.createdAt)) || "")
     return isFinite(n) ? n : 0
   }
 
-  function oldestFirst(items) {
-    return items.slice().sort((a, b) => createdTime(a) - createdTime(b))
+  function newestFirst(items) {
+    return items.slice().sort((a, b) => savedTime(b) - savedTime(a))
   }
 
   function TakesStore(key) {
@@ -26,7 +26,7 @@
     try {
       const raw = root.localStorage ? root.localStorage.getItem(this.key) : null
       const parsed = raw ? JSON.parse(raw) : []
-      return Array.isArray(parsed) ? oldestFirst(parsed) : []
+      return Array.isArray(parsed) ? newestFirst(parsed) : []
     } catch (e) {
       return []
     }
@@ -43,14 +43,16 @@
   }
 
   TakesStore.prototype.add = function (recipe, name) {
+    const now = new Date().toISOString()
     const take = {
       id: "t" + Date.now() + Math.floor(Math.random() * 1000),
       name: name || "",
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       recipe: JSON.parse(JSON.stringify(recipe)),
     }
-    this.items.push(take)
-    if (this.items.length > 24) this.items = this.items.slice(-24)
+    this.items.unshift(take)
+    if (this.items.length > 24) this.items = this.items.slice(0, 24)
     this._save()
     return take
   }
@@ -59,9 +61,11 @@
     for (let i = 0; i < this.items.length; i += 1) {
       if (this.items[i].id !== id) continue
       this.items[i].name = name || ""
+      this.items[i].updatedAt = new Date().toISOString()
       this.items[i].recipe = JSON.parse(JSON.stringify(recipe))
+      this.items = newestFirst(this.items)
       this._save()
-      return this.items[i]
+      return this.get(id)
     }
     return null
   }

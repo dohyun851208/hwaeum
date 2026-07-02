@@ -19,6 +19,7 @@ test("studio utils sanitize share metadata without losing Korean tags", () => {
   assert.equal(utils.cleanText("  봄\t  음악\n", 20), "봄 음악")
   assert.deepEqual(utils.normalizeHashtags("#봄, #BGM! #봄 #긴장-장면 #extra"), ["봄", "BGM", "긴장-장면"])
   assert.equal(utils.hashtagText(["봄", "BGM", "긴장-장면"]), "#봄 #BGM #긴장-장면")
+  assert.equal(utils.keywordText(["봄", "BGM", "긴장-장면"]), "봄 BGM 긴장-장면")
   assert.equal(utils.normalizePictureData("javascript:alert(1)"), "")
   assert.equal(utils.normalizePictureData("data:image/png;base64,abc"), "data:image/png;base64,abc")
 })

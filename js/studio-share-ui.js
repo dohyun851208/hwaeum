@@ -200,7 +200,7 @@
         if (meta.hashtags && meta.hashtags.length) {
           const tags = document.createElement("p")
           tags.className = "shared-work-tags"
-          tags.textContent = meta.hashtags.map((tag) => (tag.charAt(0) === "#" ? tag : "#" + tag)).join(" ")
+          tags.textContent = meta.hashtags.join(" ")
           main.appendChild(tags)
         }
         const date = document.createElement("p")

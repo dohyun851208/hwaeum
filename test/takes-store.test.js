@@ -27,7 +27,7 @@ function loadTakesStore(initialValue) {
   return { TakesStore: sandbox.TakesStore, store }
 }
 
-test("TakesStore adds new attempts at the bottom", () => {
+test("TakesStore adds new attempts at the top", () => {
   const { TakesStore } = loadTakesStore()
   const takes = new TakesStore("sda.takes")
 
@@ -36,11 +36,11 @@ test("TakesStore adds new attempts at the bottom", () => {
   const items = takes.list()
 
   assert.equal(items.length, 2)
-  assert.equal(items[0].id, first.id)
-  assert.equal(items[1].id, second.id)
+  assert.equal(items[0].id, second.id)
+  assert.equal(items[1].id, first.id)
 })
 
-test("TakesStore loads saved attempts oldest first", () => {
+test("TakesStore loads saved attempts newest first", () => {
   const saved = JSON.stringify([
     { id: "new", name: "나중", createdAt: "2026-01-02T00:00:00.000Z", recipe: { duration: 30 } },
     { id: "old", name: "먼저", createdAt: "2026-01-01T00:00:00.000Z", recipe: { duration: 30 } },
@@ -50,7 +50,7 @@ test("TakesStore loads saved attempts oldest first", () => {
 
   assert.deepEqual(
     Array.from(takes.list(), (take) => take.id),
-    ["old", "new"],
+    ["new", "old"],
   )
 })
 
@@ -79,6 +79,22 @@ test("TakesStore update overwrites an existing attempt without adding a new one"
   assert.equal(updated.name, "고친 제목")
   assert.equal(updated.recipe.duration, 45)
   assert.equal(updated.recipe.title, "고친 제목")
+})
+
+test("TakesStore update moves the changed attempt to the top", () => {
+  const saved = JSON.stringify([
+    { id: "old", name: "먼저", createdAt: "2026-01-01T00:00:00.000Z", recipe: { duration: 30 } },
+    { id: "new", name: "나중", createdAt: "2026-01-02T00:00:00.000Z", recipe: { duration: 30 } },
+  ])
+  const { TakesStore } = loadTakesStore(saved)
+  const takes = new TakesStore("sda.takes")
+
+  takes.update("old", { duration: 45, title: "다시 저장" }, "다시 저장")
+
+  assert.deepEqual(
+    Array.from(takes.list(), (take) => take.id),
+    ["old", "new"],
+  )
 })
 
 test("TakesStore keeps the recipe picture for later restore", () => {

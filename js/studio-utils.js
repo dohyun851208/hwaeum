@@ -73,6 +73,10 @@
       .join(" ")
   }
 
+  function keywordText(value) {
+    return normalizeHashtags(value).join(" ")
+  }
+
   function hexToRgba(hex, alpha) {
     const m = /^#?([0-9a-f]{6})$/i.exec(hex)
     if (!m) return hex
@@ -123,6 +127,7 @@
     cleanText: cleanText,
     hashtagText: hashtagText,
     hexToRgba: hexToRgba,
+    keywordText: keywordText,
     normalizeDuration: normalizeDuration,
     normalizeHashtags: normalizeHashtags,
     normalizePictureData: normalizePictureData,

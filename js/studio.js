@@ -404,6 +404,10 @@
     return StudioUtils.hashtagText(value)
   }
 
+  function keywordText(value) {
+    return StudioUtils.keywordText ? StudioUtils.keywordText(value) : normalizeHashtags(value).join(" ")
+  }
+
   // === § 7b  Canvas Export Helpers (studio-export.js 초기화) ===
 
   const _studioExport = window.HwaeumStudioExport({
@@ -1146,11 +1150,11 @@
     el.rhythmReadout.textContent = draw.getStrokes().length ? draw.getStrokes().length + "개 선" : "그린 선"
     el.durReadout.textContent = secondsLabel(state.duration)
     el.noteReadout.textContent = actionCountLabel(state.actionCount)
-    const tags = hashtagText(state.hashtags)
+    const tags = keywordText(state.hashtags)
     el.placardMeta.textContent = tags
     el.placardMeta.classList.toggle("is-empty", !tags)
     if (el.placardDetail) {
-      // 제목과 해시태그 사이: 고른 분위기 + 사용한 악기 이름
+      // 제목과 설명 단어 사이: 고른 분위기 + 사용한 악기 이름
       const parts = []
       if (state.atmosphere && state.atmosphere.label) parts.push(state.atmosphere.label)
       const instruments = usedInstrumentLabels()
@@ -2464,7 +2468,7 @@
       if (tags.length) {
         const tagLine = document.createElement("span")
         tagLine.className = "take-tags"
-        tagLine.textContent = hashtagText(tags)
+        tagLine.textContent = keywordText(tags)
         meta.appendChild(tagLine)
       }
       const tools = document.createElement("div")
@@ -2575,7 +2579,7 @@
     if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "작곡가" })
     if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: "배경음악을 고른 이유" })
     if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: "선율을 표현한 의도" })
-    if (!el.hashtagsInput?.value.trim()) missing.push({ field: el.hashtagsInput, label: "해시태그" })
+    if (!el.hashtagsInput?.value.trim()) missing.push({ field: el.hashtagsInput, label: "작품을 잘 나타내는 단어" })
     if (missing.length > 0) {
       missing.forEach(({ field }) => field.classList.add("field-invalid"))
       el.exportStatus.textContent = "공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", ")
@@ -2639,7 +2643,7 @@
     return take
   }
 
-  // 시도 카드 클릭 → 그 시도의 결과(제목·분위기·악기·해시태그·그린 음)를 완성 화면에 불러온다.
+  // 시도 카드 클릭 → 그 시도의 결과(제목·분위기·악기·설명 단어·그린 음)를 완성 화면에 불러온다.
   function selectTake(t) {
     state.sharedRecipeLoaded = false
     state.activeTakeId = t.id
@@ -2686,7 +2690,7 @@
     }
     state.backgroundReason = recipe.backgroundReason || ""
     state.melodyIntent = recipe.melodyIntent || ""
-    state.hashtags = Array.isArray(recipe.hashtags) ? hashtagText(recipe.hashtags) : recipe.hashtags || ""
+    state.hashtags = Array.isArray(recipe.hashtags) ? keywordText(recipe.hashtags) : recipe.hashtags || ""
     applyMoodTint()
     renderAtmospheres()
     renderInstrumentGroups()
@@ -2945,7 +2949,7 @@
     optionalViewerText(viewer.melody, "선율", meta.melodyIntent)
     if (meta.hashtags && meta.hashtags.length) {
       viewer.tags.hidden = false
-      viewer.tags.textContent = meta.hashtags.map((tag) => (tag.charAt(0) === "#" ? tag : "#" + tag)).join(" ")
+      viewer.tags.textContent = keywordText(meta.hashtags)
     } else {
       viewer.tags.hidden = true
       viewer.tags.textContent = ""
@@ -3040,7 +3044,7 @@
         defaultCoverSrc: DEFAULT_COVER_SRC,
         title: metadata.title,
         composerName: metadata.composerName,
-        hashtags: hashtagText(metadata.hashtags),
+        hashtags: keywordText(metadata.hashtags),
         accent: state.atmosphere.color,
       })
       el.exportStatus.textContent = "드로잉 이미지를 작게 압축하는 중입니다."
@@ -3154,7 +3158,7 @@
     const ctx = cv.getContext("2d")
 
     function finish() {
-      const tags = hashtagText(state.hashtags)
+      const tags = keywordText(state.hashtags)
       const padH = tags ? 190 : 140
       ctx.fillStyle = "rgba(20,26,26,0.82)"
       ctx.fillRect(0, size - padH, size, padH)
@@ -3621,7 +3625,7 @@
         updateReadouts()
       })
       el.hashtagsInput.addEventListener("blur", () => {
-        state.hashtags = hashtagText(state.hashtags)
+        state.hashtags = keywordText(state.hashtags)
         syncReflectionInputs()
         updateReadouts()
       })

@@ -72,16 +72,41 @@ test("channel viewer opens a studio copy instead of a drawing image", () => {
   const openViewerBody = functionBody(channel, "openViewer")
   const bindBody = functionBody(channel, "bind")
 
-  assert.match(channelHtml, /id="viewerDrawingBtn"[^>]*>스튜디오에서 보기/)
-  assert.doesNotMatch(channelHtml, /id="viewerCopyBtn"|>링크 복사</)
+  assert.match(channelHtml, /id="viewerDrawingBtn"[^>]*>스튜디오에서 보기[\s\S]*id="viewerCopyBtn"[^>]*>다른 갤러리에 복사하기[\s\S]*id="viewerDeleteBtn"[^>]*>작품 삭제/)
+  assert.doesNotMatch(channelHtml, />링크 복사</)
   assert.match(channelHtml, /id="viewerDeleteBtn"[^>]*>작품 삭제/)
   assert.doesNotMatch(channelHtml, /id="viewerDeleteBtn"[^>]*hidden/)
   assert.match(openViewerBody, /viewerDrawing\.disabled = !canOpenStudioCopy\(work\)/)
+  assert.match(openViewerBody, /viewerCopy\.disabled = !canCopyActive\(\)/)
   assert.match(bindBody, /viewerDrawing[\s\S]*addEventListener\("click", openActiveStudioCopy\)/)
   assert.match(functionBody(channel, "openActiveStudioCopy"), /root\.open\("about:blank", "_blank"\)/)
   assert.match(functionBody(channel, "openActiveStudioCopy"), /studioCopyUrl\(storeStudioCopy\(state\.activeWork\)\)/)
   assert.match(functionBody(channel, "storeStudioCopy"), /STUDIO_COPY_STORAGE_PREFIX \+ token/)
   assert.match(functionBody(channel, "studioCopyRecipe"), /recipe\.atmosphere = "none"/)
+})
+
+test("channel viewer copies a work to another gallery with the target gallery code", () => {
+  const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+  const store = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
+  const copyApi = fs.readFileSync(path.join(projectDir, "api", "share", "copy.js"), "utf8")
+  const bindBody = functionBody(channel, "bind")
+  const copyActiveBody = functionBody(channel, "copyActiveWork")
+  const copyWorkBody = functionBody(store, "copyWork")
+
+  assert.match(bindBody, /viewerCopy[\s\S]*addEventListener\("click", copyActiveWork\)/)
+  assert.match(copyActiveBody, /promptTrimmed\("복사할 갤러리 번호를 입력하세요\."/)
+  assert.match(copyActiveBody, /promptTrimmed\("복사할 갤러리 코드\(숫자\)를 입력하세요\."/)
+  assert.match(copyActiveBody, /ShareStore\.copyWork\(state\.activeWork/)
+  assert.match(copyActiveBody, /sourcePass: currentGalleryPass\(\)/)
+  assert.doesNotMatch(copyActiveBody, /관리자 번호/)
+
+  assert.match(copyWorkBody, /postJson\("\/copy"/)
+  assert.doesNotMatch(copyWorkBody, /adminPin/)
+  assert.match(copyApi, /hashPass\(targetChannel, cleanPin\(body\.pass\)\)/)
+  assert.match(copyApi, /hashPass\(sourceChannel, cleanPin\(body\.sourcePass\)\)/)
+  assert.doesNotMatch(copyApi, /hashAdmin/)
+  assert.match(copyApi, /await put\(base \+ "cover\.webp"/)
+  assert.match(copyApi, /send\(res, 200, \{ work: sanitizeMeta\(meta\) \}\)/)
 })
 
 test("shared publish stores a drawing image file for channel viewers", () => {
