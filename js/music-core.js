@@ -319,6 +319,117 @@
     return segs
   }
 
+  // --- 지속음 루프 구간 검출 ---
+
+  // 샘플의 RMS 포락선에서 지속음 루프로 쓸 "충분히 길고 평탄한 구간"을 찾는다.
+  // 파일 안에 감쇠(릴리스)가 포함된 샘플을 고정 비율로 루프하면 조용한 꼬리를
+  // 물고 돌 때마다 음량이 출렁여 맥동("두두두두")으로 들린다. 어택(평탄부보다
+  // 큼)과 감쇠(작아짐)는 평탄 밴드를 벗어나므로 자연히 루프에서 빠진다.
+  // 단, 루프는 길이가 우선이다 — 이음매 음량이 맞아도 루프가 짧으면(1초 미만)
+  // 소리 질감 자체가 빠르게 반복돼 스터터로 들린다. 그래서 좁은 밴드(3dB)부터
+  // 넓혀 가며 목표 길이(0.9초)를 넘는 구간을 찾을 때까지 시도한다.
+  // 반환: { start, end } (channelData 기준 절대 초). 못 찾으면 null(호출부 폴백).
+  function findStableLoopRegion(channelData, sampleRate, offset, duration, options) {
+    const opts = options || {}
+    const windowSec = opts.windowSec > 0 ? opts.windowSec : 0.05
+    const minLoopSec = opts.minLoopSec > 0 ? opts.minLoopSec : 0.3
+    const targetLoopSec = opts.targetLoopSec > 0 ? opts.targetLoopSec : 0.9
+    const bands = opts.bandDb > 0 ? [opts.bandDb] : [3, 4.5, 6, 8]
+    const silenceDb = opts.silenceDb > 0 ? opts.silenceDb : 30 // 최대 음량 대비 무음 판정 폭
+    if (!channelData || !channelData.length || !(sampleRate > 0)) return null
+    const total = channelData.length / sampleRate
+    const from = Math.min(Math.max(Number(offset) || 0, 0), total)
+    const span = Math.min(Math.max(Number(duration) || 0, 0), total - from)
+    const winFrames = Math.max(1, Math.round(windowSec * sampleRate))
+    const count = Math.floor((span * sampleRate) / winFrames)
+    if (count < Math.ceil(minLoopSec / windowSec) + 2) return null
+    const startFrame = Math.round(from * sampleRate)
+    const levels = []
+    let peak = -Infinity
+    for (let w = 0; w < count; w++) {
+      let sum = 0
+      const base = startFrame + w * winFrames
+      for (let i = 0; i < winFrames; i++) {
+        const v = channelData[base + i] || 0
+        sum += v * v
+      }
+      const db = 10 * Math.log10(sum / winFrames + 1e-12)
+      levels.push(db)
+      if (db > peak) peak = db
+    }
+    const floor = peak - silenceDb
+    function longestRun(bandDb) {
+      let best = null
+      for (let lo = 0; lo < count; lo++) {
+        if (levels[lo] < floor) continue
+        let hi = lo
+        let min = levels[lo]
+        let max = levels[lo]
+        while (hi + 1 < count && levels[hi + 1] >= floor) {
+          const next = levels[hi + 1]
+          if (Math.max(max, next) - Math.min(min, next) > bandDb) break
+          if (next < min) min = next
+          if (next > max) max = next
+          hi++
+        }
+        if (!best || hi - lo > best.hi - best.lo) best = { lo: lo, hi: hi }
+      }
+      return best
+    }
+    function toRegion(run) {
+      if (!run) return null
+      // 경계 창은 어택/감쇠와 걸쳐 있을 수 있어 양끝을 한 창씩 안쪽으로 줄인다.
+      const start = from + (run.lo + 1) * windowSec
+      const end = from + run.hi * windowSec
+      return end - start >= minLoopSec ? { start: start, end: end } : null
+    }
+    let chosen = null
+    for (const band of bands) {
+      const region = toRegion(longestRun(band))
+      if (!region) continue
+      if (region.end - region.start >= targetLoopSec) {
+        chosen = region
+        break
+      }
+      if (!chosen || region.end - region.start > chosen.end - chosen.start) chosen = region
+    }
+    if (!chosen) return null
+    return alignLoopEndToStart(channelData, sampleRate, chosen)
+  }
+
+  // 루프 끝점(→시작으로 점프하는 지점)을 시작점과 파형이 가장 닮은 위치로 미세 조정한다.
+  // 위상이 어긋난 채 크로스페이드하면 두 파형이 간섭·상쇄해 금속성(플랜저) 이음매가 들린다.
+  // 시작점 주변 30ms 창과 상호상관이 최대가 되는 지점을 끝점 ±20ms 안에서 찾는다.
+  function alignLoopEndToStart(channelData, sampleRate, region) {
+    const win = Math.round(0.03 * sampleRate)
+    const search = Math.round(0.02 * sampleRate)
+    const startIdx = Math.round(region.start * sampleRate)
+    const endIdx = Math.round(region.end * sampleRate)
+    if (win < 8 || startIdx + win >= channelData.length) return region
+    const lo = Math.max(startIdx + win, endIdx - search)
+    const hi = Math.min(channelData.length - win - 1, endIdx + search)
+    let bestIdx = endIdx
+    let bestScore = -Infinity
+    for (let cand = lo; cand <= hi; cand++) {
+      let dot = 0
+      let na = 0
+      let nb = 0
+      for (let i = 0; i < win; i++) {
+        const a = channelData[startIdx + i] || 0
+        const b = channelData[cand + i] || 0
+        dot += a * b
+        na += a * a
+        nb += b * b
+      }
+      const score = dot / (Math.sqrt(na * nb) + 1e-12)
+      if (score > bestScore) {
+        bestScore = score
+        bestIdx = cand
+      }
+    }
+    return { start: region.start, end: bestIdx / sampleRate }
+  }
+
   // --- 레시피 코덱 (공유 링크/저장용; 오디오 미포함) ---
 
   function b64encode(str) {
@@ -402,6 +513,7 @@
     autocompleteMelodyStrokes,
     autocompleteRhythm,
     sigimsaeFor,
+    findStableLoopRegion,
     encodeRecipe,
     decodeRecipe,
     encodeWav,

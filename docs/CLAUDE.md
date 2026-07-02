@@ -21,6 +21,7 @@
 - `decisions/2026-06-29-fixed-drawing-pitch-grid.md` — 악기 변경 시 도화지 음높이 행 고정
 - `decisions/2026-06-29-modern-gallery-frontdoor.md` — 메인·스튜디오 첫 화면 모던 갤러리 톤 적용
 - `decisions/2026-07-01-channel-code-length.md` — 화음 갤러리 번호·코드 길이 축소
+- `decisions/2026-07-02-sustain-loop-stable-region.md` — 지속음 루프 구간 포락선 기반 검출(파일럿: 더블베이스)
 
 ## 작성 규칙
 

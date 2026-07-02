@@ -102,7 +102,7 @@ npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (�
 - **새 음원/악기/분위기** → `js/manifest.js` (README "음원 추가/교체" 절 참고)
 - **음악 로직 변경**(음계·보정·리듬·시김새·WAV) → `js/music-core.js` + `test/`에 단위 테스트
 - **악기별 선율 음량 보정**은 바이올린 기준의 측정값을 따른다. 새 샘플을 넣은 뒤 `npm run measure:loudness`로 안정 구간 dB를 재고, `js/audio-engine.js`의 `INSTRUMENT_MELODY_OUTPUT_GAINS`와 테스트를 함께 갱신한다. 감으로 개별 gain만 바꾸지 않는다.
-- **악기 내부 음별 선율 음량 보정**은 악기별 평균을 유지하되 각 음의 안정 구간 dB를 기준으로 최대 ±3 dB까지만 적용한다. 새 샘플을 넣은 뒤 `npm run measure:loudness -- --notes`로 `NOTE_MELODY_OUTPUT_GAINS` 후보를 확인하고, 보정 폭을 키우지 않는다.
+- **악기 내부 음별 선율 음량 보정**은 악기별 평균을 유지하되 각 음의 안정 구간 dB를 기준으로 최대 ±3 dB까지만 적용한다. 새 샘플을 넣은 뒤 `npm run measure:loudness -- --notes`로 `NOTE_MELODY_OUTPUT_GAINS` 후보를 확인하고, 보정 폭을 키우지 않는다. 단, **지속음 자동 루프 파일럿 악기**(`SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS`, 현재 더블베이스)는 샘플 간 녹음 강약 차가 커서 루프 구간 RMS 기준 ±12 dB(`AUTO_LOOP_NOTE_GAIN_LIMIT_DB`)까지 허용한다.
 - **음계 기본값은 악기 그룹을 따른다.** 기본은 **C장조**(서양 악기 — 파(F)·시(B)도 난다), **국악기만 5음(펜타토닉)+시김새**(파·시 없음). 악기를 고르면 자동 적용 → `studio.js`의 `styleForInstrument()`.
 - **2단계 악기 영역은 선택 강요가 아니라 맥락 미리듣기다.** UI 문구는 "이 배경에 어울리는 악기 미리 듣기"로 유지하고, 3단계에 새 악기 메뉴를 중복 추가하지 않는다. 2단계에서 고른 악기는 `state.instrument`로 이어져 3단계의 첫 드로잉 악기 기본값이 된다.
 - **국악기 발음 가능 음은 악기마다 다르게 줄이지 않는다.** 소금·대금·단소·해금·가야금 모두 **G-A-C-D-E-G-A-C-D-E** 10음을 쓴다. 단 도화지 행은 서양 기본 축 15칸을 함께 쓰고, 소리나지 않는 칸은 비활성화한다. `js/manifest.js`의 공통 `playableMidi`와 국악풍 스타일의 `draw*` 축 설정이 이 규칙을 관리한다.

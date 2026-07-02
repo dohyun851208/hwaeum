@@ -3,7 +3,12 @@ const path = require("path")
 const { spawnSync } = require("child_process")
 
 const ROOT = path.join(__dirname, "..")
+const MusicCore = require(path.join(ROOT, "js", "music-core.js"))
 const WESTERN_IDS = new Set(["flute", "oboe", "clarinet", "frenchHorn", "violin", "viola", "cello", "doubleBass"])
+// 재생 시 포락선 기반 자동 루프를 쓰는 악기 — 들리는 음량이 그 루프 구간에서 나오므로
+// 측정도 같은 구간을 잰다. js/audio-engine.js 의 SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS 와 맞출 것.
+const AUTO_LOOP_IDS = new Set(["doubleBass"])
+const PCM_SAMPLE_RATE = 44100
 const INSTRUMENT_IDS = [
   "flute",
   "oboe",
@@ -24,6 +29,9 @@ const GUGAK_UI_MIDI = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76]
 const WESTERN_MELODY_OUTPUT_GAIN = 1.5
 const GUGAK_DRAWING_GAIN_BOOST = 1.3
 const NOTE_GAIN_LIMIT_DB = 3
+// 자동 루프 악기는 음마다 녹음 강약 차가 커서 더 넓게 보정한다.
+// js/audio-engine.js 의 AUTO_LOOP_NOTE_GAIN_LIMIT_DB 와 맞출 것.
+const AUTO_LOOP_NOTE_GAIN_LIMIT_DB = 12
 
 function runScript(file, sandbox) {
   const code = fs.readFileSync(path.join(ROOT, file), "utf8")
@@ -86,6 +94,35 @@ function measureMeanDb(absPath, offset, duration) {
   return match ? Number(match[1]) : NaN
 }
 
+function decodePcm(absPath) {
+  const result = spawnSync(
+    "ffmpeg",
+    ["-hide_banner", "-loglevel", "error", "-i", absPath, "-f", "f32le", "-ac", "1", "-ar", String(PCM_SAMPLE_RATE), "-"],
+    { maxBuffer: 1 << 26 },
+  )
+  const buf = result.stdout
+  if (!buf || !buf.length) return null
+  return new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 4))
+}
+
+function pcmMeanDb(pcm, offset, duration) {
+  const startI = Math.max(0, Math.round(offset * PCM_SAMPLE_RATE))
+  const endI = Math.min(pcm.length, Math.round((offset + duration) * PCM_SAMPLE_RATE))
+  if (endI - startI < 8) return NaN
+  let sum = 0
+  for (let i = startI; i < endI; i++) sum += pcm[i] * pcm[i]
+  return 10 * Math.log10(sum / (endI - startI) + 1e-12)
+}
+
+// 자동 루프 악기: 재생이 실제로 반복하는 안정 구간의 RMS를 잰다. 검출 실패 시 null(호출부 폴백).
+function autoLoopMeanDb(absPath) {
+  const pcm = decodePcm(absPath)
+  if (!pcm || !pcm.length) return null
+  const region = MusicCore.findStableLoopRegion(pcm, PCM_SAMPLE_RATE, 0, pcm.length / PCM_SAMPLE_RATE)
+  if (!region) return null
+  return pcmMeanDb(pcm, region.start, region.end - region.start)
+}
+
 function nearestSample(asset, midi) {
   const map = Array.isArray(asset.sampleMap) ? asset.sampleMap : []
   if (!map.length) return null
@@ -131,7 +168,8 @@ function instrumentRows(data, id, gains) {
     const range = segment && !segment.src && (segment.offset != null || segment.duration != null)
       ? stableSegmentRange(segment)
       : stableWholeFileRange(absPath)
-    const sourceDb = measureMeanDb(absPath, range.offset, range.duration)
+    const loopDb = AUTO_LOOP_IDS.has(id) && segment && segment.src ? autoLoopMeanDb(absPath) : null
+    const sourceDb = loopDb != null ? loopDb : measureMeanDb(absPath, range.offset, range.duration)
     rows.push({
       uiMidi: ui,
       sourceDb,
@@ -158,8 +196,9 @@ function printNoteGainCandidates(data, gains) {
     let maxRaw = -Infinity
     let minAfter = Infinity
     let maxAfter = -Infinity
+    const limitDb = AUTO_LOOP_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
     for (const row of rows) {
-      const deltaDb = clamp(targetDb - row.effectiveDb, -NOTE_GAIN_LIMIT_DB, NOTE_GAIN_LIMIT_DB)
+      const deltaDb = clamp(targetDb - row.effectiveDb, -limitDb, limitDb)
       const gain = Math.pow(10, deltaDb / 20)
       map[row.uiMidi] = Number(gain.toFixed(3))
       minRaw = Math.min(minRaw, row.effectiveDb)

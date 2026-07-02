@@ -572,6 +572,54 @@ test("violin bottom G uses a shorter front sustain loop", () => {
   assert.ok(Math.abs(ctx.created.buffers[0].loopEnd - duration * 0.58) < 1e-9)
 })
 
+test("double bass long notes loop the measured stable region instead of the fixed ratio window", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "doubleBass", style: "bright", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 8, midi: 55, velocity: 0.7 }],
+  )
+  const midi = plan.notes[0].midi
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "multi", sampleMap: [{ midi, src: "bass.mp3" }] })
+  // 실측 doubleBass_As2 형태: 어택(0~0.15s) → 지속(~1.2s) → 급감쇠. 진폭 = RMS가 되게 ±교대 신호.
+  const sampleRate = 1000
+  const data = new Float32Array(2400)
+  for (let i = 0; i < data.length; i++) {
+    const t = i / sampleRate
+    const amp = t < 0.15 ? 0.9 : t < 1.2 ? 0.4 : 0.02
+    data[i] = (i % 2 ? 1 : -1) * amp
+  }
+  const buffer = { duration: 2.4, length: data.length, sampleRate, numberOfChannels: 1, getChannelData: () => data }
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: null, melodySamples: { [midi]: buffer } }, 0, noop)
+
+  const source = ctx.created.buffers[0]
+  assert.equal(source.loop, true)
+  assert.ok(source.loopStart >= 0.1, "어택은 루프에서 제외한다: " + source.loopStart)
+  assert.ok(source.loopEnd <= 1.3, "고정 비율(78% ≈ 1.87s)이면 감쇠 꼬리를 물고 돈다: " + source.loopEnd)
+  assert.ok(source.loopEnd - source.loopStart >= 0.3, "루프가 너무 짧으면 안 된다")
+})
+
+test("double bass without PCM data still falls back to the fixed ratio loop", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "doubleBass", style: "bright", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 8, midi: 55, velocity: 0.7 }],
+  )
+  const midi = plan.notes[0].midi
+  plan.melodyAsset = Object.assign({}, plan.melodyAsset, { sampleMode: "multi", sampleMap: [{ midi, src: "bass.mp3" }] })
+
+  engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: null, melodySamples: { [midi]: { duration: 2.4 } } }, 0, noop)
+
+  assert.equal(ctx.created.buffers.length, 1)
+  assertStableLoop(ctx.created.buffers[0], 2.4)
+})
+
 test("multi-sample melody sustains contiguous notes as one connected phrase", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
@@ -1255,6 +1303,36 @@ test("note-level melody gain is clamped to roughly +/-3 dB inside each instrumen
   assert.ok(noteGainEvents.some((event) => event[0] === "target" && Math.abs(event[1] - maxGain) < 1e-9))
   assert.ok(0.708 >= minGain - 0.001)
   assert.ok(maxGain <= Math.pow(10, 3 / 20) + 0.001)
+})
+
+test("auto-loop pilot instrument allows wider per-note gain to even out quiet samples", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  // 시(uiMidi 71) = doubleBass_B2 — 남들보다 15dB가량 작게 녹음된 샘플. ±3dB 한도(1.413)로는
+  // 크게 조용하게 남으므로 자동 루프 파일럿 악기는 ±12dB까지 측정 보정을 허용한다.
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "doubleBass", style: "bright", version: "balanced", mode: "melody" },
+    [
+      { time: 0, duration: 0.5, midi: 60, velocity: 0.7 },
+      { time: 0.5, duration: 0.5, midi: 71, velocity: 0.7 },
+    ],
+  )
+
+  engine.schedule(ctx, dest, plan, { pad: null, melody: { duration: 2.4 }, effects: [], byInstrument: {} }, 0, noop)
+
+  const noteGainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
+  const oldCap = Math.pow(10, 3 / 20)
+  const wideCap = Math.pow(10, 12 / 20)
+  assert.ok(
+    noteGainEvents.some((event) => (event[0] === "set" || event[0] === "target") && event[1] > oldCap + 0.01),
+    "작게 녹음된 음(시=B2)은 +3dB 한도를 넘어 보정돼야 한다",
+  )
+  assert.ok(
+    noteGainEvents.every((event) => !(event[0] === "set" || event[0] === "target") || event[1] <= wideCap + 0.01 || event[1] < oldCap),
+    "그래도 ±12dB 한도는 넘지 않는다",
+  )
 })
 
 test("seekPlan starts playback from the selected timeline time", () => {

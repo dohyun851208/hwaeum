@@ -35,6 +35,9 @@
     gayageum: 0.522,
   }
   const NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB = 3
+  // 자동 루프(지속음) 파일럿 악기는 음마다 녹음 강약 차가 커서(더블베이스 B2·E3는 ±3dB로도
+  // 15dB가량 조용하게 남음) 루프 구간 RMS 측정 기준으로 더 넓게 보정한다.
+  const AUTO_LOOP_NOTE_GAIN_LIMIT_DB = 12
   // Per-note gain is measured inside each instrument after the instrument-level
   // calibration above and clamped to +/-3 dB so the sample character survives.
   const NOTE_MELODY_OUTPUT_GAINS = {
@@ -45,7 +48,8 @@
     violin: { 55: 0.708, 57: 0.868, 59: 0.909, 60: 0.747, 62: 1.184, 64: 1.008, 65: 0.919, 67: 1.329, 69: 0.919, 71: 1.068, 72: 0.941, 74: 1.413, 76: 1.413, 77: 1.413, 79: 1.068 },
     viola: { 55: 1.413, 57: 1.413, 59: 0.708, 60: 0.885, 62: 1.413, 64: 1.413, 65: 1.413, 67: 1.413, 69: 1.413, 71: 1.413, 72: 1.236, 74: 1.413, 76: 1.153, 77: 0.865, 79: 1.208 },
     cello: { 55: 1.127, 57: 1.413, 59: 1.413, 60: 1.309, 62: 0.96, 64: 0.708, 65: 0.708, 67: 1.309, 69: 1.413, 71: 1.413, 72: 1.077, 74: 1.14, 76: 1.208, 77: 0.96, 79: 1.413 },
-    doubleBass: { 55: 1.003, 57: 0.969, 59: 0.844, 60: 0.708, 62: 0.991, 64: 1.413, 65: 1.337, 67: 0.735, 69: 0.883, 71: 1.413, 72: 1.413, 74: 0.806, 76: 1.413, 77: 1.413, 79: 1.014 },
+    // doubleBass 는 자동 루프 파일럿 — 루프 구간 RMS 기준 ±12dB 측정값 (B2·E3 샘플이 유독 작게 녹음됨).
+    doubleBass: { 55: 0.985, 57: 0.984, 59: 0.8, 60: 0.591, 62: 0.989, 64: 1.783, 65: 1.269, 67: 0.748, 69: 0.871, 71: 3.981, 72: 1.6, 74: 0.787, 76: 3.981, 77: 1.595, 79: 1.013 },
     sogeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 67: 1.413, 69: 1.413, 72: 1.212, 74: 0.708, 76: 0.708 },
     daegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 0.943, 67: 0.749, 69: 0.724, 72: 0.943, 74: 0.724, 76: 1.071 },
     danso: { 55: 1.413, 57: 1.413, 60: 0.977, 62: 0.977, 64: 1.122, 67: 1.148, 69: 1.148, 72: 0.871, 74: 0.733, 76: 0.733 },
@@ -144,13 +148,20 @@
     return id && INSTRUMENT_MELODY_OUTPUT_GAINS[id] ? INSTRUMENT_MELODY_OUTPUT_GAINS[id] : 1
   }
 
+  function noteMelodyOutputGainLimitDb(instrumentId) {
+    return instrumentId && SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS[instrumentId]
+      ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB
+      : NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB
+  }
+
   function noteMelodyOutputGainForUiMidi(instrument, uiMidi) {
     const id = instrument && instrument.id
     const midi = uiMidi == null ? null : Math.round(Number(uiMidi))
     const row = id && NOTE_MELODY_OUTPUT_GAINS[id]
     const value = row && midi != null ? row[midi] : 1
-    const minGain = Math.pow(10, -NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB / 20)
-    const maxGain = Math.pow(10, NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB / 20)
+    const limitDb = noteMelodyOutputGainLimitDb(id)
+    const minGain = Math.pow(10, -limitDb / 20)
+    const maxGain = Math.pow(10, limitDb / 20)
     return value > 0 && isFinite(value) ? clamp(value, minGain, maxGain) : 1
   }
 
@@ -266,6 +277,12 @@
     const dur = Number(duration) || 0
     if (dur <= 0.25) return null
     const minLoop = Math.min(0.22, dur * 0.35)
+    if (loopHint && loopHint.start != null && loopHint.end != null) {
+      // 절대 초 힌트(포락선에서 검출한 안정 구간) — 세그먼트 경계 안쪽으로만 다듬는다.
+      const relStart = clamp(loopHint.start - offset, 0.02, Math.max(0.02, dur - minLoop - 0.06))
+      const relEnd = clamp(loopHint.end - offset, relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
+      if (relEnd > relStart + 0.06) return { start: offset + relStart, end: offset + relEnd }
+    }
     if (loopHint && loopHint.startRatio != null && loopHint.endRatio != null) {
       const relStart = clamp(dur * loopHint.startRatio, Math.min(0.18, Math.max(0, dur - minLoop)), Math.max(0, dur - minLoop - 0.06))
       const relEnd = clamp(dur * loopHint.endRatio, relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
@@ -306,8 +323,10 @@
     }
     return bestScore < Infinity ? best / sr : targetTime
   }
-  function refineSustainLoopRegion(region, offset, duration, buffer) {
+  function refineSustainLoopRegion(region, offset, duration, buffer, loopHint) {
     if (!region || !buffer) return region
+    // 포락선에서 검출한 절대 초 힌트는 파형 정렬(상호상관)까지 끝난 값 — 제로크로싱 재스냅이 정렬을 깨뜨린다.
+    if (loopHint && loopHint.start != null && loopHint.end != null) return region
     const dur = Number(duration) || 0
     const windowSec = Math.min(0.08, dur * 0.08)
     const absoluteEnd = offset + dur
@@ -327,7 +346,7 @@
     return { start: start, end: end }
   }
   function applySustainLoop(source, offset, duration, loopHint) {
-    const region = refineSustainLoopRegion(sampleSustainLoopRegion(offset || 0, duration, loopHint), offset || 0, duration, source && source.buffer)
+    const region = refineSustainLoopRegion(sampleSustainLoopRegion(offset || 0, duration, loopHint), offset || 0, duration, source && source.buffer, loopHint)
     if (!region) return false
     source.loop = true
     source.loopStart = region.start
@@ -342,7 +361,7 @@
     const safeOffset = clamp(Number(offset) || 0, 0, Math.max(0, total - 0.01))
     const safeDuration = Math.min(Math.max(0, Number(duration) || 0), Math.max(0, total - safeOffset))
     if (!(safeDuration > 0.08)) return null
-    const region = refineSustainLoopRegion(sampleSustainLoopRegion(safeOffset, safeDuration, loopHint), safeOffset, safeDuration, buffer)
+    const region = refineSustainLoopRegion(sampleSustainLoopRegion(safeOffset, safeDuration, loopHint), safeOffset, safeDuration, buffer, loopHint)
     if (!region) return null
     const sampleRate = buffer.sampleRate
     const sourceLength = buffer.length || Math.round(total * sampleRate)
@@ -352,7 +371,9 @@
     const loopStartFrame = clamp(Math.round((region.start - safeOffset) * sampleRate), 0, Math.max(0, outLength - 2))
     const loopEndFrame = clamp(Math.round((region.end - safeOffset) * sampleRate), loopStartFrame + 2, outLength)
     const loopFrames = loopEndFrame - loopStartFrame
-    const fadeFrames = Math.floor(Math.min(0.08 * sampleRate, loopFrames * 0.25))
+    // 포락선에서 검출한 구간(절대 초 힌트)은 이음매 양쪽 음량이 다를 수 있어 크로스페이드를 길게 잡는다.
+    const fadeSec = loopHint && loopHint.start != null ? 0.16 : 0.08
+    const fadeFrames = Math.floor(Math.min(fadeSec * sampleRate, loopFrames * 0.25))
     if (fadeFrames < 8) return null
     const out = ctx.createBuffer(buffer.numberOfChannels, outLength, sampleRate)
     for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
@@ -410,6 +431,25 @@
     }
     return null
   }
+  // 포락선 기반 자동 루프 구간 파일럿. 고정 비율(28~78%)은 파일 안에 감쇠가 포함된
+  // 샘플(필하모니아 현악)에서 조용한 꼬리를 물고 돌아 맥동이 들린다. 측정에서 이음매
+  // 음량차가 가장 컸던 악기부터 켜고, 귀 검증 후 명단을 넓힌다.
+  // (docs/decisions/2026-07-02-sustain-loop-stable-region.md)
+  const SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS = { doubleBass: true }
+  function autoSustainLoopHint(buffer, offset, usableSourceDur, plan) {
+    const instrumentId = plan && plan.instrument && plan.instrument.id
+    if (!instrumentId || !SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS[instrumentId]) return null
+    if (!Core || typeof Core.findStableLoopRegion !== "function") return null
+    if (!buffer || typeof buffer.getChannelData !== "function" || !buffer.sampleRate) return null
+    let channel = null
+    try {
+      channel = buffer.getChannelData(0)
+    } catch (e) {
+      return null
+    }
+    if (!channel || !channel.length) return null
+    return Core.findStableLoopRegion(channel, buffer.sampleRate, offset, usableSourceDur)
+  }
 
   function continuousSustainPlan(ctx, buffer, offset, usableSourceDur, plan, segment) {
     const bufferDuration = audioBufferDuration(buffer)
@@ -419,7 +459,8 @@
     // preparePlaybackSustain 의 baking/clamp/loop 로직을 그대로 재사용하되, 실제 source 가 아니라
     // 가짜 probe 에 적용해 결과만 읽는다(실제 source.buffer 이중 설정 방지).
     const probe = { buffer: buffer }
-    const sustain = preparePlaybackSustain(ctx, probe, offset, usableSourceDur, sustainLoopHint(plan, segment))
+    const loopHint = sustainLoopHint(plan, segment) || autoSustainLoopHint(buffer, offset, usableSourceDur, plan)
+    const sustain = preparePlaybackSustain(ctx, probe, offset, usableSourceDur, loopHint)
     return {
       buffer: probe.buffer,
       offset: sustain.offset,
