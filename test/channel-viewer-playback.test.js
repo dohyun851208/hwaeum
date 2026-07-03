@@ -58,6 +58,9 @@ test("channel viewer fills the frame, sizes down, and shows the play control on 
   assert.match(css, /\.channel-viewer-panel\.is-fitted\s*\{[\s\S]*?grid-template-columns:\s*var\(--viewer-stage-w\)/)
   assert.match(functionBody(channel, "fitViewerStage"), /naturalWidth/)
   assert.match(functionBody(channel, "fitViewerStage"), /--viewer-stage-w/)
+  // 저화질 학생 그림이 뭉개지지 않게 계산 크기를 일정 비율로 줄여서 연다.
+  assert.match(channel, /VIEWER_STAGE_SCALE = 0\.75/)
+  assert.match(functionBody(channel, "fitViewerStage"), /\* VIEWER_STAGE_SCALE/)
   assert.match(functionBody(channel, "openViewer"), /fitViewerStage\(\)/)
   assert.match(functionBody(channel, "bind"), /viewerCover\.addEventListener\("load", fitViewerStage\)/)
   // 감상글이 길면 정보 칸 안에서만 스크롤 — 버튼이 패널 테두리를 뚫지 않는다.

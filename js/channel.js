@@ -21,6 +21,8 @@
   const VIEWER_SCREEN_MARGIN = 96 // 화면 가장자리 최소 여유(px)
   const VIEWER_STAGE_MIN = { width: 320, height: 340 }
   const VIEWER_STAGE_MAX = { width: 1100, height: 780 }
+  // 학생 그림은 저화질이 많아 크게 늘리면 뭉개져 보인다 — 비율은 유지한 채 25% 줄여 연다.
+  const VIEWER_STAGE_SCALE = 0.75
 
   const $ = (id) => document.getElementById(id)
   const el = {
@@ -1207,8 +1209,8 @@
       resetViewerStageFit()
       return
     }
-    const maxWidth = Math.min(VIEWER_STAGE_MAX.width, root.innerWidth - VIEWER_SCREEN_MARGIN - VIEWER_INFO_COLUMN - VIEWER_PANEL_GAP - VIEWER_PANEL_CHROME)
-    const maxHeight = Math.min(VIEWER_STAGE_MAX.height, root.innerHeight - VIEWER_SCREEN_MARGIN - VIEWER_PANEL_CHROME)
+    const maxWidth = Math.min(VIEWER_STAGE_MAX.width, root.innerWidth - VIEWER_SCREEN_MARGIN - VIEWER_INFO_COLUMN - VIEWER_PANEL_GAP - VIEWER_PANEL_CHROME) * VIEWER_STAGE_SCALE
+    const maxHeight = Math.min(VIEWER_STAGE_MAX.height, root.innerHeight - VIEWER_SCREEN_MARGIN - VIEWER_PANEL_CHROME) * VIEWER_STAGE_SCALE
     let stageWidth = maxWidth
     let stageHeight = (stageWidth * h) / w
     if (stageHeight > maxHeight) {

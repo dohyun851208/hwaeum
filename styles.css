@@ -551,7 +551,8 @@ body:not([data-step="2"]) .transport {
 }
 .screen[data-screen="0"] .screen-actions .upload-status {
   flex: 1 1 420px;
-  max-width: 500px;
+  max-width: 680px;
+  word-break: keep-all;
 }
 .dropframe {
   position: relative;
