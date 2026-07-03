@@ -45,6 +45,7 @@
     empty: $("channelEmpty"),
     viewer: $("channelViewer"),
     viewerClose: $("viewerCloseBtn"),
+    viewerStage: $("viewerStage"),
     viewerCover: $("viewerCover"),
     viewerPlay: $("viewerPlayBtn"),
     viewerTitle: $("viewerTitle"),
@@ -350,6 +351,7 @@
     return tags
       .map((tag) => cleanText(tag, 24))
       .filter(Boolean)
+      .map((tag) => "#" + tag)
       .join(" ")
   }
 
@@ -449,6 +451,11 @@
     }
   }
 
+  // 한 번 입장한 갤러리의 코드는 브라우저에 남는다 — 새로고침해도 다시 묻지 않게.
+  function savedChannelPass(channel) {
+    return ShareStore && ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
+  }
+
   function setAdminPin(pin) {
     state.adminPin = String(pin || "").trim()
     if (el.adminPin && el.adminPin.value !== state.adminPin) el.adminPin.value = state.adminPin
@@ -505,6 +512,10 @@
       el.input.value = channel || ""
       el.input.placeholder = channel ? "" : "번호"
     }
+    // 기억해 둔 갤러리 코드는 입력칸에 미리 채워 둔다 — 열려 있으면 다시 칠 필요가 없다.
+    if (el.codeInput && document.activeElement !== el.codeInput) {
+      el.codeInput.value = state.locked ? "" : state.pass || ""
+    }
     if (el.shareBtn) el.shareBtn.hidden = !channel || state.locked || state.loading
     if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
   }
@@ -526,6 +537,17 @@
     if (el.flowNextBtn) el.flowNextBtn.disabled = !canMove || state.flowIndex >= state.works.length - 1
     if (el.body) el.body.dataset.galleryView = flow ? VIEW_MODE_FLOW : VIEW_MODE_SHELF
     if (el.shelves) el.shelves.classList.toggle("channel-shelves-flow", flow && hasWorks)
+  }
+
+  function playIconSvg() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+    svg.setAttribute("viewBox", "0 0 24 24")
+    svg.setAttribute("aria-hidden", "true")
+    svg.classList.add("channel-play-icon")
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+    path.setAttribute("d", "M8 5.14v13.72c0 .8.87 1.3 1.56.88l10.98-6.86a1.04 1.04 0 0 0 0-1.76L9.56 4.26A1.04 1.04 0 0 0 8 5.14z")
+    svg.appendChild(path)
+    return svg
   }
 
   function createAlbumCard(work, index, options) {
@@ -558,7 +580,7 @@
     if (shouldShowCoverPlayOverlay(work)) {
       const play = document.createElement("span")
       play.className = "channel-album-play"
-      play.textContent = "▶"
+      play.appendChild(playIconSvg())
       cover.appendChild(play)
     }
     cover.appendChild(overlay)
@@ -865,7 +887,7 @@
     state.channel = normalized
     if (channelChanged) {
       state.flowIndex = 0
-      state.pass = ""
+      state.pass = savedChannelPass(normalized)
     }
     if (options.pass != null) {
       state.pass = ShareStore.cleanPin ? ShareStore.cleanPin(options.pass) : String(options.pass || "").replace(/\D/g, "").slice(0, 6)
@@ -883,8 +905,11 @@
       state.loading = false
       renderShelves()
       if (state.locked) {
+        // 기억해 둔 코드가 더는 맞지 않으면(코드 변경 등) 지워서 헛입장을 막는다.
+        if (result.passError && ShareStore.rememberPass) ShareStore.rememberPass(normalized, "")
         setStatus(result.passError ? "갤러리 코드가 맞지 않아요." : "", !!result.passError)
       } else {
+        if (state.pass && ShareStore.rememberPass) ShareStore.rememberPass(normalized, state.pass)
         setStatus("", false)
       }
       if (options.updateUrl !== false) history.replaceState(null, "", channelUrl(normalized, options.focusWork || ""))
@@ -1003,8 +1028,30 @@
     if (!el.viewerAudio || !el.viewerPlay) return
     const hasMusic = !!el.viewerAudio.getAttribute("src")
     el.viewerPlay.hidden = !hasMusic || !shouldShowCoverPlayOverlay(state.activeWork)
-    el.viewerPlay.textContent = el.viewerAudio.paused ? "▶" : "Ⅱ"
+    el.viewerPlay.classList.toggle("is-playing", !el.viewerAudio.paused)
     el.viewerPlay.setAttribute("aria-label", el.viewerAudio.paused ? "재생" : "일시정지")
+  }
+
+  // 확대해서 보기의 재생 버튼은 누른 뒤 마우스를 올려 두지 않으면 잠시 후 사라진다.
+  const VIEWER_PLAY_FADE_MS = 1000
+  let viewerPlayFadeTimer = null
+  let viewerStageHovered = false
+
+  function showViewerPlayControl() {
+    if (viewerPlayFadeTimer) {
+      clearTimeout(viewerPlayFadeTimer)
+      viewerPlayFadeTimer = null
+    }
+    if (el.viewerPlay) el.viewerPlay.classList.remove("is-faded")
+  }
+
+  function scheduleViewerPlayFade(delay) {
+    if (!el.viewerPlay) return
+    if (viewerPlayFadeTimer) clearTimeout(viewerPlayFadeTimer)
+    viewerPlayFadeTimer = setTimeout(function () {
+      viewerPlayFadeTimer = null
+      if (!viewerStageHovered && el.viewerPlay) el.viewerPlay.classList.add("is-faded")
+    }, delay == null ? VIEWER_PLAY_FADE_MS : delay)
   }
 
   function clampUnit(value) {
@@ -1143,6 +1190,8 @@
     if (el.viewerCopy) el.viewerCopy.disabled = !canCopyActive()
     el.viewer.hidden = false
     el.body.classList.add("channel-viewer-open")
+    viewerStageHovered = false
+    showViewerPlayControl()
     updateViewerPlayState()
     if (options.updateHash !== false) history.replaceState(null, "", channelUrl(work.channel || state.channel, work.id))
     el.viewerClose.focus({ preventScroll: true })
@@ -1150,6 +1199,7 @@
 
   function closeViewer() {
     if (el.viewer.hidden) return
+    showViewerPlayControl()
     el.viewerAudio.pause()
     el.viewerAudio.removeAttribute("src")
     el.viewerAudio.load()
@@ -1355,10 +1405,26 @@
       } else {
         el.viewerAudio.pause()
       }
+      // 누른 뒤 마우스를 올려 두지 않으면 잠시 후 아이콘을 감춘다.
+      showViewerPlayControl()
+      scheduleViewerPlayFade()
     })
+    if (el.viewerStage) {
+      el.viewerStage.addEventListener("mouseenter", function () {
+        viewerStageHovered = true
+        showViewerPlayControl()
+      })
+      el.viewerStage.addEventListener("mouseleave", function () {
+        viewerStageHovered = false
+        if (!el.viewerAudio.paused) scheduleViewerPlayFade(400)
+      })
+    }
     el.viewerAudio.addEventListener("play", updateViewerPlayState)
     el.viewerAudio.addEventListener("pause", updateViewerPlayState)
-    el.viewerAudio.addEventListener("ended", updateViewerPlayState)
+    el.viewerAudio.addEventListener("ended", function () {
+      showViewerPlayControl()
+      updateViewerPlayState()
+    })
     if (el.viewerDrawing) el.viewerDrawing.addEventListener("click", openActiveStudioCopy)
     if (el.viewerCopy) el.viewerCopy.addEventListener("click", copyActiveWork)
     if (el.viewerDelete) el.viewerDelete.addEventListener("click", deleteActiveWork)
@@ -1385,7 +1451,7 @@
     const channel = channelFromUrl()
     state.channel = channel
     if (channel) {
-      loadChannel(channel, { updateUrl: false, focusWork: workIdFromHash(), pass: loadStashedChannelPass(channel) })
+      loadChannel(channel, { updateUrl: false, focusWork: workIdFromHash(), pass: loadStashedChannelPass(channel) || savedChannelPass(channel) })
     } else {
       renderShelves()
       setStatus("", false)

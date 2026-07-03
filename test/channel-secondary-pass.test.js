@@ -84,6 +84,30 @@ test("share-store exposes channel claim + pass-aware listing", () => {
   assert.match(store, /rememberPass:/)
   assert.match(store, /loadPass:/)
   assert.match(store, /deleteChannel: deleteChannel/)
+  // 갤러리 코드는 localStorage에 기억한다 — 브라우저를 껐다 켜도 유지.
+  assert.match(functionBody(store, "rememberPass"), /storage\(\)/)
+  assert.doesNotMatch(functionBody(store, "rememberPass"), /sessionStorage/)
+  assert.match(functionBody(store, "loadPass"), /storage\(\)/)
+  assert.doesNotMatch(functionBody(store, "loadPass"), /sessionStorage/)
+})
+
+test("publish flow asks channel + code together in one modal", () => {
+  const studioHtml = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
+  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const styles = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+  const publishTakeBody = functionBody(studio, "publishTake")
+  const submitBody = functionBody(studio, "submitPublishModal")
+
+  assert.match(studioHtml, /id="publishModal"/)
+  assert.match(studioHtml, /id="publishChannelInput"[^>]*maxlength="4"/)
+  assert.match(studioHtml, /id="publishPassInput"[^>]*maxlength="6"/)
+  assert.match(studioHtml, /id="publishModalSubmitBtn">공유하기</)
+  assert.match(styles, /\.publish-modal\s*\{/)
+  // 예전 2단계 prompt 흐름은 사라졌다 — 번호와 코드를 모달에서 동시에 받는다.
+  assert.doesNotMatch(publishTakeBody, /prompt\(/)
+  assert.match(publishTakeBody, /openPublishModal\(\)/)
+  assert.match(submitBody, /ShareStore\.rememberPass\(channel, pass\)/)
+  assert.match(submitBody, /publishSharedWork\(channel, pass\)/)
 })
 
 test("share + channel pages carry the gallery code UI", () => {
@@ -190,8 +214,12 @@ test("channel page opens locked channels with the student entry code or the gate
   assert.doesNotMatch(channel, /refreshBtn/)
   assert.match(openChannelPageBody, /rememberChannelEntryPass\(channel, pass\)/)
   assert.match(channel, /function loadStashedChannelPass\(channel\)/)
-  assert.match(channel, /loadChannel\(channel, \{ updateUrl: false, focusWork: workIdFromHash\(\), pass: loadStashedChannelPass\(channel\) \}\)/)
-  assert.doesNotMatch(loadChannelBody, /ShareStore\.loadPass/)
+  // 한 번 입장한 갤러리는 코드를 브라우저에 기억한다 — 새로고침해도 다시 묻지 않게.
+  assert.match(channel, /function savedChannelPass\(channel\)/)
+  assert.match(channel, /loadChannel\(channel, \{ updateUrl: false, focusWork: workIdFromHash\(\), pass: loadStashedChannelPass\(channel\) \|\| savedChannelPass\(channel\) \}\)/)
+  assert.match(loadChannelBody, /state\.pass = savedChannelPass\(normalized\)/)
+  assert.match(loadChannelBody, /ShareStore\.rememberPass\(normalized, state\.pass\)/)
+  assert.match(loadChannelBody, /ShareStore\.rememberPass\(normalized, ""\)/)
   assert.match(loadChannelBody, /options\.pass != null/)
   assert.match(loadChannelBody, /ShareStore\.listChannel\(normalized, state\.pass\)/)
   assert.doesNotMatch(channel, /function submitGatePass/)

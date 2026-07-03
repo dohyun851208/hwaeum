@@ -611,8 +611,9 @@ bgReasonInput.value = "잔잔한 색과 어울리는 배경을 골랐어요."
 bgReasonInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 melodyIntentInput.value = "위로 올라가는 선으로 밝아지는 느낌을 표현했어요."
 melodyIntentInput.dispatchEvent(new window.Event("input", { bubbles: true }))
-hashtagsInput.value = "잔잔함 기대 봄"
+hashtagsInput.value = "잔잔함, 기대, 봄"
 hashtagsInput.dispatchEvent(new window.Event("input", { bubbles: true }))
+check("쉼표 입력은 그 자리에서 칩이 됨", qc("#hashtagChipBox .hashtag-chip") === 3, qc("#hashtagChipBox .hashtag-chip"))
 const reflectionRecipe = SD.buildRecipe()
 check("레시피에 작품 제목 저장", reflectionRecipe.title === "잔잔한 선", reflectionRecipe.title)
 check("레시피에 작곡가 이름 저장", reflectionRecipe.composerName === "3반 김하음", reflectionRecipe.composerName)
@@ -670,7 +671,7 @@ check("loadRecipe 무드색 적용", window.document.documentElement.style.getPr
 check("loadRecipe 업로드 배경 끝 지점 복원", SD.buildRecipe().bgEndOffset === 8, SD.buildRecipe().bgEndOffset)
 check("loadRecipe 업로드 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
 check("loadRecipe 회고 입력 복원", window.document.getElementById("bgReasonInput").value === "불러온 이유")
-check("loadRecipe 설명 단어 입력 복원", window.document.getElementById("hashtagsInput").value === "하나 둘")
+check("loadRecipe 설명 단어 칩 복원", qc("#hashtagChipBox .hashtag-chip") === 2 && JSON.stringify(SD.getStateSummary().hashtags) === '["하나","둘"]', JSON.stringify(SD.getStateSummary().hashtags))
 SD.draw.setStrokes([[{ x: 0.2, y: 0.4 }, { x: 0.4, y: 0.5 }]], ["daegeum"])
 window.document.getElementById("resetComposeBtn").click()
 check("초기화는 업로드 배경 시작 구간 유지", SD.buildRecipe().bgOffset === 2, SD.buildRecipe().bgOffset)

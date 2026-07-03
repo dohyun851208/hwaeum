@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 갤러리</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260702-gallery-input-tone" />
+    <link rel="stylesheet" href="./styles.css?v=20260703-share-modal" />
   </head>
   <body class="channel-body">
     <div class="channel-shell">
@@ -67,9 +67,12 @@
     <div class="channel-viewer" id="channelViewer" role="dialog" aria-modal="true" aria-labelledby="viewerTitle" hidden>
       <button class="channel-viewer-close" id="viewerCloseBtn" type="button" aria-label="닫기">×</button>
       <div class="channel-viewer-panel">
-        <figure class="channel-viewer-stage">
+        <figure class="channel-viewer-stage" id="viewerStage">
           <img class="channel-viewer-cover" id="viewerCover" alt="공유 음악 표지" />
-          <button class="channel-viewer-play" id="viewerPlayBtn" type="button" aria-label="재생">▶</button>
+          <button class="channel-viewer-play" id="viewerPlayBtn" type="button" aria-label="재생">
+            <svg class="channel-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72c0 .8.87 1.3 1.56.88l10.98-6.86a1.04 1.04 0 0 0 0-1.76L9.56 4.26A1.04 1.04 0 0 0 8 5.14z" /></svg>
+            <svg class="channel-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.6" width="4.2" height="14.8" rx="1.2" /><rect x="13.8" y="4.6" width="4.2" height="14.8" rx="1.2" /></svg>
+          </button>
         </figure>
         <section class="channel-viewer-info">
           <h2 id="viewerTitle">무제</h2>
@@ -87,7 +90,7 @@
       </div>
     </div>
 
-    <script src="./js/share-store.js?v=20260702-gallery-copy" defer></script>
-    <script src="./js/channel.js?v=20260702-gallery-copy" defer></script>
+    <script src="./js/share-store.js?v=20260703-share-modal" defer></script>
+    <script src="./js/channel.js?v=20260703-share-modal" defer></script>
   </body>
 </html>

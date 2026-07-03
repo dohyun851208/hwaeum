@@ -141,16 +141,16 @@
     return String(value || "").replace(/\D/g, "").slice(0, 6)
   }
 
-  // 입력한 갤러리 코드를 세션에 잠깐 둔다(갤러리별). 새로고침해도 다시 안 묻게.
-  const PASS_SESSION_PREFIX = "hwaeum.channelPass."
+  // 입력한 갤러리 코드를 이 브라우저에 기억한다(갤러리별). 새로고침·재방문 때 다시 안 묻게.
+  const PASS_STORAGE_PREFIX = "hwaeum.channelPass."
   function rememberPass(channel, pin) {
     const normalized = normalizeChannel(channel)
     const digits = cleanPin(pin)
     try {
-      const s = root.sessionStorage
+      const s = storage()
       if (!s || !normalized) return digits
-      if (digits) s.setItem(PASS_SESSION_PREFIX + normalized, digits)
-      else s.removeItem(PASS_SESSION_PREFIX + normalized)
+      if (digits) s.setItem(PASS_STORAGE_PREFIX + normalized, digits)
+      else s.removeItem(PASS_STORAGE_PREFIX + normalized)
     } catch (e) {}
     return digits
   }
@@ -158,8 +158,8 @@
   function loadPass(channel) {
     const normalized = normalizeChannel(channel)
     try {
-      const s = root.sessionStorage
-      return s && normalized ? cleanPin(s.getItem(PASS_SESSION_PREFIX + normalized)) : ""
+      const s = storage()
+      return s && normalized ? cleanPin(s.getItem(PASS_STORAGE_PREFIX + normalized)) : ""
     } catch (e) {
       return ""
     }

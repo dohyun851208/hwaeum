@@ -51,12 +51,21 @@
     return /^data:image\/[a-z0-9.+-]+;base64,/i.test(data) ? data : ""
   }
 
+  // Tags split on commas/newlines only, so a multi-word tag (with spaces) stays one tag.
   function normalizeHashtags(value) {
-    const raw = Array.isArray(value) ? value.join(" ") : String(value || "")
+    const raw = Array.isArray(value) ? value.join(",") : String(value || "")
     const seen = {}
     return raw
-      .split(/[\s,]+/)
-      .map((tag) => tag.replace(/^#+/, "").replace(/[^\w\uAC00-\uD7A3-]/g, "").trim())
+      .split(/[,\n]+/)
+      .map((tag) =>
+        tag
+          .replace(/^[\s#]+/, "")
+          .replace(/[^\w\uAC00-\uD7A3\- ]/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 24)
+          .trim(),
+      )
       .filter(Boolean)
       .filter((tag) => {
         const key = tag.toLowerCase()
@@ -74,7 +83,7 @@
   }
 
   function keywordText(value) {
-    return normalizeHashtags(value).join(" ")
+    return normalizeHashtags(value).join(", ")
   }
 
   function hexToRgba(hex, alpha) {

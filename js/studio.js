@@ -232,6 +232,16 @@
     bgReasonInput: $("bgReasonInput"),
     melodyIntentInput: $("melodyIntentInput"),
     hashtagsInput: $("hashtagsInput"),
+    hashtagChipBox: $("hashtagChipBox"),
+    hashtagHelp: $("hashtagHelp"),
+    publishModal: $("publishModal"),
+    publishModalForm: $("publishModalForm"),
+    publishChannelInput: $("publishChannelInput"),
+    publishPassInput: $("publishPassInput"),
+    publishModalError: $("publishModalError"),
+    publishModalCloseBtn: $("publishModalCloseBtn"),
+    publishModalCancelBtn: $("publishModalCancelBtn"),
+    publishModalSubmitBtn: $("publishModalSubmitBtn"),
     saveTakeBtn: $("saveTakeBtn"),
     exportAudioBtn: $("exportAudioBtn"),
     completeStopBtn: $("completeStopBtn"),
@@ -1150,7 +1160,7 @@
     el.rhythmReadout.textContent = draw.getStrokes().length ? draw.getStrokes().length + "개 선" : "그린 선"
     el.durReadout.textContent = secondsLabel(state.duration)
     el.noteReadout.textContent = actionCountLabel(state.actionCount)
-    const tags = keywordText(state.hashtags)
+    const tags = hashtagText(state.hashtags)
     el.placardMeta.textContent = tags
     el.placardMeta.classList.toggle("is-empty", !tags)
     if (el.placardDetail) {
@@ -1225,9 +1235,74 @@
     if (el.melodyIntentInput && el.melodyIntentInput.value !== state.melodyIntent) {
       el.melodyIntentInput.value = state.melodyIntent
     }
-    if (el.hashtagsInput && el.hashtagsInput.value !== state.hashtags) {
-      el.hashtagsInput.value = state.hashtags
+    if (el.hashtagsInput) {
+      el.hashtagsInput.value = ""
+      renderHashtagChips()
     }
+  }
+
+  // === § 15.5  설명 단어(해시태그 칩) ===
+  // state.hashtags는 "따뜻함, 감정적인 노래"처럼 쉼표로 구분된 문자열.
+  // 입력칸에 쉼표·엔터를 누르면 그 자리에서 #단어 칩이 된다.
+
+  const HASHTAG_MAX = 3
+  const HASHTAG_HELP_DEFAULT = "최대 3개. 쉼표(,)나 엔터를 누르면 #단어 태그가 됩니다."
+  const HASHTAG_HELP_FULL = "태그는 3개까지예요. 지우려면 태그를 눌러 주세요."
+
+  function hashtagList() {
+    return normalizeHashtags(state.hashtags)
+  }
+
+  function setHashtags(tags) {
+    state.hashtags = normalizeHashtags(tags).join(", ")
+    renderHashtagChips()
+    updateReadouts()
+  }
+
+  function renderHashtagChips() {
+    if (!el.hashtagChipBox || !el.hashtagsInput) return
+    el.hashtagChipBox.querySelectorAll(".hashtag-chip").forEach((chip) => chip.remove())
+    const tags = hashtagList()
+    tags.forEach((tag) => {
+      const chip = document.createElement("button")
+      chip.type = "button"
+      chip.className = "hashtag-chip"
+      chip.title = "누르면 지워요"
+      chip.setAttribute("aria-label", "#" + tag + " 지우기")
+      const text = document.createElement("span")
+      text.textContent = "#" + tag
+      const x = document.createElement("span")
+      x.className = "hashtag-chip-x"
+      x.setAttribute("aria-hidden", "true")
+      x.textContent = "×"
+      chip.appendChild(text)
+      chip.appendChild(x)
+      chip.addEventListener("click", () => {
+        setHashtags(hashtagList().filter((item) => item !== tag))
+        if (el.hashtagHelp) el.hashtagHelp.textContent = HASHTAG_HELP_DEFAULT
+        el.hashtagsInput.focus()
+      })
+      el.hashtagChipBox.insertBefore(chip, el.hashtagsInput)
+    })
+    el.hashtagsInput.placeholder = tags.length ? "" : "따뜻함, 감정적인 노래"
+    if (el.hashtagHelp && tags.length < HASHTAG_MAX) el.hashtagHelp.textContent = HASHTAG_HELP_DEFAULT
+  }
+
+  // 입력 중인 단어를 칩으로 확정한다. 저장·공유 직전에도 호출해 잃어버리지 않게.
+  function commitHashtagInput() {
+    if (!el.hashtagsInput) return
+    const raw = el.hashtagsInput.value
+    if (!raw.trim()) {
+      el.hashtagsInput.value = ""
+      return
+    }
+    const current = hashtagList()
+    if (current.length >= HASHTAG_MAX) {
+      if (el.hashtagHelp) el.hashtagHelp.textContent = HASHTAG_HELP_FULL
+      return
+    }
+    el.hashtagsInput.value = ""
+    setHashtags(current.join(",") + "," + raw)
   }
 
   // === § 16  그림 업로드 & 커버 프레임 ===
@@ -2468,7 +2543,7 @@
       if (tags.length) {
         const tagLine = document.createElement("span")
         tagLine.className = "take-tags"
-        tagLine.textContent = keywordText(tags)
+        tagLine.textContent = hashtagText(tags)
         meta.appendChild(tagLine)
       }
       const tools = document.createElement("div")
@@ -2579,7 +2654,7 @@
     if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "작곡가" })
     if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: "배경음악을 고른 이유" })
     if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: "선율을 표현한 의도" })
-    if (!el.hashtagsInput?.value.trim()) missing.push({ field: el.hashtagsInput, label: "작품을 잘 나타내는 단어" })
+    if (!hashtagList().length) missing.push({ field: el.hashtagsInput, label: "작품을 잘 나타내는 단어" })
     if (missing.length > 0) {
       missing.forEach(({ field }) => field.classList.add("field-invalid"))
       el.exportStatus.textContent = "공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", ")
@@ -2593,27 +2668,86 @@
       el.exportStatus.classList.add("error")
       return
     }
-    const asked = typeof prompt === "function" ? prompt("공유할 번호를 입력하세요. (예 #107)", state.sharedChannel || "") : null
-    if (asked === null) return // 취소
-    const channel = ShareStore.normalizeChannel(asked)
+    el.exportStatus.classList.remove("error")
+    // 번호와 갤러리 코드를 한 모달에서 같이 받는다.
+    openPublishModal()
+  }
+
+  // === § 23.5  공유 모달 (번호 + 갤러리 코드 동시 입력) ===
+
+  function setPublishModalError(text) {
+    if (!el.publishModalError) return
+    el.publishModalError.textContent = text || ""
+    el.publishModalError.hidden = !text
+  }
+
+  function openPublishModal() {
+    if (!el.publishModal || !el.publishChannelInput || !el.publishPassInput) return
+    const channel = state.sharedChannel || (ShareStore.loadChannel ? ShareStore.loadChannel() : "")
+    el.publishChannelInput.value = channel || ""
+    el.publishPassInput.value = channel && ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
+    setPublishModalError("")
+    el.publishModal.hidden = false
+    el.body.classList.add("publish-modal-open")
+    const focusTarget = !channel ? el.publishChannelInput : !el.publishPassInput.value ? el.publishPassInput : el.publishModalSubmitBtn || el.publishPassInput
+    focusTarget.focus({ preventScroll: true })
+  }
+
+  function closePublishModal() {
+    if (!el.publishModal || el.publishModal.hidden) return
+    el.publishModal.hidden = true
+    el.body.classList.remove("publish-modal-open")
+    if (el.publishShareBtn) el.publishShareBtn.focus({ preventScroll: true })
+  }
+
+  function submitPublishModal(event) {
+    if (event) event.preventDefault()
+    if (!ShareStore) return
+    const channel = ShareStore.normalizeChannel(el.publishChannelInput ? el.publishChannelInput.value : "")
     if (!channel) {
-      el.exportStatus.textContent = "번호를 다시 확인해 주세요."
-      el.exportStatus.classList.add("error")
+      setPublishModalError("번호를 적어 주세요.")
+      if (el.publishChannelInput) el.publishChannelInput.focus()
       return
     }
-    // 공유에는 갤러리 코드가 필요하다(선생님이 알려 준 숫자).
-    const savedPass = ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
-    const askedPass = typeof prompt === "function" ? prompt("갤러리 코드(숫자)를 입력하세요.", savedPass || "") : null
-    if (askedPass === null) return // 취소
-    const pass = ShareStore.cleanPin(askedPass)
-    if (!pass) {
-      el.exportStatus.textContent = "갤러리 코드(숫자)를 입력해 주세요."
-      el.exportStatus.classList.add("error")
+    const pass = ShareStore.cleanPin(el.publishPassInput ? el.publishPassInput.value : "")
+    if (pass.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
+      setPublishModalError("갤러리 코드는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상이에요.")
+      if (el.publishPassInput) el.publishPassInput.focus()
       return
     }
     if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pass)
-    el.exportStatus.classList.remove("error")
+    closePublishModal()
     publishSharedWork(channel, pass)
+  }
+
+  function bindPublishModal() {
+    if (!el.publishModal) return
+    el.publishModal.addEventListener("click", (event) => {
+      if (event.target === el.publishModal) closePublishModal()
+    })
+    if (el.publishModalForm) el.publishModalForm.addEventListener("submit", submitPublishModal)
+    if (el.publishModalCloseBtn) el.publishModalCloseBtn.addEventListener("click", closePublishModal)
+    if (el.publishModalCancelBtn) el.publishModalCancelBtn.addEventListener("click", closePublishModal)
+    if (el.publishChannelInput) {
+      el.publishChannelInput.addEventListener("input", () => {
+        setPublishModalError("")
+        // 이 갤러리에 기억해 둔 코드가 있으면 미리 채워 준다.
+        const channel = ShareStore ? ShareStore.normalizeChannel(el.publishChannelInput.value) : ""
+        if (channel && el.publishPassInput && ShareStore.loadPass) {
+          const saved = ShareStore.loadPass(channel)
+          if (saved) el.publishPassInput.value = saved
+        }
+      })
+    }
+    if (el.publishPassInput) {
+      el.publishPassInput.addEventListener("input", () => setPublishModalError(""))
+    }
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && el.publishModal && !el.publishModal.hidden) {
+        event.preventDefault()
+        closePublishModal()
+      }
+    })
   }
 
   function saveTake() {
@@ -2626,6 +2760,7 @@
 
   function saveTakeWithMode(forceNew) {
     if (!requireDrawn()) return
+    commitHashtagInput() // 아직 칩이 안 된 단어도 잃지 않게
     const recipe = buildRecipe()
     const name = state.title
     let take = null
@@ -2756,6 +2891,14 @@
       else s.removeItem(CHANNEL_ENTRY_PASS_SESSION_KEY)
     } catch (e) {}
     return pin
+  }
+
+  // 한 번 입장한 갤러리의 코드를 기억해 두었다가 들어가기 입력칸에 미리 채운다.
+  function prefillBrowsePass() {
+    if (!el.channelBrowsePassInput || !ShareStore || !ShareStore.loadPass) return
+    if (el.channelBrowsePassInput.value) return
+    const saved = ShareStore.loadPass(state.sharedChannel)
+    if (saved) el.channelBrowsePassInput.value = saved
   }
 
   function openChannelPage(channelArg, workId, passArg) {
@@ -2949,7 +3092,7 @@
     optionalViewerText(viewer.melody, "선율", meta.melodyIntent)
     if (meta.hashtags && meta.hashtags.length) {
       viewer.tags.hidden = false
-      viewer.tags.textContent = keywordText(meta.hashtags)
+      viewer.tags.textContent = hashtagText(meta.hashtags)
     } else {
       viewer.tags.hidden = true
       viewer.tags.textContent = ""
@@ -3158,7 +3301,7 @@
     const ctx = cv.getContext("2d")
 
     function finish() {
-      const tags = keywordText(state.hashtags)
+      const tags = hashtagText(state.hashtags)
       const padH = tags ? 190 : 140
       ctx.fillStyle = "rgba(20,26,26,0.82)"
       ctx.fillRect(0, size - padH, size, padH)
@@ -3572,7 +3715,10 @@
       el.shareChannelInput.addEventListener("input", () => syncShareInputs(el.shareChannelInput.value))
     }
     if (el.channelBrowseInput) {
-      el.channelBrowseInput.addEventListener("input", () => syncShareInputs(el.channelBrowseInput.value))
+      el.channelBrowseInput.addEventListener("input", () => {
+        syncShareInputs(el.channelBrowseInput.value)
+        prefillBrowsePass()
+      })
     }
     if (el.channelOpenForm) {
       el.channelOpenForm.addEventListener("submit", function (event) {
@@ -3619,17 +3765,31 @@
       })
     }
     if (el.hashtagsInput) {
+      el.hashtagsInput.addEventListener("keydown", (event) => {
+        if (event.isComposing) return
+        if (event.key === "," || event.key === "Enter") {
+          event.preventDefault()
+          commitHashtagInput()
+        } else if (event.key === "Backspace" && !el.hashtagsInput.value) {
+          const tags = hashtagList()
+          if (tags.length) {
+            event.preventDefault()
+            setHashtags(tags.slice(0, -1))
+          }
+        }
+      })
       el.hashtagsInput.addEventListener("input", () => {
         el.hashtagsInput.classList.remove("field-invalid")
-        state.hashtags = el.hashtagsInput.value
-        updateReadouts()
+        if (el.hashtagsInput.value.indexOf(",") !== -1) commitHashtagInput()
       })
-      el.hashtagsInput.addEventListener("blur", () => {
-        state.hashtags = keywordText(state.hashtags)
-        syncReflectionInputs()
-        updateReadouts()
+      el.hashtagsInput.addEventListener("blur", commitHashtagInput)
+    }
+    if (el.hashtagChipBox && el.hashtagsInput) {
+      el.hashtagChipBox.addEventListener("click", (event) => {
+        if (event.target === el.hashtagChipBox) el.hashtagsInput.focus()
       })
     }
+    bindPublishModal()
     window.addEventListener("resize", () => {
       if (state.step !== DRAWING_STEP) return
       refreshTimeline(false)
@@ -3676,6 +3836,7 @@
     syncTransportButtons(false, false)
     syncReflectionInputs()
     syncShareInputs()
+    prefillBrowsePass()
     updateReadouts()
     syncUndoButton()
     const restoredRecipeLink = restoreFromHash()

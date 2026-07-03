@@ -41,6 +41,29 @@ test("channel viewer audio starts only from the play button handler", () => {
   assert.match(bindBody, /el\.viewerAudio\.play\(\)/)
 })
 
+test("channel viewer fills the frame, sizes down, and fades the play control", () => {
+  const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
+  const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+  const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+
+  // 그림 비율이 제각각이어도 확대 보기 칸을 꽉 채운다.
+  assert.match(css, /\.channel-viewer-cover\s*\{[\s\S]*?object-fit:\s*cover/)
+  // 확대해서 보기는 예전의 약 70% 크기.
+  assert.match(css, /\.channel-viewer-panel\s*\{[\s\S]*?width:\s*min\(800px/)
+  assert.match(css, /\.channel-viewer-panel\s*\{[\s\S]*?height:\s*min\(540px/)
+  // 재생/일시정지는 SVG 아이콘으로 토글하고, 누른 뒤 마우스가 없으면 사라진다.
+  assert.match(channelHtml, /id="viewerStage"/)
+  assert.match(channelHtml, /class="channel-play-icon"/)
+  assert.match(channelHtml, /class="channel-pause-icon"/)
+  assert.match(css, /\.channel-viewer-play\.is-faded\s*\{[\s\S]*?opacity:\s*0/)
+  assert.match(functionBody(channel, "updateViewerPlayState"), /classList\.toggle\("is-playing"/)
+  assert.doesNotMatch(functionBody(channel, "updateViewerPlayState"), /textContent/)
+  assert.match(functionBody(channel, "scheduleViewerPlayFade"), /viewerStageHovered/)
+  assert.match(functionBody(channel, "bind"), /scheduleViewerPlayFade\(\)/)
+  assert.match(functionBody(channel, "bind"), /mouseenter/)
+  assert.match(functionBody(channel, "createAlbumCard"), /playIconSvg\(\)/)
+})
+
 test("shared gallery viewers separate composer, description, and attempt count", () => {
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
   const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 스튜디오 · 그림으로 만드는 음악</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260702-gallery-input-tone" />
+    <link rel="stylesheet" href="./styles.css?v=20260703-share-modal" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -264,11 +264,13 @@
                   <span>선율을 표현한 의도</span>
                   <textarea id="melodyIntentInput" rows="3" maxlength="180" placeholder="악기 음색, 선의 움직임(높낮이·길이), 소리의 어울림, 효과음 등을 어떻게 활용하여 음악을 표현했는지 적어 보세요."></textarea>
                 </label>
-                <label class="hashtag-field" for="hashtagsInput">
-                  <span>작품을 잘 나타내는 단어</span>
-                  <input id="hashtagsInput" type="text" maxlength="60" placeholder="따뜻함 긴장감 봄" aria-describedby="hashtagHelp" aria-label="작품을 잘 나타내는 단어" />
-                  <small id="hashtagHelp">최대 3개, 띄어쓰기나 쉼표로 구분해서 적어 주세요.</small>
-                </label>
+                <div class="hashtag-field">
+                  <span id="hashtagLabel">작품을 잘 나타내는 단어</span>
+                  <div class="hashtag-chip-box" id="hashtagChipBox">
+                    <input id="hashtagsInput" type="text" maxlength="24" placeholder="따뜻함, 감정적인 노래" aria-describedby="hashtagHelp" aria-labelledby="hashtagLabel" autocomplete="off" />
+                  </div>
+                  <small id="hashtagHelp">최대 3개. 쉼표(,)나 엔터를 누르면 #단어 태그가 됩니다.</small>
+                </div>
               </div>
 
               <div class="actions-row take-save-actions">
@@ -338,6 +340,34 @@
       </footer>
     </div>
 
+    <!-- 공유 모달: 번호 + 갤러리 코드 동시 입력 -->
+    <div class="publish-modal" id="publishModal" hidden>
+      <div class="publish-modal-panel" role="dialog" aria-modal="true" aria-labelledby="publishModalTitle">
+        <button class="publish-modal-close" id="publishModalCloseBtn" type="button" aria-label="닫기">×</button>
+        <p class="eyebrow">화음 갤러리에 공유하기</p>
+        <h3 id="publishModalTitle">완성한 음악을 갤러리에 올려요</h3>
+        <p class="publish-modal-lead">선생님이 알려 준 번호와 갤러리 코드를 함께 입력해 주세요.</p>
+        <form class="publish-modal-form" id="publishModalForm">
+          <label class="publish-modal-field" for="publishChannelInput">
+            <span>갤러리 번호</span>
+            <span class="publish-modal-input-wrap">
+              <span class="publish-modal-hash" aria-hidden="true">#</span>
+              <input id="publishChannelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="번호 (예 107)" aria-label="갤러리 번호" />
+            </span>
+          </label>
+          <label class="publish-modal-field" for="publishPassInput">
+            <span>갤러리 코드</span>
+            <input id="publishPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="갤러리 코드 (4~6자리)" aria-label="갤러리 코드" />
+          </label>
+          <p class="publish-modal-error" id="publishModalError" aria-live="polite" hidden></p>
+          <div class="publish-modal-actions">
+            <button class="btn" type="button" id="publishModalCancelBtn">취소</button>
+            <button class="btn primary" type="submit" id="publishModalSubmitBtn">공유하기</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script src="./js/music-core.js?v=20260624-reflect-limit"></script>
     <script src="./js/manifest.js?v=20260629-channel-copy"></script>
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
@@ -345,11 +375,11 @@
     <script src="./js/audio-engine.js?v=20260628-pause-live-preview"></script>
     <script src="./js/drawing.js?v=20260628-drawing-cursor"></script>
     <script src="./js/takes.js?v=20260702-newest-first"></script>
-    <script src="./js/share-store.js?v=20260702-gallery-copy"></script>
-    <script src="./js/studio-utils.js?v=20260702-keywords"></script>
+    <script src="./js/share-store.js?v=20260703-share-modal"></script>
+    <script src="./js/studio-utils.js?v=20260703-share-modal"></script>
     <script src="./js/studio-export.js?v=20260629-extract"></script>
     <script src="./js/studio-setup-render.js?v=20260629-extract"></script>
-    <script src="./js/studio-share-ui.js?v=20260702-keywords"></script>
-    <script src="./js/studio.js?v=20260702-keywords" defer></script>
+    <script src="./js/studio-share-ui.js?v=20260703-share-modal"></script>
+    <script src="./js/studio.js?v=20260703-share-modal" defer></script>
   </body>
 </html>

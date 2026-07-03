@@ -1776,8 +1776,14 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   border-radius: 999px;
   background: rgba(17, 24, 39, 0.68);
   color: #fff;
-  font-size: 1.62rem;
   transform: translate(-50%, -50%);
+}
+
+.channel-album-play svg {
+  width: 46%;
+  height: 46%;
+  fill: currentColor;
+  transform: translateX(5%);
 }
 
 .channel-album-overlay {
@@ -2014,13 +2020,14 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   font-weight: 950;
 }
 
+/* 확대해서 보기 — 예전의 약 70% 크기로 컴팩트하게 */
 .channel-viewer-panel {
   display: grid;
-  grid-template-columns: minmax(560px, 720px) 360px;
-  gap: 22px;
-  width: min(1120px, calc(100vw - 96px));
-  height: min(760px, calc(100vh - 96px));
-  padding: 18px;
+  grid-template-columns: minmax(390px, 505px) 280px;
+  gap: 16px;
+  width: min(800px, calc(100vw - 96px));
+  height: min(540px, calc(100vh - 96px));
+  padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 10px;
   background: var(--channel-panel);
@@ -2039,11 +2046,12 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: #111827;
 }
 
+/* 그림 비율이 제각각이어도 칸을 꽉 채운다(넘치는 부분은 자동으로 잘라 냄). */
 .channel-viewer-cover {
   display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .channel-viewer-play {
@@ -2052,14 +2060,49 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   left: 50%;
   display: grid;
   place-items: center;
-  width: 94px;
-  height: 94px;
-  border: 0;
+  width: 72px;
+  height: 72px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: 999px;
   background: rgba(17, 24, 39, 0.72);
   color: #fff;
-  font-size: 2.45rem;
+  backdrop-filter: blur(5px);
+  cursor: pointer;
   transform: translate(-50%, -50%);
+  opacity: 1;
+  transition:
+    opacity 280ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.channel-viewer-play:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+/* 누르고 마우스를 올려 두지 않으면 잠시 후 스르륵 사라진다. */
+.channel-viewer-play.is-faded {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.channel-viewer-play svg {
+  width: 46%;
+  height: 46%;
+  fill: currentColor;
+}
+
+.channel-viewer-play .channel-play-icon {
+  transform: translateX(5%);
+}
+
+.channel-viewer-play .channel-pause-icon,
+.channel-viewer-play.is-playing .channel-play-icon {
+  display: none;
+}
+
+.channel-viewer-play.is-playing .channel-pause-icon {
+  display: block;
 }
 
 .channel-viewer-play[hidden] {
@@ -2069,14 +2112,14 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .channel-viewer-info {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  padding: 14px 8px 8px;
+  padding: 10px 6px 6px;
 }
 
 .channel-viewer-info h2 {
   overflow-wrap: anywhere;
-  font-size: 1.72rem;
+  font-size: 1.42rem;
 }
 
 .channel-viewer-meta,
@@ -3199,7 +3242,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   opacity: 0.76;
 }
 .reflection-field textarea,
-.hashtag-field input {
+.hashtag-chip-box {
   width: 100%;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
@@ -3215,15 +3258,63 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   padding: 10px 12px;
   resize: vertical;
 }
-.hashtag-field input {
+.hashtag-chip-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 6px 12px;
+  cursor: text;
+}
+.hashtag-chip-box input {
+  flex: 1 1 120px;
+  min-width: 90px;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+.hashtag-chip-box input:focus {
+  outline: none;
 }
 .reflection-field textarea:focus,
-.hashtag-field input:focus {
+.hashtag-chip-box:focus-within {
   outline: none;
   border-color: var(--accent);
   background: #ffffff;
+}
+.hashtag-chip-box:has(.field-invalid) {
+  border-color: #d93025;
+  box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15);
+}
+.hashtag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 900;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.hashtag-chip:hover,
+.hashtag-chip:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+.hashtag-chip-x {
+  color: var(--muted);
+  font-weight: 700;
+}
+.hashtag-chip:hover .hashtag-chip-x {
+  color: var(--accent);
 }
 .hashtag-field small {
   color: var(--muted);
@@ -3657,6 +3748,139 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   font-weight: 900;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+/* 공유 모달 — 번호 + 갤러리 코드 동시 입력 */
+.publish-modal-open {
+  overflow: hidden;
+}
+.publish-modal[hidden] {
+  display: none;
+}
+.publish-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(20, 24, 24, 0.62);
+  backdrop-filter: blur(4px);
+}
+.publish-modal-panel {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  width: min(460px, 94vw);
+  padding: 26px 26px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.34);
+}
+.publish-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  font-size: 1.2rem;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+.publish-modal-close:focus-visible {
+  outline: 3px solid var(--accent-line);
+  outline-offset: 3px;
+}
+.publish-modal-panel h3 {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+.publish-modal-lead {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.publish-modal-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+.publish-modal-field {
+  display: grid;
+  gap: 6px;
+}
+.publish-modal-field > span:first-child {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 900;
+  opacity: 0.76;
+}
+.publish-modal-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--canvas);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.publish-modal-input-wrap:focus-within {
+  border-color: var(--accent);
+  background: #ffffff;
+}
+.publish-modal-hash {
+  color: var(--muted);
+  font-weight: 900;
+}
+.publish-modal-input-wrap input {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+.publish-modal-input-wrap input:focus {
+  outline: none;
+}
+.publish-modal-field > input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.publish-modal-field > input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #ffffff;
+}
+.publish-modal-error {
+  color: #d93025;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.publish-modal-error[hidden] {
+  display: none;
+}
+.publish-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 /* 시도 목록 */
@@ -4271,7 +4495,7 @@ body:not(.channel-body)::after {
 
 .placard-blank,
 .reflection-field textarea,
-.hashtag-field input,
+.hashtag-chip-box,
 .share-channel-field input,
 .channel-open-bar,
 .channel-number-field,
@@ -4283,7 +4507,7 @@ body:not(.channel-body)::after {
 
 .placard-blank:focus,
 .reflection-field textarea:focus,
-.hashtag-field input:focus,
+.hashtag-chip-box:focus-within,
 .share-channel-field input:focus,
 .take-name-input:focus {
   border-color: var(--brand-gold-strong);
