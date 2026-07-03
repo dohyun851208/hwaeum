@@ -384,14 +384,15 @@
       throw new Error("화음 갤러리를 만들려면 관리자 번호가 필요해요.")
     }
     const existing = await getLocalChannel(channel)
-    if (existing && existing.ownerId && existing.ownerId !== owner.id) {
+    // 갤러리 코드가 정확히 맞으면 다른 브라우저 프로필이라도 같은 선생님으로 본다.
+    if (existing && existing.ownerId && existing.ownerId !== owner.id && existing.pass !== pin) {
       throw new Error("이미 다른 선생님이 사용 중인 화음 갤러리예요. 다른 번호를 써 주세요.")
     }
     const now = new Date().toISOString()
     const record = {
       channel: channel,
       displayName: displayName || (existing && existing.displayName) || "",
-      ownerId: owner.id,
+      ownerId: (existing && existing.ownerId) || owner.id,
       pass: pin,
       createdAt: (existing && existing.createdAt) || now,
       updatedAt: now,

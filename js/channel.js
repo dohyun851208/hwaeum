@@ -34,6 +34,14 @@
     viewbar: $("channelViewbar"),
     nameInput: $("channelNameInput"),
     renameBtn: $("channelRenameBtn"),
+    renameModal: $("renameModal"),
+    renameModalForm: $("renameModalForm"),
+    renameAdminPinInput: $("renameAdminPinInput"),
+    renameNameInput: $("renameNameInput"),
+    renameModalError: $("renameModalError"),
+    renameModalCloseBtn: $("renameModalCloseBtn"),
+    renameModalCancelBtn: $("renameModalCancelBtn"),
+    renameModalSubmitBtn: $("renameModalSubmitBtn"),
     deleteChannelBtn: $("channelDeleteBtn"),
     shelfModeBtn: $("channelShelfModeBtn"),
     flowModeBtn: $("channelFlowModeBtn"),
@@ -924,41 +932,75 @@
     }
   }
 
-  async function renameChannel() {
-    if (!ShareStore || !ShareStore.claimChannel) return
-    const channel = state.channel
-    if (!channel) {
+  // === 이름 변경 모달: 관리자 번호 + 새 이름을 한 화면에서 받는다 ===
+
+  function setRenameModalError(text) {
+    if (!el.renameModalError) return
+    el.renameModalError.textContent = text || ""
+    el.renameModalError.hidden = !text
+  }
+
+  function closeRenameModal() {
+    if (!el.renameModal || el.renameModal.hidden) return
+    el.renameModal.hidden = true
+    el.body.classList.remove("publish-modal-open")
+  }
+
+  function openRenameModal() {
+    if (!el.renameModal || !ShareStore || !ShareStore.claimChannel) return
+    if (!state.channel) {
       setStatus("먼저 화음 갤러리에 들어가 주세요.", true)
       return
     }
-    const adminPin = promptTrimmed("관리자 번호를 입력하세요.", loadStashedAdminPin())
-    if (adminPin == null) return
-    if (!adminPin) {
-      setStatus("이름을 바꾸려면 관리자 번호를 넣어 주세요.", true)
+    const pin = currentGalleryPass()
+    if (state.locked || pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
+      setStatus("갤러리 코드로 갤러리를 연 뒤 이름을 바꿀 수 있어요.", true)
       return
     }
-    const displayName = promptTrimmed("바꿀 갤러리 이름을 입력하세요.", channelDisplayName())
-    if (displayName == null) return
+    setMenuOpen(false)
+    if (el.renameAdminPinInput) el.renameAdminPinInput.value = loadStashedAdminPin()
+    if (el.renameNameInput) el.renameNameInput.value = channelDisplayName()
+    setRenameModalError("")
+    el.renameModal.hidden = false
+    el.body.classList.add("publish-modal-open")
+    const focusAdmin = el.renameAdminPinInput && !el.renameAdminPinInput.value
+    const focusTarget = focusAdmin ? el.renameAdminPinInput : el.renameNameInput
+    if (focusTarget) focusTarget.focus({ preventScroll: true })
+    if (!focusAdmin && el.renameNameInput) el.renameNameInput.select()
+  }
+
+  async function submitRenameModal(event) {
+    if (event) event.preventDefault()
+    if (!ShareStore || !ShareStore.claimChannel) return
+    const channel = state.channel
+    const adminPin = el.renameAdminPinInput ? el.renameAdminPinInput.value.trim() : ""
+    const displayName = cleanText(el.renameNameInput ? el.renameNameInput.value : "", 40)
+    if (!adminPin) {
+      setRenameModalError("관리자 번호를 넣어 주세요.")
+      if (el.renameAdminPinInput) el.renameAdminPinInput.focus()
+      return
+    }
     if (!displayName) {
-      setStatus("바꿀 갤러리 이름을 넣어 주세요.", true)
+      setRenameModalError("바꿀 갤러리 이름을 넣어 주세요.")
+      if (el.renameNameInput) el.renameNameInput.focus()
       return
     }
     const pin = currentGalleryPass()
-    if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setStatus("갤러리를 다시 들어간 뒤 이름을 바꿔 주세요.", true)
-      return
-    }
+    if (el.renameModalSubmitBtn) el.renameModalSubmitBtn.disabled = true
     try {
-      setStatus("갤러리 이름을 저장하는 중입니다.", false)
+      setRenameModalError("")
       const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: adminPin })
       state.channelMeta = result.channel || state.channelMeta
       if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
+      setAdminPin(adminPin)
       updateHeader()
-      setMenuOpen(false)
+      closeRenameModal()
       setStatus("갤러리 이름을 저장했어요.", false)
     } catch (error) {
       console.error(error)
-      setStatus(error.message || "갤러리 이름을 저장하지 못했어요.", true)
+      setRenameModalError(error.message || "갤러리 이름을 저장하지 못했어요.")
+    } finally {
+      if (el.renameModalSubmitBtn) el.renameModalSubmitBtn.disabled = false
     }
   }
 
@@ -1337,8 +1379,23 @@
       else location.href = studioUrl()
     })
     if (el.renameBtn) {
-      el.renameBtn.addEventListener("click", renameChannel)
+      el.renameBtn.addEventListener("click", openRenameModal)
     }
+    if (el.renameModal) {
+      el.renameModal.addEventListener("click", function (event) {
+        if (event.target === el.renameModal) closeRenameModal()
+      })
+    }
+    if (el.renameModalForm) el.renameModalForm.addEventListener("submit", submitRenameModal)
+    if (el.renameModalCloseBtn) el.renameModalCloseBtn.addEventListener("click", closeRenameModal)
+    if (el.renameModalCancelBtn) el.renameModalCancelBtn.addEventListener("click", closeRenameModal)
+    ;[el.renameAdminPinInput, el.renameNameInput].forEach(function (input) {
+      if (input) {
+        input.addEventListener("input", function () {
+          setRenameModalError("")
+        })
+      }
+    })
     if (el.deleteChannelBtn) {
       el.deleteChannelBtn.addEventListener("click", deleteCurrentChannel)
     }
@@ -1390,7 +1447,8 @@
     if (el.viewerDelete) el.viewerDelete.addEventListener("click", deleteActiveWork)
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
-        if (!el.viewer.hidden) closeViewer()
+        if (el.renameModal && !el.renameModal.hidden) closeRenameModal()
+        else if (!el.viewer.hidden) closeViewer()
         else setMenuOpen(false)
       }
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {

@@ -4935,6 +4935,68 @@ body:not(.channel-body)::after {
   filter: sepia(0.18) saturate(0.9);
 }
 
+/* 화음 갤러리(어두운 테마) 위 모달 — 공유 모달과 같은 뼈대에 금빛 톤 */
+.channel-body .publish-modal {
+  background: rgba(5, 8, 8, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.channel-body .publish-modal-panel {
+  border-color: rgba(255, 224, 138, 0.22);
+  background:
+    linear-gradient(180deg, rgba(20, 24, 22, 0.97), rgba(12, 15, 14, 0.98)),
+    #0d1110;
+  box-shadow: 0 34px 92px rgba(0, 0, 0, 0.56);
+}
+
+.channel-body .publish-modal-close {
+  border-color: rgba(255, 224, 138, 0.32);
+  background: rgba(14, 18, 17, 0.82);
+  color: var(--channel-gold);
+}
+
+.channel-body .publish-modal .eyebrow {
+  color: var(--channel-gold);
+}
+
+.channel-body .publish-modal-panel h3 {
+  color: var(--channel-ink);
+}
+
+.channel-body .publish-modal-lead {
+  color: var(--channel-muted);
+}
+
+.channel-body .publish-modal-field > span:first-child {
+  color: var(--channel-muted);
+  opacity: 1;
+}
+
+.channel-body .publish-modal-field > input {
+  border-color: rgba(255, 224, 138, 0.26);
+  background: rgba(14, 18, 17, 0.85);
+  color: var(--channel-ink);
+}
+
+.channel-body .publish-modal-field > input:focus {
+  border-color: rgba(255, 224, 138, 0.6);
+  background: rgba(14, 18, 17, 0.95);
+}
+
+.channel-body .publish-modal-actions .channel-action-button {
+  min-height: 44px;
+  padding: 0 18px;
+}
+
+.channel-body .publish-modal .channel-action-button.primary {
+  background: var(--channel-gold);
+  color: var(--channel-text-dark);
+}
+
+.channel-body .publish-modal .channel-action-button.primary:hover {
+  background: #fff4bf;
+}
+
 .channel-menu-field input:focus,
 .channel-admin-field input:focus {
   outline: none;

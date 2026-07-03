@@ -71,9 +71,14 @@ test("server gates: publish + channel list verify the gallery code", () => {
 
 test("channel-claim rejects other teachers and requires the admin pin", () => {
   const claim = fs.readFileSync(path.join(projectDir, "api", "share", "channel-claim.js"), "utf8")
+  const store = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
   assert.match(claim, /hashAdmin\(body\.adminPin\)/)
   assert.match(claim, /existing\.ownerHash !== ownerHash/)
   assert.match(claim, /이미 다른 선생님이 사용 중인 화음 갤러리/)
+  // 갤러리 코드가 정확히 맞으면 다른 브라우저의 같은 선생님으로 보고 이름 변경을 허용한다.
+  assert.match(claim, /passMatches/)
+  assert.match(claim, /hashPass\(channel, pass\) === existing\.passHash/)
+  assert.match(functionBody(store, "claimLocalChannel"), /existing\.pass !== pin/)
 })
 
 test("share-store exposes channel claim + pass-aware listing", () => {
@@ -173,7 +178,8 @@ test("shared work delete requires the admin pin even for the same browser owner"
   const studioShareUi = fs.readFileSync(path.join(projectDir, "js", "studio-share-ui.js"), "utf8")
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
   const bindChannelBody = functionBody(channel, "bind")
-  const renameChannelBody = functionBody(channel, "renameChannel")
+  const openRenameModalBody = functionBody(channel, "openRenameModal")
+  const submitRenameModalBody = functionBody(channel, "submitRenameModal")
   const deleteCurrentChannelBody = functionBody(channel, "deleteCurrentChannel")
 
   assert.match(deleteApi, /hashAdmin\(body\.adminPin\)/)
@@ -189,10 +195,12 @@ test("shared work delete requires the admin pin even for the same browser owner"
   assert.match(functionBody(channel, "deleteActiveWork"), /promptTrimmed\("관리자 번호를 입력하세요\."/)
   assert.match(functionBody(channel, "deleteActiveWork"), /ShareStore\.deleteWork\(work, adminPin\)/)
   assert.doesNotMatch(bindChannelBody, /setAdminPin\(el\.adminPin\.value\)/)
-  assert.match(renameChannelBody, /promptTrimmed\("관리자 번호를 입력하세요\."/)
-  assert.match(renameChannelBody, /promptTrimmed\("바꿀 갤러리 이름을 입력하세요\."/)
-  assert.match(renameChannelBody, /const pin = currentGalleryPass\(\)/)
-  assert.match(renameChannelBody, /adminPin: adminPin/)
+  // 이름 변경은 관리자 번호 + 새 이름을 한 모달에서 받는다(prompt 없음).
+  assert.match(openRenameModalBody, /currentGalleryPass\(\)/)
+  assert.doesNotMatch(openRenameModalBody + submitRenameModalBody, /promptTrimmed/)
+  assert.match(submitRenameModalBody, /const pin = currentGalleryPass\(\)/)
+  assert.match(submitRenameModalBody, /ShareStore\.claimChannel\(/)
+  assert.match(submitRenameModalBody, /adminPin: adminPin/)
   assert.match(deleteCurrentChannelBody, /promptTrimmed\("관리자 번호를 입력하세요\."/)
   assert.match(deleteCurrentChannelBody, /ShareStore\.deleteChannel\(channel, adminPin\)/)
   assert.doesNotMatch(deleteCurrentChannelBody, /currentGalleryPass\(\)/)

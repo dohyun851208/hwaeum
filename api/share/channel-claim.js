@@ -18,7 +18,8 @@ const {
 const MIN_PIN_LENGTH = 4
 
 // 관리자(8624)가 화음 갤러리를 만들고 점유한다. 이미 다른 선생님이 점유한 갤러리는 거절한다.
-// 같은 선생님(ownerKey 일치)이면 갤러리 이름·코드를 고칠 수 있다.
+// 같은 선생님(ownerKey 일치)이거나, 그 갤러리의 코드를 정확히 아는 사람(=관리자 번호 + 갤러리 코드,
+// 다른 컴퓨터의 같은 선생님)이면 갤러리 이름·코드를 고칠 수 있다.
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["POST"])) return
   try {
@@ -34,7 +35,9 @@ module.exports = async function handler(req, res) {
     const displayName = cleanText(body.displayName, 40)
     const ownerHash = hashOwner(body.ownerKey)
     const existing = await loadChannelMeta(list, readJsonUrl, channel)
-    if (existing && existing.ownerHash && existing.ownerHash !== ownerHash) {
+    // 다른 브라우저라도 갤러리 코드가 정확히 맞으면 같은 선생님으로 본다(교실 PC 이동 대응).
+    const passMatches = !!(existing && existing.passHash && hashPass(channel, pass) === existing.passHash)
+    if (existing && existing.ownerHash && existing.ownerHash !== ownerHash && !passMatches) {
       return send(res, 403, { error: "이미 다른 선생님이 사용 중인 화음 갤러리예요. 다른 번호를 써 주세요." })
     }
 
@@ -42,7 +45,7 @@ module.exports = async function handler(req, res) {
     const meta = {
       channel,
       displayName: displayName || (existing && existing.displayName) || "",
-      ownerHash,
+      ownerHash: (existing && existing.ownerHash) || ownerHash,
       passHash: hashPass(channel, pass),
       createdAt: (existing && existing.createdAt) || now,
       updatedAt: now,
