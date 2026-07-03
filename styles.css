@@ -2046,12 +2046,24 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: #111827;
 }
 
-/* 그림 비율이 제각각이어도 칸을 꽉 채운다(넘치는 부분은 자동으로 잘라 냄). */
-.channel-viewer-cover {
-  display: block;
+/* 그림은 하나도 안 잘리게 통째로 보여주고, 남는 여백은 같은 그림을
+   크게 확대해 뿌옇게 깐 배경으로 채운다(유튜브 세로 영상 방식). */
+.channel-viewer-backdrop {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  filter: blur(22px) saturate(1.05) brightness(0.72);
+  transform: scale(1.15);
+}
+
+.channel-viewer-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .channel-viewer-play {
@@ -2069,21 +2081,23 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   backdrop-filter: blur(5px);
   cursor: pointer;
   transform: translate(-50%, -50%);
-  opacity: 1;
+  opacity: 0;
+  pointer-events: none;
   transition:
-    opacity 280ms ease,
+    opacity 200ms ease,
     transform 160ms ease,
     box-shadow 160ms ease;
 }
 
-.channel-viewer-play:hover {
-  transform: translate(-50%, -50%) scale(1.06);
+/* 마우스가 그림 위에 있을 때만 보인다 — 버튼이 그림을 가리지 않게. */
+.channel-viewer-stage:hover .channel-viewer-play,
+.channel-viewer-play:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-/* 누르고 마우스를 올려 두지 않으면 잠시 후 스르륵 사라진다. */
-.channel-viewer-play.is-faded {
-  opacity: 0;
-  pointer-events: none;
+.channel-viewer-play:hover {
+  transform: translate(-50%, -50%) scale(1.06);
 }
 
 .channel-viewer-play svg {

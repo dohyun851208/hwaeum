@@ -45,7 +45,7 @@
     empty: $("channelEmpty"),
     viewer: $("channelViewer"),
     viewerClose: $("viewerCloseBtn"),
-    viewerStage: $("viewerStage"),
+    viewerBackdrop: $("viewerBackdrop"),
     viewerCover: $("viewerCover"),
     viewerPlay: $("viewerPlayBtn"),
     viewerTitle: $("viewerTitle"),
@@ -1032,28 +1032,6 @@
     el.viewerPlay.setAttribute("aria-label", el.viewerAudio.paused ? "재생" : "일시정지")
   }
 
-  // 확대해서 보기의 재생 버튼은 누른 뒤 마우스를 올려 두지 않으면 잠시 후 사라진다.
-  const VIEWER_PLAY_FADE_MS = 1000
-  let viewerPlayFadeTimer = null
-  let viewerStageHovered = false
-
-  function showViewerPlayControl() {
-    if (viewerPlayFadeTimer) {
-      clearTimeout(viewerPlayFadeTimer)
-      viewerPlayFadeTimer = null
-    }
-    if (el.viewerPlay) el.viewerPlay.classList.remove("is-faded")
-  }
-
-  function scheduleViewerPlayFade(delay) {
-    if (!el.viewerPlay) return
-    if (viewerPlayFadeTimer) clearTimeout(viewerPlayFadeTimer)
-    viewerPlayFadeTimer = setTimeout(function () {
-      viewerPlayFadeTimer = null
-      if (!viewerStageHovered && el.viewerPlay) el.viewerPlay.classList.add("is-faded")
-    }, delay == null ? VIEWER_PLAY_FADE_MS : delay)
-  }
-
   function clampUnit(value) {
     const n = Number(value)
     return Math.max(0, Math.min(1, isFinite(n) ? n : 0))
@@ -1176,6 +1154,7 @@
     state.activeWork = work
     el.viewerCover.src = coverUrl(work, true)
     el.viewerCover.alt = workTitle(work) + " 표지"
+    if (el.viewerBackdrop) el.viewerBackdrop.src = coverUrl(work, true)
     el.viewerTitle.textContent = workTitle(work)
     el.viewerMeta.textContent = workViewerMetaText(work)
     setOptionalText(el.viewerBackground, "배경", meta.backgroundReason)
@@ -1190,8 +1169,6 @@
     if (el.viewerCopy) el.viewerCopy.disabled = !canCopyActive()
     el.viewer.hidden = false
     el.body.classList.add("channel-viewer-open")
-    viewerStageHovered = false
-    showViewerPlayControl()
     updateViewerPlayState()
     if (options.updateHash !== false) history.replaceState(null, "", channelUrl(work.channel || state.channel, work.id))
     el.viewerClose.focus({ preventScroll: true })
@@ -1199,7 +1176,6 @@
 
   function closeViewer() {
     if (el.viewer.hidden) return
-    showViewerPlayControl()
     el.viewerAudio.pause()
     el.viewerAudio.removeAttribute("src")
     el.viewerAudio.load()
@@ -1405,26 +1381,10 @@
       } else {
         el.viewerAudio.pause()
       }
-      // 누른 뒤 마우스를 올려 두지 않으면 잠시 후 아이콘을 감춘다.
-      showViewerPlayControl()
-      scheduleViewerPlayFade()
     })
-    if (el.viewerStage) {
-      el.viewerStage.addEventListener("mouseenter", function () {
-        viewerStageHovered = true
-        showViewerPlayControl()
-      })
-      el.viewerStage.addEventListener("mouseleave", function () {
-        viewerStageHovered = false
-        if (!el.viewerAudio.paused) scheduleViewerPlayFade(400)
-      })
-    }
     el.viewerAudio.addEventListener("play", updateViewerPlayState)
     el.viewerAudio.addEventListener("pause", updateViewerPlayState)
-    el.viewerAudio.addEventListener("ended", function () {
-      showViewerPlayControl()
-      updateViewerPlayState()
-    })
+    el.viewerAudio.addEventListener("ended", updateViewerPlayState)
     if (el.viewerDrawing) el.viewerDrawing.addEventListener("click", openActiveStudioCopy)
     if (el.viewerCopy) el.viewerCopy.addEventListener("click", copyActiveWork)
     if (el.viewerDelete) el.viewerDelete.addEventListener("click", deleteActiveWork)
