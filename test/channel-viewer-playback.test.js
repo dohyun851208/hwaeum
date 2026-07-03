@@ -51,9 +51,17 @@ test("channel viewer fills the frame, sizes down, and shows the play control on 
   assert.match(css, /\.channel-viewer-backdrop\s*\{[\s\S]*?blur\(/)
   assert.match(channelHtml, /id="viewerBackdrop"/)
   assert.match(functionBody(channel, "openViewer"), /viewerBackdrop\.src/)
-  // 확대해서 보기는 예전의 약 70% 크기.
+  // 그림 로드 전 폴백 크기 — 로드 후에는 프레임이 그림 비율을 따라간다.
   assert.match(css, /\.channel-viewer-panel\s*\{[\s\S]*?width:\s*min\(800px/)
   assert.match(css, /\.channel-viewer-panel\s*\{[\s\S]*?height:\s*min\(540px/)
+  assert.match(channelHtml, /id="viewerPanel"/)
+  assert.match(css, /\.channel-viewer-panel\.is-fitted\s*\{[\s\S]*?grid-template-columns:\s*var\(--viewer-stage-w\)/)
+  assert.match(functionBody(channel, "fitViewerStage"), /naturalWidth/)
+  assert.match(functionBody(channel, "fitViewerStage"), /--viewer-stage-w/)
+  assert.match(functionBody(channel, "openViewer"), /fitViewerStage\(\)/)
+  assert.match(functionBody(channel, "bind"), /viewerCover\.addEventListener\("load", fitViewerStage\)/)
+  // 감상글이 길면 정보 칸 안에서만 스크롤 — 버튼이 패널 테두리를 뚫지 않는다.
+  assert.match(css, /\.channel-viewer-info\s*\{[\s\S]*?overflow-y:\s*auto/)
   // 재생/일시정지는 SVG 아이콘으로 토글한다.
   assert.match(channelHtml, /class="channel-play-icon"/)
   assert.match(channelHtml, /class="channel-pause-icon"/)

@@ -14,6 +14,13 @@
   const STUDIO_COPY_STORAGE_PREFIX = "hwaeum.studioCopy."
   const STUDENT_UPLOAD_ATMOSPHERE_PREFIX = "custom-"
   const COVERFLOW_SPACING = 236
+  // 확대해서 보기 프레임 계산용 — styles.css의 .channel-viewer-panel과 짝.
+  const VIEWER_INFO_COLUMN = 280 // 정보 칸 너비(px)
+  const VIEWER_PANEL_GAP = 16 // 무대·정보 칸 사이 간격(px)
+  const VIEWER_PANEL_CHROME = 28 // 패널 안쪽 여백 14px × 2
+  const VIEWER_SCREEN_MARGIN = 96 // 화면 가장자리 최소 여유(px)
+  const VIEWER_STAGE_MIN = { width: 320, height: 340 }
+  const VIEWER_STAGE_MAX = { width: 1100, height: 780 }
 
   const $ = (id) => document.getElementById(id)
   const el = {
@@ -52,6 +59,7 @@
     shelves: $("channelShelves"),
     empty: $("channelEmpty"),
     viewer: $("channelViewer"),
+    viewerPanel: $("viewerPanel"),
     viewerClose: $("viewerCloseBtn"),
     viewerBackdrop: $("viewerBackdrop"),
     viewerCover: $("viewerCover"),
@@ -1188,6 +1196,36 @@
     return drawingUrl(work) || generatedDrawingUrl(work)
   }
 
+  // 확대해서 보기 프레임을 그림 비율에 맞춘다 — CSS 변수로 무대 크기를 넘기면
+  // 여백 없이 그림이 꽉 찬다. 극단적으로 길쭉한 그림만 최소 크기에 걸리고,
+  // 그때 남는 자리는 블러 배경이 채운다.
+  function fitViewerStage() {
+    if (!el.viewerPanel || !el.viewerCover) return
+    const w = el.viewerCover.naturalWidth
+    const h = el.viewerCover.naturalHeight
+    if (!w || !h) {
+      resetViewerStageFit()
+      return
+    }
+    const maxWidth = Math.min(VIEWER_STAGE_MAX.width, root.innerWidth - VIEWER_SCREEN_MARGIN - VIEWER_INFO_COLUMN - VIEWER_PANEL_GAP - VIEWER_PANEL_CHROME)
+    const maxHeight = Math.min(VIEWER_STAGE_MAX.height, root.innerHeight - VIEWER_SCREEN_MARGIN - VIEWER_PANEL_CHROME)
+    let stageWidth = maxWidth
+    let stageHeight = (stageWidth * h) / w
+    if (stageHeight > maxHeight) {
+      stageHeight = maxHeight
+      stageWidth = (stageHeight * w) / h
+    }
+    stageWidth = Math.max(VIEWER_STAGE_MIN.width, Math.round(stageWidth))
+    stageHeight = Math.max(VIEWER_STAGE_MIN.height, Math.round(stageHeight))
+    el.viewerPanel.style.setProperty("--viewer-stage-w", stageWidth + "px")
+    el.viewerPanel.style.setProperty("--viewer-stage-h", stageHeight + "px")
+    el.viewerPanel.classList.add("is-fitted")
+  }
+
+  function resetViewerStageFit() {
+    if (el.viewerPanel) el.viewerPanel.classList.remove("is-fitted")
+  }
+
   function openViewer(work, options) {
     options = options || {}
     if (!work) return
@@ -1197,6 +1235,7 @@
     el.viewerCover.src = coverUrl(work, true)
     el.viewerCover.alt = workTitle(work) + " 표지"
     if (el.viewerBackdrop) el.viewerBackdrop.src = coverUrl(work, true)
+    fitViewerStage()
     el.viewerTitle.textContent = workTitle(work)
     el.viewerMeta.textContent = workViewerMetaText(work)
     setOptionalText(el.viewerBackground, "배경음악을 고른 이유", meta.backgroundReason)
@@ -1442,6 +1481,12 @@
     el.viewerAudio.addEventListener("play", updateViewerPlayState)
     el.viewerAudio.addEventListener("pause", updateViewerPlayState)
     el.viewerAudio.addEventListener("ended", updateViewerPlayState)
+    // 그림이 늦게 로드되면 그때 프레임을 다시 맞추고, 실패하면 폴백 크기로 둔다.
+    el.viewerCover.addEventListener("load", fitViewerStage)
+    el.viewerCover.addEventListener("error", resetViewerStageFit)
+    root.addEventListener("resize", function () {
+      if (!el.viewer.hidden) fitViewerStage()
+    })
     if (el.viewerDrawing) el.viewerDrawing.addEventListener("click", openActiveStudioCopy)
     if (el.viewerCopy) el.viewerCopy.addEventListener("click", copyActiveWork)
     if (el.viewerDelete) el.viewerDelete.addEventListener("click", deleteActiveWork)
