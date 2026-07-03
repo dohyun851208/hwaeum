@@ -1199,8 +1199,8 @@
     if (el.viewerBackdrop) el.viewerBackdrop.src = coverUrl(work, true)
     el.viewerTitle.textContent = workTitle(work)
     el.viewerMeta.textContent = workViewerMetaText(work)
-    setOptionalText(el.viewerBackground, "배경", meta.backgroundReason)
-    setOptionalText(el.viewerMelody, "선율", meta.melodyIntent)
+    setOptionalText(el.viewerBackground, "배경음악을 고른 이유", meta.backgroundReason)
+    setOptionalText(el.viewerMelody, "선율을 표현한 의도", meta.melodyIntent)
     const tags = tagsText(meta.hashtags)
     el.viewerTags.hidden = !tags
     el.viewerTags.textContent = tags

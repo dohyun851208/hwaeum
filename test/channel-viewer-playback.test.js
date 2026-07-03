@@ -80,6 +80,11 @@ test("shared gallery viewers separate composer, description, and attempt count",
   assert.match(functionBody(channel, "openViewer"), /viewerTitle\.textContent = workTitle\(work\)/)
   assert.doesNotMatch(functionBody(channel, "openViewer"), /viewerTitle\.textContent = workDisplayTitle\(work\)/)
   assert.match(functionBody(channel, "openViewer"), /viewerMeta\.textContent = workViewerMetaText\(work\)/)
+  // 확대 보기 글 라벨은 완성 화면의 질문과 같은 말을 쓴다.
+  assert.match(functionBody(channel, "openViewer"), /배경음악을 고른 이유/)
+  assert.match(functionBody(channel, "openViewer"), /선율을 표현한 의도/)
+  assert.match(functionBody(studio, "openSharedViewer"), /배경음악을 고른 이유/)
+  assert.match(functionBody(studio, "openSharedViewer"), /선율을 표현한 의도/)
   assert.doesNotMatch(channelHtml, /화음 갤러리 감상/)
   assert.match(functionBody(studio, "sharedMetadata"), /actionCount:\s*normalizeActionCount\(recipe && recipe\.actionCount\)/)
   assert.match(functionBody(studio, "sharedViewerMetaText"), /시도한 횟수/)

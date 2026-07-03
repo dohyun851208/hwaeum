@@ -3088,8 +3088,8 @@
     viewer.cover.alt = title + " 표지"
     viewer.title.textContent = title
     viewer.meta.textContent = sharedViewerMetaText(work)
-    optionalViewerText(viewer.background, "배경", meta.backgroundReason)
-    optionalViewerText(viewer.melody, "선율", meta.melodyIntent)
+    optionalViewerText(viewer.background, "배경음악을 고른 이유", meta.backgroundReason)
+    optionalViewerText(viewer.melody, "선율을 표현한 의도", meta.melodyIntent)
     if (meta.hashtags && meta.hashtags.length) {
       viewer.tags.hidden = false
       viewer.tags.textContent = hashtagText(meta.hashtags)
