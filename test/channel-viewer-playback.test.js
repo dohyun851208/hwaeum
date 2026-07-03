@@ -124,7 +124,7 @@ test("channel viewer opens a studio copy instead of a drawing image", () => {
   const openViewerBody = functionBody(channel, "openViewer")
   const bindBody = functionBody(channel, "bind")
 
-  assert.match(channelHtml, /id="viewerDrawingBtn"[^>]*>스튜디오에서 보기[\s\S]*id="viewerCopyBtn"[^>]*>다른 갤러리에 복사하기[\s\S]*id="viewerDeleteBtn"[^>]*>작품 삭제/)
+  assert.match(channelHtml, /id="viewerDrawingBtn"[^>]*aria-label="스튜디오에서 보기"[\s\S]*스튜디오에서[\s\S]*class="channel-action-line"[\s\S]*보기[\s\S]*id="viewerCopyBtn"[^>]*aria-label="다른 갤러리에 복사하기"[\s\S]*다른 갤러리에[\s\S]*class="channel-action-line"[\s\S]*복사하기[\s\S]*id="viewerDeleteBtn"[^>]*>작품 삭제/)
   assert.doesNotMatch(channelHtml, />링크 복사</)
   assert.match(channelHtml, /id="viewerDeleteBtn"[^>]*>작품 삭제/)
   assert.doesNotMatch(channelHtml, /id="viewerDeleteBtn"[^>]*hidden/)

@@ -138,7 +138,7 @@ test("화음 갤러리는 갤러리 전체 공유 버튼을 쓰고 작품별 링
   assert.doesNotMatch(html, /새 음악 만들기/)
   assert.doesNotMatch(html, /channel-open-form[\s\S]*id="channelShareBtn"/)
   assert.doesNotMatch(html, />링크 복사</)
-  assert.match(html, /id="viewerCopyBtn"[^>]*>다른 갤러리에 복사하기/)
+  assert.match(html, /id="viewerCopyBtn"[^>]*aria-label="다른 갤러리에 복사하기"[\s\S]*다른 갤러리에[\s\S]*class="channel-action-line"[\s\S]*복사하기/)
   assert.match(source, /shareBtn: \$\("channelShareBtn"\)/)
   assert.match(source, /function copyGalleryLink\(\)/)
   assert.match(source, /channelUrl\(state\.channel,\s*""\)/)

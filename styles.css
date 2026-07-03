@@ -2287,6 +2287,12 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .channel-viewer-actions .channel-action-button {
   min-width: 0;
   padding-inline: 12px;
+  padding-block: 6px;
+  line-height: 1.2;
+}
+
+.channel-action-line {
+  display: block;
 }
 .draw-mode-tabs {
   display: inline-flex;
