@@ -39,7 +39,7 @@ test("studio and gallery user-facing labels avoid leftover English section words
   assert.match(studio, /갤러리 이름 \(예: 여름 빛깔을 담은 노래\)/)
   assert.match(studio, /갤러리 코드 \(4~6자리\)/)
   assert.match(studio, /작품을 잘 나타내는 단어/)
-  assert.match(studio, /최대 3개\. 쉼표\(,\)나 엔터를 누르면 #단어 태그가 됩니다\./)
+  assert.match(studio, /단어를 입력하고 엔터를 누르면 #태그로 분리됩니다\. \(최대 3개\)/)
   assert.doesNotMatch(studio, /해시태그/)
   assert.doesNotMatch(studio, new RegExp("갤러리 " + "비밀" + "번호"))
   assert.match(studio, /관리자 번호\(8624\)로 화음 갤러리 생성이 가능하며/)

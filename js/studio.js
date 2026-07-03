@@ -1246,7 +1246,7 @@
   // 입력칸에 쉼표·엔터를 누르면 그 자리에서 #단어 칩이 된다.
 
   const HASHTAG_MAX = 3
-  const HASHTAG_HELP_DEFAULT = "최대 3개. 쉼표(,)나 엔터를 누르면 #단어 태그가 됩니다."
+  const HASHTAG_HELP_DEFAULT = "단어를 입력하고 엔터를 누르면 #태그로 분리됩니다. (최대 3개)"
   const HASHTAG_HELP_FULL = "태그는 3개까지예요. 지우려면 태그를 눌러 주세요."
 
   function hashtagList() {

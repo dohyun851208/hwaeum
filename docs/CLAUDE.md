@@ -22,6 +22,7 @@
 - `decisions/2026-06-29-modern-gallery-frontdoor.md` — 메인·스튜디오 첫 화면 모던 갤러리 톤 적용
 - `decisions/2026-07-01-channel-code-length.md` — 화음 갤러리 번호·코드 길이 축소
 - `decisions/2026-07-02-sustain-loop-stable-region.md` — 지속음 루프 구간 포락선 기반 검출(파일럿: 더블베이스)
+- `decisions/2026-07-03-instrument-scoped-pitch-axis.md` — 도화지 축을 선택 악기 기준으로 표시(국악 10칸, 저장/화면 좌표 분리)
 
 ## 작성 규칙
 

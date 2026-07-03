@@ -250,12 +250,73 @@ test("pitch axis labels use requested Korean order for western and gugak palette
     },
   }).pitchRowsForStyle({}, { playableMidi: gugakMidis })
   const gugakLabels = gugakRows.map((row) => row.label)
-  const inactiveLabels = gugakRows.filter((row) => !row.selected).map((row) => row.label)
 
   assert.deepEqual(westernLabels, ["솔", "라", "시", "도", "레", "미", "파", "솔", "라", "시", "도", "레", "미", "파", "솔"])
-  assert.deepEqual(gugakLabels, ["솔", "라", "시", "도", "레", "미", "파", "솔", "라", "시", "도", "레", "미", "파", "솔"])
-  assert.deepEqual(inactiveLabels, ["시", "파", "시", "파", "솔"])
+  // 국악 축은 발음 가능한 10칸만 보인다 — 파·시 줄은 축에서 아예 빠지고, 남은 칸이 화면을 채운다.
+  assert.deepEqual(gugakLabels, ["솔", "라", "도", "레", "미", "솔", "라", "도", "레", "미"])
+  assert.ok(gugakRows.every((row) => row.selected))
+  assert.ok(gugakRows.every((row) => Math.abs(row.rowHeight - 10) < 1e-9))
   assert.equal(gugakRows.find((row) => row.label === "도").color, "#c96f66")
+})
+
+test("gugak axis hides western strokes but keeps them for the western axis", () => {
+  const westernMidis = [55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79]
+  const gugakMidis = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76]
+  const gugakAsset = { playableMidi: gugakMidis }
+  const westernAsset = {}
+  const DrawingCanvas = loadDrawing(null, {
+    drawableScale() {
+      return westernMidis
+    },
+    isPitchPlayable(midi, style, asset) {
+      return !asset || !asset.playableMidi || asset.playableMidi.indexOf(midi) !== -1
+    },
+    // 변환이 실제로 렌더에 쓰이는지 확인할 수 있게 단순 축소 변환을 흉내 낸다.
+    displayYFromStored(y) {
+      return y * 0.5
+    },
+    storedYFromDisplay(y) {
+      return y
+    },
+  })
+  const ctx = makeContext()
+  let activeAsset = gugakAsset
+  const draw = new DrawingCanvas(makeCanvas(ctx), {
+    activeInstrument: "gayageum",
+    melodyAssetForInstrument: (id) => (id === "violin" ? westernAsset : gugakAsset),
+    getState: () => ({ duration: 30, style: {}, mode: "melody", melodyAsset: activeAsset }),
+    instrumentColor: (id) => ({ violin: "#c85f4d", gayageum: "#9a7138" })[id],
+  })
+
+  ctx.calls.length = 0
+  draw.strokes = [
+    [
+      { x: 0, y: 0.4 },
+      { x: 0.2, y: 0.4 },
+    ],
+    [
+      { x: 0.3, y: 0.4 },
+      { x: 0.5, y: 0.4 },
+    ],
+  ]
+  draw.strokeInstruments = ["gayageum", "violin"]
+
+  draw.renderStroke()
+  assert.equal(ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c85f4d").length, 0, "국악 축에서 서양 획은 숨긴다")
+  assert.ok(ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#9a7138").length > 0, "국악 획은 보인다")
+  // 보이는 국악 획은 화면 좌표 변환(displayYFromStored)을 거친다.
+  assert.ok(ctx.calls.some((call) => call[0] === "moveTo" && call[2] === 0.4 * 0.5 * draw.canvas.height))
+
+  // 숨겨졌을 뿐 지워지지 않는다 — 지우개도 숨은 획은 건드리지 못한다.
+  assert.equal(draw._eraseAt({ x: 0.4, y: 0.4 }), false)
+  assert.equal(draw.strokes.length, 2)
+
+  // 서양 축으로 돌아오면 두 획이 모두 다시 보인다.
+  activeAsset = westernAsset
+  ctx.calls.length = 0
+  draw.renderStroke()
+  assert.ok(ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c85f4d").length > 0)
+  assert.ok(ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#9a7138").length > 0)
 })
 
 test("inactive pitch rows do not start a new drawing stroke", () => {

@@ -82,11 +82,18 @@
     return noteLetter(soundingMidi(midi, asset))
   }
 
-  function pitchRowsForStyle(style, asset) {
+  // 악기가 낼 수 있는 칸만 축에 보여준다 — 국악기는 10칸이 화면 전체를 채우고,
+  // 서양 악기는 15칸 전체가 보인다. (저장 좌표는 늘 전체 축 기준 → 악기를 오가도 음 유지)
+  function visibleRowsForStyle(style, asset) {
     const rows = drawableScaleFor(style, asset)
+    const playable = rows.filter((midi) => isPitchPlayableFor(midi, style, asset))
+    return playable.length ? playable : rows
+  }
+
+  function pitchRowsForStyle(style, asset) {
+    const rows = visibleRowsForStyle(style, asset)
     return rows.map((midi, i) => {
       const bounds = pitchRowBoundsRatio(i, rows.length)
-      const selected = isPitchPlayableFor(midi, style, asset)
       return {
         midi: midi,
         label: soundingLabel(midi, asset),
@@ -94,9 +101,9 @@
         rowTop: bounds.top * 100,
         rowBottom: bounds.bottom * 100,
         rowHeight: (bounds.bottom - bounds.top) * 100,
-        selected: selected,
+        selected: true,
         color: noteColorForMidi(midi, asset),
-        softColor: selected ? noteColorRgba(midi, asset, 0.12) : "rgba(31,38,38,0.035)",
+        softColor: noteColorRgba(midi, asset, 0.12),
       }
     })
   }
@@ -261,6 +268,49 @@
       if (asset) return asset
     }
     return state && state.melodyAsset ? state.melodyAsset : null
+  }
+
+  // 현재 축(선택 악기 기준) 정보 — 렌더 한 번에 한 번만 계산해서 재사용한다.
+  // reduced=true(국악기 등 일부 칸만 보임)일 때:
+  //  - toDisplayY: 저장 y(전체 축) → 화면 y(보이는 칸만)
+  //  - strokeVisible: 이 악기의 획을 지금 축에서 보여줄지 (서양 획은 국악 축에서 숨김·유지)
+  DrawingCanvas.prototype._viewContext = function (st) {
+    const self = this
+    const style = st && st.style
+    const viewAsset = st ? st.melodyAsset : null
+    const full = style ? drawableScaleFor(style, viewAsset) : []
+    const viewRows = style ? visibleRowsForStyle(style, viewAsset) : []
+    const reduced = full.length > 0 && viewRows.length > 0 && viewRows.length < full.length
+    const visibilityCache = {}
+    return {
+      reduced: reduced,
+      toDisplayY: function (y) {
+        if (!reduced || !Core.displayYFromStored) return y
+        return Core.displayYFromStored(y, style, viewAsset)
+      },
+      strokeVisible: function (instrumentId) {
+        if (!reduced) return true
+        const key = instrumentId == null ? "" : String(instrumentId)
+        if (visibilityCache[key] != null) return visibilityCache[key]
+        const strokeAsset = self._assetForInstrument(instrumentId, st)
+        let visible = true
+        if (strokeAsset !== viewAsset) {
+          const strokeRows = visibleRowsForStyle(style, strokeAsset)
+          visible = strokeRows.every(function (midi) {
+            return viewRows.indexOf(midi) !== -1
+          })
+        }
+        visibilityCache[key] = visible
+        return visible
+      },
+    }
+  }
+
+  // 화면 y(보이는 칸 기준) → 저장 y(전체 축 기준). 포인터 입력에서 한 번만 변환한다.
+  DrawingCanvas.prototype._displayToStoredY = function (y, st) {
+    const state = st || (this.getState ? this.getState() : null)
+    if (!state || state.mode === "rhythm" || !Core.storedYFromDisplay) return y
+    return Core.storedYFromDisplay(y, state.style, state.melodyAsset)
   }
 
   DrawingCanvas.prototype._pointIsDrawable = function (p, state, asset) {
@@ -537,9 +587,11 @@
     const r = this.canvas.getBoundingClientRect()
     const labelGutter = typeof this.pitchLabelGutterCssPx === "function" ? this.pitchLabelGutterCssPx() : 0
     const timelineWidth = Math.max(1, r.width - labelGutter)
+    const displayY = clamp((e.clientY - r.top) / r.height, 0, 1)
     return {
       x: clamp((e.clientX - r.left - labelGutter) / timelineWidth, 0, 1),
-      y: clamp((e.clientY - r.top) / r.height, 0, 1),
+      // 저장 좌표는 항상 전체 축 기준 — 국악기 축(보이는 칸만)에서 그려도 음높이가 유지된다.
+      y: clamp(this._displayToStoredY(displayY), 0, 1),
     }
   }
 
@@ -549,11 +601,18 @@
     const duration = Math.max(1, Number(st && st.duration) || 30)
     const rx = Math.max(0.001, this.eraseTimeRadiusSeconds / duration)
     const ry = Math.max(0.001, this.eraseRadius)
+    const view = this._viewContext(st)
     const next = []
     const nextInst = []
     for (let si = 0; si < this.strokes.length; si++) {
       const stroke = this.strokes[si]
       const inst = this.strokeInstruments[si]
+      // 지금 축에서 안 보이는 획(예: 국악 축의 서양 획)은 지워지지 않게 보호
+      if (!view.strokeVisible(inst)) {
+        next.push(stroke)
+        nextInst.push(inst)
+        continue
+      }
       let cur = []
       for (const pt of stroke) {
         const dx = pt.x - p.x
@@ -913,17 +972,20 @@
     const H = this.canvas.height
     const px = this.pixelRatio || 1
     const st = this.getState()
+    const view = this._viewContext(st)
     ctx.lineCap = "round"
     ctx.lineJoin = "round"
     for (let si = 0; si < this.strokes.length; si++) {
       const stroke = this.strokes[si]
       const instrumentId = this.strokeInstruments[si]
+      // 지금 축에 없는 음을 쓰는 악기의 획은 숨긴다(지워지진 않음 — 서양 축으로 오면 다시 보인다)
+      if (!view.strokeVisible(instrumentId)) continue
       const instrumentColor = this._colorFor(instrumentId)
       if (stroke.length < 2) {
         // 점 하나짜리 획은 작은 점으로 표시
         if (stroke.length === 1) {
           ctx.beginPath()
-          ctx.arc(this._timeToX(stroke[0].x), stroke[0].y * H, 10.24 * px, 0, Math.PI * 2)
+          ctx.arc(this._timeToX(stroke[0].x), view.toDisplayY(stroke[0].y) * H, 10.24 * px, 0, Math.PI * 2)
           ctx.fillStyle = instrumentColor
           ctx.globalAlpha = 0.78
           ctx.fill()
@@ -934,8 +996,8 @@
       ctx.globalAlpha = 0.18
       ctx.strokeStyle = instrumentColor
       ctx.beginPath()
-      ctx.moveTo(this._timeToX(stroke[0].x), stroke[0].y * H)
-      for (let i = 1; i < stroke.length; i++) ctx.lineTo(this._timeToX(stroke[i].x), stroke[i].y * H)
+      ctx.moveTo(this._timeToX(stroke[0].x), view.toDisplayY(stroke[0].y) * H)
+      for (let i = 1; i < stroke.length; i++) ctx.lineTo(this._timeToX(stroke[i].x), view.toDisplayY(stroke[i].y) * H)
       ctx.stroke()
       ctx.lineWidth = 9.6 * px
       ctx.globalAlpha = 0.72
@@ -944,8 +1006,8 @@
         const next = stroke[i]
         ctx.strokeStyle = instrumentColor
         ctx.beginPath()
-        ctx.moveTo(this._timeToX(prev.x), prev.y * H)
-        ctx.lineTo(this._timeToX(next.x), next.y * H)
+        ctx.moveTo(this._timeToX(prev.x), view.toDisplayY(prev.y) * H)
+        ctx.lineTo(this._timeToX(next.x), view.toDisplayY(next.y) * H)
         ctx.stroke()
       }
     }
@@ -987,14 +1049,17 @@
       }
       return
     }
-    const rows = drawableScaleFor(st.style, st.melodyAsset)
+    const rows = visibleRowsForStyle(st.style, st.melodyAsset)
+    const view = this._viewContext(st)
     const rowH = H / Math.max(1, rows.length)
     const timelineWidth = this._timelineWidth()
     for (const n of this.notes) {
+      const instrumentId = this._instrumentForNote(n)
+      // 지금 축에서 숨긴 악기의 보정 음 막대도 함께 숨긴다(소리는 그대로)
+      if (!view.strokeVisible(instrumentId)) continue
       const x = this._timeToX(n.time / st.duration)
       const w = Math.max(6 * px, (n.duration / st.duration) * timelineWidth - 3 * px)
       const y = this._pitchToY(n.midi, rows)
-      const instrumentId = this._instrumentForNote(n)
       const color = this._colorFor(instrumentId)
       const x1 = x + 2 * px
       const x2 = x + w

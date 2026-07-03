@@ -130,6 +130,60 @@
     return isPitchPlayable(midi, style, asset) ? midi : null
   }
 
+  // --- 화면 축 ↔ 저장 좌표 변환 ---
+  // 저장 y(획·레시피)는 항상 전체 축(서양 15칸) 기준이라 악기를 오가도 음높이가 유지된다.
+  // 국악기처럼 발음 가능한 칸만 화면에 보여줄 때는 아래 두 함수로 화면 y와 상호 변환한다.
+
+  function clamp01(value) {
+    return Math.max(0, Math.min(1, Number(value) || 0))
+  }
+
+  // 저장 y(전체 축) → 화면 y(보이는 칸만). 숨은 칸에 놓인 점(옛 레시피 등)은
+  // 가장 가까운 보이는 칸 가장자리에 붙인다.
+  function displayYFromStored(normY, style, asset) {
+    const full = drawableScale(style, asset)
+    const visible = playableScale(style, asset)
+    const n = full.length
+    const m = visible.length
+    const y = clamp01(normY)
+    if (!n || !m || m >= n) return y
+    const fromBottom = (1 - y) * n
+    const band = Math.min(n - 1, Math.floor(fromBottom))
+    let frac = Math.max(0, Math.min(1, fromBottom - band))
+    let visibleIndex = visible.indexOf(full[band])
+    if (visibleIndex === -1) {
+      let best = 0
+      let bestDist = Infinity
+      for (let k = 0; k < m; k++) {
+        const dist = Math.abs(full.indexOf(visible[k]) - band)
+        if (dist < bestDist) {
+          bestDist = dist
+          best = k
+        }
+      }
+      visibleIndex = best
+      frac = full.indexOf(visible[best]) < band ? 1 : 0
+    }
+    return 1 - (visibleIndex + frac) / m
+  }
+
+  // 화면 y(보이는 칸만) → 저장 y(전체 축)
+  function storedYFromDisplay(normY, style, asset) {
+    const full = drawableScale(style, asset)
+    const visible = playableScale(style, asset)
+    const n = full.length
+    const m = visible.length
+    const y = clamp01(normY)
+    if (!n || !m || m >= n) return y
+    const fromBottom = (1 - y) * m
+    const band = Math.min(m - 1, Math.floor(fromBottom))
+    // frac을 1 바로 아래로 캡핑 — 맨 위 픽셀이 이웃한 숨은 칸(예: 파)으로 넘어가지 않게
+    const frac = Math.max(0, Math.min(1 - 1e-6, fromBottom - band))
+    const fullIndex = full.indexOf(visible[band])
+    if (fullIndex === -1) return y
+    return 1 - (fullIndex + frac) / n
+  }
+
   // --- 시간 재샘플링 (속도 무관) ---
 
   function interpY(norm, t) {
@@ -504,6 +558,9 @@
   return {
     buildScale,
     drawableScale,
+    playableScale,
+    displayYFromStored,
+    storedYFromDisplay,
     isPitchPlayable,
     nearestScaleNote,
     quantizePitch,
