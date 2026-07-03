@@ -15,7 +15,7 @@
   const STUDENT_UPLOAD_ATMOSPHERE_PREFIX = "custom-"
   const COVERFLOW_SPACING = 236
   // 확대해서 보기 프레임 계산용 — styles.css의 .channel-viewer-panel과 짝.
-  const VIEWER_INFO_COLUMN = 280 // 정보 칸 너비(px)
+  const VIEWER_INFO_COLUMN = 340 // 정보 칸 너비(px)
   const VIEWER_PANEL_GAP = 16 // 무대·정보 칸 사이 간격(px)
   const VIEWER_PANEL_CHROME = 28 // 패널 안쪽 여백 14px × 2
   const VIEWER_SCREEN_MARGIN = 96 // 화면 가장자리 최소 여유(px)
@@ -67,9 +67,17 @@
     viewerCover: $("viewerCover"),
     viewerPlay: $("viewerPlayBtn"),
     viewerTitle: $("viewerTitle"),
-    viewerMeta: $("viewerMeta"),
+    viewerComposerRow: $("viewerComposerRow"),
+    viewerComposer: $("viewerComposer"),
+    viewerAtmosphereRow: $("viewerAtmosphereRow"),
+    viewerAtmosphere: $("viewerAtmosphere"),
+    viewerInstrumentRow: $("viewerInstrumentRow"),
+    viewerInstrument: $("viewerInstrument"),
+    viewerActionCount: $("viewerActionCount"),
     viewerAudio: $("viewerAudio"),
+    viewerBackgroundCard: $("viewerBackgroundCard"),
     viewerBackground: $("viewerBackground"),
+    viewerMelodyCard: $("viewerMelodyCard"),
     viewerMelody: $("viewerMelody"),
     viewerTags: $("viewerTags"),
     viewerDrawing: $("viewerDrawingBtn"),
@@ -399,14 +407,14 @@
       .join(" · ")
   }
 
-  function workViewerMetaText(work) {
-    return [
-      workComposer(work) ? "작곡가 " + workComposer(work) : "작곡가 이름 없음",
-      workDescriptionLine(work),
-      actionCountLine(work),
-    ]
-      .filter(Boolean)
-      .join("\n")
+  function workViewerMeta(work) {
+    const meta = (work && work.metadata) || {}
+    return {
+      composer: workComposer(work) || "작곡가 이름 없음",
+      atmosphere: cleanText(meta.atmosphereLabel, 32),
+      instrument: cleanText(meta.instrumentLabel, 72),
+      actionCount: actionCountLine(work),
+    }
   }
 
   function recipePictureUrl(work) {
@@ -1070,10 +1078,40 @@
     }
   }
 
-  function setOptionalText(node, label, value) {
+  function setViewerMetaItem(row, node, value) {
+    if (!row || !node) return
+    const text = cleanText(value, 90)
+    row.hidden = !text
+    node.textContent = text
+  }
+
+  function renderViewerMeta(work) {
+    const meta = workViewerMeta(work)
+    setViewerMetaItem(el.viewerComposerRow, el.viewerComposer, meta.composer)
+    setViewerMetaItem(el.viewerAtmosphereRow, el.viewerAtmosphere, meta.atmosphere)
+    setViewerMetaItem(el.viewerInstrumentRow, el.viewerInstrument, meta.instrument)
+    if (el.viewerActionCount) el.viewerActionCount.textContent = meta.actionCount
+  }
+
+  function setOptionalText(card, node, value) {
     const text = cleanText(value, 180)
-    node.hidden = !text
-    node.textContent = text ? label + ": " + text : ""
+    if (card) card.hidden = !text
+    if (node) node.textContent = text
+  }
+
+  function renderViewerTags(tags) {
+    if (!el.viewerTags) return
+    const cleaned = Array.isArray(tags)
+      ? tags.map((tag) => cleanText(tag, 24)).filter(Boolean)
+      : []
+    el.viewerTags.hidden = !cleaned.length
+    el.viewerTags.textContent = ""
+    cleaned.forEach((tag) => {
+      const chip = document.createElement("span")
+      chip.className = "channel-viewer-tag"
+      chip.textContent = "#" + tag
+      el.viewerTags.appendChild(chip)
+    })
   }
 
   function updateViewerPlayState() {
@@ -1239,12 +1277,10 @@
     if (el.viewerBackdrop) el.viewerBackdrop.src = coverUrl(work, true)
     fitViewerStage()
     el.viewerTitle.textContent = workTitle(work)
-    el.viewerMeta.textContent = workViewerMetaText(work)
-    setOptionalText(el.viewerBackground, "배경음악을 고른 이유", meta.backgroundReason)
-    setOptionalText(el.viewerMelody, "선율을 표현한 의도", meta.melodyIntent)
-    const tags = tagsText(meta.hashtags)
-    el.viewerTags.hidden = !tags
-    el.viewerTags.textContent = tags
+    renderViewerMeta(work)
+    setOptionalText(el.viewerBackgroundCard, el.viewerBackground, meta.backgroundReason)
+    setOptionalText(el.viewerMelodyCard, el.viewerMelody, meta.melodyIntent)
+    renderViewerTags(meta.hashtags)
     el.viewerAudio.src = url
     el.viewerAudio.hidden = !url
     el.viewerDelete.hidden = !canDeleteActive()
