@@ -583,7 +583,8 @@ body:not([data-step="2"]) .transport {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: rgba(255, 250, 238, 0.94);
 }
 .dropframe-empty {
   display: grid;
