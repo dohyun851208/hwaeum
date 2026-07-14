@@ -135,22 +135,28 @@ test("국악 팔레트는 악기와 무관하게 G-A-C-D-E-G-A-C-D-E 순서다",
 })
 
 test("작곡 악기 목록은 선택 악기를 맨 앞으로 재정렬하지 않는다", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const start = source.indexOf("function renderComposeInstruments()")
-  const end = source.indexOf("function renderOrchestraLegend()", start)
-  const renderComposeInstruments = source.slice(start, end)
+  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const setupRender = fs.readFileSync(path.join(projectDir, "js", "studio-setup-render.js"), "utf8")
+  const start = setupRender.indexOf("function renderComposeInstruments()")
+  const end = setupRender.indexOf("function selectInstrument(", start)
+  const renderComposeInstruments = setupRender.slice(start, end)
+  const wrapperStart = studio.indexOf("function renderComposeInstruments()")
+  const wrapperEnd = studio.indexOf("function renderOrchestraLegend()", wrapperStart)
+  const wrapper = studio.slice(wrapperStart, wrapperEnd)
 
   assert.ok(start >= 0)
   assert.ok(end > start)
   assert.doesNotMatch(renderComposeInstruments, /\.sort\([\s\S]*state\.instrument\.id/)
+  assert.match(wrapper, /return renderComposeInstrumentsFromSetup\(\)/)
 })
 
 test("배경음악 구간 선택은 src가 있는 배경 음원에 열린다", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const transport = fs.readFileSync(path.join(projectDir, "js", "studio-transport.js"), "utf8")
   const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
   assert.match(source, /function canSelectBgRange\(\)[\s\S]*bg && bg\.src/)
-  assert.match(source, /bgRange\.hidden = !canSelectRange/)
+  assert.match(transport, /bgRange\.hidden = !canSelectRange/)
   assert.match(css, /\.bg-range\[hidden\][\s\S]*display:\s*none/)
   assert.match(source, /bgOffset: recipeBgOffset\(\)/)
   assert.match(source, /bgEndOffset: recipeBgEndOffset\(\)/)
@@ -220,9 +226,6 @@ test("완성 화면 그림에는 재생 버튼이 있고 음악 저장은 WebM�
   assert.doesNotMatch(html, /id="exportAudioBtn"/)
   assert.match(source, /makeTakeActionButton\("음악 저장"[^)]*WebM/)
   assert.doesNotMatch(html, /exportWavBtn|오디오 내보내기\(WAV\)/)
-  assert.match(source, /function exportAudio\(\)/)
-  assert.match(source, /exportCompressedAudio/)
-  assert.doesNotMatch(source, /exportWav/)
   assert.match(engine, /exportCompressedAudio/)
   assert.doesNotMatch(engine, /AudioEngine\.prototype\.exportWav/)
 })
@@ -281,7 +284,7 @@ test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () =>
 test("레시피 불러오기도 배경 구간 설정과 길이를 유지한다", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const start = source.indexOf("function loadRecipe(recipe)")
-  const end = source.indexOf("// --- 내보내기 ---", start)
+  const end = source.indexOf("// === § 25  공유 & 화음 갤러리 ===", start)
   const loadRecipe = source.slice(start, end)
 
   assert.ok(start >= 0)

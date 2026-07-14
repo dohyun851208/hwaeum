@@ -171,11 +171,10 @@ test("channel delete API verifies the admin pin", () => {
   assert.match(channelDelete, /await del\(targets\)/)
 })
 
-test("shared work delete requires the admin pin even for the same browser owner", () => {
+test("shared work delete stays on the channel page and requires the admin pin", () => {
   const deleteApi = fs.readFileSync(path.join(projectDir, "api", "share", "delete.js"), "utf8")
   const store = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
   const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const studioShareUi = fs.readFileSync(path.join(projectDir, "js", "studio-share-ui.js"), "utf8")
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
   const bindChannelBody = functionBody(channel, "bind")
   const openRenameModalBody = functionBody(channel, "openRenameModal")
@@ -204,10 +203,8 @@ test("shared work delete requires the admin pin even for the same browser owner"
   assert.match(deleteCurrentChannelBody, /promptTrimmed\("관리자 번호를 입력하세요\."/)
   assert.match(deleteCurrentChannelBody, /ShareStore\.deleteChannel\(channel, adminPin\)/)
   assert.doesNotMatch(deleteCurrentChannelBody, /currentGalleryPass\(\)/)
-  assert.match(functionBody(studio, "deleteSharedWork"), /if \(!pin\)/)
-  assert.doesNotMatch(functionBody(studio, "deleteSharedWork"), /!workIsMine\(work\) && !pin/)
-  assert.match(functionBody(studioShareUi, "renderSharedWorks"), /if \(adminReady\)/)
-  assert.doesNotMatch(functionBody(studioShareUi, "renderSharedWorks"), /workIsMine\(work\) \|\| adminReady/)
+  assert.equal(fs.existsSync(path.join(projectDir, "js", "studio-share-ui.js")), false)
+  assert.doesNotMatch(studio, /function deleteSharedWork\(/)
 })
 
 test("channel page opens locked channels with the student entry code or the gate code", () => {

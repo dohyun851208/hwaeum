@@ -237,11 +237,29 @@ test("violin drawing rows keep distinct source pitches", () => {
   }
 })
 
-test("index loads detected sample maps before the audio engine", () => {
+test("studio loads every audio dependency in browser order", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
-  assert.ok(html.indexOf("./js/manifest.js") < html.indexOf("./js/sample-maps.js"))
-  assert.ok(html.indexOf("./js/sample-maps.js") < html.indexOf("./js/sample-maps-western.js"))
-  assert.ok(html.indexOf("./js/sample-maps-western.js") < html.indexOf("./js/audio-engine.js"))
+  const scripts = [
+    "./js/music-core.js",
+    "./js/manifest.js",
+    "./js/sample-maps.js",
+    "./js/sample-maps-western.js",
+    "./js/audio-plan.js",
+    "./js/audio-node-scope.js",
+    "./js/audio-pad-graph.js",
+    "./js/audio-engine.js",
+  ]
+  const positions = scripts.map((script) => html.indexOf(script))
+
+  for (let index = 0; index < scripts.length; index++) {
+    assert.notEqual(positions[index], -1, scripts[index] + " must be loaded by studio.html")
+  }
+  for (let index = 1; index < scripts.length; index++) {
+    assert.ok(
+      positions[index - 1] < positions[index],
+      scripts[index - 1] + " must load before " + scripts[index],
+    )
+  }
 })
 
 test("서양 선율은 음마다 실제 녹음 멀티샘플 맵을 가지고, 그 파일들이 모두 존재한다", () => {

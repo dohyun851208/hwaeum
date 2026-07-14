@@ -23,6 +23,7 @@
 - `decisions/2026-07-01-channel-code-length.md` — 화음 갤러리 번호·코드 길이 축소
 - `decisions/2026-07-02-sustain-loop-stable-region.md` — 지속음 루프 구간 포락선 기반 검출(파일럿: 더블베이스)
 - `decisions/2026-07-03-instrument-scoped-pitch-axis.md` — 도화지 축을 선택 악기 기준으로 표시(국악 10칸, 저장/화면 좌표 분리)
+- `decisions/2026-07-14-runtime-module-boundaries.md` — 빌드 없는 classic 스크립트의 오디오·transport 모듈 경계와 로드 순서
 
 ## 작성 규칙
 

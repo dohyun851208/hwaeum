@@ -141,6 +141,9 @@ const files = [
   "js/manifest.js",
   "js/sample-maps.js",
   "js/sample-maps-western.js",
+  "js/audio-plan.js",
+  "js/audio-node-scope.js",
+  "js/audio-pad-graph.js",
   "js/audio-engine.js",
   "js/drawing.js",
   "js/takes.js",
@@ -148,7 +151,7 @@ const files = [
   "js/studio-utils.js",
   "js/studio-export.js",
   "js/studio-setup-render.js",
-  "js/studio-share-ui.js",
+  "js/studio-transport.js",
   "js/studio.js",
 ]
 for (const f of files) window.eval(read(f))
@@ -167,6 +170,63 @@ const qc = (sel) => window.document.querySelectorAll(sel).length
 const SD = window.SoundDrawing
 check("window.SoundDrawing 노출", !!SD)
 let s = SD.getStateSummary()
+const publicApiKeys = [
+  "getStateSummary",
+  "play",
+  "pause",
+  "resume",
+  "stop",
+  "exportAudio",
+  "publishSharedWork",
+  "loadSharedChannel",
+  "exportDrawingImage",
+  "exportDrawingVideo",
+  "shareLink",
+  "loadRecipe",
+  "buildRecipe",
+  "buildSharedRecipe",
+  "setStep",
+  "setDrawingInputMode",
+  "setAdminMode",
+  "engine",
+  "draw",
+  "takes",
+]
+const missingPublicApiKeys = publicApiKeys.filter((key) => !(key in SD))
+check("공개 QA API 계약 유지", missingPublicApiKeys.length === 0, missingPublicApiKeys.join(","))
+const summaryKeys = [
+  "duration",
+  "atmosphere",
+  "instrument",
+  "style",
+  "version",
+  "mode",
+  "drawingInputMode",
+  "bgOffset",
+  "bgEndOffset",
+  "composerName",
+  "backgroundReason",
+  "melodyIntent",
+  "hashtags",
+  "actionCount",
+  "step",
+  "noteCount",
+  "hasPicture",
+  "takes",
+  "sharedRecipeLoaded",
+  "adminMode",
+  "sharedChannel",
+  "sharedWorks",
+  "effectIds",
+  "effectStamps",
+  "effectStampId",
+  "isPlaying",
+  "isPaused",
+  "lastMode",
+]
+const missingSummaryKeys = summaryKeys.filter((key) => !(key in s))
+check("상태 요약 계약 유지", missingSummaryKeys.length === 0, missingSummaryKeys.join(","))
+check("도달 불가능한 스튜디오 공유 UI 모듈 제거", typeof window.HwaeumStudioShareUI === "undefined")
 check("기본 길이 30초", s.duration === 30)
 check("기본 배경 없음", s.atmosphere === "none", s.atmosphere)
 check("기본 악기 = 매니페스트 첫 악기", s.instrument === window.SDStudioData.instruments[0].id, s.instrument)

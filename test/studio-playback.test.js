@@ -2,193 +2,413 @@ const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const path = require("node:path")
 const test = require("node:test")
+const vm = require("node:vm")
 
+const createStudioTransport = require("../js/studio-transport.js")
 const projectDir = path.resolve(__dirname, "..")
 
-function functionBody(source, name) {
-  const marker = "function " + name + "("
-  const start = source.indexOf(marker)
-  assert.notEqual(start, -1, name + " should exist")
-  const open = source.indexOf("{", start)
-  let depth = 0
-  for (let i = open; i < source.length; i++) {
-    if (source[i] === "{") depth += 1
-    else if (source[i] === "}") {
-      depth -= 1
-      if (depth === 0) return source.slice(open + 1, i)
-    }
+function fakeClassList() {
+  const names = new Set()
+  return {
+    add: (name) => names.add(name),
+    remove: (name) => names.delete(name),
+    toggle(name, force) {
+      if (force === undefined) force = !names.has(name)
+      if (force) names.add(name)
+      else names.delete(name)
+      return names.has(name)
+    },
+    contains: (name) => names.has(name),
   }
-  throw new Error("Could not parse function body for " + name)
 }
 
-test("main playback can start without a drawn melody so background music can play alone", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const playBody = functionBody(source, "play")
-  const saveTakeBody = functionBody(source, "saveTakeWithMode")
-
-  assert.doesNotMatch(playBody, /requireDrawn\(\)/)
-  assert.match(saveTakeBody, /requireDrawn\(\)/, "empty-canvas checks should remain on take saving")
-})
-
-test("main playback button starts the full song instead of pausing drawing ambience", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const toggleBody = functionBody(source, "toggleTransport")
-  const syncBody = functionBody(source, "syncTransportButtons")
-
-  assert.doesNotMatch(toggleBody, /engine\.isPlaying \|\| engine\.ambience/)
-  assert.match(toggleBody, /if \(engine\.isPlaying\)[\s\S]*engine\.pause\(\)/)
-  assert.match(toggleBody, /engine\.stop\(\{ emitState: false \}\)/)
-  assert.match(syncBody, /const activeAudio = !!playing && !paused/)
-})
-
-test("background range pause keeps its current position for resume", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const pauseBody = functionBody(source, "pauseBgPlayer")
-  const playBody = functionBody(source, "playBgPlayer")
-  const toggleBody = functionBody(source, "toggleBgPlay")
-
-  assert.match(source, /let bgPausedAt = null/)
-  assert.match(pauseBody, /const pausedAt = bgPlayer\.currentTime/)
-  assert.match(pauseBody, /if \(keepPosition && bgTimeInSelectedRange\(pausedAt\)\)/)
-  assert.match(pauseBody, /bgPausedAt = pausedAt/)
-  assert.match(playBody, /const startAt = bgTimeInSelectedRange\(bgPausedAt\) \? bgPausedAt : state\.bgOffset/)
-  assert.match(playBody, /bgPlayer\.currentTime = startAt/)
-  assert.match(playBody, /bgPausedAt = null/)
-  assert.match(toggleBody, /else pauseBgPlayer\(true\)/)
-})
-
-test("switching to sound mode does not auto-start the background player", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const modeBody = functionBody(source, "setDrawingInputMode")
-
-  assert.doesNotMatch(modeBody, /playBgPlayer\(\)/)
-  assert.match(modeBody, /const bgWasPaused = bgPlayer\.paused/)
-  assert.match(modeBody, /if \(bgWasPaused && !bgPlayer\.paused\) pauseBgPlayer\(true\)/)
-})
-
-test("sound-mode drawing resumes the clock from the current playhead, not 0", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const progressBody = functionBody(source, "soundDrawingProgress")
-  const liveBody = functionBody(source, "livePlayheadProgress")
-  const bgTimeBody = functionBody(source, "bgTimeFromProgress")
-
-  // 첫 터치 때 배경음악(시계)이 멈춰 있으면, bgOffset(0)로 튀지 말고 현재 재생바 위치를 이어받아야 한다.
-  assert.match(progressBody, /if \(bgPlayer\.paused\)/)
-  assert.match(progressBody, /bgTimeFromProgress\(livePlayheadProgress\(\)\)/)
-  assert.match(progressBody, /bgPausedAt = resumeTime/, "resume time must seed playBgPlayer's start position")
-  assert.match(progressBody, /playBgPlayer\(\)/)
-
-  // 전체곡(엔진) 재생 중이면 그 진행을 읽어 와야 한다.
-  assert.match(liveBody, /engine\.isPlaying && !engine\.isPaused && playheadStartedAt/)
-  // 진행(0..1)을 배경음악 시간으로 환산하는 식은 bgPlayheadProgress와 같은 구간을 써야 한다.
-  assert.match(bgTimeBody, /state\.bgOffset \+ clampPlayheadProgress\(progress\) \* segment/)
-})
-
-test("drawing during full playback keeps the song playing instead of stopping the engine", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const progressBody = functionBody(source, "soundDrawingProgress")
-  const startPlayheadBody = functionBody(source, "startPlayhead")
-
-  // 전체곡 재생 중 펜을 대도 bgPlayer로 갈아타지 말고(=playBgPlayer→engine.stop 회피)
-  // 엔진 플레이헤드를 드로잉 시계로 써야, 이미 그려둔 선율이 끊기지 않는다.
-  const engineGuard = progressBody.indexOf("(engine.isPlaying || engine.isStarting) && !engine.isPaused")
-  const bgPausedBranch = progressBody.indexOf("bgPlayer.paused")
-  assert.notEqual(engineGuard, -1, "재생 중 분기가 있어야 한다")
-  assert.ok(engineGuard < bgPausedBranch, "엔진 재생 분기는 bgPlayer 재개보다 먼저 와야 한다")
-  assert.match(progressBody, /if \(\(engine\.isPlaying \|\| engine\.isStarting\) && !engine\.isPaused\) return livePlayheadProgress\(\)/)
-
-  // 엔진이 시계가 되면 bgTick이 안 돌므로, 엔진 플레이헤드 틱이 직접 새 획을 기록해야 한다.
-  assert.match(startPlayheadBody, /state\.drawingInputMode === DRAW_MODE_SOUND && draw\.flowActive/)
-  assert.match(startPlayheadBody, /draw\.flowRecord\(prog\)/)
-  assert.match(startPlayheadBody, /draw\.finishFlowStroke\(true\)/)
-})
-
-test("pausing during sound-mode flow commits the stroke at the current playhead", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const helperBody = functionBody(source, "finishSoundFlowAtCurrentPoint")
-  const playBody = functionBody(source, "play")
-  const toggleBody = functionBody(source, "toggleTransport")
-  const pauseBody = functionBody(source, "pause")
-
-  assert.match(helperBody, /state\.drawingInputMode !== DRAW_MODE_SOUND/)
-  assert.match(helperBody, /!draw\.flowActive/)
-  assert.match(helperBody, /draw\.flowRecord\(livePlayheadProgress\(\)\)/)
-  assert.match(helperBody, /draw\.finishFlowStroke\(true\)/)
-
-  for (const body of [playBody, toggleBody, pauseBody]) {
-    const finishAt = body.indexOf("finishSoundFlowAtCurrentPoint()")
-    const pauseAt = body.indexOf("engine.pause()")
-    assert.notEqual(finishAt, -1)
-    assert.notEqual(pauseAt, -1)
-    assert.ok(finishAt < pauseAt)
+function fakeElement(options) {
+  options = options || {}
+  const attrs = {}
+  const listeners = {}
+  const icon = options.icon ? { textContent: "▶" } : null
+  const node = {
+    classList: fakeClassList(),
+    dataset: {},
+    style: { setProperty(name, value) { this[name] = value } },
+    hidden: false,
+    disabled: false,
+    value: "",
+    textContent: "",
+    title: "",
+    offsetLeft: 0,
+    setAttribute(name, value) { attrs[name] = String(value) },
+    getAttribute(name) { return Object.prototype.hasOwnProperty.call(attrs, name) ? attrs[name] : null },
+    querySelector(selector) { return selector === "span" ? icon : null },
+    closest(selector) { return options.closest ? options.closest(selector) : null },
+    addEventListener(type, listener) { (listeners[type] || (listeners[type] = [])).push(listener) },
+    dispatch(type, event) { for (const listener of listeners[type] || []) listener(event || {}) },
+    setPointerCapture() {},
   }
+  node.icon = icon
+  return node
+}
+
+class FakeAudio {
+  constructor(duration) {
+    this.duration = duration == null ? 40 : duration
+    this.currentTime = 0
+    this.paused = true
+    this.attrs = {}
+    this.listeners = {}
+    this.playCalls = 0
+    this.pauseCalls = 0
+  }
+
+  get src() { return this.attrs.src || "" }
+  set src(value) { this.attrs.src = String(value) }
+  getAttribute(name) { return this.attrs[name] || null }
+  removeAttribute(name) { delete this.attrs[name] }
+  addEventListener(type, listener, options) {
+    ;(this.listeners[type] || (this.listeners[type] = [])).push({ listener, once: !!(options && options.once) })
+  }
+  dispatch(type) {
+    const entries = (this.listeners[type] || []).slice()
+    for (const entry of entries) {
+      if (entry.once) {
+        const current = this.listeners[type] || []
+        const index = current.indexOf(entry)
+        if (index !== -1) current.splice(index, 1)
+      }
+      entry.listener.call(this, { type, target: this, currentTarget: this })
+    }
+  }
+  play() {
+    this.playCalls += 1
+    this.paused = false
+    return Promise.resolve()
+  }
+  pause() {
+    this.pauseCalls += 1
+    this.paused = true
+  }
+}
+
+function fakeClock() {
+  let time = 100
+  let nextId = 0
+  const callbacks = new Map()
+  return {
+    now: () => time,
+    requestAnimationFrame(callback) {
+      const id = ++nextId
+      callbacks.set(id, callback)
+      return id
+    },
+    cancelAnimationFrame: (id) => callbacks.delete(id),
+    step(milliseconds) {
+      time += milliseconds
+      const current = Array.from(callbacks.values())
+      callbacks.clear()
+      current.forEach((callback) => callback(time))
+    },
+    pending: () => callbacks.size,
+  }
+}
+
+function fakeEngine() {
+  const calls = { play: [], pause: 0, resume: 0, stop: [] }
+  return {
+    calls,
+    isPlaying: false,
+    isPaused: false,
+    isStarting: false,
+    ambience: null,
+    lastMode: "sample",
+    lastStopReason: "manual",
+    onState: null,
+    play(recipe, notes, options) {
+      calls.play.push({ recipe, notes, options })
+      this.isPlaying = true
+      this.isPaused = false
+      this.lastStopReason = "manual"
+      if (this.onState) this.onState(true, false)
+      return Promise.resolve("sample")
+    },
+    pause() {
+      calls.pause += 1
+      this.isPlaying = true
+      this.isPaused = true
+      if (this.onState) this.onState(true, true)
+      return true
+    },
+    resume() {
+      calls.resume += 1
+      this.isPlaying = true
+      this.isPaused = false
+      if (this.onState) this.onState(true, false)
+      return true
+    },
+    stop(options) {
+      calls.stop.push(options || {})
+      this.isPlaying = false
+      this.isPaused = false
+      if ((!options || options.emitState !== false) && this.onState) this.onState(false, false)
+    },
+    end() {
+      this.lastStopReason = "ended"
+      this.isPlaying = false
+      this.isPaused = false
+      if (this.onState) this.onState(false, false)
+    },
+  }
+}
+
+function createHarness(options) {
+  options = options || {}
+  const clock = fakeClock()
+  const audio = new FakeAudio(options.audioDuration)
+  const engine = fakeEngine()
+  const bgRange = fakeElement()
+  const bgTimeInputs = fakeElement()
+  const el = {
+    body: fakeElement(), statusText: fakeElement(), exportStatus: fakeElement(),
+    playBtn: fakeElement({ icon: true }), stopBtn: fakeElement(), framePlayBtn: fakeElement({ icon: true }),
+    frame: fakeElement(), playhead: fakeElement(), canvas: fakeElement(), bgPlayer: fakeElement(),
+    bgPlayBtn: fakeElement({ icon: true }),
+    bgSeek: fakeElement({ closest: (selector) => selector === ".bg-range" ? bgRange : null }),
+    bgEndSeek: fakeElement(),
+    bgStartInput: fakeElement({ closest: (selector) => selector === ".bg-time-inputs" ? bgTimeInputs : null }),
+    bgEndInput: fakeElement(), bgTime: fakeElement(),
+  }
+  const wrap = { clientWidth: 320, scrollLeft: 0 }
+  const state = {
+    duration: options.duration == null ? 30 : options.duration,
+    atmosphere: { id: options.noBackground ? "none" : "bg", src: options.noBackground ? "" : "sound/bg.mp3" },
+    drawingInputMode: options.soundMode === false ? "picture" : "sound",
+    bgOffset: options.bgOffset == null ? 0 : options.bgOffset,
+    bgEndOffset: options.bgEndOffset == null ? 30 : options.bgEndOffset,
+    playingTakeId: null,
+    step: 2,
+  }
+  const draw = {
+    flowActive: false,
+    records: [],
+    finishes: [],
+    flowRecord(progress) { this.records.push(progress) },
+    finishFlowStroke(commit) { this.finishes.push(commit); this.flowActive = false },
+  }
+  const counters = { refreshTimeline: 0, updateReadouts: 0, renderAtmospheres: 0, renderTakes: 0 }
+  const recipe = { duration: state.duration, path: [] }
+  const transport = createStudioTransport({
+    root: { setTimeout, clearTimeout },
+    document: { activeElement: null },
+    state, el, engine, draw, clock, backgroundAudio: audio,
+    DRAW_MODE_SOUND: "sound", DRAWING_STEP: 2, MIN_DURATION_SECONDS: 1, DEFAULT_DURATION_SECONDS: 30,
+    canvasWrap: () => wrap,
+    timelineProgressFromClientX: (x) => x / 300,
+    timelineCssX: (progress) => progress * 300,
+    syncCanvasScrollState() {},
+    bgSrcFor: (atmosphere) => atmosphere.src || "",
+    canSelectBgRange: () => !!state.atmosphere.src,
+    normalizeDuration: (value) => Math.max(1, Number(value) || 30),
+    clampNumber: (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0)),
+    refreshTimeline() { counters.refreshTimeline += 1 },
+    updateReadouts() { counters.updateReadouts += 1 },
+    stopBackgroundPreview() {},
+    stopExamplePreview() {},
+    renderAtmospheres() { counters.renderAtmospheres += 1 },
+    buildRecipe: () => recipe,
+    notesFor: () => [],
+    renderTakes() { counters.renderTakes += 1 },
+    getStateSummary: () => ({ duration: state.duration }),
+    console: { warn() {}, error() {} },
+  })
+  return { transport, clock, audio, engine, state, draw, el, counters, recipe }
+}
+
+function approx(actual, expected, epsilon) {
+  assert.ok(Math.abs(actual - expected) <= (epsilon || 0.002), actual + " should be near " + expected)
+}
+
+test("studio transport supports CommonJS and the classic browser global", () => {
+  assert.equal(typeof createStudioTransport, "function")
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio-transport.js"), "utf8")
+  const context = { globalThis: {} }
+  vm.runInNewContext(source, context)
+  assert.equal(typeof context.globalThis.HwaeumStudioTransport, "function")
 })
 
-test("배경음악 없는 소리모드는 소리 없는 내부 시계로 드로잉 시간을 흐르게 한다", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const progressBody = functionBody(source, "soundDrawingProgress")
-  const clockBody = functionBody(source, "startSilentFlowClock")
-
-  // 배경음이 없으면 bgPlayer(시계)가 없으니, 무음 내부 시계로 갈아탄다.
-  assert.match(progressBody, /if \(!bgSrcFor\(state\.atmosphere\)\)/)
-  assert.match(progressBody, /startSilentFlowClock\(\)/)
-
-  // 무음 시계는 매 프레임 진행도를 기록(가로 전진)하고, 곡 끝에서 획을 마무리한다.
-  assert.match(clockBody, /draw\.flowRecord\(prog\)/)
-  assert.match(clockBody, /draw\.finishFlowStroke\(true\)/)
-  // 유휴 시 rAF를 돌리지 않도록, 드로잉이 끝나면 스스로 멈춰야 한다.
-  assert.match(clockBody, /!draw\.flowActive/)
-  assert.match(clockBody, /stopSilentFlowClock\(\)/)
+test("main playback accepts an empty melody and starts from the selected playhead", () => {
+  const h = createHarness({ noBackground: true })
+  h.transport.setSelectedPlayhead(0.5, false, false)
+  h.transport.play()
+  assert.equal(h.engine.calls.play.length, 1)
+  assert.deepEqual(h.engine.calls.play[0].notes, [])
+  assert.equal(h.engine.calls.play[0].recipe, h.recipe)
+  approx(h.engine.calls.play[0].options.startOffset, 15)
 })
 
-test("paused playback stores the visible playhead position for later controls", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const pauseBody = functionBody(source, "pausePlayhead")
-  const stopBody = functionBody(source, "stopPlayhead")
-
-  assert.match(pauseBody, /const pausedProgress = Math\.max\(0, Math\.min\(1, playheadElapsedMs \/ durMs\)\)/)
-  assert.match(pauseBody, /selectedPlayheadProgress = clampPlayheadProgress\(pausedProgress\)/)
-  assert.match(pauseBody, /positionPlayhead\(pausedProgress\)/)
-  assert.match(stopBody, /playheadElapsedMs = selectedPlaybackStartSec\(\) \* 1000/)
+test("transport toggles play, pause, and resume while keeping button state in sync", () => {
+  const h = createHarness({ noBackground: true })
+  h.transport.play()
+  assert.equal(h.el.body.dataset.playback, "playing")
+  assert.equal(h.el.playBtn.icon.textContent, "❚❚")
+  assert.equal(h.el.playBtn.getAttribute("aria-label"), "전체 일시정지")
+  h.transport.toggleTransport()
+  assert.equal(h.engine.calls.pause, 1)
+  assert.equal(h.el.body.dataset.playback, "paused")
+  assert.equal(h.el.playBtn.icon.textContent, "▶")
+  h.transport.toggleTransport()
+  assert.equal(h.engine.calls.resume, 1)
+  assert.equal(h.el.body.dataset.playback, "playing")
 })
 
-test("finished full playback leaves the playhead at the end", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const onStateAt = source.indexOf("engine.onState = function")
-  const stopBody = functionBody(source, "stopPlayhead")
-  const startBody = functionBody(source, "startPlayhead")
+test("pausing sound-mode playback commits the active stroke at the live playhead", () => {
+  const h = createHarness({ noBackground: true })
+  h.draw.flowActive = true
+  h.transport.play()
+  h.clock.step(4500)
+  h.transport.pause()
 
-  assert.notEqual(onStateAt, -1)
-  assert.match(source.slice(onStateAt, onStateAt + 1600), /stopPlayhead\(engine\.lastStopReason === "ended"\)/)
-  assert.match(startBody, /stopPlayhead\(prog >= 1\)/)
-  assert.match(stopBody, /if \(finished\)/)
-  assert.match(stopBody, /playheadElapsedMs = durMs/)
-  assert.match(stopBody, /positionPlayhead\(1, \{ follow: false \}\)/)
-  assert.match(stopBody, /playheadElapsedMs = selectedPlaybackStartSec\(\) \* 1000/)
+  approx(h.draw.records.at(-1), 0.15)
+  assert.deepEqual(h.draw.finishes, [true])
+  assert.equal(h.engine.calls.pause, 1)
 })
 
-test("switching to the eraser keeps the playhead in place instead of resetting to the start", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const eraserBody = functionBody(source, "activateEraserTool")
-  const freezeBody = functionBody(source, "freezePlayheadAtLivePosition")
-
-  // 재생바를 현재 위치에 굳힌 뒤에 stop 해야 시작점으로 튀지 않는다.
-  const freezeAt = eraserBody.indexOf("freezePlayheadAtLivePosition()")
-  const stopAt = eraserBody.indexOf("engine.stop()")
-  assert.notEqual(freezeAt, -1, "eraser should freeze the playhead before stopping")
-  assert.ok(freezeAt < stopAt, "freeze must happen before engine.stop() resets the playhead")
-
-  assert.match(freezeBody, /if \(!engine\.isPlaying \|\| engine\.isPaused\) return/)
-  assert.match(freezeBody, /rememberPlayheadProgress\(playheadElapsedMs \/ durMs\)/)
+test("pausing remembers the live playhead and stop resets it to the beginning", () => {
+  const h = createHarness({ noBackground: true })
+  h.transport.play()
+  h.clock.step(6000)
+  h.transport.pause()
+  approx(h.transport.getTimeState().selectedPlayheadProgress, 0.2)
+  assert.equal(h.el.playhead.getAttribute("aria-valuenow"), "6")
+  h.transport.stop()
+  assert.equal(h.transport.getTimeState().selectedPlayheadProgress, 0)
+  assert.equal(h.el.playhead.getAttribute("aria-valuenow"), "0")
 })
 
-test("background range changes update the drawing timeline duration", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const ensureBody = functionBody(source, "ensureTimelineDuration")
-  const syncUiBody = functionBody(source, "syncBgPlayerUI")
+test("an ended song leaves the visible playhead at the end", () => {
+  const h = createHarness({ noBackground: true })
+  h.transport.play()
+  h.engine.end()
+  assert.equal(h.el.playhead.hidden, false)
+  assert.equal(h.el.playhead.getAttribute("aria-valuenow"), "30")
+  assert.equal(h.el.playhead.style.left, "300px")
+})
 
-  assert.match(ensureBody, /Number\(state\.bgEndOffset\)\s*-\s*Number\(state\.bgOffset\)/)
-  assert.match(ensureBody, /next = normalizeDuration\(segment\)/)
-  assert.match(ensureBody, /state\.duration\s*=\s*next/)
-  assert.match(syncUiBody, /const durationChanged = ensureTimelineDuration\(false\)/)
+test("freezing before an engine stop preserves the current playhead for eraser changes", () => {
+  const h = createHarness({ noBackground: true })
+  h.transport.play()
+  h.clock.step(7500)
+  h.transport.freezePlayheadAtLivePosition()
+  h.engine.stop()
+  approx(h.transport.getTimeState().selectedPlayheadProgress, 0.25)
+  assert.equal(h.el.playhead.getAttribute("aria-valuenow"), "8")
+})
+
+test("background range pause resumes from the exact paused audio position", () => {
+  const h = createHarness({ bgOffset: 5, bgEndOffset: 20, audioDuration: 60 })
+  h.transport.setupBgPlayer(true)
+  h.transport.playBgPlayer()
+  assert.equal(h.audio.currentTime, 5)
+  assert.equal(h.audio.paused, false)
+  h.audio.currentTime = 12
+  h.transport.pauseBgPlayer(true)
+  assert.equal(h.audio.paused, true)
+  approx(h.transport.getTimeState().selectedPlayheadProgress, 7 / 15)
+  h.transport.playBgPlayer()
+  assert.equal(h.audio.currentTime, 12)
+  assert.equal(h.audio.paused, false)
+})
+
+test("sound drawing resumes the background clock from the selected playhead", () => {
+  const h = createHarness({ bgOffset: 4, bgEndOffset: 24, audioDuration: 50 })
+  h.transport.setupBgPlayer(true)
+  h.transport.setSelectedPlayhead(0.5, false, false)
+  h.draw.flowActive = true
+  h.transport.soundDrawingProgress()
+  approx(h.audio.currentTime, 14)
+  assert.equal(h.audio.paused, false)
+  assert.equal(h.audio.playCalls, 1)
+})
+
+test("drawing during full playback uses the engine clock without replacing playback", () => {
+  const h = createHarness({ bgOffset: 0, bgEndOffset: 30 })
+  h.transport.setSelectedPlayhead(0.2, false, false)
+  h.transport.play()
+  const stopCount = h.engine.calls.stop.length
+  h.clock.step(3000)
+  h.draw.flowActive = true
+  const progress = h.transport.soundDrawingProgress()
+  approx(progress, 0.3)
+  assert.equal(h.engine.calls.stop.length, stopCount)
+  assert.equal(h.audio.playCalls, 0)
+})
+
+test("sound mode without background advances and finishes from the silent clock", () => {
+  const h = createHarness({ noBackground: true, duration: 10 })
+  h.draw.flowActive = true
+  h.transport.soundDrawingProgress()
+  assert.equal(h.transport.getTimeState().silentFlowActive, true)
+  h.clock.step(3000)
+  approx(h.draw.records.at(-1), 0.3)
+  h.clock.step(7000)
+  assert.equal(h.draw.records.at(-1), 1)
+  assert.deepEqual(h.draw.finishes, [true])
+  assert.equal(h.transport.getTimeState().silentFlowActive, false)
+  assert.equal(h.clock.pending(), 0)
+})
+
+test("consecutive preserve setups only apply the newest metadata request", () => {
+  const h = createHarness({ duration: 15, bgOffset: 7, bgEndOffset: 22, audioDuration: NaN })
+  h.transport.setupBgPlayer(true)
+  h.transport.setupBgPlayer(true)
+  const updatesBeforeMetadata = h.counters.updateReadouts
+
+  h.audio.duration = 60
+  h.audio.dispatch("loadedmetadata")
+
+  assert.equal(h.state.bgOffset, 7)
+  assert.equal(h.state.bgEndOffset, 22)
+  assert.equal(h.state.duration, 15)
+  assert.equal(h.audio.currentTime, 7)
+  assert.equal(h.counters.updateReadouts, updatesBeforeMetadata + 1)
+})
+
+test("a rapid background source change prevents the stale metadata callback from replacing the new range", () => {
+  const h = createHarness({ duration: 30, bgOffset: 0, bgEndOffset: 30, audioDuration: NaN })
+  h.transport.setupBgPlayer(false)
+
+  h.state.atmosphere = { id: "new-bg", src: "sound/new-bg.mp3" }
+  h.state.bgOffset = 10
+  h.state.bgEndOffset = 25
+  h.transport.setupBgPlayer(true)
+  h.audio.duration = 60
+  h.audio.dispatch("loadedmetadata")
+
+  assert.equal(h.audio.getAttribute("src"), "sound/new-bg.mp3")
+  assert.equal(h.state.bgOffset, 10)
+  assert.equal(h.state.bgEndOffset, 25)
+  assert.equal(h.state.duration, 15)
+  assert.equal(h.audio.currentTime, 10)
+})
+
+test("metadata is ignored when the audio element source no longer matches the setup request", () => {
+  const h = createHarness({ duration: 12, bgOffset: 8, bgEndOffset: 20, audioDuration: NaN })
+  h.transport.setupBgPlayer(true)
+  const updatesBeforeMetadata = h.counters.updateReadouts
+
+  h.audio.src = "sound/unexpected.mp3"
+  h.audio.duration = 60
+  h.audio.dispatch("loadedmetadata")
+
+  assert.equal(h.state.bgOffset, 8)
+  assert.equal(h.state.bgEndOffset, 20)
+  assert.equal(h.state.duration, 12)
+  assert.equal(h.audio.currentTime, 0)
+  assert.equal(h.counters.updateReadouts, updatesBeforeMetadata)
+})
+
+test("background range metadata updates the shared drawing duration", () => {
+  const h = createHarness({ duration: 30, bgOffset: 5, bgEndOffset: 15, audioDuration: 60 })
+  h.transport.setupBgPlayer(true)
+  assert.equal(h.state.duration, 10)
+  assert.ok(h.counters.refreshTimeline >= 1)
+  assert.equal(h.el.bgTime.textContent, "0:05 ~ 0:15 / 1:00")
 })

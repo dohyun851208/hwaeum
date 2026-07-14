@@ -12,6 +12,12 @@ function loadDrawing() {
       buildScale() {
         return [60, 62, 64, 65, 67, 69, 71, 72]
       },
+      drawableScale() {
+        return [60, 62, 64, 65, 67, 69, 71, 72]
+      },
+      playableScale() {
+        return [60, 62, 64, 65, 67, 69, 71, 72]
+      },
       autocompleteMelodyStrokes() {
         return []
       },
@@ -158,4 +164,69 @@ test("eraser leaves same-line points more than half a second away", () => {
   const xs = plain(draw.getPath()).map((point) => point.x)
   assert.equal(xs.includes(0.5), false)
   assert.equal(xs.includes(0.525), true)
+})
+
+test("eraser preserves a one-point tap outside its radius", () => {
+  const DrawingCanvas = loadDrawing()
+  const draw = new DrawingCanvas(makeCanvas(), {
+    activeInstrument: "flute",
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+  })
+  const tap = [[{ x: 0.1, y: 0.1 }]]
+
+  draw.setStrokes(tap, ["flute"])
+
+  assert.equal(draw._eraseAt({ x: 0.9, y: 0.9 }), false)
+  assert.deepEqual(plain(draw.getStrokes()), tap)
+  assert.deepEqual(plain(draw.getStrokeInstruments()), ["flute"])
+})
+
+test("eraser removes a nearby one-point tap and undo restores it", () => {
+  const DrawingCanvas = loadDrawing()
+  const canvas = makeCanvas()
+  const draw = new DrawingCanvas(canvas, {
+    activeInstrument: "flute",
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+  })
+  const tap = [[{ x: 0.25, y: 0.4 }]]
+
+  draw.setStrokes(tap, ["flute"])
+  draw.clearUndoHistory()
+  draw.setEraseMode(true)
+  const labelWidth = draw.pitchLabelGutterCssPx()
+  canvas.dispatch("pointerdown", {
+    clientX: labelWidth + 0.25 * (canvas.clientWidth - labelWidth),
+    clientY: 40,
+  })
+  canvas.dispatch("pointerup", {})
+
+  assert.deepEqual(plain(draw.getStrokes()), [])
+  assert.equal(draw.canUndo(), true)
+  assert.equal(draw.undo(), true)
+  assert.deepEqual(plain(draw.getStrokes()), tap)
+  assert.deepEqual(plain(draw.getStrokeInstruments()), ["flute"])
+})
+
+test("eraser keeps one-point fragments on both sides of a removed point", () => {
+  const DrawingCanvas = loadDrawing()
+  const draw = new DrawingCanvas(makeCanvas(), {
+    activeInstrument: "violin",
+    getState: () => ({ duration: 30, style: {}, mode: "melody" }),
+  })
+
+  draw.setStrokes(
+    [[
+      { x: 0.1, y: 0.5 },
+      { x: 0.2, y: 0.5 },
+      { x: 0.3, y: 0.5 },
+    ]],
+    ["violin"],
+  )
+
+  assert.equal(draw._eraseAt({ x: 0.2, y: 0.5 }), true)
+  assert.deepEqual(plain(draw.getStrokes()), [
+    [{ x: 0.1, y: 0.5 }],
+    [{ x: 0.3, y: 0.5 }],
+  ])
+  assert.deepEqual(plain(draw.getStrokeInstruments()), ["violin", "violin"])
 })

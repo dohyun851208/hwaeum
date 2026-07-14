@@ -104,3 +104,31 @@ test("데이터가 없거나 너무 짧으면 null", () => {
   assert.equal(core.findStableLoopRegion(new Float32Array(0), SAMPLE_RATE, 0, 2.4), null)
   assert.equal(core.findStableLoopRegion(toneOf([{ seconds: 0.2, amp: 0.4 }]), SAMPLE_RATE, 0, 0.2), null)
 })
+
+test("완전 무음은 안정 루프 구간으로 오인하지 않는다", () => {
+  assert.equal(core.findStableLoopRegion(new Float32Array(2400), SAMPLE_RATE, 0, 2.4), null)
+})
+
+test("검색 창 밖에 소리가 있어도 검색 창이 무음이면 null을 돌려준다", () => {
+  const data = toneOf([
+    { seconds: 1, amp: 0.4 },
+    { seconds: 1.4, amp: 0 },
+  ])
+  assert.equal(core.findStableLoopRegion(data, SAMPLE_RATE, 1, 1.4), null)
+})
+
+test("아주 작은 비무음 지속음은 상대 음량 기준으로 찾는다", () => {
+  const data = toneOf([{ seconds: 2.4, amp: 1e-7 }])
+  assert.ok(core.findStableLoopRegion(data, SAMPLE_RATE, 0, 2.4))
+})
+
+test("극미세 신호 뒤의 디지털 무음은 안정 루프 구간에 포함하지 않는다", () => {
+  const data = toneOf([
+    { seconds: 1.2, amp: 1e-7 },
+    { seconds: 1.2, amp: 0 },
+  ])
+  const region = core.findStableLoopRegion(data, SAMPLE_RATE, 0, 2.4)
+
+  assert.ok(region, "충분히 긴 극미세 비무음 구간은 계속 검출해야 한다")
+  assert.ok(region.end <= 1.2, "정확한 0 RMS 구간을 안정 루프로 선택하면 안 된다: " + region.end)
+})

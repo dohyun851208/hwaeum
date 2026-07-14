@@ -12,6 +12,12 @@ function loadDrawing() {
       buildScale() {
         return [60, 62, 64, 65, 67, 69, 71, 72]
       },
+      drawableScale() {
+        return [60, 62, 64, 65, 67, 69, 71, 72]
+      },
+      playableScale() {
+        return [60, 62, 64, 65, 67, 69, 71, 72]
+      },
       autocompleteMelodyStrokes(strokes) {
         return strokes.flatMap((stroke, voice) =>
           stroke.map((point) => ({

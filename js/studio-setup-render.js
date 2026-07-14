@@ -24,7 +24,7 @@
       setEraser,
       renderEffects,
       renderEffectStamps,
-      renderComposeInstruments,
+      recordUserAction,
       renderOrchestraLegend,
       renderPitchAxisLabels,
       updateReadouts,
@@ -389,6 +389,75 @@
       })
     }
 
+    function renderComposeInstruments() {
+      clearEl(el.composeInstrumentList)
+      INSTRUMENT_GROUPS.forEach((group) => {
+        const groupItems = D.instruments.filter((instrument) => instrument.group === group)
+        if (!groupItems.length) return
+
+        const section = document.createElement("section")
+        section.className = "compose-instrument-group" + (group === state.group ? " active" : "")
+        section.setAttribute("aria-label", group + " 악기")
+        section.dataset.group = group
+
+        const head = document.createElement("div")
+        head.className = "compose-instrument-group-head"
+        const groupTitle = document.createElement("strong")
+        groupTitle.textContent = group
+        head.appendChild(groupTitle)
+        section.appendChild(head)
+
+        const list = document.createElement("div")
+        list.className = "compose-instrument-group-list"
+        instrumentFamilies(groupItems).forEach((familyGroup) => {
+          const familySection = document.createElement("section")
+          familySection.className = "compose-instrument-family"
+          familySection.setAttribute("aria-label", group + " " + familyGroup.family)
+
+          const familyHead = document.createElement("div")
+          familyHead.className = "compose-instrument-family-head"
+          familyHead.textContent = familyGroup.family
+          familySection.appendChild(familyHead)
+
+          const familyList = document.createElement("div")
+          familyList.className = "compose-instrument-family-list"
+          familyGroup.items.forEach((i) => {
+            const b = document.createElement("button")
+            b.type = "button"
+            b.className = "compose-instrument" + (i.id === state.instrument.id ? " active" : "")
+            applyInstrumentTone(b, i.id)
+            b.setAttribute("aria-pressed", i.id === state.instrument.id ? "true" : "false")
+            b.title = i.group + " · " + i.family + " · " + i.detail
+            if (i.image) {
+              const img = document.createElement("img")
+              img.src = i.image
+              img.alt = ""
+              img.loading = "lazy"
+              b.appendChild(img)
+            }
+            const label = document.createElement("span")
+            label.className = "compose-instrument-text"
+            const name = document.createElement("strong")
+            name.textContent = i.label
+            label.appendChild(name)
+            b.appendChild(label)
+            b.addEventListener("click", () => {
+              recordUserAction({ update: false })
+              selectInstrument(i, true)
+              engine.previewNote(buildRecipe(), 0.5).catch(function () {})
+            })
+            familyList.appendChild(b)
+          })
+
+          familySection.appendChild(familyList)
+          list.appendChild(familySection)
+        })
+
+        section.appendChild(list)
+        el.composeInstrumentList.appendChild(section)
+      })
+    }
+
     function selectInstrument(instrument, announce) {
       state.instrument = instrument
       state.group = instrument.group
@@ -475,50 +544,16 @@
       })
     }
 
-    // ── 버전 렌더링 ──────────────────────────────────────────────
-
-    function renderVersions() {
-      if (!el.versionList) return
-      clearEl(el.versionList)
-      D.versions.forEach((v) => {
-        const b = document.createElement("button")
-        b.type = "button"
-        b.className = "version" + (v.id === state.version.id ? " active" : "")
-        b.setAttribute("aria-pressed", v.id === state.version.id ? "true" : "false")
-        const label = document.createElement("strong")
-        label.textContent = v.label
-        b.appendChild(label)
-        b.title = v.detail
-        b.addEventListener("click", () => {
-          state.version = v
-          engine.stop()
-          renderVersions()
-          el.exportStatus.textContent = v.label + " 믹스로 바꿨습니다."
-        })
-        el.versionList.appendChild(b)
-      })
-    }
-
     return {
-      instrumentFamilies,
-      card,
       bgSrcFor,
       backgroundFor,
-      balanceParentheticalMoodTitle,
       stopBackgroundPreview,
-      startBackgroundPreview,
-      toggleBackgroundPreview,
       stopExamplePreview,
-      toggleExamplePreview,
-      appendAtmosphereCard,
-      removeCustomBackground,
       renderAtmospheres,
-      buildUploadCard,
       addCustomBackground,
       renderInstrumentGroups,
-      selectInstrument,
       renderInstruments,
-      renderVersions,
+      renderComposeInstruments,
     }
   }
 })(window)

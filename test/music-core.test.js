@@ -150,6 +150,44 @@ test("autocompleteMelody preserves the drawn x position as time", () => {
   assert.ok(notes.every((n) => n.time >= 9.5 && n.time < 21))
 })
 
+test("autocompleteMelody: 곡 끝에 찍은 점도 곡 길이 안에서 끝난다", () => {
+  const notes = core.autocompleteMelody([{ x: 1, y: 0.5 }], { durationSec: 30, style: C_MAJOR })
+
+  assert.strictEqual(notes.length, 1)
+  assert.ok(notes[0].duration > 0)
+  assert.ok(notes[0].time < 30)
+  assert.ok(notes[0].time + notes[0].duration <= 30)
+})
+
+test("autocompleteRhythm: 빈 경로는 타격 없이 끝난다", () => {
+  assert.deepStrictEqual(core.autocompleteRhythm([], { durationSec: 8, bpm: 100 }), [])
+})
+
+test("autocompleteRhythm: 8초·100 BPM의 마지막 유효 격자 7.8초를 포함한다", () => {
+  const path = [{ x: 0, y: 1 }, { x: 1, y: 1 }]
+  const hits = core.autocompleteRhythm(path, { durationSec: 8, bpm: 100 })
+
+  assert.strictEqual(hits.length, 27)
+  assert.ok(Math.abs(hits[hits.length - 1].time - 7.8) < 1e-9)
+})
+
+test("autocompleteRhythm: 모든 타격은 곡 길이보다 앞에 있다", () => {
+  const durationSec = 8.05
+  const path = [{ x: 0, y: 1 }, { x: 1, y: 1 }]
+  const hits = core.autocompleteRhythm(path, { durationSec, bpm: 100 })
+
+  assert.ok(hits.length > 0)
+  assert.ok(hits.every((hit) => hit.time >= 0 && hit.time < durationSec))
+})
+
+test("autocompleteRhythm: 곡 길이와 정확히 겹치는 끝 격자는 넣지 않는다", () => {
+  const path = [{ x: 0, y: 1 }, { x: 1, y: 1 }]
+  const hits = core.autocompleteRhythm(path, { durationSec: 2.7, bpm: 100 })
+
+  assert.strictEqual(hits.length, 9)
+  assert.ok(Math.abs(hits[hits.length - 1].time - 2.4) < 1e-9)
+})
+
 test("autocompleteRhythm: 온셋이 4/4 8분음표 격자에 정렬", () => {
   const path = [{ x: 0, y: 0.2 }, { x: 0.5, y: 0.9 }, { x: 1, y: 0.3 }]
   const hits = core.autocompleteRhythm(path, { durationSec: 8, bpm: 100 })

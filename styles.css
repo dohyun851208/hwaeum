@@ -3701,190 +3701,6 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .channel-empty[hidden] {
   display: none;
 }
-.shared-works-list {
-  display: grid;
-  gap: 12px;
-}
-.shared-work {
-  display: grid;
-  grid-template-columns: 132px minmax(0, 1fr) 190px;
-  gap: 14px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--canvas);
-}
-.shared-work-cover-button {
-  align-self: start;
-  width: 132px;
-  height: 132px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-}
-.shared-work-cover-button:focus-visible {
-  outline: 3px solid var(--accent-line);
-  outline-offset: 3px;
-}
-.shared-work-cover-button:hover .shared-work-cover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-.shared-work-cover {
-  display: block;
-  width: 132px;
-  height: 132px;
-  border-radius: 8px;
-  object-fit: cover;
-  border: 1px solid var(--line);
-  background: #1f2a2a;
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease;
-}
-.shared-work-main {
-  display: grid;
-  align-content: start;
-  gap: 7px;
-  min-width: 0;
-}
-.shared-work-title {
-  color: var(--ink);
-  font-family: var(--serif);
-  font-size: 1.14rem;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-.shared-work-meta,
-.shared-work-text,
-.shared-work-date {
-  color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.4;
-}
-.shared-work-tags {
-  color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 800;
-}
-.shared-work-tools {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-}
-.shared-work-tools audio {
-  width: 100%;
-  height: 36px;
-}
-.shared-work-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.shared-empty {
-  margin-top: 4px;
-}
-
-.shared-viewer-open {
-  overflow: hidden;
-}
-.shared-viewer[hidden] {
-  display: none;
-}
-.shared-viewer {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: grid;
-  place-items: center;
-  padding: 28px;
-  background: rgba(20, 24, 24, 0.76);
-  backdrop-filter: blur(4px);
-}
-.shared-viewer-panel {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(520px, 1fr) 320px;
-  gap: 18px;
-  width: min(1180px, 96vw);
-  max-height: min(760px, 92vh);
-  padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.34);
-}
-.shared-viewer-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1;
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--ink);
-  font-size: 1.35rem;
-  font-weight: 900;
-  line-height: 1;
-}
-.shared-viewer-close:focus-visible {
-  outline: 3px solid var(--accent-line);
-  outline-offset: 3px;
-}
-.shared-viewer-stage {
-  display: grid;
-  place-items: center;
-  min-height: 0;
-  margin: 0;
-  overflow: hidden;
-  border-radius: 10px;
-  background: #1f2a2a;
-}
-.shared-viewer-cover {
-  display: block;
-  width: 100%;
-  height: 100%;
-  max-height: calc(92vh - 36px);
-  object-fit: contain;
-}
-.shared-viewer-info {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  min-width: 0;
-  padding: 18px 12px 10px;
-}
-.shared-viewer-title {
-  color: var(--ink);
-  font-family: var(--serif);
-  font-size: 1.55rem;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-.shared-viewer-meta,
-.shared-viewer-text {
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.shared-viewer-meta {
-  white-space: pre-line;
-}
-.shared-viewer-audio {
-  width: 100%;
-}
-.shared-viewer-tags {
-  color: var(--accent);
-  font-size: 0.92rem;
-  font-weight: 900;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
 /* 공유 모달 — 번호 + 갤러리 코드 동시 입력 */
 .publish-modal-open {
   overflow: hidden;
@@ -4264,8 +4080,7 @@ body:not(.channel-body)::after {
 .eyebrow,
 .instrument-family-head,
 .atmosphere-group-label,
-.placard-tags,
-.shared-work-tags {
+.placard-tags {
   color: var(--accent);
 }
 
@@ -4290,9 +4105,7 @@ body:not(.channel-body)::after {
 .panel-head h2,
 .choice-section-head h3,
 .gallery-panel h3,
-.channel-gate-card h3,
-.shared-work-title,
-.shared-viewer-title {
+.channel-gate-card h3 {
   font-family: var(--display);
   font-weight: 400;
   letter-spacing: 0;
@@ -4313,7 +4126,6 @@ body:not(.channel-body)::after {
 .bg-play-btn,
 .effect-btn,
 .channel-gate-card,
-.shared-work,
 .take {
   background: var(--canvas);
 }

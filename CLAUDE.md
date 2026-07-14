@@ -4,7 +4,7 @@
 > 배경 음악을 고른 뒤 어울리는 악기를 미리 들어보고 **선율 드로잉으로 30초 BGM을 직접 만드는** 교실용 사운드 드로잉 창작 도구.
 > (이전 이름: Sound Drawing Atelier)
 
-빌드·프레임워크 없이 동작하는 **단일 정적 웹앱**입니다. 브라우저에서 ES module을 그대로 로드합니다.
+빌드·프레임워크 없이 동작하는 **단일 정적 웹앱**입니다. 브라우저가 의존 순서대로 classic `<script>`를 읽고 각 모듈을 `window` 전역에 노출합니다.
 
 > 📄 **이 지침은 `CLAUDE.md`(Claude Code 읽음)와 `AGENTS.md`(Codex 읽음)에 동일 내용으로 둡니다** — 두 에이전트가 같은 규칙으로 협업하도록. **내용을 고칠 땐 반드시 두 파일을 함께** 수정하세요. (각 하위 폴더의 `CLAUDE.md`/`AGENTS.md`도 같은 원칙)
 
@@ -12,7 +12,7 @@
 
 ## ⚠️ 가장 중요한 제약 (먼저 읽기)
 
-1. **빌드/번들러 없음.** 앱 본체 `studio.html`이 `js/*.js`를 `<script type="module">`로 직접 부릅니다.
+1. **빌드/번들러 없음.** 앱 본체 `studio.html`이 `js/*.js`를 classic `<script>`로 직접 부릅니다. 파일 순서가 곧 의존 순서이므로 새 모듈을 추가할 때 `studio.html`·`tools/smoke.cjs`·테스트 로더를 함께 갱신합니다.
    (`index.html`은 3D 히어로 **랜딩 페이지** — "그림으로 음악 만들기" 버튼이 `studio.html`로 보냅니다.)
    트랜스파일·번들 단계가 없으니 브라우저가 바로 이해하는 코드만 씁니다.
    (`package.json`의 `"type": "commonjs"`는 **Node 테스트 전용**입니다.)
@@ -37,7 +37,7 @@ npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (�
 ```
 
 브라우저 콘솔에서 `window.SoundDrawing`으로 상태 확인:
-`getStateSummary()` · `play()` · `stop()` · `exportWav()` · `buildRecipe()` · `loadRecipe(recipe)` · `setStep(n)`
+`getStateSummary()` · `play()` · `pause()` · `resume()` · `stop()` · `exportAudio()` · `exportDrawingImage()` · `exportDrawingVideo()` · `buildRecipe()` · `loadRecipe(recipe)` · `setStep(n)`
 
 ---
 
@@ -70,17 +70,19 @@ npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (�
 ## 아키텍처 — 데이터 흐름
 
 ```
-사용자 입력 ──▶ drawing.js ──▶ music-core.js ──▶ audio-engine.js ──▶ 소리/WAV
- (그림·설정)    (캔버스 선)     (순수 로직)        (Web Audio 합주)
-                    ▲               │
-                    │               ├─ 레시피 코덱(저장/공유/복원)
-              studio.js ────────────┘
-            (위저드 흐름·UI 오케스트레이션)   manifest.js = 음원·악기·음계 데이터 공급
+사용자 입력 ──▶ drawing.js ──▶ music-core.js ──▶ audio-plan.js ──▶ audio-engine.js ──▶ 소리/WebM
+ (그림·설정)    (캔버스 선)     (순수 음악 규칙)    (순수 재생 계획)    (Web Audio 합주)
+                    ▲                  ▲                    │
+                    │                  └── manifest/sample maps
+              studio.js ──▶ studio-transport.js / studio-export.js
+            (위저드 오케스트레이션)      (재생 시간 상태 / 내보내기)
 ```
 
 - **`music-core.js`는 순수 함수 계층** — DOM·Web Audio에 의존하지 않습니다. 그래서 단위 테스트가 쉽습니다. **이 순수성을 깨지 마세요.**
-- **`audio-engine.js`**는 Web Audio(라이브 + 오프라인 렌더)·피치 시프트·시김새·합성 폴백 담당.
-- **`studio.js`**가 5단계 위저드를 묶는 오케스트레이터(업로드·무드 틴팅·재생·내보내기·공유). 기능별로 `studio-export.js`(내보내기)·`studio-share-ui.js`(공유 갤러리 카드)·`studio-setup-render.js`(설정 화면 렌더)·`studio-utils.js`(공통 유틸)·`share-store.js`(갤러리 서버 I/O)로 분리되어 있습니다.
+- **`audio-plan.js`**는 샘플 선택·음 변환·획/탐색 계획을 계산하는 순수 계층입니다. **DOM·Web Audio에 의존시키지 마세요.**
+- **`audio-node-scope.js` / `audio-pad-graph.js`**는 각각 재생 노드 수명과 공통 합성 패드 그래프를 담당합니다.
+- **`audio-engine.js`**는 위 계산 결과를 Web Audio 라이브·오프라인 그래프에 스케줄하고 피치 시프트·시김새·합성 폴백을 적용합니다.
+- **`studio.js`**가 5단계 위저드를 묶는 오케스트레이터(업로드·무드 틴팅·재생·내보내기·공유). 기능별로 `studio-export.js`(내보내기)·`studio-setup-render.js`(설정 화면 렌더)·`studio-transport.js`(재생·플레이헤드·배경 구간 시간 상태)·`studio-utils.js`(공통 유틸)·`share-store.js`(갤러리 서버 I/O)로 분리되어 있습니다.
 - **`manifest.js`**는 데이터 주도 — **음원/악기/음계 추가·교체는 거의 여기만 수정**합니다.
 
 자세한 모듈 책임과 "어디를 고치나"는 → **`js/CLAUDE.md`**
@@ -100,7 +102,8 @@ npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (�
 ## 개발 규칙
 
 - **새 음원/악기/분위기** → `js/manifest.js` (README "음원 추가/교체" 절 참고)
-- **음악 로직 변경**(음계·보정·리듬·시김새·WAV) → `js/music-core.js` + `test/`에 단위 테스트
+- **음악 규칙 변경**(음계·보정·리듬·시김새·루프 검출) → `js/music-core.js` + `test/`에 단위 테스트
+- **샘플 선택·재생 계획 변경** → `js/audio-plan.js`, **Web Audio 그래프·수명 변경** → `js/audio-engine.js`와 `js/audio-*.js` + 행동 테스트
 - **악기별 선율 음량 보정**은 바이올린 기준의 측정값을 따른다. 새 샘플을 넣은 뒤 `npm run measure:loudness`로 안정 구간 dB를 재고, `js/audio-engine.js`의 `INSTRUMENT_MELODY_OUTPUT_GAINS`와 테스트를 함께 갱신한다. 감으로 개별 gain만 바꾸지 않는다.
 - **악기 내부 음별 선율 음량 보정**은 악기별 평균을 유지하되 각 음의 안정 구간 dB를 기준으로 최대 ±3 dB까지만 적용한다. 새 샘플을 넣은 뒤 `npm run measure:loudness -- --notes`로 `NOTE_MELODY_OUTPUT_GAINS` 후보를 확인하고, 보정 폭을 키우지 않는다. 단, **지속음 자동 루프 파일럿 악기**(`SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS`, 현재 더블베이스)는 샘플 간 녹음 강약 차가 커서 루프 구간 RMS 기준 ±12 dB(`AUTO_LOOP_NOTE_GAIN_LIMIT_DB`)까지 허용한다.
 - **음계 기본값은 악기 그룹을 따른다.** 기본은 **C장조**(서양 악기 — 파(F)·시(B)도 난다), **국악기만 5음(펜타토닉)+시김새**(파·시 없음). 악기를 고르면 자동 적용 → `studio.js`의 `styleForInstrument()`.

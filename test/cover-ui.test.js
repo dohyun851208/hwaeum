@@ -22,11 +22,9 @@ function functionBody(source, name) {
   throw new Error("Could not parse function body for " + name)
 }
 
-test("cover images do not bake in a play button", () => {
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+test("gallery-generated cover images do not bake in a play button", () => {
   const shareStore = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
 
-  assert.doesNotMatch(functionBody(studio, "exportCover"), /재생 글리프|ctx\.arc\(cx,\s*cy|ctx\.lineTo\(cx/)
   assert.doesNotMatch(functionBody(shareStore, "renderCoverCanvas"), /ctx\.arc\(cx,\s*cy|ctx\.lineTo\(cx/)
 })
 

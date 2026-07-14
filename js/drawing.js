@@ -67,13 +67,9 @@
     return hexToRgba(noteColorForMidi(midi, asset), alpha)
   }
 
-  // 화면에 보이는 음높이 행 목록. 악기에 따라 낼 수 없는 음은 행을 없애지 않고 비활성으로 둔다.
+  // 저장 좌표 기준의 전체 음높이 축은 MusicCore의 축 계약을 그대로 쓴다.
   function drawableScaleFor(style, asset) {
-    return (Core.drawableScale || Core.buildScale)(style, asset)
-  }
-
-  function isPitchPlayableFor(midi, style, asset) {
-    return !Core.isPitchPlayable || Core.isPitchPlayable(midi, style, asset)
+    return Core.drawableScale(style, asset)
   }
 
   // 축 라벨에 쓸 계이름. 악기 transpose 를 반영하되 옥타브 숫자는 떼고 계이름만 보여준다.
@@ -85,9 +81,7 @@
   // 악기가 낼 수 있는 칸만 축에 보여준다 — 국악기는 10칸이 화면 전체를 채우고,
   // 서양 악기는 15칸 전체가 보인다. (저장 좌표는 늘 전체 축 기준 → 악기를 오가도 음 유지)
   function visibleRowsForStyle(style, asset) {
-    const rows = drawableScaleFor(style, asset)
-    const playable = rows.filter((midi) => isPitchPlayableFor(midi, style, asset))
-    return playable.length ? playable : rows
+    return Core.playableScale(style, asset)
   }
 
   function pitchRowsForStyle(style, asset) {
@@ -460,6 +454,26 @@
     return true
   }
 
+  // 지우개 타원 밖에 남은 연속 점들을 획 조각으로 나눈다.
+  // 한 점짜리 조각도 탭 음표로 렌더·재생되므로 버리지 않는다.
+  function strokeFragmentsOutsideEraser(stroke, center, radiusX, radiusY) {
+    const fragments = []
+    let current = []
+    const flush = function () {
+      if (current.length) fragments.push(current)
+      current = []
+    }
+    ;(stroke || []).forEach(function (point) {
+      const dx = point.x - center.x
+      const dy = point.y - center.y
+      const inside = (dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) <= 1
+      if (inside) flush()
+      else current.push(point)
+    })
+    flush()
+    return fragments
+  }
+
   // === § 4  Undo 시스템 ===
 
   DrawingCanvas.prototype._snapshot = function () {
@@ -613,24 +627,11 @@
         nextInst.push(inst)
         continue
       }
-      let cur = []
-      for (const pt of stroke) {
-        const dx = pt.x - p.x
-        const dy = pt.y - p.y
-        if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1) {
-          if (cur.length >= 2) {
-            next.push(cur)
-            nextInst.push(inst)
-          }
-          cur = []
-        } else {
-          cur.push(pt)
-        }
-      }
-      if (cur.length >= 2) {
-        next.push(cur)
+      const fragments = strokeFragmentsOutsideEraser(stroke, p, rx, ry)
+      fragments.forEach(function (fragment) {
+        next.push(fragment)
         nextInst.push(inst)
-      }
+      })
     }
     const changed = !sameStrokeState(this.strokes, this.strokeInstruments, next, nextInst)
     this.strokes = next

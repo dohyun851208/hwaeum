@@ -11,7 +11,15 @@ const projectDir = path.resolve(__dirname, "..")
 function loadEngine() {
   const sandbox = { MusicCore: core, setTimeout, clearTimeout }
   sandbox.self = sandbox
-  for (const file of ["manifest.js", "sample-maps.js", "sample-maps-western.js", "audio-engine.js"]) {
+  for (const file of [
+    "manifest.js",
+    "sample-maps.js",
+    "sample-maps-western.js",
+    "audio-plan.js",
+    "audio-node-scope.js",
+    "audio-pad-graph.js",
+    "audio-engine.js",
+  ]) {
     const code = fs.readFileSync(path.join(projectDir, "js", file), "utf8")
     vm.runInNewContext(code, sandbox, { filename: file })
   }
@@ -148,6 +156,30 @@ test("resolvePlan keeps the selected scale independent from instrument sample ra
   assert.deepEqual(violin.pitchStyle, violin.style)
   assert.deepEqual(bass.pitchStyle, bass.style)
   assert.deepEqual(core.buildScale(violin.pitchStyle), core.buildScale(bass.pitchStyle))
+})
+
+test("AudioEngine keeps resolvePlan and seekPlan compatibility wrappers", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const recipe = {
+    duration: 12,
+    atmosphere: "calm",
+    instrument: "cello",
+    style: "bright",
+    version: "balanced",
+    mode: "melody",
+    strokes: [[{ x: 0.1, y: 0.5 }, { x: 0.4, y: 0.3 }]],
+  }
+  const notes = [{ time: 1, duration: 3, midi: 60, velocity: 0.7, voice: 0 }]
+
+  const enginePlan = engine.resolvePlan(recipe, notes)
+  const directPlan = sandbox.SDAudioPlan.resolvePlan(recipe, notes, {
+    core: sandbox.MusicCore,
+    data: sandbox.SDStudioData,
+  })
+
+  assert.deepEqual(plain(enginePlan), plain(directPlan))
+  assert.deepEqual(plain(engine.seekPlan(enginePlan, 2)), plain(sandbox.SDAudioPlan.seekPlan(directPlan, 2)))
 })
 
 test("배경음악 없음(silent) 분위기는 합성 패드 폴백도 깔지 않는다", () => {

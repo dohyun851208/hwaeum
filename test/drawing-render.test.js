@@ -7,11 +7,14 @@ const vm = require("node:vm")
 const projectDir = path.resolve(__dirname, "..")
 
 function loadDrawing(buildScale, coreOverrides) {
+  const scaleForTest = buildScale || function () {
+    return [60, 62, 64, 65, 67, 69, 71, 72]
+  }
   const sandbox = {
     MusicCore: Object.assign({
-      buildScale: buildScale || function () {
-        return [60, 62, 64, 65, 67, 69, 71, 72]
-      },
+      buildScale: scaleForTest,
+      drawableScale: scaleForTest,
+      playableScale: scaleForTest,
       autocompleteMelodyStrokes() {
         return []
       },
@@ -245,8 +248,8 @@ test("pitch axis labels use requested Korean order for western and gugak palette
     drawableScale() {
       return westernMidis
     },
-    isPitchPlayable(midi) {
-      return gugakMidis.indexOf(midi) !== -1
+    playableScale() {
+      return gugakMidis
     },
   }).pitchRowsForStyle({}, { playableMidi: gugakMidis })
   const gugakLabels = gugakRows.map((row) => row.label)
@@ -268,8 +271,8 @@ test("gugak axis hides western strokes but keeps them for the western axis", () 
     drawableScale() {
       return westernMidis
     },
-    isPitchPlayable(midi, style, asset) {
-      return !asset || !asset.playableMidi || asset.playableMidi.indexOf(midi) !== -1
+    playableScale(style, asset) {
+      return asset && asset.playableMidi ? asset.playableMidi : westernMidis
     },
     // 변환이 실제로 렌더에 쓰이는지 확인할 수 있게 단순 축소 변환을 흉내 낸다.
     displayYFromStored(y) {
@@ -326,8 +329,8 @@ test("inactive pitch rows do not start a new drawing stroke", () => {
     drawableScale() {
       return westernMidis
     },
-    isPitchPlayable(midi) {
-      return gugakMidis.indexOf(midi) !== -1
+    playableScale() {
+      return gugakMidis
     },
     quantizePitch(y) {
       const idx = Math.max(0, Math.min(westernMidis.length - 1, Math.floor((1 - y) * westernMidis.length)))

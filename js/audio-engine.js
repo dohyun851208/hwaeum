@@ -12,6 +12,24 @@
 
   const Core = root.MusicCore
   const Data = root.SDStudioData
+  const AudioPlan = root.SDAudioPlan
+  const AudioNodeScope = root.SDAudioNodeScope
+  const AudioPadGraph = root.SDAudioPadGraph
+  if (!AudioPlan) throw new Error("audio-plan.js must load before audio-engine.js")
+  if (!AudioNodeScope) throw new Error("audio-node-scope.js must load before audio-engine.js")
+  if (!AudioPadGraph) throw new Error("audio-pad-graph.js must load before audio-engine.js")
+  const audioBufferDuration = AudioPlan.audioBufferDuration
+  const backgroundRange = AudioPlan.backgroundRange
+  const contiguousPhrases = AudioPlan.contiguousPhrases
+  const isMultiSample = AudioPlan.isMultiSample
+  const nearestSampleSegment = AudioPlan.nearestSampleSegment
+  const phraseEnd = AudioPlan.phraseEnd
+  const playbackMidiForInstrument = AudioPlan.playbackMidiForInstrument
+  const playbackTranspose = AudioPlan.playbackTranspose
+  const sampleBufferFor = AudioPlan.sampleBufferFor
+  const sampleMapFor = AudioPlan.sampleMapFor
+  const sampleSegmentBounds = AudioPlan.sampleSegmentBounds
+  const segmentPlaybackRate = AudioPlan.segmentPlaybackRate
   const EFFECT_GAIN = 0.15
   const BACKGROUND_OUTPUT_GAIN = 1.5
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
@@ -68,7 +86,6 @@
   const HAEGEUM_NOTE_GLIDE_SECONDS = 0.12
   const HAEGEUM_LIVE_NOTE_GLIDE_SECONDS = 0.09
   const HAEGEUM_PHRASE_ATTACK_SECONDS = 0.06
-  const DRAWING_NOTE_GAP_TOLERANCE_SECONDS = 0.08
   const STROKE_TAP_SECONDS = 0.16
   // === § 2  공유 유틸리티 ===
 
@@ -78,15 +95,6 @@
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v))
   }
-  function audioBufferDuration(buffer) {
-    const duration = buffer && Number(buffer.duration)
-    if (isFinite(duration) && duration > 0) return duration
-    const length = buffer && Number(buffer.length)
-    const sampleRate = buffer && Number(buffer.sampleRate)
-    if (isFinite(length) && isFinite(sampleRate) && length > 0 && sampleRate > 0) return length / sampleRate
-    return 0
-  }
-
   function finiteOr(value, fallback) {
     const n = Number(value)
     return isFinite(n) ? n : fallback
@@ -496,192 +504,6 @@
   }
   // === § 5  샘플 맵 & 재생 헬퍼 ===
 
-  function samplePlaybackRate(asset, midi) {
-    const baseMidi = asset && asset.baseMidi != null ? asset.baseMidi : midi
-    return Math.pow(2, (midi - baseMidi) / 12)
-  }
-  function sampleMapFor(asset) {
-    return asset && Array.isArray(asset.sampleMap) && asset.sampleMap.length ? asset.sampleMap : null
-  }
-  function nearestSampleSegment(asset, midi) {
-    const map = sampleMapFor(asset)
-    if (!map) return null
-    let best = map[0]
-    for (const item of map) {
-      if (Math.abs(item.midi - midi) < Math.abs(best.midi - midi)) best = item
-    }
-    return best
-  }
-  function segmentPlaybackRate(asset, midi, segment) {
-    if (!segment) return samplePlaybackRate(asset, midi)
-    // 검출된 샘플 구간은 segment.midi 에서 segment.cents 만큼 어긋나 있다(Hz 분석 메타).
-    // 그 오차를 보정해 실제로 목표 음(midi)으로 정확히 재생되게 한다.
-    // → 국악기 "삑사리"·"피치 안 맞음"(소금 E·대금 윗옥타브·해금 전체)의 근본 원인 해결.
-    const detectedSemitone = segment.midi + (segment.cents || 0) / 100
-    return Math.pow(2, (midi - detectedSemitone) / 12)
-  }
-  // 멀티샘플: 음(피치)마다 별도 녹음 파일을 가진 악기(서양 선율). phrase(국악 한 파일 분할)와 구분.
-  function isMultiSample(asset) {
-    return !!(asset && asset.sampleMode === "multi")
-  }
-  function playableMidiList(instrument, asset) {
-    if (asset && Array.isArray(asset.playableMidi)) return asset.playableMidi
-    if (instrument && Array.isArray(instrument.playableMidi)) return instrument.playableMidi
-    return null
-  }
-  function playbackTranspose(instrument, asset) {
-    const value =
-      asset && asset.playbackTranspose != null
-        ? asset.playbackTranspose
-        : instrument && instrument.playbackTranspose != null
-          ? instrument.playbackTranspose
-          : 0
-    return Number.isFinite(value) ? value : 0
-  }
-  function playbackMidiForInstrument(uiMidi, instrument, asset) {
-    if (uiMidi == null) return null
-    const midi = uiMidi + playbackTranspose(instrument, asset)
-    const allowed = playableMidiList(instrument, asset)
-    if (allowed && allowed.indexOf(uiMidi) === -1 && allowed.indexOf(midi) === -1) return null
-    return midi
-  }
-  function playbackNoteForInstrument(note, instrument, asset) {
-    const uiMidi = note.uiMidi != null ? note.uiMidi : note.midi
-    const midi = playbackMidiForInstrument(uiMidi, instrument, asset)
-    if (midi == null) return null
-    return Object.assign({}, note, { uiMidi: uiMidi, midi: midi })
-  }
-  function playbackNotesForPlan(notes, instrument, melodyAsset, voiceAssets) {
-    const out = []
-    ;(notes || []).forEach(function (note) {
-      const voiceAsset = note.voice != null && voiceAssets ? voiceAssets[note.voice] : null
-      const inst = voiceAsset ? voiceAsset.instrument : instrument
-      const asset = voiceAsset ? voiceAsset.melodyAsset : melodyAsset
-      const next = playbackNoteForInstrument(note, inst, asset)
-      if (next) out.push(next)
-    })
-    return out
-  }
-  // 멀티샘플에서 해당 음의 실제 녹음 버퍼를 고른다. 없으면 대표(폴백) 버퍼.
-  function strokeSegmentsForPlan(recipe, duration, style, instrument, melodyAsset, voiceAssets) {
-    const out = []
-    const total = Math.max(0.05, Number(duration) || 30)
-    ;(recipe.strokes || []).forEach(function (stroke, voice) {
-      if (!Array.isArray(stroke) || !stroke.length) return
-      const voiceAsset = voiceAssets && voiceAssets[voice] ? voiceAssets[voice] : null
-      const inst = voiceAsset ? voiceAsset.instrument : instrument
-      const asset = voiceAsset ? voiceAsset.melodyAsset : melodyAsset
-      const points = stroke
-        .map(function (point) {
-          return {
-            time: clamp(Number(point && point.x) || 0, 0, 1) * total,
-            y: clamp(Number(point && point.y) || 0, 0, 1),
-          }
-        })
-        .sort(function (a, b) {
-          return a.time - b.time
-        })
-      let current = []
-      function pushCurrent(endTime) {
-        if (!current.length) return
-        const startTime = current[0].time
-        const lastTime = endTime == null ? current[current.length - 1].time : endTime
-        const segmentEnd = Math.min(total, Math.max(lastTime, startTime + STROKE_TAP_SECONDS))
-        if (segmentEnd <= startTime + 0.01) {
-          current = []
-          return
-        }
-        out.push({
-          voice: voice,
-          start: startTime,
-          end: segmentEnd,
-          duration: segmentEnd - startTime,
-          events: current.slice(),
-        })
-        current = []
-      }
-      for (let i = 0; i < points.length; i++) {
-        const point = points[i]
-        const uiMidi = Core.quantizePitch(point.y, style, asset)
-        const midi = playbackMidiForInstrument(uiMidi, inst, asset)
-        if (midi == null) {
-          pushCurrent(point.time)
-          continue
-        }
-        const event = { time: point.time, midi: midi, uiMidi: uiMidi }
-        const prev = current[current.length - 1]
-        if (prev && Math.abs(prev.time - event.time) < 1e-3) current[current.length - 1] = event
-        else current.push(event)
-      }
-      pushCurrent(points.length ? points[points.length - 1].time : null)
-    })
-    return out.sort(function (a, b) {
-      return a.start - b.start
-    })
-  }
-  function strokeEventAt(events, time) {
-    let found = events[0]
-    for (let i = 0; i < events.length; i++) {
-      if (events[i].time <= time + 1e-6) found = events[i]
-      else break
-    }
-    return found
-  }
-  function shiftStrokeSegments(segments, offset, totalDuration) {
-    return (segments || [])
-      .filter(function (segment) {
-        return segment && segment.end > offset && segment.start < totalDuration
-      })
-      .map(function (segment) {
-        const startTime = Math.max(segment.start, offset)
-        const endTime = Math.min(segment.end, totalDuration)
-        const anchor = strokeEventAt(segment.events || [], startTime)
-        const events = []
-        if (anchor) events.push(Object.assign({}, anchor, { time: startTime - offset }))
-        ;(segment.events || []).forEach(function (event) {
-          if (event.time <= startTime + 1e-6 || event.time >= endTime - 1e-6) return
-          events.push(Object.assign({}, event, { time: event.time - offset }))
-        })
-        return Object.assign({}, segment, {
-          start: startTime - offset,
-          end: endTime - offset,
-          duration: Math.max(0.01, endTime - startTime),
-          events: events,
-        })
-      })
-      .filter(function (segment) {
-        return segment.events && segment.events.length && segment.duration > 0.01
-      })
-  }
-  function sampleBufferFor(sampleBuffers, segment, fallback) {
-    if (sampleBuffers && segment && sampleBuffers[segment.midi]) return sampleBuffers[segment.midi]
-    return fallback
-  }
-  function sampleSegmentBounds(buffer, segment, fallbackOffset) {
-    const total = audioBufferDuration(buffer)
-    if (!(total > 0)) return { offset: 0, duration: 0 }
-    const fallback = clamp(Number(fallbackOffset) || 0, 0, Math.max(0, total - 0.01))
-    const segmentOffset = segment ? Number(segment.offset) : NaN
-    const hasSegmentOffset = !!segment && isFinite(segmentOffset) && segmentOffset >= 0 && segmentOffset < total - 0.01
-    const offset = hasSegmentOffset ? segmentOffset : fallback
-    const remaining = Math.max(0, total - offset)
-    const segmentDuration = segment ? Number(segment.duration) : NaN
-    const duration = !!segment && isFinite(segmentDuration) && segmentDuration > 0.01 && segmentDuration <= remaining + 0.02
-      ? Math.min(segmentDuration, remaining)
-      : remaining
-    return { offset: offset, duration: Math.max(0, duration) }
-  }
-
-  function backgroundRange(plan, buffer) {
-    const total = buffer && isFinite(buffer.duration) ? Math.max(0, buffer.duration) : 0
-    if (!total) return { start: 0, end: 0, length: 0 }
-    const start = clamp(plan.bgOffset || 0, 0, Math.max(0, total - 0.05))
-    let end = Number(plan.bgEndOffset || 0)
-    if (!isFinite(end) || end <= start + 0.05) end = Math.min(total, start + (plan.totalDuration || plan.duration || 30))
-    end = clamp(end, Math.min(total, start + 0.05), total)
-    return { start: start, end: end, length: Math.max(0.05, end - start) }
-  }
-
   // === § 6  합성 음색 설정 ===
   // 실제 샘플이 없을 때도 악기가 구분되어 들리도록
   // (필터 컷오프/공명 Q, 어택, 비브라토 속도/깊이를 악기마다 다르게).
@@ -708,50 +530,6 @@
   function synthVoiceFor(instrument) {
     const base = SYNTH_VOICE_DEFAULTS[instrument.group] || SYNTH_VOICE_DEFAULTS["서양"]
     return Object.assign({ waveform: instrument.waveform || "sine" }, base, SYNTH_VOICE_OVERRIDES[instrument.id] || {})
-  }
-
-  // === § 7  프레이즈 & 음표 그룹화 ===
-
-  // 두 음이 시간상 맞붙어 있으면(연속) 레가토로 이어 들리게 한다.
-  function isContiguous(note, next) {
-    if (!next) return false
-    if (note.voice != null || next.voice != null) {
-      if (note.voice !== next.voice) return false
-    }
-    const gap = next.time - (note.time + note.duration)
-    return gap >= -1e-3 && gap <= DRAWING_NOTE_GAP_TOLERANCE_SECONDS
-  }
-
-  function phraseEnd(notes) {
-    const last = notes[notes.length - 1]
-    return last.time + last.duration
-  }
-
-  function contiguousPhrases(notes) {
-    const phrases = []
-    const byVoice = new Map()
-    for (const note of notes) {
-      const key = note.voice == null ? "_" : String(note.voice)
-      if (!byVoice.has(key)) byVoice.set(key, [])
-      byVoice.get(key).push(note)
-    }
-    byVoice.forEach(function (voiceNotes) {
-      voiceNotes.sort(function (a, b) {
-        return a.time - b.time
-      })
-      let current = []
-      for (let i = 0; i < voiceNotes.length; i++) {
-        current.push(voiceNotes[i])
-        if (!isContiguous(voiceNotes[i], voiceNotes[i + 1])) {
-          phrases.push(current)
-          current = []
-        }
-      }
-    })
-    phrases.sort(function (a, b) {
-      return a[0].time - b[0].time
-    })
-    return phrases
   }
 
   // 연속으로 그린 음들은 하나의 프레이즈 엔벨로프로 감싸, 경계마다 다시 타격되지 않게 한다.
@@ -791,7 +569,9 @@
     this.ctx = null
     this.bufferCache = new Map() // url -> Promise<AudioBuffer|null>
     this.decodedCache = new Map() // url -> AudioBuffer|null
-    this.active = [] // 현재 재생 중 노드
+    this.transportScope = new AudioNodeScope("transport")
+    this.previewScope = new AudioNodeScope("preview")
+    this.previewGen = 0
     this.master = null
     this.stopTimer = null
     this.isPlaying = false
@@ -885,115 +665,11 @@
 
   // recipe(ids) → 실제 데이터 객체로 해석
   AudioEngine.prototype.resolvePlan = function (recipe, notes) {
-    const atmosphere = Data.atmospheres.find((a) => a.id === recipe.atmosphere) || Data.atmospheres[0]
-    const instrument = Data.instruments.find((i) => i.id === recipe.instrument) || Data.instruments[0]
-    const style = Data.styles.find((s) => s.id === recipe.style) || Data.styles[0]
-    const version = Data.versions.find((v) => v.id === recipe.version) || Data.versions[0]
-    const padAsset = Data.pads[atmosphere.padType] || null
-    const backgroundAsset = Data.backgrounds[atmosphere.backgroundId] || null
-    const melodyAsset = Data.melodies[instrument.id] || null
-    // 오케스트라: 획(voice)마다 다른 악기. recipe.strokeInstruments[voice] → 악기/asset/gugak.
-    // 비어 있으면(옛 레시피) 전 voice가 기본 instrument 하나로 재생.
-    const voiceAssets = {}
-    ;(recipe.strokeInstruments || []).forEach(function (instId, voice) {
-      const inst = Data.instruments.find((i) => i.id === instId) || instrument
-      voiceAssets[voice] = {
-        instrument: inst,
-        melodyAsset: Data.melodies[inst.id] || null,
-        gugak: !!style.gugak || inst.group === "국악" || !!version.ornament,
-      }
-    })
-    const duration = recipe.duration || 30
-    const effectIds = []
-    ;(atmosphere.effectIds || []).concat(recipe.effectIds || []).forEach(function (id) {
-      if (Data.effects[id] && effectIds.indexOf(id) === -1) effectIds.push(id)
-    })
-    const effectStamps = (recipe.effectStamps || [])
-      .filter(function (stamp) {
-        return stamp && Data.effects[stamp.id]
-      })
-      .map(function (stamp) {
-        const x = clamp(stamp.x == null ? 0 : stamp.x, 0, 1)
-        const y = clamp(stamp.y == null ? 0.5 : stamp.y, 0, 1)
-        const time = stamp.time == null ? x * duration : clamp(stamp.time, 0, duration)
-        if (effectIds.indexOf(stamp.id) === -1) effectIds.push(stamp.id)
-        return { id: stamp.id, x: x, y: y, time: time }
-      })
-    const effects = effectIds.map((id) => Object.assign({ id: id }, Data.effects[id]))
-    const gugak = !!style.gugak || instrument.group === "국악" || !!version.ornament
-    const mode = recipe.mode || "melody"
-    const rhythmHits =
-      mode === "rhythm" ? Core.autocompleteRhythm(recipe.path || [], { durationSec: duration, bpm: 100 }) : []
-    return {
-      duration: duration,
-      totalDuration: duration,
-      playbackOffset: 0,
-      bgOffset: Math.max(0, recipe.bgOffset || 0), // 배경음악을 이 지점(초)부터 깐다(스케줄에서 버퍼 길이로 클램프)
-      bgEndOffset: Math.max(0, recipe.bgEndOffset || 0),
-      mode: mode,
-      atmosphere: atmosphere,
-      instrument: instrument,
-      style: style,
-      pitchStyle: style,
-      version: version,
-      silent: !!atmosphere.silent, // 배경음악 없음 — 배경 음원·합성 패드 폴백을 모두 끈다
-      padAsset: padAsset,
-      backgroundAsset: backgroundAsset,
-      melodyAsset: melodyAsset,
-      voiceAssets: voiceAssets,
-      effects: effects,
-      effectStamps: effectStamps,
-      gugak: gugak,
-      notes: playbackNotesForPlan(notes || [], instrument, melodyAsset, voiceAssets),
-      uiNotes: notes || [],
-      strokeSegments: strokeSegmentsForPlan(recipe, duration, style, instrument, melodyAsset, voiceAssets),
-      rhythmHits: rhythmHits,
-    }
+    return AudioPlan.resolvePlan(recipe, notes, { core: Core, data: Data })
   }
 
   AudioEngine.prototype.seekPlan = function (plan, offsetSec) {
-    const totalDuration = Math.max(0.05, plan.totalDuration || plan.duration || 30)
-    const offset = clamp(Number(offsetSec) || 0, 0, Math.max(0, totalDuration - 0.05))
-    if (offset <= 0) {
-      return Object.assign({}, plan, {
-        totalDuration: totalDuration,
-        playbackOffset: 0,
-      })
-    }
-    const remaining = Math.max(0.05, totalDuration - offset)
-    const shiftNotes = function (notes) {
-      return (notes || [])
-        .filter(function (note) {
-          return note && note.time + note.duration > offset && note.time < totalDuration
-        })
-        .map(function (note) {
-          const noteStart = Math.max(note.time, offset)
-          const noteEnd = Math.min(note.time + note.duration, totalDuration)
-          return Object.assign({}, note, {
-            time: noteStart - offset,
-            duration: Math.max(0.03, noteEnd - noteStart),
-          })
-        })
-    }
-    const shiftTimed = function (items) {
-      return (items || [])
-        .filter(function (item) {
-          return item && item.time >= offset && item.time < totalDuration
-        })
-        .map(function (item) {
-          return Object.assign({}, item, { time: item.time - offset })
-        })
-    }
-    return Object.assign({}, plan, {
-      duration: remaining,
-      totalDuration: totalDuration,
-      playbackOffset: offset,
-      notes: shiftNotes(plan.notes),
-      uiNotes: shiftNotes(plan.uiNotes),
-      strokeSegments: shiftStrokeSegments(plan.strokeSegments, offset, totalDuration),
-      rhythmHits: shiftTimed(plan.rhythmHits),
-      effectStamps: shiftTimed(plan.effectStamps),
-    })
+    return AudioPlan.seekPlan(plan, offsetSec)
   }
 
   AudioEngine.prototype.preload = async function (ctx, plan) {
@@ -1581,30 +1257,17 @@
 
   AudioEngine.prototype.scheduleSynthPad = function (ctx, dest, plan, start, register) {
     const dur = plan.duration
-    const padGain = ctx.createGain()
+    const graph = AudioPadGraph.createSynthPadGraph(ctx, dest, plan, start)
+    const padGain = graph.gain
     const targetGain = backgroundOutputGain(plan)
     padGain.gain.setValueAtTime(targetGain * 0.35, start)
     padGain.gain.linearRampToValueAtTime(targetGain, start + 0.45)
     padGain.gain.setValueAtTime(targetGain, start + Math.max(1.6, dur - 1.5))
     padGain.gain.linearRampToValueAtTime(0, start + dur)
-    padGain.connect(dest)
-    const base = plan.style.root - 12
-    const iv = plan.style.intervals
-    const chord = [base, base + (iv[2] || 4), base + (iv[4] || 7)]
-    const wave = (plan.padAsset && plan.padAsset.fallbackWave) || "sine"
-    chord.forEach((midi, index) => {
-      const osc = ctx.createOscillator()
-      const filter = ctx.createBiquadFilter()
-      osc.type = index === 0 ? "triangle" : wave
-      osc.frequency.setValueAtTime(midiToFreq(midi), start)
-      osc.detune.setValueAtTime((index - 1) * 7, start)
-      filter.type = "lowpass"
-      filter.frequency.setValueAtTime(plan.atmosphere.id === "rain" ? 560 : 950, start)
-      osc.connect(filter)
-      filter.connect(padGain)
-      register(osc)
-      osc.start(start)
-      osc.stop(start + dur + 0.2)
+    graph.sources.forEach((source, index) => {
+      register(source, [graph.cleanupNodes[index]])
+      source.start(start)
+      source.stop(start + dur + 0.2)
     })
   }
 
@@ -1615,6 +1278,7 @@
     const hadPlayback = this.isPlaying || this.isPaused || this.isStarting || !!this.master || !!this.stopTimer || !!this.ambience
     this.lastStopReason = options && options.ended ? "ended" : "stopped"
     this.playGen++ // 진행 중인 비동기 play() 를 무효화(로딩 중 정지가 확실히 먹히도록)
+    this.previewGen++ // suspend/디코드 완료를 기다리는 미리듣기가 정지 뒤 다시 시작되지 않게 한다.
     this.isPaused = false
     this.isStarting = false
     this.pauseRemainingMs = 0
@@ -1631,15 +1295,8 @@
         this.master.disconnect()
       } catch (e) {}
     }
-    for (const node of this.active) {
-      try {
-        node.stop(0)
-      } catch (e) {}
-      try {
-        node.disconnect()
-      } catch (e) {}
-    }
-    this.active = []
+    this.transportScope.stopAll(0)
+    this.previewScope.stopAll(0)
     this.master = null
     this.isPlaying = false
     // 일시정지(suspend) 상태로 멈췄다면 컨텍스트를 다시 깨워 다음 재생에 대비
@@ -2020,29 +1677,19 @@
 
   AudioEngine.prototype._startAmbienceSynth = function (ctx, plan, sig) {
     const now = ctx.currentTime + 0.02
-    const padGain = ctx.createGain()
+    const graph = AudioPadGraph.createSynthPadGraph(ctx, ctx.destination, plan, now)
+    const padGain = graph.gain
     padGain.gain.setValueAtTime(0.0001, now)
     padGain.gain.linearRampToValueAtTime(backgroundOutputGain(plan), now + 0.5) // 빠른 페이드인 → 바로 들리게
-    padGain.connect(ctx.destination)
-    const base = plan.style.root - 12
-    const iv = plan.style.intervals
-    const chord = [base, base + (iv[2] || 4), base + (iv[4] || 7)]
-    const wave = (plan.padAsset && plan.padAsset.fallbackWave) || "sine"
-    const nodes = []
-    chord.forEach(function (midi, index) {
-      const osc = ctx.createOscillator()
-      const filter = ctx.createBiquadFilter()
-      osc.type = index === 0 ? "triangle" : wave
-      osc.frequency.setValueAtTime(midiToFreq(midi), now)
-      osc.detune.setValueAtTime((index - 1) * 7, now)
-      filter.type = "lowpass"
-      filter.frequency.setValueAtTime(plan.atmosphere.id === "rain" ? 560 : 950, now)
-      osc.connect(filter)
-      filter.connect(padGain)
-      osc.start(now)
-      nodes.push(osc)
+    graph.sources.forEach(function (source) {
+      source.start(now)
     })
-    this.ambience = { signature: sig, gain: padGain, nodes: nodes }
+    this.ambience = {
+      signature: sig,
+      gain: padGain,
+      nodes: graph.sources,
+      cleanupNodes: graph.cleanupNodes,
+    }
   }
 
   AudioEngine.prototype.startAmbience = function (recipe) {
@@ -2094,14 +1741,16 @@
         } catch (e) {}
       }
     })
+    if (immediate) {
+      ;(amb.cleanupNodes || []).forEach(function (node) {
+        disconnectQuietly(node)
+      })
+      disconnectQuietly(amb.gain)
+    }
   }
 
-  AudioEngine.prototype._registerPreviewNode = function (node) {
-    const self = this
-    this.active.push(node)
-    node.onended = function () {
-      self.active = self.active.filter((n) => n !== node)
-    }
+  AudioEngine.prototype._registerPreviewNode = function (node, cleanupNodes) {
+    this.previewScope.track(node, cleanupNodes)
   }
 
   AudioEngine.prototype._previewSynth = function (ctx, plan, note, start) {
@@ -2120,7 +1769,7 @@
     osc.connect(filter)
     filter.connect(env)
     env.connect(ctx.destination)
-    this._registerPreviewNode(osc)
+    this._registerPreviewNode(osc, [filter, env])
     osc.start(start)
     osc.stop(start + note.duration + 0.03)
   }
@@ -2144,7 +1793,7 @@
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
     src.connect(env)
     env.connect(ctx.destination)
-    this._registerPreviewNode(src)
+    this._registerPreviewNode(src, [env])
     src.start(start, offset, Math.min(usableSourceDur, note.duration * baseRate + 0.04))
     src.stop(start + note.duration + 0.03)
   }
@@ -2159,7 +1808,7 @@
     env.gain.setTargetAtTime(0.001, start + Math.max(0.05, duration * 0.72), 0.06)
     src.connect(env)
     env.connect(ctx.destination)
-    this._registerPreviewNode(src)
+    this._registerPreviewNode(src, [env])
     src.start(start, 0, duration)
     src.stop(start + duration + 0.04)
   }
@@ -2195,7 +1844,7 @@
       osc.connect(env)
     }
     env.connect(ctx.destination)
-    this._registerPreviewNode(osc)
+    this._registerPreviewNode(osc, [filter, env])
     osc.start(start)
     osc.stop(start + 0.27)
   }
@@ -2204,7 +1853,9 @@
     if (!effect || !effect.src) return Promise.resolve(false)
     const ctx = this.ensureContext()
     const self = this
+    const previewGen = this.previewGen
     const run = function () {
+      if (previewGen !== self.previewGen) return false
       const start = ctx.currentTime + 0.01
       const readyBuffer = effect.src ? self.decodedCache.get(effect.src) : null
       if (readyBuffer) {
@@ -2214,7 +1865,7 @@
       self._previewEffectFallback(ctx, effect, start)
       const requestedAt = ctx.currentTime
       return self.loadAssetBuffer(ctx, effect).then(function (buffer) {
-        if (buffer && ctx.currentTime - requestedAt < 0.7) {
+        if (previewGen === self.previewGen && buffer && ctx.currentTime - requestedAt < 0.7) {
           self._playEffectBufferPreview(ctx, buffer, ctx.currentTime + 0.03)
         }
         return !!buffer
@@ -2227,7 +1878,9 @@
   AudioEngine.prototype.previewNote = function (recipe, normY) {
     const ctx = this.ensureContext()
     const self = this
+    const previewGen = this.previewGen
     const run = function () {
+      if (previewGen !== self.previewGen) return
       const plan = self.resolvePlan(recipe, [])
       const uiMidi = self._liveUiMidi(plan, normY)
       const midi = playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
@@ -2247,15 +1900,15 @@
         const seg = nearestSampleSegment(asset, note.midi)
         if (seg && seg.src) src = seg.src
       }
-      if (src && self.bufferCache.has(src)) {
-        self.bufferCache.get(src).then((buffer) => {
-          if (buffer) self._previewSample(ctx, plan, buffer, note, start)
-          else self._previewSynth(ctx, plan, note, start)
-        })
-      } else {
-        if (src) self.loadBuffer(ctx, src)
-        self._previewSynth(ctx, plan, note, start)
+      const readyBuffer = src ? self.decodedCache.get(src) : null
+      if (readyBuffer) {
+        self._previewSample(ctx, plan, readyBuffer, note, start)
+        return
       }
+      // 디코딩 중인 Promise에 재생 콜백을 매달면 빠른 클릭들이 완료 순간 한꺼번에 울린다.
+      // 준비 전에는 클릭마다 합성음을 즉시 한 번만 내고, 실제 샘플은 다음 클릭을 위해 워밍만 한다.
+      if (src) self.loadBuffer(ctx, src)
+      self._previewSynth(ctx, plan, note, start)
     }
     if (ctx.state === "suspended") return ctx.resume().then(run)
     run()
@@ -2278,11 +1931,8 @@
       const buffers = await this.preload(ctx, plan)
       if (gen !== this.playGen) return this.lastMode // 음원 디코드 사이 정지됨 → 소리 내지 않음
       const self = this
-      const register = function (node) {
-        self.active.push(node)
-        node.onended = function () {
-          self.active = self.active.filter((n) => n !== node)
-        }
+      const register = function (node, cleanupNodes) {
+        self.transportScope.track(node, cleanupNodes)
       }
       const start = ctx.currentTime + 0.05
       const master = ctx.createGain()
@@ -2412,7 +2062,7 @@
     setTimeout(function () {
       URL.revokeObjectURL(url)
     }, 2000)
-    return { size: blob.size, mimeType: mimeType }
+    return { size: blob.size, mimeType: blob.type }
   }
 
   root.AudioEngine = AudioEngine

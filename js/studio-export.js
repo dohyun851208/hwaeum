@@ -1,10 +1,25 @@
 ;(function (root) {
   "use strict"
 
-  // Canvas 스냅샷·파일 다운로드 유틸리티 팩토리.
-  // studio.js에서 createStudioExport(deps)로 호출하여 반환된 함수들을 destructure.
+  // 음악·커버·드로잉 파일 내보내기와 Canvas 스냅샷 팩토리.
+  // studio.js는 레시피 생성·그림 유무 확인 같은 오케스트레이션 콜백만 주입한다.
   root.HwaeumStudioExport = function createStudioExport(deps) {
-    const { state, el, D, draw, StudioUtils, timelineLabelTimes, getDuration } = deps
+    const {
+      state,
+      el,
+      D,
+      draw,
+      engine,
+      StudioUtils,
+      timelineLabelTimes,
+      getDuration,
+      buildRecipe,
+      notesFor,
+      requireDrawn,
+      drawProceduralFrameFallback,
+      defaultCoverSrc,
+      hashtagText,
+    } = deps
 
     // ── 커버·썸네일 ──────────────────────────────────────────────
 
@@ -211,12 +226,163 @@
     }
 
     function supportedVideoMime() {
-      if (!window.MediaRecorder) return ""
+      if (!root.MediaRecorder) return ""
       const list = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
       for (const type of list) {
-        if (!MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(type)) return type
+        if (!root.MediaRecorder.isTypeSupported || root.MediaRecorder.isTypeSupported(type)) return type
       }
       return ""
+    }
+
+    // ── 사용자 내보내기 워크플로 ─────────────────────────────────
+
+    async function exportAudio() {
+      if (!requireDrawn()) return
+      el.exportStatus.textContent = "압축 음악을 만드는 중… 노래 길이만큼 기다려 주세요."
+      try {
+        const recipe = buildRecipe()
+        if (!engine.exportCompressedAudio) throw new Error("compressed audio export is not available")
+        const result = await engine.exportCompressedAudio(recipe, notesFor(recipe), safeName() + "_music.webm")
+        const size = result && typeof result === "object" ? result.size : result
+        el.exportStatus.textContent = "음악 저장 완료 (" + Math.round(size / 1024) + " KB, WebM)"
+        return result
+      } catch (e) {
+        console.error(e)
+        el.exportStatus.textContent = "음악 저장 실패 — 크롬에서 다시 시도해 주세요."
+      }
+    }
+
+    function exportCover() {
+      const size = 1024
+      const cv = document.createElement("canvas")
+      cv.width = size
+      cv.height = size
+      const ctx = cv.getContext("2d")
+
+      function finish() {
+        const tags = hashtagText(state.hashtags)
+        const padH = tags ? 190 : 140
+        ctx.fillStyle = "rgba(20,26,26,0.82)"
+        ctx.fillRect(0, size - padH, size, padH)
+        ctx.fillStyle = "#fbf6ec"
+        ctx.font = "700 52px Georgia, serif"
+        ctx.fillText(fitCanvasLine(ctx, state.title || "무제", size - 96), 48, size - padH + 64)
+        if (tags) {
+          ctx.font = "800 30px 'Segoe UI', sans-serif"
+          ctx.fillStyle = "rgba(251,246,236,0.92)"
+          ctx.fillText(fitCanvasLine(ctx, tags, size - 96), 48, size - padH + 118)
+        }
+        cv.toBlob(function (blob) {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement("a")
+          a.href = url
+          a.download = safeName() + "_cover.png"
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          setTimeout(() => URL.revokeObjectURL(url), 2000)
+          el.exportStatus.textContent = "커버 이미지를 내보냈어요."
+        }, "image/png")
+      }
+
+      const img = new Image()
+      img.onload = function () {
+        drawCoverFit(ctx, img, size)
+        finish()
+      }
+      img.onerror = function () {
+        drawProceduralFrameFallback()
+        ctx.drawImage(el.frameCanvas, 0, 0, size, size)
+        finish()
+      }
+      img.src = state.pic || defaultCoverSrc
+    }
+
+    async function exportDrawingImage() {
+      if (!requireDrawn()) return
+      el.exportStatus.textContent = "드로잉 이미지를 만드는 중…"
+      try {
+        const cv = await renderDrawingSnapshotCanvas()
+        const blob = await canvasToBlob(cv, "image/png")
+        downloadBlob(blob, safeName() + "_drawing.png")
+        el.exportStatus.textContent = "드로잉 이미지를 저장했어요."
+        return blob
+      } catch (e) {
+        console.error(e)
+        el.exportStatus.textContent = "드로잉 이미지 저장 실패 — 콘솔을 확인하세요."
+      }
+    }
+
+    async function exportDrawingVideo() {
+      if (!requireDrawn()) return
+      const base = await renderDrawingSnapshotCanvas()
+      if (!root.MediaRecorder || typeof base.captureStream !== "function") {
+        el.exportStatus.textContent = "이 브라우저에서는 드로잉 영상 저장을 지원하지 않아요. 드로잉 이미지를 이용해 주세요."
+        return
+      }
+      const mimeType = supportedVideoMime()
+      if (!mimeType) {
+        el.exportStatus.textContent = "이 브라우저에서는 WebM 영상 저장을 지원하지 않아요."
+        return
+      }
+      const cv = document.createElement("canvas")
+      cv.width = base.width
+      cv.height = base.height
+      const ctx = cv.getContext("2d")
+      const drawFrame = function (progress) {
+        ctx.clearRect(0, 0, cv.width, cv.height)
+        ctx.drawImage(base, 0, 0)
+        drawSnapshotPlayhead(ctx, cv.width, cv.height, progress)
+      }
+      drawFrame(0)
+      const stream = cv.captureStream(30)
+      const chunks = []
+      const recorder = new root.MediaRecorder(stream, { mimeType: mimeType })
+      const done = new Promise(function (resolve, reject) {
+        recorder.ondataavailable = function (event) {
+          if (event.data && event.data.size) chunks.push(event.data)
+        }
+        recorder.onstop = resolve
+        recorder.onerror = function (event) {
+          reject((event && event.error) || new Error("MediaRecorder error"))
+        }
+      })
+      const durationMs = Math.max(1000, state.duration * 1000)
+      let raf = 0
+      let lastStatus = 0
+      el.exportStatus.textContent = "드로잉 영상을 녹화하는 중… " + Math.round(durationMs / 1000) + "초 정도 기다려 주세요."
+      try {
+        const start = performance.now()
+        recorder.start()
+        const tick = function (now) {
+          const elapsed = now - start
+          const progress = Math.min(1, elapsed / durationMs)
+          drawFrame(progress)
+          if (now - lastStatus > 1000) {
+            lastStatus = now
+            el.exportStatus.textContent =
+              "드로잉 영상을 녹화하는 중… " + Math.min(state.duration, Math.floor(elapsed / 1000)) + "/" + state.duration + "초"
+          }
+          if (progress < 1 && recorder.state !== "inactive") {
+            raf = requestAnimationFrame(tick)
+          } else if (recorder.state !== "inactive") {
+            recorder.stop()
+          }
+        }
+        raf = requestAnimationFrame(tick)
+        await done
+        if (!chunks.length) throw new Error("recorded video is empty")
+        const blob = new Blob(chunks, { type: mimeType })
+        downloadBlob(blob, safeName() + "_drawing.webm")
+        el.exportStatus.textContent = "드로잉 영상을 저장했어요. 소리는 음악 저장(WebM)으로 따로 저장할 수 있어요."
+        return blob
+      } catch (e) {
+        console.error(e)
+        if (raf) cancelAnimationFrame(raf)
+        el.exportStatus.textContent = "드로잉 영상 저장 실패 — 콘솔을 확인하세요."
+      } finally {
+        stream.getTracks().forEach((track) => track.stop())
+      }
     }
 
     return {
@@ -234,6 +400,10 @@
       downloadBlob,
       safeName,
       supportedVideoMime,
+      exportAudio,
+      exportCover,
+      exportDrawingImage,
+      exportDrawingVideo,
     }
   }
 })(window)

@@ -153,14 +153,6 @@
   bgPreview.preload = "none"
   let customBgSeq = 0
 
-  // 드로잉(3단계) 배경음악 — 전용 <audio>로 재생/일시정지.
-  // [bgOffset, bgEndOffset] 구간을 반복하고, 그 구간 길이가 최종 곡 길이가 된다.
-  const bgPlayer = new Audio()
-  bgPlayer.preload = "auto"
-  bgPlayer.volume = 0.825
-  let bgRAF = null
-  let bgPausedAt = null
-
   // 악기 연주곡 감상 — 배경 미리듣기와 동일한 독립 재생기(한 번에 하나만)
   const examplePreview = new Audio()
   examplePreview.preload = "none"
@@ -218,7 +210,6 @@
     rhythmReadout: $("rhythmReadout"),
     noteReadout: $("noteReadout"),
     durReadout: $("durReadout"),
-    versionList: $("versionList"),
     composeInstrumentList: $("composeInstrumentList"),
     orchestraLegend: $("orchestraLegend"),
     effectList: $("effectList"),
@@ -243,15 +234,7 @@
     publishModalCancelBtn: $("publishModalCancelBtn"),
     publishModalSubmitBtn: $("publishModalSubmitBtn"),
     saveTakeBtn: $("saveTakeBtn"),
-    exportAudioBtn: $("exportAudioBtn"),
-    completeStopBtn: $("completeStopBtn"),
-    exportDrawingImageBtn: $("exportDrawingImageBtn"),
-    exportDrawingVideoBtn: $("exportDrawingVideoBtn"),
-    exportCoverBtn: $("exportCoverBtn"),
-    shareBtn: $("shareBtn"),
-    shareChannelInput: $("shareChannelInput"),
     publishShareBtn: $("publishShareBtn"),
-    openShareStepBtn: $("openShareStepBtn"),
     channelOpenForm: $("channelOpenForm"),
     channelBrowseInput: $("channelBrowseInput"),
     channelBrowsePassInput: $("channelBrowsePassInput"),
@@ -263,8 +246,6 @@
     claimChannelBtn: $("claimChannelBtn"),
     openClaimedChannelBtn: $("openClaimedChannelBtn"),
     shareStatus: $("shareStatus"),
-    sharedWorksList: $("sharedWorksList"),
-    sharedEmpty: $("sharedEmpty"),
     exportStatus: $("exportStatus"),
     takesList: $("takesList"),
     takesCount: $("takesCount"),
@@ -295,6 +276,15 @@
   let trackedDrawUndoDepth = 0
   let trackedDrawUndoTop = null
   let suppressDrawUndoTracking = false
+
+  // DrawingCanvas와 설정 렌더러가 transport보다 먼저 만들어지므로 호출 시점에 위임한다.
+  let studioTransport = null
+  function soundDrawingProgress() {
+    return studioTransport ? studioTransport.soundDrawingProgress() : 0
+  }
+  function syncBgPlayerUI() {
+    if (studioTransport) return studioTransport.syncBgPlayerUI()
+  }
 
   // === § 6  DrawingCanvas 생성 ===
 
@@ -418,32 +408,31 @@
     return StudioUtils.keywordText ? StudioUtils.keywordText(value) : normalizeHashtags(value).join(" ")
   }
 
-  // === § 7b  Canvas Export Helpers (studio-export.js 초기화) ===
+  // === § 7b  내보내기 워크플로 (studio-export.js 초기화) ===
 
   const _studioExport = window.HwaeumStudioExport({
     state,
     el,
     D,
     draw,
+    engine,
     StudioUtils,
     timelineLabelTimes,
     getDuration: () => Math.max(MIN_DURATION_SECONDS, state.duration || DEFAULT_DURATION_SECONDS),
+    buildRecipe,
+    notesFor,
+    requireDrawn,
+    drawProceduralFrameFallback,
+    defaultCoverSrc: DEFAULT_COVER_SRC,
+    hashtagText,
   })
   const {
-    drawCoverFit,
-    fitCanvasLine,
-    roundCanvasRect,
-    loadCanvasImage,
-    stampImageMap,
-    snapshotTimelineX,
-    drawSnapshotTimeLabels,
-    drawSnapshotStamps,
-    drawSnapshotPlayhead,
     renderDrawingSnapshotCanvas,
     canvasToBlob,
-    downloadBlob,
-    safeName,
-    supportedVideoMime,
+    exportAudio,
+    exportCover,
+    exportDrawingImage,
+    exportDrawingVideo,
   } = _studioExport
 
   // === § 7c  분위기·악기 렌더 Helpers (studio-setup-render.js 초기화) ===
@@ -468,7 +457,7 @@
     setEraser,
     renderEffects,
     renderEffectStamps,
-    renderComposeInstruments,
+    recordUserAction,
     renderOrchestraLegend,
     renderPitchAxisLabels,
     updateReadouts,
@@ -481,62 +470,71 @@
     getNextCustomBgId: () => "custom-" + ++customBgSeq,
   })
   const {
-    instrumentFamilies,
-    card,
     bgSrcFor,
     backgroundFor,
-    balanceParentheticalMoodTitle,
     stopBackgroundPreview,
-    startBackgroundPreview,
-    toggleBackgroundPreview,
     stopExamplePreview,
-    toggleExamplePreview,
-    appendAtmosphereCard,
-    removeCustomBackground,
     renderAtmospheres,
-    buildUploadCard,
     addCustomBackground,
     renderInstrumentGroups,
-    selectInstrument,
     renderInstruments,
-    renderVersions,
+    renderComposeInstruments: renderComposeInstrumentsFromSetup,
   } = _studioSetupRender
 
-  // === § 7d  공유 갤러리 Helpers (studio-share-ui.js 초기화) ===
+  // === § 7d  재생·시간 상태 (studio-transport.js 초기화) ===
 
-  const sharedViewer = {
-    root: null,
-    cover: null,
-    title: null,
-    meta: null,
-    background: null,
-    melody: null,
-    tags: null,
-    audio: null,
-    closeBtn: null,
-    lastFocus: null,
-  }
-
-  const _studioShareUI = window.HwaeumStudioShareUI({
+  studioTransport = window.HwaeumStudioTransport({
+    root: window,
+    document,
     state,
     el,
-    ShareStore,
-    sharedViewer,
-    secondsLabel,
-    DEFAULT_COVER_SRC,
-    openSharedViewer,
-    sharedWorkUrl,
-    copyText,
-    deleteSharedWork,
+    engine,
+    draw,
+    DRAW_MODE_SOUND,
+    DRAWING_STEP,
+    MIN_DURATION_SECONDS,
+    DEFAULT_DURATION_SECONDS,
+    canvasWrap,
+    timelineProgressFromClientX,
+    timelineCssX,
+    syncCanvasScrollState,
+    bgSrcFor,
+    canSelectBgRange,
+    normalizeDuration,
+    clampNumber,
+    refreshTimeline,
+    updateReadouts,
+    stopBackgroundPreview,
+    stopExamplePreview,
+    renderAtmospheres,
+    buildRecipe,
+    notesFor,
+    renderTakes,
+    getStateSummary: () =>
+      window.SoundDrawing && window.SoundDrawing.getStateSummary ? window.SoundDrawing.getStateSummary() : null,
   })
   const {
-    adminPinValue,
-    pauseSharedAudioExcept,
-    closeSharedViewer,
-    handleSharedViewerKeydown,
-    ensureSharedViewer,
-    renderSharedWorks,
-  } = _studioShareUI
+    pulseControl,
+    syncTransportButtons,
+    finishSoundFlowAtCurrentPoint,
+    freezePlayheadAtLivePosition,
+    bindPlayheadSeeking,
+    showSelectedPlayhead,
+    setSelectedPlayhead,
+    setupBgPlayer,
+    pauseBgPlayer,
+    toggleBgPlay,
+    seekBg,
+    seekBgEnd,
+    commitBgStartInput,
+    commitBgEndInput,
+    isBackgroundPaused,
+    play,
+    toggleTransport,
+    pause,
+    resume,
+    stop,
+  } = studioTransport
 
   // === § 8  타임라인 지오메트리 & 스크롤 동기화 ===
 
@@ -757,72 +755,7 @@
   // === § 12  Orchestra / Version / Compose ===
 
   function renderComposeInstruments() {
-    el.composeInstrumentList.innerHTML = ""
-    INSTRUMENT_GROUPS.forEach((group) => {
-      const groupItems = D.instruments.filter((instrument) => instrument.group === group)
-      if (!groupItems.length) return
-
-      const section = document.createElement("section")
-      section.className = "compose-instrument-group" + (group === state.group ? " active" : "")
-      section.setAttribute("aria-label", group + " 악기")
-      section.dataset.group = group
-
-      const head = document.createElement("div")
-      head.className = "compose-instrument-group-head"
-      const groupTitle = document.createElement("strong")
-      groupTitle.textContent = group
-      head.appendChild(groupTitle)
-      section.appendChild(head)
-
-      const list = document.createElement("div")
-      list.className = "compose-instrument-group-list"
-      instrumentFamilies(groupItems).forEach((familyGroup) => {
-        const familySection = document.createElement("section")
-        familySection.className = "compose-instrument-family"
-        familySection.setAttribute("aria-label", group + " " + familyGroup.family)
-
-        const familyHead = document.createElement("div")
-        familyHead.className = "compose-instrument-family-head"
-        familyHead.textContent = familyGroup.family
-        familySection.appendChild(familyHead)
-
-        const familyList = document.createElement("div")
-        familyList.className = "compose-instrument-family-list"
-        familyGroup.items.forEach((i) => {
-          const b = document.createElement("button")
-          b.type = "button"
-          b.className = "compose-instrument" + (i.id === state.instrument.id ? " active" : "")
-          applyInstrumentTone(b, i.id)
-          b.setAttribute("aria-pressed", i.id === state.instrument.id ? "true" : "false")
-          b.title = i.group + " · " + i.family + " · " + i.detail
-          if (i.image) {
-            const img = document.createElement("img")
-            img.src = i.image
-            img.alt = ""
-            img.loading = "lazy"
-            b.appendChild(img)
-          }
-          const label = document.createElement("span")
-          label.className = "compose-instrument-text"
-          const name = document.createElement("strong")
-          name.textContent = i.label
-          label.appendChild(name)
-          b.appendChild(label)
-          b.addEventListener("click", () => {
-            recordUserAction({ update: false })
-            selectInstrument(i, true)
-            engine.previewNote(buildRecipe(), 0.5).catch(function () {})
-          })
-          familyList.appendChild(b)
-        })
-
-        familySection.appendChild(familyList)
-        list.appendChild(familySection)
-      })
-
-      section.appendChild(list)
-      el.composeInstrumentList.appendChild(section)
-    })
+    return renderComposeInstrumentsFromSetup()
   }
 
   // 오케스트라 범례 — 지금 곡에 쓰인 악기(색·줄 수)와 다음에 그릴 악기를 보여 준다
@@ -1149,7 +1082,7 @@
     draw.render()
     renderPitchAxisLabels()
     renderEffectStamps()
-    if (!engine.isPlaying && bgPlayer.paused) showSelectedPlayhead(false)
+    if (!engine.isPlaying && isBackgroundPaused()) showSelectedPlayhead(false)
     updateReadouts()
   }
 
@@ -1417,764 +1350,13 @@
     ctx.fillText("Drawing", 44, 120)
   }
 
-  // === § 17  Transport 컨트롤 헬퍼 ===
-
-  function setIcon(button, text) {
-    if (!button) return
-    const icon = button.querySelector("span")
-    if (icon) icon.textContent = text
-  }
-
-  const controlFeedbackTimers = new WeakMap()
-  function pulseControl(button) {
-    if (!button) return
-    const oldTimer = controlFeedbackTimers.get(button)
-    if (oldTimer) clearTimeout(oldTimer)
-    button.classList.add("pressing")
-    const timer = setTimeout(function () {
-      button.classList.remove("pressing")
-      controlFeedbackTimers.delete(button)
-    }, 220)
-    controlFeedbackTimers.set(button, timer)
-  }
-
-  function syncTransportButtons(playing, paused) {
-    const hasAmbience = !!engine.ambience
-    const canPause = playing || paused || hasAmbience
-    const activeAudio = !!playing && !paused
-    const playLabel = activeAudio ? "전체 일시정지" : paused ? "전체 이어 듣기" : "전체 듣기"
-    el.playBtn.setAttribute("aria-label", playLabel)
-    el.playBtn.title = playLabel
-    el.playBtn.classList.toggle("active", activeAudio)
-    el.playBtn.classList.toggle("paused", !!paused)
-    el.playBtn.setAttribute("aria-pressed", activeAudio ? "true" : "false")
-    setIcon(el.playBtn, activeAudio ? "❚❚" : "▶")
-    if (el.framePlayBtn) {
-      const frameLabel = activeAudio ? "음악 일시정지" : paused ? "음악 이어 재생" : "음악 재생"
-      el.framePlayBtn.setAttribute("aria-label", frameLabel)
-      el.framePlayBtn.title = frameLabel
-      el.framePlayBtn.classList.toggle("active", activeAudio)
-      el.framePlayBtn.classList.toggle("paused", !!paused)
-      el.framePlayBtn.setAttribute("aria-pressed", activeAudio ? "true" : "false")
-      setIcon(el.framePlayBtn, activeAudio ? "❚❚" : "▶")
-    }
-    el.stopBtn.setAttribute("aria-pressed", "false")
-    if (el.completeStopBtn) el.completeStopBtn.disabled = !canPause
-  }
-
-  engine.onState = function (playing, paused) {
-    paused = !!paused
-    const wasPaused = el.body.dataset.playback === "paused"
-    if (!playing && !paused && !engine.ambience) state.playingTakeId = null
-    el.statusText.textContent = paused
-      ? playing
-        ? "일시정지"
-        : "배경음 일시정지"
-      : playing
-        ? "재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
-        : engine.ambience
-          ? "배경음 재생 중"
-        : "전체 듣기"
-    el.statusText.classList.toggle("playing", (playing || !!engine.ambience) && !paused)
-    el.statusText.classList.toggle("paused", paused)
-    el.frame.classList.toggle("playing", playing && !paused)
-    el.body.dataset.playback = paused ? "paused" : playing ? "playing" : "idle"
-    syncTransportButtons(playing, paused)
-    renderTakes()
-    if (paused) pausePlayhead()
-    else if (playing) startPlayhead(wasPaused)
-    else stopPlayhead(engine.lastStopReason === "ended")
-  }
-
-  // 드로잉(3단계) 화면에서만 배경음을 깐다. 완성곡 재생 중엔 engine 이 끈다.
-
-  // === § 18  플레이헤드 & 소리모드 플로우 ===
-  // --- 재생 헤드(재생바) ---
-
-  let playheadRAF = null
-  let playheadStartedAt = 0
-  let playheadElapsedMs = 0
-  let selectedPlayheadProgress = 0
-  function nowMs() {
-    return window.performance && window.performance.now ? window.performance.now() : Date.now()
-  }
-
-  function clampPlayheadProgress(progress) {
-    const dur = Math.max(0.05, state.duration || 30)
-    const max = Math.max(0, (dur - 0.05) / dur)
-    return Math.max(0, Math.min(max, Number(progress) || 0))
-  }
-
-  // 재생바 위치는 전체곡·배경음악이 공유하는 하나의 값이어야 한다(이 값이 '재생 시작 위치'다).
-  // 배경음악 재생/일시정지로 재생바가 움직이면 여기에도 기록해, 화면 새로고침·복원 시 처음으로 튀지 않게 한다.
-  function rememberPlayheadProgress(progress) {
-    selectedPlayheadProgress = clampPlayheadProgress(progress)
-    playheadElapsedMs = selectedPlayheadProgress * Math.max(1, state.duration * 1000)
-  }
-
-  function playheadProgressFromEvent(e) {
-    return clampPlayheadProgress(timelineProgressFromClientX(e.clientX))
-  }
-
-  function syncPlayheadValue(progress) {
-    if (!el.playhead) return
-    const sec = Math.round(progress * (state.duration || 30))
-    el.playhead.setAttribute("aria-valuemin", "0")
-    el.playhead.setAttribute("aria-valuemax", String(state.duration || 30))
-    el.playhead.setAttribute("aria-valuenow", String(sec))
-    el.playhead.setAttribute("title", sec + "초부터 재생")
-  }
-
-  function positionPlayhead(progress, options) {
-    const wrap = canvasWrap()
-    if (!wrap || !el.playhead) return
-    const prog = Math.max(0, Math.min(1, progress))
-    const left = el.canvas.offsetLeft + timelineCssX(prog)
-    el.playhead.style.left = left + "px"
-    syncPlayheadValue(prog)
-    const view = wrap.clientWidth
-    const follow = !options || options.follow !== false
-    if (follow && (left < wrap.scrollLeft + 48 || left > wrap.scrollLeft + view - 48)) {
-      wrap.scrollLeft = Math.max(0, left - view / 2)
-      syncCanvasScrollState()
-    }
-  }
-
-  function showSelectedPlayhead(follow) {
-    if (!el.playhead) return
-    el.playhead.hidden = false
-    positionPlayhead(selectedPlayheadProgress, { follow: !!follow })
-  }
-
-  function setSelectedPlayhead(progress, announce, follow) {
-    selectedPlayheadProgress = clampPlayheadProgress(progress)
-    playheadElapsedMs = selectedPlayheadProgress * Math.max(1, state.duration * 1000)
-    showSelectedPlayhead(follow)
-    if (announce) {
-      el.exportStatus.textContent = Math.round(selectedPlayheadProgress * state.duration) + "초부터 재생하도록 위치를 옮겼어요."
-    }
-  }
-
-  function selectedPlaybackStartSec() {
-    return clampPlayheadProgress(selectedPlayheadProgress) * (state.duration || 30)
-  }
-
-  // 지금 화면 재생바가 가리키는 위치(0..1). 전체곡(엔진) 재생 중이면 그 진행을, 아니면 멈춘 위치를 쓴다.
-  function livePlayheadProgress() {
-    if (engine.isPlaying && !engine.isPaused && playheadStartedAt) {
-      const durMs = Math.max(1, state.duration * 1000)
-      return Math.max(0, Math.min(1, (nowMs() - playheadStartedAt) / durMs))
-    }
-    return selectedPlayheadProgress
-  }
-
-  // 재생바 진행(0..1) → 배경음악 타임라인 시간(초). bgTick/bgPlayheadProgress와 같은 구간 환산을 쓴다.
-  function bgTimeFromProgress(progress) {
-    const end = selectedBgEnd()
-    const segment = Math.max(0.1, end - state.bgOffset)
-    return state.bgOffset + clampPlayheadProgress(progress) * segment
-  }
-
-  function soundDrawingProgress() {
-    if (state.drawingInputMode !== DRAW_MODE_SOUND) return selectedPlayheadProgress
-    // 전체곡 재생이 켜져 있으면 그 재생을 멈추지 않고(=이미 그려둔 선율을 계속 들으며) 엔진 플레이헤드를
-    // 드로잉 시계로 쓴다. 펜 미리듣기는 본 재생과 독립 믹스라 새 음이 그 위에 얹혀 함께 들린다.
-    // (예전엔 여기서 playBgPlayer()→engine.stop()이 불려, 펜을 대는 순간 기존 선율이 끊겼다.)
-    if ((engine.isPlaying || engine.isStarting) && !engine.isPaused) return livePlayheadProgress()
-    // 배경음악 없음 모드 — 시계 삼을 배경음이 없으니, 소리 없이 시간만 흐르는 내부 시계로 드로잉을 진행시킨다.
-    if (!bgSrcFor(state.atmosphere)) {
-      startSilentFlowClock()
-      return clampPlayheadProgress(livePlayheadProgress())
-    }
-    if (bgPlayer.paused) {
-      // 배경음악(시계)이 멈춰 있으면 지금 재생바 위치를 이어받아 그 시점부터 띄운다.
-      // (예전엔 무조건 bgOffset=0부터 시작해, 전체곡을 듣다가 그리면 첫 터치가 0초로 튀었다.)
-      const resumeTime = bgTimeFromProgress(livePlayheadProgress())
-      if (bgTimeInSelectedRange(resumeTime)) bgPausedAt = resumeTime
-      playBgPlayer()
-    }
-    if (bgPlayer.paused) return selectedPlayheadProgress
-    return bgPlayheadProgress(bgPlayer.currentTime)
-  }
-
-  function finishSoundFlowAtCurrentPoint() {
-    if (state.drawingInputMode !== DRAW_MODE_SOUND) return
-    if (!draw.flowActive) return
-    draw.flowRecord(livePlayheadProgress())
-    draw.finishFlowStroke(true)
-  }
-
-  // 배경음악 없음 모드의 소리모드 시계 — 배경음(bgPlayer)이 없을 때 소리 없이 시간만 흐르게 해
-  // 새 획의 가로(시간)를 전진시킨다. 드로잉이 끝나면 스스로 멈춘다(유휴 시 rAF를 돌리지 않음).
-  let silentFlowRAF = null
-  let silentFlowStartedAt = 0
-  function silentFlowProgress() {
-    const durMs = Math.max(1, state.duration * 1000)
-    return Math.max(0, Math.min(1, (nowMs() - silentFlowStartedAt) / durMs))
-  }
-  function startSilentFlowClock() {
-    if (silentFlowRAF || typeof requestAnimationFrame !== "function") return
-    const durMs = Math.max(1, state.duration * 1000)
-    silentFlowStartedAt = nowMs() - clampPlayheadProgress(livePlayheadProgress()) * durMs
-    if (el.playhead) el.playhead.hidden = false
-    const tick = function () {
-      // 드로잉이 끝났거나, 모드가 바뀌었거나, 다른 시계(엔진·배경음)가 생기면 무음 시계는 물러난다.
-      if (
-        state.drawingInputMode !== DRAW_MODE_SOUND ||
-        !draw.flowActive ||
-        (engine.isPlaying && !engine.isPaused) ||
-        bgSrcFor(state.atmosphere)
-      ) {
-        stopSilentFlowClock()
-        return
-      }
-      const prog = silentFlowProgress()
-      positionPlayhead(prog)
-      if (prog >= 1) {
-        // 곡 끝 — 획을 마무리하고 재생바를 처음으로 되돌려 다음 획이 0초부터 다시 흐르게 한다.
-        draw.flowRecord(1)
-        draw.finishFlowStroke(true)
-        rememberPlayheadProgress(0)
-        stopSilentFlowClock()
-        return
-      }
-      draw.flowRecord(prog)
-      silentFlowRAF = requestAnimationFrame(tick)
-    }
-    silentFlowRAF = requestAnimationFrame(tick)
-  }
-  function stopSilentFlowClock() {
-    if (silentFlowRAF) cancelAnimationFrame(silentFlowRAF)
-    silentFlowRAF = null
-  }
-
-  function stopPlayhead(finished) {
-    if (playheadRAF) cancelAnimationFrame(playheadRAF)
-    playheadRAF = null
-    const durMs = Math.max(1, state.duration * 1000)
-    playheadStartedAt = 0
-    if (finished) {
-      playheadElapsedMs = durMs
-      if (el.playhead) {
-        if (state.step === DRAWING_STEP) {
-          el.playhead.hidden = false
-          positionPlayhead(1, { follow: false })
-        } else {
-          el.playhead.hidden = true
-        }
-      }
-      return
-    }
-    playheadElapsedMs = selectedPlaybackStartSec() * 1000
-    if (el.playhead) {
-      if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
-      else el.playhead.hidden = true
-    }
-  }
-  function pausePlayhead() {
-    if (playheadRAF) cancelAnimationFrame(playheadRAF)
-    playheadRAF = null
-    const durMs = Math.max(1, state.duration * 1000)
-    if (playheadStartedAt) playheadElapsedMs = Math.max(0, Math.min(durMs, nowMs() - playheadStartedAt))
-    const pausedProgress = Math.max(0, Math.min(1, playheadElapsedMs / durMs))
-    selectedPlayheadProgress = clampPlayheadProgress(pausedProgress)
-    if (el.playhead) {
-      el.playhead.hidden = false
-      positionPlayhead(pausedProgress)
-    }
-  }
-  // 재생 중 라이브 위치를 '재생 시작 위치'로 굳힌다. 이 뒤에 engine.stop()을 부르면
-  // stopPlayhead()가 시작점(0초)이 아니라 이 위치를 읽어, 재생바가 제자리에 남는다.
-  function freezePlayheadAtLivePosition() {
-    if (!engine.isPlaying || engine.isPaused) return
-    const durMs = Math.max(1, state.duration * 1000)
-    if (playheadStartedAt) playheadElapsedMs = Math.max(0, Math.min(durMs, nowMs() - playheadStartedAt))
-    rememberPlayheadProgress(playheadElapsedMs / durMs)
-  }
-  function startPlayhead(resume) {
-    const wrap = canvasWrap()
-    if (!wrap || !el.playhead || typeof requestAnimationFrame === "undefined") return
-    const durMs = Math.max(1, state.duration * 1000)
-    if (!resume) playheadElapsedMs = selectedPlaybackStartSec() * 1000
-    playheadStartedAt = nowMs() - playheadElapsedMs
-    el.playhead.hidden = false
-    const tick = function () {
-      const elapsed = nowMs() - playheadStartedAt
-      const prog = Math.max(0, Math.min(1, elapsed / durMs))
-      playheadElapsedMs = elapsed
-      positionPlayhead(prog)
-      // 소리모드에서 전체곡 재생 중 펜을 대면, 엔진 플레이헤드가 드로잉 시계가 된다(bgTick 대신).
-      // 매 프레임 진행도를 기록해 새 획의 시간(x)을 전진시키고, 곡 끝에서 획을 마무리한다(루프 없음).
-      const soundFlow = state.drawingInputMode === DRAW_MODE_SOUND && draw.flowActive
-      if (prog < 1 && engine.isPlaying && !engine.isPaused) {
-        if (soundFlow) draw.flowRecord(prog)
-        playheadRAF = requestAnimationFrame(tick)
-      } else {
-        if (soundFlow) {
-          draw.flowRecord(1)
-          draw.finishFlowStroke(true)
-        }
-        stopPlayhead(prog >= 1)
-      }
-    }
-    if (playheadRAF) cancelAnimationFrame(playheadRAF)
-    playheadRAF = requestAnimationFrame(tick)
-  }
-
-  function stopPlaybackForPlayheadSeek() {
-    if (!bgPlayer.paused) pauseBgPlayer()
-    if (engine.isPlaying || engine.isPaused) engine.stop()
-  }
-
-  function bindPlayheadSeeking() {
-    if (!el.playhead) return
-    let seeking = false
-    const seekToEvent = function (e, announce) {
-      setSelectedPlayhead(playheadProgressFromEvent(e), !!announce, true)
-    }
-    el.playhead.addEventListener("pointerdown", function (e) {
-      seeking = true
-      stopPlaybackForPlayheadSeek()
-      seekToEvent(e, false)
-      try {
-        el.playhead.setPointerCapture(e.pointerId)
-      } catch (err) {}
-      e.preventDefault()
-      e.stopPropagation()
-    })
-    el.playhead.addEventListener("pointermove", function (e) {
-      if (!seeking) return
-      seekToEvent(e, false)
-      e.preventDefault()
-      e.stopPropagation()
-    })
-    const finish = function (e) {
-      if (!seeking) return
-      seeking = false
-      seekToEvent(e, true)
-      e.preventDefault()
-      e.stopPropagation()
-    }
-    el.playhead.addEventListener("pointerup", finish)
-    el.playhead.addEventListener("pointercancel", finish)
-    el.playhead.addEventListener("keydown", function (e) {
-      const dur = Math.max(1, state.duration || 30)
-      const step = (e.shiftKey ? 5 : 1) / dur
-      let next = selectedPlayheadProgress
-      if (e.key === "ArrowLeft") next -= step
-      else if (e.key === "ArrowRight") next += step
-      else if (e.key === "Home") next = 0
-      else if (e.key === "End") next = 1
-      else return
-      stopPlaybackForPlayheadSeek()
-      setSelectedPlayhead(next, true, true)
-      e.preventDefault()
-    })
-  }
-
-  // === § 19  배경음악 플레이어 (bgPlayer) ===
-
-  function fmtTime(sec) {
-    if (!isFinite(sec) || sec < 0) sec = 0
-    const m = Math.floor(sec / 60)
-    const s = Math.floor(sec % 60)
-    return m + ":" + (s < 10 ? "0" : "") + s
-  }
-
-  function fmtInputTime(sec) {
-    return fmtTime(Math.round(Math.max(0, Number(sec) || 0)))
-  }
-
-  function parseTimeInput(value) {
-    const raw = String(value || "").trim()
-    if (!raw) return null
-    if (/^\d+(?:\.\d+)?$/.test(raw)) return Number(raw)
-    const parts = raw.split(":")
-    if (parts.length < 2 || parts.length > 3) return null
-    let total = 0
-    for (const part of parts) {
-      if (!/^\d+(?:\.\d+)?$/.test(part)) return null
-      total = total * 60 + Number(part)
-    }
-    return total
-  }
-
-  function bgDuration() {
-    const d = bgPlayer.duration
-    if (!isFinite(d) || d <= 0) return 0
-    return d
-  }
-
-  function bgMinGap(total) {
-    if (!total) return 0
-    return Math.min(MIN_DURATION_SECONDS, total)
-  }
-
-  function defaultBgEnd(total, start) {
-    if (!total) return 0
-    const from = start == null ? state.bgOffset : start
-    return Math.min(total, Math.max(from + bgMinGap(total), from + state.duration))
-  }
-
-  function normalizeBgRange(keepEnd) {
-    const total = bgDuration()
-    if (!canSelectBgRange()) {
-      state.bgOffset = 0
-      state.bgEndOffset = 0
-      return
-    }
-    if (!total) return
-    const gap = bgMinGap(total)
-    const maxStart = Math.max(0, total - gap)
-    state.bgOffset = clampNumber(state.bgOffset, 0, maxStart)
-    let end = parseFloat(state.bgEndOffset)
-    if (!keepEnd || !isFinite(end) || end <= state.bgOffset + gap * 0.5) end = defaultBgEnd(total, state.bgOffset)
-    state.bgEndOffset = clampNumber(end, Math.min(total, state.bgOffset + gap), total)
-  }
-
-  function ensureTimelineDuration(resetScroll) {
-    let next = null
-    const total = bgDuration()
-    if (canSelectBgRange() && total) {
-      const segment = Number(state.bgEndOffset) - Number(state.bgOffset)
-      if (isFinite(segment) && segment > 0) next = normalizeDuration(segment)
-    }
-    if (next == null) next = normalizeDuration(state.duration || DEFAULT_DURATION_SECONDS)
-    if (Math.abs((Number(state.duration) || 0) - next) < 0.001) return false
-    state.duration = next
-    selectedPlayheadProgress = clampPlayheadProgress(selectedPlayheadProgress)
-    playheadElapsedMs = selectedPlaybackStartSec() * 1000
-    refreshTimeline(!!resetScroll)
-    return true
-  }
-
-  function selectedBgEnd() {
-    if (!canSelectBgRange()) {
-      const total = bgDuration()
-      return total ? defaultBgEnd(total, 0) : 0
-    }
-    normalizeBgRange(true)
-    return state.bgEndOffset
-  }
-
-  function bgTimeInSelectedRange(time) {
-    const t = Number(time)
-    if (!isFinite(t)) return false
-    const end = selectedBgEnd()
-    return t >= state.bgOffset && t < end - 0.02
-  }
-
-  function bgPlayheadProgress(time) {
-    const end = selectedBgEnd()
-    const segment = Math.max(0.1, end - state.bgOffset)
-    return Math.max(0, Math.min(1, (Number(time) - state.bgOffset) / segment))
-  }
-
-  function positionBgPlayhead(time, follow) {
-    if (!el.playhead) return
-    el.playhead.hidden = false
-    const progress = bgPlayheadProgress(time)
-    rememberPlayheadProgress(progress)
-    positionPlayhead(progress, { follow: !!follow })
-  }
-
-  function syncBgPlayerUI() {
-    normalizeBgRange(true)
-    const total = bgDuration()
-    const gap = bgMinGap(total)
-    const maxStart = Math.max(0, total - gap)
-    const endMin = Math.min(total, state.bgOffset + gap)
-    const hasSrc = !!bgPlayer.getAttribute("src")
-    const canSelectRange = canSelectBgRange()
-    if (el.bgPlayer) el.bgPlayer.classList.toggle("disabled", !hasSrc)
-    const bgRange = el.bgSeek ? el.bgSeek.closest(".bg-range") : null
-    if (bgRange) bgRange.hidden = !canSelectRange
-    const bgTimeInputs = el.bgStartInput ? el.bgStartInput.closest(".bg-time-inputs") : null
-    if (bgTimeInputs) bgTimeInputs.hidden = !canSelectRange
-    if (el.bgSeek) {
-      el.bgSeek.max = String(maxStart)
-      el.bgSeek.value = String(state.bgOffset)
-      el.bgSeek.disabled = !canSelectRange || !(maxStart > 0)
-    }
-    if (el.bgEndSeek) {
-      el.bgEndSeek.min = String(endMin)
-      el.bgEndSeek.max = String(total)
-      el.bgEndSeek.value = String(state.bgEndOffset)
-      el.bgEndSeek.disabled = !canSelectRange || !(total > gap)
-    }
-    const durationChanged = ensureTimelineDuration(false)
-    if (el.bgStartInput) {
-      el.bgStartInput.disabled = !canSelectRange || !total
-      if (document.activeElement !== el.bgStartInput) el.bgStartInput.value = fmtInputTime(state.bgOffset)
-    }
-    if (el.bgEndInput) {
-      el.bgEndInput.disabled = !canSelectRange || !total
-      if (document.activeElement !== el.bgEndInput) el.bgEndInput.value = fmtInputTime(state.bgEndOffset)
-    }
-    if (el.bgTime) {
-      el.bgTime.textContent = canSelectRange
-        ? fmtInputTime(state.bgOffset) + " ~ " + fmtInputTime(state.bgEndOffset) + " / " + fmtInputTime(total)
-        : fmtTime(0) + " / " + fmtTime(total)
-    }
-    if (!durationChanged) updateReadouts()
-    setIcon(el.bgPlayBtn, bgPlayer.paused ? "▶" : "❚❚")
-    if (el.bgPlayBtn) {
-      const bgPlayLabel = bgPlayer.paused ? "배경 구간 선택" : "배경 구간 일시정지"
-      el.bgPlayBtn.setAttribute("aria-label", bgPlayLabel)
-      el.bgPlayBtn.setAttribute("title", bgPlayLabel)
-      el.bgPlayBtn.classList.toggle("active", !bgPlayer.paused)
-      el.bgPlayBtn.setAttribute("aria-pressed", bgPlayer.paused ? "false" : "true")
-    }
-  }
-
-  // 드로잉 진입/배경 변경 시: 현재 배경 mp3를 걸고 bgOffset 지점에서 정지 대기
-  function setupBgPlayer(keepRange) {
-    pauseBgPlayer()
-    bgPausedAt = null
-    const src = bgSrcFor(state.atmosphere)
-    if (!src) {
-      bgPlayer.removeAttribute("src")
-      syncBgPlayerUI()
-      return
-    }
-    if (bgPlayer.getAttribute("src") !== src) bgPlayer.src = src
-    const apply = function () {
-      normalizeBgRange(!!keepRange)
-      try {
-        bgPlayer.currentTime = state.bgOffset
-      } catch (e) {}
-      syncBgPlayerUI()
-    }
-    if (isFinite(bgPlayer.duration) && bgPlayer.duration > 0) apply()
-    else bgPlayer.addEventListener("loadedmetadata", apply, { once: true })
-    syncBgPlayerUI()
-  }
-
-  function pauseBgPlayer(keepPosition) {
-    const pausedAt = bgPlayer.currentTime
-    try {
-      bgPlayer.pause()
-    } catch (e) {}
-    if (bgRAF) cancelAnimationFrame(bgRAF)
-    bgRAF = null
-    if (keepPosition && bgTimeInSelectedRange(pausedAt)) {
-      bgPausedAt = pausedAt
-      rememberPlayheadProgress(bgPlayheadProgress(bgPausedAt)) // 멈춘 위치를 공유 값에 저장(화면 갱신·복원 대비)
-      if (state.step === DRAWING_STEP) positionBgPlayhead(bgPausedAt, false)
-    } else {
-      bgPausedAt = null
-      if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
-      else if (el.playhead) el.playhead.hidden = true
-    }
-    syncBgPlayerUI()
-  }
-
-  function playBgPlayer() {
-    if (!bgSrcFor(state.atmosphere)) return
-    stopBackgroundPreview()
-    stopExamplePreview()
-    engine.stop() // 전체 재생과 겹치지 않게
-    normalizeBgRange(true)
-    const startAt = bgTimeInSelectedRange(bgPausedAt) ? bgPausedAt : state.bgOffset
-    try {
-      bgPlayer.currentTime = startAt
-    } catch (e) {}
-    bgPausedAt = null
-    const p = bgPlayer.play()
-    if (p && p.catch) p.catch((e) => console.warn("배경음악 재생 실패", e))
-    if (el.playhead) el.playhead.hidden = false
-    bgTick()
-    syncBgPlayerUI()
-  }
-
-  function toggleBgPlay() {
-    if (bgPlayer.paused) playBgPlayer()
-    else pauseBgPlayer(true)
-  }
-
-  function bgTick() {
-    if (bgPlayer.paused) {
-      bgRAF = null
-      return
-    }
-    const end = selectedBgEnd()
-    const segment = Math.max(0.1, end - state.bgOffset)
-    let rel = bgPlayer.currentTime - state.bgOffset
-    if (bgPlayer.currentTime >= end || bgPlayer.currentTime + 0.001 < state.bgOffset) {
-      if (state.drawingInputMode === DRAW_MODE_SOUND && draw.flowActive) {
-        draw.flowRecord(1)
-        draw.finishFlowStroke(true)
-      }
-      try {
-        bgPlayer.currentTime = state.bgOffset
-      } catch (e) {}
-      rel = 0
-    }
-    const progress = Math.max(0, Math.min(1, rel / segment))
-    // 재생 중에는 공유 시작 위치를 갱신하지 않는다. (갱신하면 소리모드에서 시작 위치가 곡 끝으로 밀려
-    //  전체곡 재생이 끝부터 시작 → 선율이 안 들림. 멈춘 위치 보존은 pauseBgPlayer가 담당.)
-    positionPlayhead(progress)
-    if (state.drawingInputMode === DRAW_MODE_SOUND && draw.flowActive) draw.flowRecord(progress)
-    if (typeof requestAnimationFrame === "function") bgRAF = requestAnimationFrame(bgTick)
-  }
-
-  function seekBg(value) {
-    if (!canSelectBgRange()) {
-      state.bgOffset = 0
-      state.bgEndOffset = 0
-      syncBgPlayerUI()
-      return
-    }
-    const total = bgDuration()
-    const gap = bgMinGap(total)
-    const previousEnd = Number(state.bgEndOffset)
-    state.bgOffset = clampNumber(value, 0, Math.max(0, total - gap))
-    state.bgEndOffset =
-      isFinite(previousEnd) && previousEnd > state.bgOffset + gap ? previousEnd : defaultBgEnd(total, state.bgOffset)
-    bgPausedAt = null
-    normalizeBgRange(true)
-    try {
-      bgPlayer.currentTime = state.bgOffset
-    } catch (e) {}
-    if (el.playhead) {
-      showSelectedPlayhead(false)
-    }
-    syncBgPlayerUI()
-  }
-
-  function seekBgEnd(value) {
-    if (!canSelectBgRange()) {
-      state.bgOffset = 0
-      state.bgEndOffset = 0
-      syncBgPlayerUI()
-      return
-    }
-    const total = bgDuration()
-    const gap = bgMinGap(total)
-    state.bgEndOffset = clampNumber(value, Math.min(total, state.bgOffset + gap), total)
-    normalizeBgRange(true)
-    if (bgPlayer.currentTime >= state.bgEndOffset) {
-      try {
-        bgPlayer.currentTime = state.bgOffset
-      } catch (e) {}
-      bgPausedAt = null
-      showSelectedPlayhead(false)
-    }
-    syncBgPlayerUI()
-  }
-
-  function commitBgStartInput() {
-    const parsed = parseTimeInput(el.bgStartInput && el.bgStartInput.value)
-    if (parsed == null) {
-      syncBgPlayerUI()
-      return
-    }
-    seekBg(parsed)
-  }
-
-  function commitBgEndInput() {
-    const parsed = parseTimeInput(el.bgEndInput && el.bgEndInput.value)
-    if (parsed == null) {
-      syncBgPlayerUI()
-      return
-    }
-    seekBgEnd(parsed)
-  }
+  // === § 17~20  Transport는 studio-transport.js가 소유 ===
 
   function requireDrawn() {
     if (draw.getPath().length >= 1) return true
     el.statusText.textContent = "먼저 선을 그려주세요"
     el.exportStatus.textContent = "먼저 캔버스에 점을 찍거나 선을 그려주세요."
     return false
-  }
-
-  // === § 20  Transport — Play / Pause / Stop ===
-
-  function play() {
-    if (engine.isPlaying && engine.isPaused) {
-      engine.resume()
-      return
-    }
-    if (engine.isPlaying) {
-      finishSoundFlowAtCurrentPoint()
-      engine.pause()
-      return
-    }
-    stopBackgroundPreview()
-    stopExamplePreview()
-    pauseBgPlayer() // 전체 재생 중엔 배경음악 미니 플레이어를 멈춘다(중복 방지 — 패드는 bgOffset부터 깔림)
-    renderAtmospheres()
-    const recipe = buildRecipe()
-    engine.play(recipe, notesFor(recipe), { startOffset: selectedPlaybackStartSec() }).catch(function (e) {
-      state.playingTakeId = null
-      renderTakes()
-
-      const message =
-        e && (e.name || e.message)
-          ? [e.name, e.message].filter(Boolean).join(": ")
-          : String(e)
-
-      el.statusText.textContent = "재생 오류"
-      el.exportStatus.textContent = "재생 오류: " + message
-      console.error("전체곡 재생 실패", e, {
-        recipe: recipe,
-        state: window.SoundDrawing && window.SoundDrawing.getStateSummary
-          ? window.SoundDrawing.getStateSummary()
-          : null,
-      })
-    })
-  }
-
-  function toggleTransport() {
-    if (engine.isPaused && engine.isPlaying) {
-      engine.resume()
-      return
-    }
-    if (engine.isPaused) {
-      engine.stop({ emitState: false })
-    }
-    if (engine.isPlaying) {
-      finishSoundFlowAtCurrentPoint()
-      engine.pause()
-      return
-    }
-    play()
-  }
-
-  function pause() {
-    if (!engine.isPlaying && !engine.ambience && !engine.isPaused) return
-    stopBackgroundPreview()
-    stopExamplePreview()
-    renderAtmospheres()
-    if (engine.isPaused) engine.resume()
-    else {
-      finishSoundFlowAtCurrentPoint()
-      engine.pause()
-    }
-  }
-
-  // 정지(■)는 일시정지(❚❚)와 달리 재생바를 맨 앞(0초)으로 되돌린다.
-  function resetPlayheadToStart() {
-    if (!bgPlayer.paused) pauseBgPlayer() // 배경음악(시계)도 멈춰 바가 다시 흘러가지 않게
-    bgPausedAt = null
-    try {
-      bgPlayer.currentTime = state.bgOffset
-    } catch (e) {}
-    selectedPlayheadProgress = 0
-    playheadElapsedMs = 0
-    if (!el.playhead) return
-    if (state.step === DRAWING_STEP) showSelectedPlayhead(false)
-    else el.playhead.hidden = true
-  }
-
-  function stop() {
-    stopBackgroundPreview()
-    stopExamplePreview()
-    renderAtmospheres()
-    state.playingTakeId = null
-    engine.stop()
-    resetPlayheadToStart() // 정지 버튼은 재생바를 맨 앞으로 되돌린다(이어듣기용 위치는 버린다)
-    renderTakes()
   }
 
   // === § 21  드로잉 모드 & 키보드 단축키 ===
@@ -2215,14 +1397,14 @@
   function setDrawingInputMode(mode, announce) {
     const next = mode === DRAW_MODE_SOUND ? DRAW_MODE_SOUND : DRAW_MODE_PICTURE
     if (announce) recordUserAction()
-    const bgWasPaused = bgPlayer.paused
+    const bgWasPaused = isBackgroundPaused()
     state.drawingInputMode = next
     draw.setFlowMode(next === DRAW_MODE_SOUND)
     if (next === DRAW_MODE_SOUND) {
       clearEffectStampSelection()
       setEraser(false)
-      if (bgWasPaused && !bgPlayer.paused) pauseBgPlayer(true)
-      if (bgPlayer.paused) showSelectedPlayhead(false)
+      if (bgWasPaused && !isBackgroundPaused()) pauseBgPlayer(true)
+      if (isBackgroundPaused()) showSelectedPlayhead(false)
     }
     syncDrawingInputModeUI()
   }
@@ -2830,7 +2012,6 @@
     renderAtmospheres()
     renderInstrumentGroups()
     renderInstruments()
-    renderVersions()
     renderComposeInstruments()
     renderEffects()
     renderPaletteLabels()
@@ -2862,8 +2043,11 @@
   function syncShareInputs(channel) {
     const normalized = normalizeSharedChannel(sharedChannelInputSource(channel))
     state.sharedChannel = normalized
-    if (el.shareChannelInput && el.shareChannelInput.value !== normalized) el.shareChannelInput.value = normalized
     if (el.channelBrowseInput && el.channelBrowseInput.value !== normalized) el.channelBrowseInput.value = normalized
+  }
+
+  function adminPinValue() {
+    return el.shareAdminPinInput ? el.shareAdminPinInput.value.trim() : ""
   }
 
   function channelPageUrl(channel, workId) {
@@ -3020,11 +2204,6 @@
     }
   }
 
-  function sharedWorkUrl(work) {
-    if (work && work.shareUrl) return work.shareUrl
-    return channelPageUrl((work && work.channel) || state.sharedChannel || "", work && work.id)
-  }
-
   function updateShareUrl(channel, workId) {
     try {
       const url = new URL(location.href)
@@ -3033,81 +2212,6 @@
       else if (url.hash.indexOf("#work=") === 0) url.hash = ""
       history.replaceState(null, "", url.href)
     } catch (e) {}
-  }
-
-  async function copyText(text, doneMessage) {
-    const copied = function () {
-      setShareMessage(doneMessage || "링크를 복사했어요.", false)
-    }
-    const fallback = function () {
-      if (copyViaSelection(text)) copied()
-      else if (typeof prompt === "function") prompt("공유 링크", text)
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      try {
-        await navigator.clipboard.writeText(text)
-        copied()
-      } catch (e) {
-        fallback()
-      }
-    } else {
-      fallback()
-    }
-  }
-
-  function sharedViewerMetaText(work) {
-    const meta = (work && work.metadata) || {}
-    const recipe = (work && work.recipe) || {}
-    const actionCount = normalizeActionCount(meta.actionCount != null ? meta.actionCount : recipe.actionCount)
-    const description = [meta.atmosphereLabel, meta.instrumentLabel].filter(Boolean).join(" · ")
-    return [
-      meta.composerName ? "작곡가 " + cleanText(meta.composerName, COMPOSER_NAME_MAX) : "작곡가 이름 없음",
-      description,
-      "시도한 횟수 " + actionCount + "회",
-    ]
-      .filter(Boolean)
-      .join("\n")
-  }
-
-  function optionalViewerText(node, label, value) {
-    if (!node) return
-    const text = cleanText(value || "", 180)
-    node.hidden = !text
-    node.textContent = text ? label + ": " + text : ""
-  }
-
-  function openSharedViewer(work) {
-    if (!work) return
-    const viewer = ensureSharedViewer()
-    const meta = work.metadata || {}
-    const files = work.files || {}
-    const title = work.title || meta.title || "무제"
-    const coverUrl = files.coverUrl || files.thumbUrl || DEFAULT_COVER_SRC
-    viewer.lastFocus = document.activeElement
-    viewer.cover.src = coverUrl
-    viewer.cover.alt = title + " 표지"
-    viewer.title.textContent = title
-    viewer.meta.textContent = sharedViewerMetaText(work)
-    optionalViewerText(viewer.background, "배경음악을 고른 이유", meta.backgroundReason)
-    optionalViewerText(viewer.melody, "선율을 표현한 의도", meta.melodyIntent)
-    if (meta.hashtags && meta.hashtags.length) {
-      viewer.tags.hidden = false
-      viewer.tags.textContent = hashtagText(meta.hashtags)
-    } else {
-      viewer.tags.hidden = true
-      viewer.tags.textContent = ""
-    }
-    viewer.audio.src = files.musicUrl || ""
-    viewer.audio.hidden = !files.musicUrl
-    pauseSharedAudioExcept(viewer.audio)
-    if (engine.isPlaying || engine.isPaused || engine.ambience) stop()
-    viewer.root.hidden = false
-    el.body.classList.add("shared-viewer-open")
-    viewer.closeBtn.focus({ preventScroll: true })
-    if (files.musicUrl) {
-      const playResult = viewer.audio.play()
-      if (playResult && typeof playResult.catch === "function") playResult.catch(function () {})
-    }
   }
 
   async function loadSharedChannel(channel, options) {
@@ -3123,7 +2227,6 @@
     }
     syncShareInputs(normalized)
     state.sharedLoading = true
-    renderSharedWorks()
     setShareMessage("#" + normalized + " 갤러리를 불러오는 중입니다.", false)
     try {
       const result = await ShareStore.listChannel(normalized, ShareStore.loadPass ? ShareStore.loadPass(normalized) : "")
@@ -3139,11 +2242,6 @@
       setShareMessage(e.message || "화음 갤러리를 불러오지 못했어요.", true)
     } finally {
       state.sharedLoading = false
-      renderSharedWorks()
-      if (options.focusWork) {
-        const target = document.getElementById("work-" + options.focusWork)
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "center" })
-      }
     }
   }
 
@@ -3155,7 +2253,7 @@
       return
     }
     const explicitChannel = typeof channelArg === "string" || typeof channelArg === "number" ? channelArg : null
-    const channelSource = explicitChannel != null ? explicitChannel : el.shareChannelInput ? el.shareChannelInput.value : state.sharedChannel
+    const channelSource = explicitChannel != null ? explicitChannel : state.sharedChannel
     const channel = ShareStore.normalizeChannel(channelSource)
     if (!channel) {
       el.exportStatus.textContent = "번호를 적어 주세요."
@@ -3239,26 +2337,6 @@
     }
   }
 
-  async function deleteSharedWork(work) {
-    if (!ShareStore || !work) return
-    const pin = adminPinValue()
-    if (!pin) {
-      setShareMessage("작품을 지우려면 관리자 번호가 필요해요.", true)
-      return
-    }
-    if (!window.confirm("이 공유 작품을 지울까요?")) return
-    try {
-      setShareMessage("공유 작품을 삭제하는 중입니다.", false)
-      await ShareStore.deleteWork(work, pin)
-      state.sharedWorks = state.sharedWorks.filter((item) => item.id !== work.id)
-      renderSharedWorks()
-      setShareMessage("공유 작품을 삭제했어요.", false)
-    } catch (e) {
-      console.error(e)
-      setShareMessage(e.message || "공유 작품을 삭제하지 못했어요.", true)
-    }
-  }
-
   function restoreSharedChannelFromUrl() {
     if (!ShareStore) return false
     let params
@@ -3275,168 +2353,7 @@
     return true
   }
 
-  // === § 26  내보내기 (WAV / PNG / Video) ===
-  // --- 내보내기 ---
-
-  async function exportAudio() {
-    if (!requireDrawn()) return
-    el.exportStatus.textContent = "압축 음악을 만드는 중… 노래 길이만큼 기다려 주세요."
-    try {
-      const recipe = buildRecipe()
-      if (!engine.exportCompressedAudio) throw new Error("compressed audio export is not available")
-      const result = await engine.exportCompressedAudio(recipe, notesFor(recipe), safeName() + "_music.webm")
-      const size = result && typeof result === "object" ? result.size : result
-      el.exportStatus.textContent = "음악 저장 완료 (" + Math.round(size / 1024) + " KB, WebM)"
-    } catch (e) {
-      console.error(e)
-      el.exportStatus.textContent = "음악 저장 실패 — 크롬에서 다시 시도해 주세요."
-    }
-  }
-
-  function exportCover() {
-    const size = 1024
-    const cv = document.createElement("canvas")
-    cv.width = size
-    cv.height = size
-    const ctx = cv.getContext("2d")
-
-    function finish() {
-      const tags = hashtagText(state.hashtags)
-      const padH = tags ? 190 : 140
-      ctx.fillStyle = "rgba(20,26,26,0.82)"
-      ctx.fillRect(0, size - padH, size, padH)
-      ctx.fillStyle = "#fbf6ec"
-      ctx.font = "700 52px Georgia, serif"
-      ctx.fillText(fitCanvasLine(ctx, state.title || "무제", size - 96), 48, size - padH + 64)
-      if (tags) {
-        ctx.font = "800 30px 'Segoe UI', sans-serif"
-        ctx.fillStyle = "rgba(251,246,236,0.92)"
-        ctx.fillText(fitCanvasLine(ctx, tags, size - 96), 48, size - padH + 118)
-      }
-      cv.toBlob(function (blob) {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = safeName() + "_cover.png"
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(url), 2000)
-        el.exportStatus.textContent = "커버 이미지를 내보냈어요."
-      }, "image/png")
-    }
-
-    if (state.pic) {
-      const img = new Image()
-      img.onload = function () {
-        drawCoverFit(ctx, img, size)
-        finish()
-      }
-      img.onerror = function () {
-        drawProceduralFrameFallback()
-        ctx.drawImage(el.frameCanvas, 0, 0, size, size)
-        finish()
-      }
-      img.src = state.pic
-    } else {
-      const img = new Image()
-      img.onload = function () {
-        drawCoverFit(ctx, img, size)
-        finish()
-      }
-      img.onerror = function () {
-        drawProceduralFrameFallback()
-        ctx.drawImage(el.frameCanvas, 0, 0, size, size)
-        finish()
-      }
-      img.src = DEFAULT_COVER_SRC
-    }
-  }
-
-  async function exportDrawingImage() {
-    if (!requireDrawn()) return
-    el.exportStatus.textContent = "드로잉 이미지를 만드는 중…"
-    try {
-      const cv = await renderDrawingSnapshotCanvas()
-      downloadBlob(await canvasToBlob(cv, "image/png"), safeName() + "_drawing.png")
-      el.exportStatus.textContent = "드로잉 이미지를 저장했어요."
-    } catch (e) {
-      console.error(e)
-      el.exportStatus.textContent = "드로잉 이미지 저장 실패 — 콘솔을 확인하세요."
-    }
-  }
-
-  async function exportDrawingVideo() {
-    if (!requireDrawn()) return
-    const base = await renderDrawingSnapshotCanvas()
-    if (!window.MediaRecorder || typeof base.captureStream !== "function") {
-      el.exportStatus.textContent = "이 브라우저에서는 드로잉 영상 저장을 지원하지 않아요. 드로잉 이미지를 이용해 주세요."
-      return
-    }
-    const mimeType = supportedVideoMime()
-    if (!mimeType) {
-      el.exportStatus.textContent = "이 브라우저에서는 WebM 영상 저장을 지원하지 않아요."
-      return
-    }
-    const cv = document.createElement("canvas")
-    cv.width = base.width
-    cv.height = base.height
-    const ctx = cv.getContext("2d")
-    const drawFrame = function (progress) {
-      ctx.clearRect(0, 0, cv.width, cv.height)
-      ctx.drawImage(base, 0, 0)
-      drawSnapshotPlayhead(ctx, cv.width, cv.height, progress)
-    }
-    drawFrame(0)
-    const stream = cv.captureStream(30)
-    const chunks = []
-    const recorder = new MediaRecorder(stream, { mimeType: mimeType })
-    const done = new Promise(function (resolve, reject) {
-      recorder.ondataavailable = function (event) {
-        if (event.data && event.data.size) chunks.push(event.data)
-      }
-      recorder.onstop = resolve
-      recorder.onerror = function (event) {
-        reject((event && event.error) || new Error("MediaRecorder error"))
-      }
-    })
-    const durationMs = Math.max(1000, state.duration * 1000)
-    let raf = 0
-    let lastStatus = 0
-    if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.disabled = true
-    el.exportStatus.textContent = "드로잉 영상을 녹화하는 중… " + Math.round(durationMs / 1000) + "초 정도 기다려 주세요."
-    try {
-      const start = performance.now()
-      recorder.start()
-      const tick = function (now) {
-        const elapsed = now - start
-        const progress = Math.min(1, elapsed / durationMs)
-        drawFrame(progress)
-        if (now - lastStatus > 1000) {
-          lastStatus = now
-          el.exportStatus.textContent =
-            "드로잉 영상을 녹화하는 중… " + Math.min(state.duration, Math.floor(elapsed / 1000)) + "/" + state.duration + "초"
-        }
-        if (progress < 1 && recorder.state !== "inactive") {
-          raf = requestAnimationFrame(tick)
-        } else if (recorder.state !== "inactive") {
-          recorder.stop()
-        }
-      }
-      raf = requestAnimationFrame(tick)
-      await done
-      if (!chunks.length) throw new Error("recorded video is empty")
-      downloadBlob(new Blob(chunks, { type: mimeType }), safeName() + "_drawing.webm")
-      el.exportStatus.textContent = "드로잉 영상을 저장했어요. 소리는 음악 저장(WebM)으로 따로 저장할 수 있어요."
-    } catch (e) {
-      console.error(e)
-      if (raf) cancelAnimationFrame(raf)
-      el.exportStatus.textContent = "드로잉 영상 저장 실패 — 콘솔을 확인하세요."
-    } finally {
-      stream.getTracks().forEach((track) => track.stop())
-      if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.disabled = false
-    }
-  }
+  // === § 26  공유 링크 ===
 
   function shareLink() {
     const code = Core.encodeRecipe(buildSharedRecipe())
@@ -3560,7 +2477,7 @@
       renderComposeInstruments()
       renderEffects()
       warmSelectedInstrument()
-      setupBgPlayer()
+      setupBgPlayer(true)
       refreshTimelineAfterLayout()
     } else {
       draw.setFlowMode(false)
@@ -3692,28 +2609,10 @@
       pulseControl(el.stopBtn)
       stop()
     })
-    if (el.completeStopBtn) {
-      el.completeStopBtn.addEventListener("click", function () {
-        pulseControl(el.completeStopBtn)
-        stop()
-      })
-    }
-
     if (el.saveTakeBtn) el.saveTakeBtn.addEventListener("click", saveTake)
     if (el.drawingSaveTakeBtn) el.drawingSaveTakeBtn.addEventListener("click", saveTake)
     if (el.drawingSaveNewTakeBtn) el.drawingSaveNewTakeBtn.addEventListener("click", saveNewTake)
-    // 완성 탭의 일괄 내보내기/공유 버튼은 제거됨 — 이제 각 시도(테이크)별 버튼이 담당.
-    // 아래 버튼들은 더 이상 마크업에 없을 수 있으므로 모두 존재 여부를 확인하고 바인딩한다.
-    if (el.exportAudioBtn) el.exportAudioBtn.addEventListener("click", exportAudio)
-    if (el.exportDrawingImageBtn) el.exportDrawingImageBtn.addEventListener("click", exportDrawingImage)
-    if (el.exportDrawingVideoBtn) el.exportDrawingVideoBtn.addEventListener("click", exportDrawingVideo)
-    if (el.exportCoverBtn) el.exportCoverBtn.addEventListener("click", exportCover)
-    if (el.shareBtn) el.shareBtn.addEventListener("click", shareLink)
     if (el.publishShareBtn) el.publishShareBtn.addEventListener("click", publishCurrentTake)
-    if (el.openShareStepBtn) el.openShareStepBtn.addEventListener("click", () => setStep(SHARE_STEP))
-    if (el.shareChannelInput) {
-      el.shareChannelInput.addEventListener("input", () => syncShareInputs(el.shareChannelInput.value))
-    }
     if (el.channelBrowseInput) {
       el.channelBrowseInput.addEventListener("input", () => {
         syncShareInputs(el.channelBrowseInput.value)
@@ -3727,9 +2626,6 @@
       })
     } else if (el.loadChannelBtn) {
       el.loadChannelBtn.addEventListener("click", () => openChannelPage(el.channelBrowseInput ? el.channelBrowseInput.value : state.sharedChannel))
-    }
-    if (el.shareAdminPinInput) {
-      el.shareAdminPinInput.addEventListener("input", renderSharedWorks)
     }
     if (el.claimChannelBtn) {
       el.claimChannelBtn.addEventListener("click", claimChannelFromForm)
@@ -3822,7 +2718,6 @@
     renderAtmospheres()
     renderInstrumentGroups()
     renderInstruments()
-    renderVersions()
     renderComposeInstruments()
     renderOrchestraLegend()
     renderEffects()
@@ -3882,9 +2777,7 @@
     },
     play: play,
     pause: pause,
-    resume: function () {
-      return engine.resume()
-    },
+    resume: resume,
     stop: stop,
     exportAudio: exportAudio,
     publishSharedWork: publishSharedWork,

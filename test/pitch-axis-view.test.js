@@ -55,3 +55,34 @@ test("숨은 칸(파·시)에 있던 옛 저장 점도 화면 범위 안의 이�
     assert.ok(display >= 0 && display <= 1, midi + " -> " + display)
   }
 })
+
+test("숨은 서양 음은 가까운 국악 경계에 결정적으로 붙는다", () => {
+  const full = Core.drawableScale(style)
+  const expectedDisplayY = new Map([
+    [59, 0.8],
+    [65, 0.5],
+    [71, 0.3],
+    [77, 0],
+    [79, 0],
+  ])
+
+  for (const [midi, expected] of expectedDisplayY) {
+    const index = full.indexOf(midi)
+    const storedY = 1 - (index + 0.5) / full.length
+    assert.ok(
+      Math.abs(Core.displayYFromStored(storedY, style, gugakAsset) - expected) < 1e-9,
+      String(midi)
+    )
+  }
+})
+
+test("발음 가능 음이 전체 축과 겹치지 않으면 전체 축을 안전하게 쓴다", () => {
+  const disjointAsset = { playableMidi: [100, 101] }
+  const full = Core.drawableScale(style)
+
+  assert.deepEqual(Core.playableScale(style, disjointAsset), full)
+  for (const y of [0, 0.25, 0.5, 0.75, 1]) {
+    assert.equal(Core.displayYFromStored(y, style, disjointAsset), y)
+    assert.equal(Core.storedYFromDisplay(y, style, disjointAsset), y)
+  }
+})

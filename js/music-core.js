@@ -96,14 +96,34 @@
 
   // 화면에 그릴 음높이 축. 국악풍은 draw* 설정으로 서양 기본 15칸 축을 유지하고,
   // 실제 발음 가능 여부는 isPitchPlayable()/quantizePitch()에서 따로 관리한다.
+  function firstIndexByMidi(scale) {
+    const indexes = new Map()
+    for (let i = 0; i < scale.length; i++) {
+      if (!indexes.has(scale[i])) indexes.set(scale[i], i)
+    }
+    return indexes
+  }
+
+  // 저장 좌표의 전체 축과 화면에 보이는 축을 한 번에 만든다.
+  // 이 모델은 공개하지 않고 아래 축 API가 같은 계산 결과를 공유하게 한다.
+  function buildPitchAxisModel(style, asset) {
+    const full = buildDisplayScale(style)
+    const playable = full.filter((midi) => isPitchPlayable(midi, style, asset))
+    const visible = playable.length ? playable : full
+    return {
+      full: full,
+      visible: visible,
+      fullIndex: firstIndexByMidi(full),
+      visibleIndex: firstIndexByMidi(visible),
+    }
+  }
+
   function drawableScale(style, asset) {
-    return buildDisplayScale(style)
+    return buildPitchAxisModel(style, asset).full
   }
 
   function playableScale(style, asset) {
-    const scale = drawableScale(style, asset)
-    const filtered = scale.filter((m) => isPitchPlayable(m, style, asset))
-    return filtered.length ? filtered : scale
+    return buildPitchAxisModel(style, asset).visible
   }
 
   function nearestScaleNote(target, style, asset) {
@@ -141,8 +161,9 @@
   // 저장 y(전체 축) → 화면 y(보이는 칸만). 숨은 칸에 놓인 점(옛 레시피 등)은
   // 가장 가까운 보이는 칸 가장자리에 붙인다.
   function displayYFromStored(normY, style, asset) {
-    const full = drawableScale(style, asset)
-    const visible = playableScale(style, asset)
+    const axis = buildPitchAxisModel(style, asset)
+    const full = axis.full
+    const visible = axis.visible
     const n = full.length
     const m = visible.length
     const y = clamp01(normY)
@@ -150,27 +171,28 @@
     const fromBottom = (1 - y) * n
     const band = Math.min(n - 1, Math.floor(fromBottom))
     let frac = Math.max(0, Math.min(1, fromBottom - band))
-    let visibleIndex = visible.indexOf(full[band])
-    if (visibleIndex === -1) {
+    let visibleIndex = axis.visibleIndex.get(full[band])
+    if (visibleIndex == null) {
       let best = 0
       let bestDist = Infinity
       for (let k = 0; k < m; k++) {
-        const dist = Math.abs(full.indexOf(visible[k]) - band)
+        const dist = Math.abs(axis.fullIndex.get(visible[k]) - band)
         if (dist < bestDist) {
           bestDist = dist
           best = k
         }
       }
       visibleIndex = best
-      frac = full.indexOf(visible[best]) < band ? 1 : 0
+      frac = axis.fullIndex.get(visible[best]) < band ? 1 : 0
     }
     return 1 - (visibleIndex + frac) / m
   }
 
   // 화면 y(보이는 칸만) → 저장 y(전체 축)
   function storedYFromDisplay(normY, style, asset) {
-    const full = drawableScale(style, asset)
-    const visible = playableScale(style, asset)
+    const axis = buildPitchAxisModel(style, asset)
+    const full = axis.full
+    const visible = axis.visible
     const n = full.length
     const m = visible.length
     const y = clamp01(normY)
@@ -179,8 +201,8 @@
     const band = Math.min(m - 1, Math.floor(fromBottom))
     // frac을 1 바로 아래로 캡핑 — 맨 위 픽셀이 이웃한 숨은 칸(예: 파)으로 넘어가지 않게
     const frac = Math.max(0, Math.min(1 - 1e-6, fromBottom - band))
-    const fullIndex = full.indexOf(visible[band])
-    if (fullIndex === -1) return y
+    const fullIndex = axis.fullIndex.get(visible[band])
+    if (fullIndex == null) return y
     return 1 - (fullIndex + frac) / n
   }
 
@@ -218,32 +240,55 @@
     return out
   }
 
-  function sampleDrawnTimeline(points, steps) {
-    const pts = [...points].sort((a, b) => a.x - b.x)
-    const minX = Math.max(0, Math.min(1, pts[0].x))
-    const maxX = Math.max(0, Math.min(1, pts[pts.length - 1].x))
+  // 실제 초 단위 격자. 각 칸은 곡 길이 안에서 시작하고 마지막 칸은 곡 끝에서 잘린다.
+  // 샘플 위치(t)와 재생 시각(time)을 같은 값에서 계산해 x축과 소리 시간이 어긋나지 않게 한다.
+  function timelineBySeconds(durationSec, stepSec) {
+    const duration = Math.max(0, Number(durationSec) || 0)
+    const step = Number(stepSec)
+    if (!(duration > 0) || !(step > 0)) return []
+    // 부동소수점 오차로 2.7 / 0.3 같은 정확한 끝 경계가 한 칸 더 생기지 않게 한다.
+    const boundaryEpsilon = Math.min(1e-9, duration / 2)
+    const count = Math.max(1, Math.ceil((duration - boundaryEpsilon) / step))
     const out = []
-    for (let i = 0; i < steps; i++) {
-      const t = steps === 1 ? 0 : i / (steps - 1)
-      if (t < minX || t > maxX) {
-        out.push(null)
-      } else {
-        out.push({ t, y: interpY(pts, t) })
-      }
+    for (let i = 0; i < count; i++) {
+      const time = i * step
+      if (!(time < duration)) break
+      out.push({
+        time: time,
+        endTime: Math.min(duration, time + step),
+        t: time / duration,
+      })
     }
     return out
   }
 
+  function sampleDrawnTimeline(points, durationSec, stepSec) {
+    if (!points || points.length === 0) return []
+    const pts = [...points].sort((a, b) => a.x - b.x)
+    const minX = Math.max(0, Math.min(1, pts[0].x))
+    const maxX = Math.max(0, Math.min(1, pts[pts.length - 1].x))
+    return timelineBySeconds(durationSec, stepSec).map(function (slot) {
+      if (slot.t < minX || slot.t > maxX) return null
+      return {
+        time: slot.time,
+        endTime: slot.endTime,
+        t: slot.t,
+        y: interpY(pts, slot.t),
+      }
+    })
+  }
+
   // --- 선율 / 리듬 자동완성 ---
 
-  // path: 정규화 [{x:0..1, y:0..1}]. 8분음표(0.5초) 격자로 샘플 → 음계 스냅 → 연속 동음 병합.
+  // path: 정규화 [{x:0..1, y:0..1}]. 초당 16회 샘플 → 음계 스냅 → 연속 동음 병합.
   function autocompleteMelody(path, opts) {
-    const durationSec = opts.durationSec
+    const durationSec = Math.max(0, Number(opts.durationSec) || 0)
     const style = opts.style
     const asset = opts.melodyAsset
     const SAMPLE_RATE = 16 // 초당 샘플 수 — 빠른 음(≈8음/초)·짧은 음을 살림(예전 2/초는 0.5초로 뭉갰다)
-    const TAP_SEC = 0.16 // 점 찍기/아주 짧은 획을 표현할 최소 음 길이
-    if (!path || path.length === 0) return []
+    const TAP_SEC = 0.16 // 점 찍기/아주 짧은 획을 표현할 기본 음 길이
+    const MIN_TAP_SEC = 0.05 // 곡 끝에서도 들을 수 있게 보장할 최소 길이
+    if (!path || path.length === 0 || !(durationSec > 0)) return []
     let minX = path[0].x
     let maxX = path[0].x
     for (const p of path) {
@@ -252,24 +297,25 @@
     }
     // 점 찍기(가로 폭 ≈ 0) → 짧은 음 하나
     if ((maxX - minX) * durationSec < TAP_SEC) {
-      const time = Math.max(0, Math.min(1, minX)) * durationSec
+      const requestedTime = Math.max(0, Math.min(1, minX)) * durationSec
+      const minimumDuration = Math.min(MIN_TAP_SEC, durationSec)
+      const time = Math.min(requestedTime, durationSec - minimumDuration)
       const midi = quantizePitch(path[0].y, style, asset)
       if (midi == null) return []
       return [
         {
           time: time,
-          duration: Math.min(TAP_SEC, Math.max(0.05, durationSec - time)),
+          duration: Math.min(TAP_SEC, durationSec - time),
           midi: midi,
           velocity: 0.7,
         },
       ]
     }
-    const steps = Math.max(1, Math.round(durationSec * SAMPLE_RATE))
-    const stepSec = durationSec / steps
-    const samples = sampleDrawnTimeline(path, steps)
+    const stepSec = 1 / SAMPLE_RATE
+    const samples = sampleDrawnTimeline(path, durationSec, stepSec)
     const raw = []
     let prev = null
-    for (let i = 0; i < steps; i++) {
+    for (let i = 0; i < samples.length; i++) {
       const sample = samples[i]
       if (!sample) {
         raw.push(null)
@@ -300,8 +346,8 @@
       let j = i + 1
       while (j < raw.length && raw[j] === raw[i]) j++
       notes.push({
-        time: i * stepSec,
-        duration: (j - i) * stepSec,
+        time: samples[i].time,
+        duration: samples[j - 1].endTime - samples[i].time,
         midi: raw[i],
         velocity: 0.7,
       })
@@ -334,18 +380,18 @@
 
   // path → 4/4 8분음표 격자의 타격 온셋. y가 임계 초과인 격자에서 타격.
   function autocompleteRhythm(path, opts) {
-    const durationSec = opts.durationSec
+    const durationSec = Math.max(0, Number(opts.durationSec) || 0)
     const bpm = opts.bpm || 100
     const step = 60 / bpm / 2
-    const steps = Math.max(1, Math.floor(durationSec / step))
-    const samples = sampleDrawnTimeline(path, steps)
+    if (!path || path.length === 0 || !(durationSec > 0)) return []
+    const samples = sampleDrawnTimeline(path, durationSec, step)
     const hits = []
-    for (let i = 0; i < steps; i++) {
+    for (let i = 0; i < samples.length; i++) {
       const sample = samples[i]
       if (!sample) continue
       const strength = sample.y
       if (strength > 0.5) {
-        hits.push({ time: i * step, velocity: Math.min(1, 0.5 + strength * 0.5) })
+        hits.push({ time: sample.time, velocity: Math.min(1, 0.5 + strength * 0.5) })
       }
     }
     return hits
@@ -383,6 +429,65 @@
   // 소리 질감 자체가 빠르게 반복돼 스터터로 들린다. 그래서 좁은 밴드(3dB)부터
   // 넓혀 가며 목표 길이(0.9초)를 넘는 구간을 찾을 때까지 시도한다.
   // 반환: { start, end } (channelData 기준 절대 초). 못 찾으면 null(호출부 폴백).
+  function measureLoopLevels(channelData, startFrame, count, winFrames) {
+    const levels = []
+    let peak = -Infinity
+    let peakMeanSquare = 0
+    for (let w = 0; w < count; w++) {
+      let sum = 0
+      const base = startFrame + w * winFrames
+      for (let i = 0; i < winFrames; i++) {
+        const value = channelData[base + i] || 0
+        sum += value * value
+      }
+      const meanSquare = sum / winFrames
+      const db = meanSquare > 0 ? 10 * Math.log10(meanSquare) : -Infinity
+      levels.push(db)
+      if (db > peak) peak = db
+      if (meanSquare > peakMeanSquare) peakMeanSquare = meanSquare
+    }
+    return { levels: levels, peak: peak, peakMeanSquare: peakMeanSquare }
+  }
+
+  function longestStableRun(levels, floor, bandDb) {
+    let best = null
+    for (let lo = 0; lo < levels.length; lo++) {
+      if (levels[lo] < floor) continue
+      let hi = lo
+      let min = levels[lo]
+      let max = levels[lo]
+      while (hi + 1 < levels.length && levels[hi + 1] >= floor) {
+        const next = levels[hi + 1]
+        if (Math.max(max, next) - Math.min(min, next) > bandDb) break
+        if (next < min) min = next
+        if (next > max) max = next
+        hi++
+      }
+      if (!best || hi - lo > best.hi - best.lo) best = { lo: lo, hi: hi }
+    }
+    return best
+  }
+
+  function stableRunToRegion(run, from, windowSec, minLoopSec) {
+    if (!run) return null
+    // 경계 창에는 어택이나 감쇠가 걸쳐 있을 수 있어 양 끝을 한 창씩 줄인다.
+    const start = from + (run.lo + 1) * windowSec
+    const end = from + run.hi * windowSec
+    return end - start >= minLoopSec ? { start: start, end: end } : null
+  }
+
+  function chooseStableLoopRegion(levels, floor, bands, from, windowSec, minLoopSec, targetLoopSec) {
+    let chosen = null
+    for (const band of bands) {
+      const run = longestStableRun(levels, floor, band)
+      const region = stableRunToRegion(run, from, windowSec, minLoopSec)
+      if (!region) continue
+      if (region.end - region.start >= targetLoopSec) return region
+      if (!chosen || region.end - region.start > chosen.end - chosen.start) chosen = region
+    }
+    return chosen
+  }
+
   function findStableLoopRegion(channelData, sampleRate, offset, duration, options) {
     const opts = options || {}
     const windowSec = opts.windowSec > 0 ? opts.windowSec : 0.05
@@ -398,55 +503,11 @@
     const count = Math.floor((span * sampleRate) / winFrames)
     if (count < Math.ceil(minLoopSec / windowSec) + 2) return null
     const startFrame = Math.round(from * sampleRate)
-    const levels = []
-    let peak = -Infinity
-    for (let w = 0; w < count; w++) {
-      let sum = 0
-      const base = startFrame + w * winFrames
-      for (let i = 0; i < winFrames; i++) {
-        const v = channelData[base + i] || 0
-        sum += v * v
-      }
-      const db = 10 * Math.log10(sum / winFrames + 1e-12)
-      levels.push(db)
-      if (db > peak) peak = db
-    }
-    const floor = peak - silenceDb
-    function longestRun(bandDb) {
-      let best = null
-      for (let lo = 0; lo < count; lo++) {
-        if (levels[lo] < floor) continue
-        let hi = lo
-        let min = levels[lo]
-        let max = levels[lo]
-        while (hi + 1 < count && levels[hi + 1] >= floor) {
-          const next = levels[hi + 1]
-          if (Math.max(max, next) - Math.min(min, next) > bandDb) break
-          if (next < min) min = next
-          if (next > max) max = next
-          hi++
-        }
-        if (!best || hi - lo > best.hi - best.lo) best = { lo: lo, hi: hi }
-      }
-      return best
-    }
-    function toRegion(run) {
-      if (!run) return null
-      // 경계 창은 어택/감쇠와 걸쳐 있을 수 있어 양끝을 한 창씩 안쪽으로 줄인다.
-      const start = from + (run.lo + 1) * windowSec
-      const end = from + run.hi * windowSec
-      return end - start >= minLoopSec ? { start: start, end: end } : null
-    }
-    let chosen = null
-    for (const band of bands) {
-      const region = toRegion(longestRun(band))
-      if (!region) continue
-      if (region.end - region.start >= targetLoopSec) {
-        chosen = region
-        break
-      }
-      if (!chosen || region.end - region.start > chosen.end - chosen.start) chosen = region
-    }
+    const measurement = measureLoopLevels(channelData, startFrame, count, winFrames)
+    if (!(measurement.peakMeanSquare > 0)) return null
+    const levels = measurement.levels
+    const floor = measurement.peak - silenceDb
+    const chosen = chooseStableLoopRegion(levels, floor, bands, from, windowSec, minLoopSec, targetLoopSec)
     if (!chosen) return null
     return alignLoopEndToStart(channelData, sampleRate, chosen)
   }
