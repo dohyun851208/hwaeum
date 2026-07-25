@@ -204,6 +204,7 @@
     clearBtn: $("clearBtn"),
     undoBtn: $("undoBtn"),
     resetComposeBtn: $("resetComposeBtn"),
+    playheadStartBtn: $("playheadStartBtn"),
     drawingSaveTakeBtn: $("drawingSaveTakeBtn"),
     drawingSaveNewTakeBtn: $("drawingSaveNewTakeBtn"),
     scaleReadout: $("scaleReadout"),
@@ -534,6 +535,7 @@
     pause,
     resume,
     stop,
+    movePlayheadToStart,
   } = studioTransport
 
   // === § 8  타임라인 지오메트리 & 스크롤 동기화 ===
@@ -1461,6 +1463,10 @@
     } else if (event.key === "4") {
       event.preventDefault()
       resetCompose()
+    } else if (event.key === "5") {
+      event.preventDefault()
+      pulseControl(el.playheadStartBtn)
+      movePlayheadToStart(true)
     }
   }
 
@@ -2571,6 +2577,12 @@
       el.undoBtn.addEventListener("click", announceUndoLastAction)
     }
     el.resetComposeBtn.addEventListener("click", resetCompose)
+    if (el.playheadStartBtn) {
+      el.playheadStartBtn.addEventListener("click", () => {
+        pulseControl(el.playheadStartBtn)
+        movePlayheadToStart(true)
+      })
+    }
 
     // 배경음악 미니 플레이어 — 재생/일시정지 + 시작 지점(bgOffset) 스크럽
     if (el.bgPlayBtn) {

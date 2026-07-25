@@ -283,6 +283,22 @@ test("pausing remembers the live playhead and stop resets it to the beginning", 
   assert.equal(h.el.playhead.getAttribute("aria-valuenow"), "0")
 })
 
+test("move-to-start stops playback and resets only the playhead position", () => {
+  const h = createHarness({ noBackground: true })
+  h.transport.setSelectedPlayhead(0.5, false, false)
+  h.transport.play()
+  h.clock.step(6000)
+
+  h.transport.movePlayheadToStart(true)
+
+  assert.equal(h.engine.calls.stop.length, 1)
+  assert.equal(h.transport.getTimeState().selectedPlayheadProgress, 0)
+  assert.equal(h.el.playhead.getAttribute("aria-valuenow"), "0")
+  assert.equal(h.el.playhead.style.left, "0px")
+  assert.equal(h.el.exportStatus.textContent, "재생 위치를 처음으로 옮겼어요.")
+  assert.deepEqual(h.recipe.path, [])
+})
+
 test("an ended song leaves the visible playhead at the end", () => {
   const h = createHarness({ noBackground: true })
   h.transport.play()

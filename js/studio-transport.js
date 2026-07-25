@@ -741,6 +741,13 @@
     else el.playhead.hidden = true
   }
 
+  function movePlayheadToStart(announce) {
+    finishSoundFlowAtCurrentPoint()
+    stopPlaybackForPlayheadSeek()
+    resetPlayheadToStart()
+    if (announce && el.exportStatus) el.exportStatus.textContent = "재생 위치를 처음으로 옮겼어요."
+  }
+
   function stop() {
     deps.stopBackgroundPreview()
     deps.stopExamplePreview()
@@ -800,6 +807,7 @@
     resume,
     stop,
     resetPlayheadToStart,
+    movePlayheadToStart,
     getTimeState,
   }
 })

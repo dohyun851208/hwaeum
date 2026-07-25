@@ -189,10 +189,12 @@ test("드로잉 도구 버튼은 키보드 숫자 배지를 보인다", () => {
   assert.match(html, /id="penBtn"[\s\S]*aria-keyshortcuts="1"[\s\S]*class="tool-shortcut-badge"[^>]*>1<\/span>[\s\S]*id="clearBtn"/)
   assert.match(html, /id="clearBtn"[\s\S]*aria-keyshortcuts="2"[\s\S]*class="tool-shortcut-badge"[^>]*>2<\/span>/)
   assert.match(html, /id="undoBtn"[\s\S]*aria-keyshortcuts="3"[\s\S]*class="tool-shortcut-badge"[^>]*>3<\/span>[\s\S]*id="resetComposeBtn"/)
-  assert.match(html, /id="resetComposeBtn"[\s\S]*aria-keyshortcuts="4"[\s\S]*class="tool-shortcut-badge"[^>]*>4<\/span>/)
+  assert.match(html, /id="resetComposeBtn"[\s\S]*aria-keyshortcuts="4"[\s\S]*class="tool-shortcut-badge"[^>]*>4<\/span>[\s\S]*id="playheadStartBtn"/)
+  assert.match(html, /id="playheadStartBtn"[\s\S]*aria-keyshortcuts="5"[\s\S]*class="tool-shortcut-badge"[^>]*>5<\/span>/)
   assert.match(css, /\.tool-shortcut-badge\s*\{[\s\S]*position:\s*absolute[\s\S]*right:\s*5px[\s\S]*bottom:\s*4px/)
   assert.match(source, /event\.key === "3"[\s\S]*announceUndoLastAction\(\)/)
   assert.match(source, /event\.key === "4"[\s\S]*resetCompose\(\)/)
+  assert.match(source, /event\.key === "5"[\s\S]*movePlayheadToStart\(true\)/)
 })
 
 test("드로잉 읽기 표시는 길이 다음에 시도한 횟수를 보여준다", () => {
