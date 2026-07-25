@@ -1340,6 +1340,61 @@ test("viola F4 uses the measured replacement-sample gain and pitch correction", 
   assert.ok(gainEvents.some((event) => (event[0] === "set" || event[0] === "target") && Math.abs(event[1] - 1.345) < 1e-9))
 })
 
+test("audited isolated quiet rows use replacement pitch and measured gain", () => {
+  const cases = [
+    { id: "flute", midi: 71, cents: -200, gain: 1.306 },
+    { id: "violin", midi: 76, cents: -100, gain: 1.323 },
+    { id: "viola", midi: 69, cents: -100, gain: 1.295 },
+    { id: "viola", midi: 71, cents: -100, gain: 0.747 },
+    { id: "viola", midi: 74, cents: -200, gain: 1.236 },
+    { id: "cello", midi: 69, cents: -100, gain: 0.765 },
+    { id: "sogeum", midi: 69, cents: 191, gain: 1.047 },
+    { id: "haegeum", midi: 76, cents: 100, gain: Math.pow(10, 3 / 20) },
+  ]
+
+  for (const item of cases) {
+    const sandbox = loadEngine()
+    const engine = new sandbox.AudioEngine()
+    const ctx = makeAudioContext()
+    const dest = makeNode()
+    const plan = engine.resolvePlan(
+      {
+        duration: 30,
+        atmosphere: "calm",
+        instrument: item.id,
+        style: ["sogeum", "haegeum"].includes(item.id) ? "gugak" : "bright",
+        version: "balanced",
+        mode: "melody",
+      },
+      [{ time: 0, duration: 0.5, midi: item.midi, velocity: 0.7 }],
+    )
+
+    engine.scheduleSampleMelody(
+      ctx,
+      dest,
+      plan,
+      plan.notes,
+      { melody: { duration: 2.4 }, melodySamples: null },
+      0,
+      noop,
+    )
+
+    const expectedRate = Math.pow(2, -item.cents / 1200)
+    const rateEvents = ctx.created.buffers[0].playbackRate.events
+    const gainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
+    assert.ok(
+      rateEvents.some((event) => event[0] === "set" && Math.abs(event[1] - expectedRate) < 1e-12),
+      `${item.id} ${item.midi} replacement pitch`,
+    )
+    assert.ok(
+      gainEvents.some(
+        (event) => (event[0] === "set" || event[0] === "target") && Math.abs(event[1] - item.gain) < 1e-9,
+      ),
+      `${item.id} ${item.midi} replacement gain`,
+    )
+  }
+})
+
 test("note-level melody gain is clamped to roughly +/-3 dB inside each instrument", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()

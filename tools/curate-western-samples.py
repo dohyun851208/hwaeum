@@ -112,8 +112,14 @@ MAX_LOOP_SPREAD_DB = 12.0
 # Hand curation for samples whose exact note source is too short or abnormally quiet.
 # cents describes the source pitch relative to the target midi entry.
 SAMPLE_OVERRIDES = {
+    ("flute", 83): {"srcMidi": 81, "srcToken": "A5", "cents": -200},
     ("oboe", 88): {"srcMidi": 89, "srcToken": "F6", "cents": 100},
+    ("violin", 76): {"srcMidi": 75, "srcToken": "Ds5", "cents": -100},
     ("viola", 65): {"srcMidi": 66, "srcToken": "Fs4", "cents": 100},
+    ("viola", 69): {"srcMidi": 68, "srcToken": "Gs4", "cents": -100},
+    ("viola", 71): {"srcMidi": 70, "srcToken": "As4", "cents": -100},
+    ("viola", 74): {"srcMidi": 72, "srcToken": "C5", "cents": -200},
+    ("cello", 57): {"srcMidi": 56, "srcToken": "Gs3", "cents": -100},
 }
 
 SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}

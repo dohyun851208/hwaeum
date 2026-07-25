@@ -53,6 +53,13 @@ function currentInstrumentGains() {
   return new Function(`return ({${match[1]}\n})`)()
 }
 
+function currentNoteGains() {
+  const src = fs.readFileSync(path.join(ROOT, "js/audio-engine.js"), "utf8")
+  const match = src.match(/const NOTE_MELODY_OUTPUT_GAINS = \{([\s\S]*?)\r?\n  \}\r?\n  const LIVE_PREVIEW_MAX_GAIN/)
+  if (!match) throw new Error("NOTE_MELODY_OUTPUT_GAINS not found")
+  return new Function(`return ({${match[1]}\n})`)()
+}
+
 function dbGain(gain) {
   return 20 * Math.log10(gain)
 }
@@ -152,6 +159,31 @@ function stableSegmentRange(segment) {
   }
 }
 
+function pluckedAttackRange(segment) {
+  const segmentOffset = Number(segment && segment.offset) || 0
+  const segmentDuration = Number(segment && segment.duration) || 0
+  const leadIn = Math.min(0.02, segmentDuration * 0.05)
+  return {
+    offset: segmentOffset + leadIn,
+    duration: Math.max(0.05, Math.min(0.22, segmentDuration * 0.4)),
+  }
+}
+
+function measureSegmentSource(id, asset, segment) {
+  const rel = segment && segment.src ? segment.src : asset.src
+  if (!rel) return null
+  const absPath = relativePathToAbs(rel)
+  if (!fs.existsSync(absPath)) return null
+  const range = segment && !segment.src && (segment.offset != null || segment.duration != null)
+    ? stableSegmentRange(segment)
+    : stableWholeFileRange(absPath)
+  const loopDb = AUTO_LOOP_IDS.has(id) && segment && segment.src ? autoLoopMeanDb(absPath) : null
+  return {
+    sourceDb: loopDb != null ? loopDb : measureMeanDb(absPath, range.offset, range.duration),
+    sourceFile: path.basename(rel),
+  }
+}
+
 function instrumentRows(data, id, gains) {
   const asset = data.melodies[id]
   const uiMidi = WESTERN_IDS.has(id) ? WESTERN_UI_MIDI : GUGAK_UI_MIDI
@@ -161,19 +193,16 @@ function instrumentRows(data, id, gains) {
   for (const ui of uiMidi) {
     const playbackMidi = ui + (asset.playbackTranspose || 0)
     const segment = nearestSample(asset, playbackMidi)
-    const rel = segment && segment.src ? segment.src : asset.src
-    if (!rel) continue
-    const absPath = relativePathToAbs(rel)
-    if (!fs.existsSync(absPath)) continue
-    const range = segment && !segment.src && (segment.offset != null || segment.duration != null)
-      ? stableSegmentRange(segment)
-      : stableWholeFileRange(absPath)
-    const loopDb = AUTO_LOOP_IDS.has(id) && segment && segment.src ? autoLoopMeanDb(absPath) : null
-    const sourceDb = loopDb != null ? loopDb : measureMeanDb(absPath, range.offset, range.duration)
+    const measured = measureSegmentSource(id, asset, segment)
+    if (!measured) continue
     rows.push({
       uiMidi: ui,
-      sourceDb,
-      effectiveDb: sourceDb + dbGain(categoryGain) + dbGain(currentGain),
+      playbackMidi,
+      sourceMidi: segment && segment.midi,
+      sourceNote: segment && segment.note,
+      sourceFile: measured.sourceFile,
+      sourceDb: measured.sourceDb,
+      effectiveDb: measured.sourceDb + dbGain(categoryGain) + dbGain(currentGain),
     })
   }
   return rows
@@ -224,9 +253,164 @@ function printNoteGainCandidates(data, gains) {
   }
 }
 
+function printNoteDetails(data, gains, noteGains) {
+  console.log("")
+  console.log("instrument,uiMidi,playbackMidi,sourceMidi,sourceNote,sourceDb,currentAfterDb,localReferenceDb,quietVsNeighborsDb,upperGainLimit,sourceFile")
+  for (const id of INSTRUMENT_IDS) {
+    const rows = instrumentRows(data, id, gains)
+    const limitDb = AUTO_LOOP_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
+    const maxGain = Math.pow(10, limitDb / 20)
+    const afterRows = rows.map((row) => {
+      const gain = noteGains[id] && noteGains[id][row.uiMidi] > 0 ? noteGains[id][row.uiMidi] : 1
+      return {
+        ...row,
+        currentNoteGain: gain,
+        currentAfterDb: row.effectiveDb + dbGain(gain),
+      }
+    })
+    for (let index = 0; index < afterRows.length; index++) {
+      const row = afterRows[index]
+      const neighbors = []
+      if (index > 0) neighbors.push(afterRows[index - 1].currentAfterDb)
+      if (index + 1 < afterRows.length) neighbors.push(afterRows[index + 1].currentAfterDb)
+      const localReferenceDb = neighbors.length === 2 ? energyAverageDb(neighbors) : NaN
+      const quietVsNeighborsDb = localReferenceDb - row.currentAfterDb
+      console.log(
+        [
+          id,
+          row.uiMidi,
+          row.playbackMidi,
+          row.sourceMidi == null ? "" : row.sourceMidi,
+          row.sourceNote || "",
+          row.sourceDb.toFixed(2),
+          row.currentAfterDb.toFixed(2),
+          Number.isFinite(localReferenceDb) ? localReferenceDb.toFixed(2) : "",
+          Number.isFinite(quietVsNeighborsDb) ? quietVsNeighborsDb.toFixed(2) : "",
+          row.currentNoteGain >= maxGain * 0.999 ? "yes" : "no",
+          row.sourceFile,
+        ].join(","),
+      )
+    }
+  }
+}
+
+function printReplacementCandidates(data, gains, noteGains) {
+  console.log("")
+  console.log("instrument,uiMidi,quietDb,currentSource,suggestedSource,pitchCents,suggestedGain,predictedResidualDb")
+  for (const id of INSTRUMENT_IDS) {
+    if (id === "gayageum") continue
+    const asset = data.melodies[id]
+    const rows = instrumentRows(data, id, gains)
+    const targetDb = energyAverageDb(rows.map((row) => row.effectiveDb))
+    const limitDb = AUTO_LOOP_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
+    const baseOutputDb =
+      dbGain(WESTERN_IDS.has(id) ? WESTERN_MELODY_OUTPUT_GAIN : GUGAK_DRAWING_GAIN_BOOST) +
+      dbGain(gains[id] == null ? 1 : gains[id])
+    const afterRows = rows.map((row) => {
+      const gain = noteGains[id] && noteGains[id][row.uiMidi] > 0 ? noteGains[id][row.uiMidi] : 1
+      return { ...row, currentAfterDb: row.effectiveDb + dbGain(gain) }
+    })
+    for (let index = 0; index < afterRows.length; index++) {
+      const row = afterRows[index]
+      const neighbors = []
+      if (index > 0) neighbors.push(afterRows[index - 1].currentAfterDb)
+      if (index + 1 < afterRows.length) neighbors.push(afterRows[index + 1].currentAfterDb)
+      if (!neighbors.length) continue
+      const localReferenceDb = energyAverageDb(neighbors)
+      const referenceDb = Math.min(localReferenceDb, targetDb)
+      const quietDb = referenceDb - row.currentAfterDb
+      if (quietDb < 3) continue
+
+      const candidates = []
+      for (const candidate of Array.isArray(asset.sampleMap) ? asset.sampleMap : []) {
+        if (candidate.midi === row.sourceMidi) continue
+        const pitchDistance = Math.abs(candidate.midi - row.playbackMidi)
+        if (pitchDistance > 3) continue
+        const measured = measureSegmentSource(id, asset, candidate)
+        if (!measured || !Number.isFinite(measured.sourceDb)) continue
+        const neededDb = referenceDb - (measured.sourceDb + baseOutputDb)
+        const appliedDb = clamp(neededDb, -limitDb, limitDb)
+        const residualDb = Math.abs(neededDb - appliedDb)
+        candidates.push({
+          sourceFile: measured.sourceFile,
+          pitchCents: Math.round((candidate.midi - row.playbackMidi) * 100 + (candidate.cents || 0)),
+          suggestedGain: Math.pow(10, appliedDb / 20),
+          residualDb,
+          pitchDistance,
+        })
+      }
+      candidates.sort((a, b) => {
+        const aFits = a.residualDb <= 0.5
+        const bFits = b.residualDb <= 0.5
+        if (aFits !== bFits) return aFits ? -1 : 1
+        return a.pitchDistance - b.pitchDistance || a.residualDb - b.residualDb
+      })
+      const best = candidates[0]
+      if (!best || best.residualDb >= quietDb - 0.5) continue
+      console.log(
+        [
+          id,
+          row.uiMidi,
+          quietDb.toFixed(2),
+          row.sourceFile,
+          best.sourceFile,
+          best.pitchCents,
+          best.suggestedGain.toFixed(3),
+          best.residualDb.toFixed(2),
+        ].join(","),
+      )
+    }
+  }
+}
+
+function printPluckedDetails(data, gains) {
+  const id = "gayageum"
+  const asset = data.melodies[id]
+  const baseOutputDb = dbGain(GUGAK_DRAWING_GAIN_BOOST) + dbGain(gains[id] == null ? 1 : gains[id])
+  const rows = []
+  for (const uiMidi of GUGAK_UI_MIDI) {
+    const playbackMidi = uiMidi + (asset.playbackTranspose || 0)
+    const segment = nearestSample(asset, playbackMidi)
+    const rel = segment && segment.src ? segment.src : asset.src
+    if (!segment || !rel) continue
+    const absPath = relativePathToAbs(rel)
+    if (!fs.existsSync(absPath)) continue
+    const range = pluckedAttackRange(segment)
+    const sourceAttackDb = measureMeanDb(absPath, range.offset, range.duration)
+    rows.push({
+      uiMidi,
+      sourceMidi: segment.midi,
+      sourceAttackDb,
+      effectiveAttackDb: sourceAttackDb + baseOutputDb,
+    })
+  }
+  const targetDb = energyAverageDb(rows.map((row) => row.effectiveAttackDb))
+  console.log("")
+  console.log("instrument,uiMidi,sourceMidi,sourceAttackDb,effectiveAttackDb,quietVsNeighborsDb")
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index]
+    const neighbors = []
+    if (index > 0) neighbors.push(rows[index - 1].effectiveAttackDb)
+    if (index + 1 < rows.length) neighbors.push(rows[index + 1].effectiveAttackDb)
+    const localReferenceDb = neighbors.length ? Math.min(energyAverageDb(neighbors), targetDb) : NaN
+    const quietDb = localReferenceDb - row.effectiveAttackDb
+    console.log(
+      [
+        id,
+        row.uiMidi,
+        row.sourceMidi,
+        row.sourceAttackDb.toFixed(2),
+        row.effectiveAttackDb.toFixed(2),
+        Number.isFinite(quietDb) ? quietDb.toFixed(2) : "",
+      ].join(","),
+    )
+  }
+}
+
 function main() {
   const data = loadData()
   const gains = currentInstrumentGains()
+  const noteGains = currentNoteGains()
   const summaries = INSTRUMENT_IDS.map((id) => {
     const sourceEnergyDb = energyAverageDb(instrumentMeans(data, id))
     const categoryGain = WESTERN_IDS.has(id) ? WESTERN_MELODY_OUTPUT_GAIN : GUGAK_DRAWING_GAIN_BOOST
@@ -258,6 +442,9 @@ function main() {
     )
   }
   if (process.argv.includes("--notes")) printNoteGainCandidates(data, gains)
+  if (process.argv.includes("--note-details")) printNoteDetails(data, gains, noteGains)
+  if (process.argv.includes("--replacement-candidates")) printReplacementCandidates(data, gains, noteGains)
+  if (process.argv.includes("--plucked-details")) printPluckedDetails(data, gains)
 }
 
 main()

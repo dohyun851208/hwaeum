@@ -116,6 +116,29 @@
     ],
   }
 
+  // 안정 구간 RMS 전수 측정에서 이웃 음보다 유독 작았던 표시 음은
+  // 가장 가까운 정상 샘플을 같은 음높이로 옮겨 쓴다.
+  function reuseMeasuredSegment(id, targetMidi, targetNote, sourceMidi) {
+    const map = maps[id]
+    const source = map && map.find((item) => item.midi === sourceMidi)
+    if (!source) return
+    const replacement = Object.assign({}, source, {
+      midi: targetMidi,
+      note: targetNote,
+      cents: (source.cents || 0) + (sourceMidi - targetMidi) * 100,
+    })
+    const targetIndex = map.findIndex((item) => item.midi === targetMidi)
+    if (targetIndex >= 0) map[targetIndex] = replacement
+    else {
+      map.push(replacement)
+      map.sort((a, b) => a.midi - b.midi)
+    }
+  }
+
+  reuseMeasuredSegment("sogeum", 81, "A5", 83)
+  reuseMeasuredSegment("haegeum", 76, "E5", 77)
+  reuseMeasuredSegment("gayageum", 76, "E5", 74)
+
   Object.keys(maps).forEach((id) => {
     const asset = data.melodies[id]
     const sampleMap = maps[id]

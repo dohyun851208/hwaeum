@@ -228,6 +228,32 @@ test("quiet viola F4 row reuses the neighboring sample at the correct pitch", ()
   assert.equal(violaF4.cents, 100)
 })
 
+test("isolated quiet drawing rows reuse measured neighboring samples", () => {
+  const data = loadManifest()
+  const expected = [
+    ["flute", 83, /flute_A5\.mp3$/, -200],
+    ["violin", 76, /violin_Ds5\.mp3$/, -100],
+    ["viola", 69, /viola_Gs4\.mp3$/, -100],
+    ["viola", 71, /viola_As4\.mp3$/, -100],
+    ["viola", 74, /viola_C5\.mp3$/, -200],
+    ["cello", 57, /cello_Gs3\.mp3$/, -100],
+    ["sogeum", 81, /sogeum_B5\.mp3$/, 191],
+    ["haegeum", 76, /haegeum_F5\.mp3$/, 100],
+  ]
+
+  for (const [id, midi, sourcePattern, cents] of expected) {
+    const row = data.melodies[id].sampleMap.find((item) => item.midi === midi)
+    assert.ok(row, `${id} ${midi} replacement row`)
+    assert.match(row.src, sourcePattern)
+    assert.equal(row.cents, cents)
+  }
+
+  const gayageumHighE = data.melodies.gayageum.sampleMap.find((item) => item.midi === 76)
+  assert.equal(gayageumHighE.offset, 202.753)
+  assert.equal(gayageumHighE.detectedHz, 593.74)
+  assert.equal(gayageumHighE.cents, -181)
+})
+
 test("violin drawing rows keep distinct source pitches", () => {
   const data = loadManifest()
   const violin = data.melodies.violin.sampleMap
@@ -239,8 +265,7 @@ test("violin drawing rows keep distinct source pitches", () => {
   assert.match(byMidi.get(62).src, /violin_D4\.mp3$/)
   assert.match(byMidi.get(74).src, /violin_D5\.mp3$/)
   assert.match(byMidi.get(79).src, /violin_G5\.mp3$/)
-  assert.match(byMidi.get(76).src, /violin_E5\.mp3$/)
-  for (const midi of [55, 57, 59, 62, 74, 76, 79]) {
+  for (const midi of [55, 57, 59, 62, 74, 79]) {
     assert.equal(byMidi.get(midi).cents, undefined)
   }
 })
