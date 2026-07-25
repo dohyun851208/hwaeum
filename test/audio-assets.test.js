@@ -220,6 +220,14 @@ test("sustained wind sample maps avoid short repeated loop sources", () => {
   assert.equal(oboeE6.cents, 100)
 })
 
+test("quiet viola F4 row reuses the neighboring sample at the correct pitch", () => {
+  const data = loadManifest()
+  const violaF4 = data.melodies.viola.sampleMap.find((item) => item.midi === 65)
+
+  assert.match(violaF4.src, /viola_Fs4\.mp3$/)
+  assert.equal(violaF4.cents, 100)
+})
+
 test("violin drawing rows keep distinct source pitches", () => {
   const data = loadManifest()
   const violin = data.melodies.violin.sampleMap

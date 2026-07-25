@@ -78,7 +78,7 @@
       { midi: 62, note: "D4", src: "sound/선율-서양(필하모니아)/현/viola/viola_D4.mp3" },
       { midi: 63, note: "D#4", src: "sound/선율-서양(필하모니아)/현/viola/viola_Ds4.mp3" },
       { midi: 64, note: "E4", src: "sound/선율-서양(필하모니아)/현/viola/viola_E4.mp3" },
-      { midi: 65, note: "F4", src: "sound/선율-서양(필하모니아)/현/viola/viola_F4.mp3" },
+      { midi: 65, note: "F4", src: "sound/선율-서양(필하모니아)/현/viola/viola_Fs4.mp3", cents: 100 },
       { midi: 66, note: "F#4", src: "sound/선율-서양(필하모니아)/현/viola/viola_Fs4.mp3" },
       { midi: 67, note: "G4", src: "sound/선율-서양(필하모니아)/현/viola/viola_G4.mp3" },
       { midi: 68, note: "G#4", src: "sound/선율-서양(필하모니아)/현/viola/viola_Gs4.mp3" },

@@ -109,10 +109,11 @@ MIN_ONSET_DB = -42.0
 MIN_LOOP_TAIL_DB = -40.0
 MAX_LOOP_SPREAD_DB = 12.0
 
-# Hand curation for samples whose exact note source is too short for visible sustain.
+# Hand curation for samples whose exact note source is too short or abnormally quiet.
 # cents describes the source pitch relative to the target midi entry.
 SAMPLE_OVERRIDES = {
     ("oboe", 88): {"srcMidi": 89, "srcToken": "F6", "cents": 100},
+    ("viola", 65): {"srcMidi": 66, "srcToken": "Fs4", "cents": 100},
 }
 
 SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}

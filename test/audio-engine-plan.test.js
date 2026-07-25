@@ -1313,6 +1313,33 @@ test("gayageum note-level gain does not boost plucked sample rows", () => {
   )
 })
 
+test("viola F4 uses the measured replacement-sample gain and pitch correction", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const dest = makeNode()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "calm", instrument: "viola", style: "bright", version: "balanced", mode: "melody" },
+    [{ time: 0, duration: 0.5, midi: 65, velocity: 0.7 }],
+  )
+
+  engine.scheduleSampleMelody(
+    ctx,
+    dest,
+    plan,
+    plan.notes,
+    { melody: { duration: 2.4 }, melodySamples: null },
+    0,
+    noop,
+  )
+
+  const expectedRate = Math.pow(2, -1 / 12)
+  const rateEvents = ctx.created.buffers[0].playbackRate.events
+  const gainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
+  assert.ok(rateEvents.some((event) => event[0] === "set" && Math.abs(event[1] - expectedRate) < 1e-12))
+  assert.ok(gainEvents.some((event) => (event[0] === "set" || event[0] === "target") && Math.abs(event[1] - 1.345) < 1e-9))
+})
+
 test("note-level melody gain is clamped to roughly +/-3 dB inside each instrument", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
