@@ -259,6 +259,22 @@ const westernFamilyLabels = Array.from(window.document.querySelectorAll("#instru
   .map((node) => node.textContent.trim())
   .join("|")
 check("서양 악기 분류 제목 표시", westernFamilyLabels === "관악기|현악기", westernFamilyLabels)
+check("악기마다 감상 노트 입력칸", qc("#instrumentGrid .instrument-note-field") === westernInstrumentCount, qc("#instrumentGrid .instrument-note-field"))
+check("악기 설명은 카드에 미리 보이지 않음", qc("#instrumentGrid .card-copy > span") === 0, qc("#instrumentGrid .card-copy > span"))
+const firstNoteSlot = window.document.querySelector("#instrumentGrid .instrument-card-slot")
+check(
+  "감상 노트 슬롯도 악기 톤 색을 물려받는다",
+  firstNoteSlot && firstNoteSlot.style.getPropertyValue("--instrument-color").trim() !== "",
+  firstNoteSlot && firstNoteSlot.style.getPropertyValue("--instrument-color"),
+)
+check(
+  "예시 답안은 눌러야 열림",
+  qc("#instrumentGrid .instrument-answer[hidden]") === westernInstrumentCount,
+  qc("#instrumentGrid .instrument-answer[hidden]"),
+)
+const firstAnswerBtn = window.document.querySelector("#instrumentGrid .instrument-answer-btn")
+firstAnswerBtn.click()
+check("예시 답안 보기 클릭 시 한 개만 열림", qc("#instrumentGrid .instrument-answer:not([hidden])") === 1, qc("#instrumentGrid .instrument-answer:not([hidden])"))
 check("전자 악기 그룹 제거", qc("#instrumentGroups .group-tab") === 2, qc("#instrumentGroups .group-tab"))
 check("신디 선택지 제거", window.SDStudioData.instruments.every((instrument) => instrument.id !== "synth"))
 check("스타일 선택 카드 제거", qc("#styleGrid") === 0, qc("#styleGrid"))
@@ -296,6 +312,23 @@ check(
 window.document.querySelector("#instrumentGrid .card.playing .example-play").click()
 check("악기 카드 정지 아이콘 재클릭으로 멈춤", qc("#instrumentGrid .card.playing") === 0)
 westernTab.click()
+
+// 감상 노트: 그리드가 통째로 다시 그려져도(연주곡 종료·악기 선택) 적던 글과 커서가 남아야 한다.
+const noteField = window.document.querySelector("#instrumentGrid .instrument-note-field")
+noteField.value = "물결 같은 소리"
+noteField.dispatchEvent(new window.Event("input", { bubbles: true }))
+noteField.focus()
+noteField.setSelectionRange(3, 3)
+westernTab.click() // 같은 그룹을 다시 렌더
+const restoredNote = window.document.activeElement
+check(
+  "재렌더 후에도 감상 노트 글과 커서가 남는다",
+  restoredNote &&
+    restoredNote.dataset.noteInstrument === noteField.dataset.noteInstrument &&
+    restoredNote.value === "물결 같은 소리" &&
+    restoredNote.selectionStart === 3,
+  restoredNote && restoredNote.className + "/" + restoredNote.value + "/" + restoredNote.selectionStart,
+)
 
 // 배경 클릭 → 미리듣기 토글
 const firstMood = Array.from(window.document.querySelectorAll("#atmosphereGrid .mood-card")).find((card) =>

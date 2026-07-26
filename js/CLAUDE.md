@@ -20,7 +20,7 @@
 | `takes.js` | 시도(테이크) 저장·비교(localStorage)·썸네일 | localStorage |
 | `studio.js` | **오케스트레이터** — 5단계 위저드 흐름·업로드·무드 틴팅·테이크·공유 | 위 전부, DOM |
 | `studio-export.js` | WebM 음악·커버 PNG·드로잉 PNG/WebM 내보내기 워크플로 | studio.js에서 호출 |
-| `studio-setup-render.js` | 분위기·악기 선택 화면 렌더 | studio.js에서 호출 |
+| `studio-setup-render.js` | 분위기·악기 선택 화면 렌더(2단계 악기 감상 노트·예시 답안 포함) | studio.js에서 호출 |
 | `studio-transport.js` | 재생 버튼·플레이헤드·무배경 시계·배경 구간 플레이어의 시간 상태와 제어 | AudioEngine, DrawingCanvas |
 | `studio-utils.js` | 공통 유틸(duration 정규화·메타 sanitize·색 변환 등) | studio.js 전반 |
 | `share-store.js` | 화음 갤러리 서버 I/O(publish·list·delete·claim) | studio.js, channel.js |

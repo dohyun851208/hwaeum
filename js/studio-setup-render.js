@@ -77,10 +77,13 @@
       copy.className = "card-copy"
       const title = document.createElement("strong")
       title.textContent = item.label
-      const detail = document.createElement("span")
-      detail.textContent = sub
       copy.appendChild(title)
-      copy.appendChild(detail)
+      // 설명이 비어 있으면 칸 자체를 만들지 않는다 — 2단계 악기 카드는 설명을 감상 노트의 예시 답안으로 옮겼다.
+      if (sub) {
+        const detail = document.createElement("span")
+        detail.textContent = sub
+        copy.appendChild(detail)
+      }
       b.appendChild(copy)
       return b
     }
@@ -443,8 +446,7 @@
             b.appendChild(label)
             b.addEventListener("click", () => {
               recordUserAction({ update: false })
-              selectInstrument(i, true)
-              engine.previewNote(buildRecipe(), 0.5).catch(function () {})
+              selectInstrument(i, true) // 3단계에서는 미리듣기 없이 악기만 바꾼다
             })
             familyList.appendChild(b)
           })
@@ -484,7 +486,84 @@
       }
     }
 
+    // ── 악기 감상 노트 (2단계) ───────────────────────────────────
+    // 학생이 소리를 듣고 느낌을 직접 적는 칸. 악기 설명(detail)은 "예시 답안"으로 감춰 두고
+    // 버튼을 눌렀을 때만 펼친다. 메모는 state 에만 남기고 작품·화음 갤러리에는 저장하지 않는다.
+
+    const NOTE_MAX_LENGTH = 60
+
+    function buildInstrumentNote(instrument) {
+      const note = document.createElement("div")
+      note.className = "instrument-note"
+
+      const label = document.createElement("label")
+      label.className = "instrument-note-label"
+      label.setAttribute("for", "instrumentNote-" + instrument.id)
+      label.textContent = "내 느낌"
+      note.appendChild(label)
+
+      const field = document.createElement("textarea")
+      field.className = "instrument-note-field"
+      field.id = "instrumentNote-" + instrument.id
+      field.rows = 2
+      field.maxLength = NOTE_MAX_LENGTH
+      field.placeholder = "어떤 느낌인가요?"
+      field.dataset.noteInstrument = instrument.id
+      field.value = state.instrumentNotes[instrument.id] || ""
+      field.addEventListener("input", () => {
+        // 값을 바로 state 에 옮겨 둔다 — 연주곡이 끝나 그리드가 다시 그려져도 글이 남는다.
+        state.instrumentNotes[instrument.id] = field.value
+      })
+      note.appendChild(field)
+
+      const answer = document.createElement("p")
+      answer.className = "instrument-answer"
+      answer.id = "instrumentAnswer-" + instrument.id
+      answer.textContent = instrument.detail || ""
+
+      const reveal = document.createElement("button")
+      reveal.type = "button"
+      reveal.className = "instrument-answer-btn"
+      reveal.textContent = "예시 답안 보기"
+      reveal.setAttribute("aria-controls", answer.id)
+      reveal.setAttribute("aria-label", instrument.label + " 예시 답안 보기")
+
+      const shown = !!state.instrumentAnswerShown[instrument.id]
+      answer.hidden = !shown
+      reveal.hidden = shown
+      reveal.setAttribute("aria-expanded", shown ? "true" : "false")
+      reveal.addEventListener("click", () => {
+        state.instrumentAnswerShown[instrument.id] = true
+        answer.hidden = false
+        reveal.hidden = true
+        reveal.setAttribute("aria-expanded", "true")
+      })
+
+      note.appendChild(reveal)
+      note.appendChild(answer)
+      return note
+    }
+
+    // 그리드를 통째로 다시 그려도(연주곡 종료·악기 선택 등) 적던 자리를 잃지 않도록 커서를 기억했다 되돌린다.
+    function captureNoteFocus() {
+      const active = document.activeElement
+      const id = active && active.dataset ? active.dataset.noteInstrument : null
+      if (!id) return null
+      return { id: id, start: active.selectionStart, end: active.selectionEnd }
+    }
+
+    function restoreNoteFocus(focus) {
+      if (!focus || typeof el.instrumentGrid.querySelector !== "function") return
+      const field = el.instrumentGrid.querySelector('[data-note-instrument="' + focus.id + '"]')
+      if (!field || typeof field.focus !== "function") return
+      field.focus()
+      if (typeof field.setSelectionRange === "function" && focus.start != null) {
+        field.setSelectionRange(focus.start, focus.end)
+      }
+    }
+
     function renderInstruments() {
+      const noteFocus = captureNoteFocus()
       clearEl(el.instrumentGrid)
       const groupItems = D.instruments.filter((i) => i.group === state.group)
       instrumentFamilies(groupItems).forEach((familyGroup) => {
@@ -505,7 +584,11 @@
         const list = document.createElement("div")
         list.className = "instrument-family-grid"
         familyGroup.items.forEach((i) => {
-          const b = card(i, i.id === state.instrument.id, i.detail)
+          // 카드는 button 이라 입력칸을 그 안에 넣을 수 없다 — 슬롯으로 감싸 감상 노트를 형제로 붙인다.
+          const slot = document.createElement("div")
+          slot.className = "instrument-card-slot" + (i.id === state.instrument.id ? " active" : "")
+          applyInstrumentTone(slot, i.id) // 감상 노트도 카드와 같은 악기 톤 색을 쓰도록 슬롯에 심는다
+          const b = card(i, i.id === state.instrument.id, "") // 설명은 감상 노트의 예시 답안으로 옮겼다
           b.classList.add("instrument-card")
           applyInstrumentTone(b, i.id)
           b.addEventListener("click", () => {
@@ -537,11 +620,14 @@
             })
             b.appendChild(ex)
           }
-          list.appendChild(b)
+          slot.appendChild(b)
+          slot.appendChild(buildInstrumentNote(i))
+          list.appendChild(slot)
         })
         section.appendChild(list)
         el.instrumentGrid.appendChild(section)
       })
+      restoreNoteFocus(noteFocus)
     }
 
     return {

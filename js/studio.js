@@ -132,6 +132,8 @@
     drawingInputMode: DRAW_MODE_PICTURE,
     bgPreviewId: null, // 현재 미리듣기 중인 배경 id
     examplePreviewId: null, // 현재 감상 재생 중인 악기 id
+    instrumentNotes: {}, // 2단계 악기별 감상 메모 — 이번 화면에서만 유지(작품·갤러리에 저장하지 않음)
+    instrumentAnswerShown: {}, // 예시 답안을 펼쳐 본 악기 id
     bgOffset: 0, // 배경음악을 이 지점(초)부터 — 캔버스 가로축이 [bgOffset, bgOffset+길이]에 대응, 최종 곡에도 반영
     bgEndOffset: 0,
     backgroundReason: "",

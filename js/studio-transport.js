@@ -295,12 +295,20 @@
     rememberPlayheadProgress(playheadElapsedMs / durationMs())
   }
 
+  // 소리는 예약 리드 + 하드웨어 출력 지연만큼 늦게 들리기 시작한다.
+  // 플레이헤드 시계의 0점을 그만큼 뒤로 밀어야 그림과 소리가 맞는다.
+  function audioLeadMs() {
+    const lead = Number(engine.playbackLeadMs)
+    if (!isFinite(lead) || lead <= 0) return 0
+    return Math.min(lead, durationMs())
+  }
+
   function startPlayhead(resume) {
     const wrap = deps.canvasWrap()
     if (!wrap || !el.playhead || !requestFrame) return
     const durMs = durationMs()
     if (!resume) playheadElapsedMs = selectedPlaybackStartSec() * 1000
-    playheadStartedAt = nowMs() - playheadElapsedMs
+    playheadStartedAt = nowMs() - playheadElapsedMs + audioLeadMs()
     el.playhead.hidden = false
     const tick = function () {
       const elapsed = nowMs() - playheadStartedAt

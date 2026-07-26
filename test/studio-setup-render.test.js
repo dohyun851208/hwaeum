@@ -90,6 +90,8 @@ function createSetupHarness() {
     effectStampId: null,
     bgPreviewId: null,
     examplePreviewId: null,
+    instrumentNotes: {},
+    instrumentAnswerShown: {},
   }
   const el = {
     composeInstrumentList: createElement("div"),
@@ -193,7 +195,7 @@ test("setup renderer owns compose rendering without a callback back into studio"
   assert.match(functionBody(setupRender, "selectInstrument"), /renderComposeInstruments\(\)/)
 })
 
-test("compose instrument click records the action, changes the instrument, and previews it", () => {
+test("compose instrument click records the action and changes the instrument without a preview note", () => {
   const { api, calls, el, gugak, state } = createSetupHarness()
 
   assert.deepEqual(Object.keys(api).sort(), [
@@ -231,8 +233,6 @@ test("compose instrument click records the action, changes the instrument, and p
   assert.equal(calls.pitch, 1)
   assert.equal(calls.readouts, 1)
   assert.equal(calls.warm, 1)
-  assert.equal(calls.preview.length, 1)
-  assert.equal(calls.preview[0].recipe.instrument, "sogeum")
-  assert.equal(calls.preview[0].pitch, 0.5)
+  assert.equal(calls.preview.length, 0) // 3단계 악기 버튼은 소리를 내지 않는다
   assert.match(el.exportStatus.textContent, /소금.*연주됩니다/)
 })

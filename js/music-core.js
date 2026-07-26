@@ -353,6 +353,14 @@
       })
       i = j
     }
+    // 첫 음은 격자선이 아니라 획이 시작한 바로 그 시각에 낸다.
+    // 격자 칸은 minX 이후로만 잡히므로 첫 음은 늘 최대 한 칸(62.5ms)만큼 늦게 났다.
+    // 획 시작 시각으로 당기면 "그린 선보다 먼저" 가는 일 없이(정확히 선 위) 그 지연만 사라진다.
+    const strokeStartSec = Math.max(0, Math.min(1, minX)) * durationSec
+    if (notes.length > 0 && notes[0].time > strokeStartSec) {
+      notes[0].duration += notes[0].time - strokeStartSec
+      notes[0].time = strokeStartSec
+    }
     return notes
   }
 

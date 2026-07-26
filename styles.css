@@ -720,6 +720,103 @@ body.is-publishing #saveTakeBtn {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 12px;
 }
+/* 2단계 악기 감상 노트 — 카드와 같은 악기 톤(--instrument-*)을 물려받아 한 벌처럼 보이게 한다.
+   톤 값은 JS(applyInstrumentTone)가 슬롯에 인라인으로 심고, 아래는 그 값이 없을 때의 기본색이다. */
+.instrument-card-slot {
+  --instrument-color: var(--accent);
+  --instrument-soft: var(--accent-soft);
+  --instrument-strong: var(--accent-line);
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.instrument-note {
+  display: grid;
+  gap: 7px;
+  justify-items: center; /* 카드가 가운데 정렬이라 노트도 같은 리듬을 따른다 */
+  padding: 11px 12px 12px;
+  border: 1px solid var(--instrument-strong);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, var(--instrument-soft), rgba(255, 250, 238, 0.92) 68%),
+    var(--canvas);
+  transition: all 150ms ease;
+}
+.instrument-card-slot.active .instrument-note {
+  border-color: var(--brand-gold-strong);
+  background:
+    linear-gradient(135deg, rgba(255, 224, 138, 0.3), rgba(255, 250, 238, 0.94) 62%),
+    var(--canvas);
+  box-shadow: inset 0 0 0 1px rgba(244, 201, 87, 0.42);
+}
+.instrument-note-label {
+  color: var(--instrument-color);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.instrument-note-field {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 253, 247, 0.92);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  resize: vertical;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.instrument-note-field::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+.instrument-note-field:focus-visible {
+  outline: none;
+  border-color: var(--instrument-color);
+  box-shadow: 0 0 0 3px var(--instrument-soft);
+}
+.instrument-answer-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--instrument-strong);
+  border-radius: 999px;
+  background: var(--instrument-soft);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.instrument-answer-btn:hover {
+  border-color: var(--brand-gold-strong);
+  background: var(--brand-cream);
+  box-shadow: var(--shadow-sm);
+}
+.instrument-answer {
+  width: 100%;
+  padding: 7px 10px;
+  border-left: 3px solid var(--instrument-color);
+  border-radius: 4px 7px 7px 4px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: left;
+}
+.instrument-answer::before {
+  content: "예시 답안";
+  display: block;
+  margin-bottom: 1px;
+  color: var(--instrument-color);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.instrument-answer[hidden],
+.instrument-answer-btn[hidden] {
+  display: none;
+}
 /* 2단계 배경 카드 그룹 소제목 (분위기 / 소리풍경 / 리듬장단) */
 .atmosphere-group-label {
   grid-column: 1 / -1;

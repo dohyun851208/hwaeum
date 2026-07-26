@@ -239,3 +239,46 @@ test("encodeWav: 유효한 RIFF/WAVE 헤더", () => {
   assert.strictEqual(buf.toString("ascii", 8, 12), "WAVE")
   assert.strictEqual(buf.readUInt32LE(24), 44100)
 })
+
+test("autocompleteMelody: 첫 음은 격자선이 아니라 획이 시작한 시각에 난다", () => {
+  // 0.7초에서 시작하는 획. 62.5ms 격자만 따르면 첫 음이 0.75초로 밀린다.
+  const durationSec = 10
+  const startX = 0.07 // → 0.7초
+  const path = [{ x: startX, y: 0.5 }, { x: 0.5, y: 0.5 }]
+  const notes = core.autocompleteMelody(path, { durationSec, style: C_MAJOR })
+
+  assert.ok(notes.length > 0, "음이 만들어지지 않았다")
+  assert.ok(
+    Math.abs(notes[0].time - startX * durationSec) < 1e-9,
+    `첫 음이 획 시작(${startX * durationSec}s)이 아니라 ${notes[0].time}s 에서 난다`,
+  )
+})
+
+test("autocompleteMelody: 첫 음이 그린 선보다 먼저 나지 않는다", () => {
+  const durationSec = 30
+  // 격자에 딱 안 떨어지는 시작점들을 훑어 한 번도 앞서가지 않는지 본다.
+  for (let k = 1; k < 40; k++) {
+    const startX = k / 97
+    const path = [{ x: startX, y: 0.5 }, { x: Math.min(1, startX + 0.2), y: 0.7 }]
+    const notes = core.autocompleteMelody(path, { durationSec, style: C_MAJOR })
+    if (!notes.length) continue
+    const strokeStartSec = startX * durationSec
+    assert.ok(
+      notes[0].time >= strokeStartSec - 1e-9,
+      `획 시작 ${strokeStartSec}s 보다 먼저인 ${notes[0].time}s 에 음이 났다`,
+    )
+  }
+})
+
+test("autocompleteMelody: 첫 음을 당겨도 끝나는 시각은 그대로다", () => {
+  const durationSec = 10
+  const path = [{ x: 0.07, y: 0.5 }, { x: 0.5, y: 0.5 }]
+  const notes = core.autocompleteMelody(path, { durationSec, style: C_MAJOR })
+
+  assert.ok(notes.length > 0)
+  assert.ok(notes[0].duration > 0, "당긴 첫 음의 길이가 0 이하다")
+  assert.ok(notes[0].time + notes[0].duration <= durationSec + 1e-9, "곡 길이를 넘겼다")
+  for (const note of notes) {
+    assert.ok(note.time >= 0 && note.duration > 0, "음의 시각·길이가 유효하지 않다")
+  }
+})

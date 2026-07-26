@@ -87,6 +87,14 @@
   const HAEGEUM_LIVE_NOTE_GLIDE_SECONDS = 0.09
   const HAEGEUM_PHRASE_ATTACK_SECONDS = 0.06
   const STROKE_TAP_SECONDS = 0.16
+  // 전체 재생을 예약할 때 두는 리드. 예약 시각이 과거로 가면 첫 음이 잘리므로 필요하다.
+  // 우리가 정한 값이라 오차가 없다 → 플레이헤드에서 전액 보정해도 안전하다.
+  const PLAYBACK_SCHEDULE_LEAD_SECONDS = 0.05
+  // 브라우저가 보고하는 출력 지연의 신뢰 상한. 이보다 큰 값은 오보고로 보고 잘라 쓴다.
+  const MAX_TRUSTED_OUTPUT_LATENCY_SECONDS = 0.3
+  // 하드웨어 출력 지연을 얼마나 믿고 보정할지. 1 미만으로 두어 항상 과소 보정한다 —
+  // 넘치면 소리가 그린 선보다 먼저 나기 때문(절대 금지). 0.8 이면 25% 과대 보고까지 안전하다.
+  const HARDWARE_LATENCY_TRUST = 0.8
   // === § 2  공유 유틸리티 ===
 
   function midiToFreq(midi) {
@@ -586,6 +594,7 @@
     this.playGen = 0 // 재생 세대 토큰 — 비동기 play() 도중 stop/재요청 시 무효화용
     this.playEndsAtMs = 0 // 자동 정지 예정 시각(일시정지 잔여시간 계산용)
     this.pauseRemainingMs = 0 // 일시정지 시점의 남은 재생 시간(ms)
+    this.playbackLeadMs = 0 // 재생 시작~실제로 들리기 시작까지의 지연(ms) — 플레이헤드 보정용
     this.lastStopReason = "idle"
   }
 
@@ -595,6 +604,33 @@
       this.ctx = new AC()
     }
     return this.ctx
+  }
+
+  // 스피커까지 나가는 하드웨어 지연(초). 브라우저 "추정치"라 그대로 믿으면 안 된다.
+  // outputLatency 가 없거나 0인 브라우저는 baseLatency 로 대체한다 — baseLatency 는
+  // 그래프→destination 버퍼링만 재므로 항상 실제보다 작다(= 과소 보정 쪽이라 안전).
+  AudioEngine.prototype.outputLatencySeconds = function () {
+    const ctx = this.ctx
+    if (!ctx) return 0
+    const reported = Number(ctx.outputLatency)
+    const raw = isFinite(reported) && reported > 0 ? reported : Number(ctx.baseLatency)
+    if (!isFinite(raw) || !(raw > 0)) return 0
+    return Math.min(raw, MAX_TRUSTED_OUTPUT_LATENCY_SECONDS)
+  }
+
+  // 재생 시작 시점에서 "지금부터 몇 ms 뒤에 실제로 귀에 들리기 시작하는가".
+  // 플레이헤드를 이 값만큼 늦춰 그림과 소리를 맞춘다.
+  //
+  // includeScheduleLead: 새 재생이면 true(50ms 예약 리드가 아직 남아 있음),
+  //                      일시정지 후 이어재생이면 false(리드는 이미 흘러갔고 하드웨어 지연만 남음).
+  //
+  // ⚠ 이 값을 실제보다 크게 잡으면 플레이헤드가 소리보다 뒤처져 "소리가 선보다 먼저" 난다 —
+  //    절대 허용되지 않는 방향이다. 작게 잡으면 소리가 조금 늦을 뿐이라 허용된다.
+  AudioEngine.prototype.audioLeadMs = function (includeScheduleLead) {
+    const scheduleLead = includeScheduleLead ? PLAYBACK_SCHEDULE_LEAD_SECONDS : 0
+    const hardware = this.outputLatencySeconds()
+    // 예약 리드는 우리가 정한 값이라 전액, 하드웨어 지연은 추정치라 깎아서 더한다.
+    return (scheduleLead + hardware * HARDWARE_LATENCY_TRUST) * 1000
   }
 
   AudioEngine.prototype.emitState = function () {
@@ -1283,6 +1319,7 @@
     this.isStarting = false
     this.pauseRemainingMs = 0
     this.playEndsAtMs = 0
+    this.playbackLeadMs = 0
     this.stopLivePreview(true)
     this.stopAmbience(true)
     if (this.stopTimer) {
@@ -1343,6 +1380,8 @@
     } else {
       this.pauseRemainingMs = 0
     }
+    // 이어재생은 이미 예약된 노드가 다시 흐르는 것이라 50ms 리드가 없다 — 하드웨어 지연만 보정.
+    this.playbackLeadMs = this.audioLeadMs(false)
     this.emitState()
     return true
   }
@@ -1934,7 +1973,7 @@
       const register = function (node, cleanupNodes) {
         self.transportScope.track(node, cleanupNodes)
       }
-      const start = ctx.currentTime + 0.05
+      const start = ctx.currentTime + PLAYBACK_SCHEDULE_LEAD_SECONDS
       const master = ctx.createGain()
       master.gain.setValueAtTime(MASTER_OUTPUT_GAIN, start)
       connectMasterToOutput(ctx, master, ctx.destination, start)
@@ -1942,6 +1981,8 @@
       const usedReal = this.schedule(ctx, master, plan, buffers, start, register)
       this.lastMode = usedReal ? "real" : "synth"
       this.isPlaying = true
+      // emitState() 가 동기적으로 플레이헤드를 출발시키므로, 그 직전에 리드를 갱신해 둔다.
+      this.playbackLeadMs = this.audioLeadMs(true)
       this.emitState()
       const self2 = this
       this.playEndsAtMs = Date.now() + plan.duration * 1000 + 200
