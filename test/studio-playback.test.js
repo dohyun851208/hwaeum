@@ -5,7 +5,9 @@ const test = require("node:test")
 const vm = require("node:vm")
 
 const createStudioTransport = require("../js/studio-transport.js")
+const StudioUtils = require("../js/studio-utils.js")
 const projectDir = path.resolve(__dirname, "..")
+const SEGMENT_SECONDS = 2.5
 
 function fakeClassList() {
   const names = new Set()
@@ -200,6 +202,9 @@ function createHarness(options) {
     document: { activeElement: null },
     state, el, engine, draw, clock, backgroundAudio: audio,
     DRAW_MODE_SOUND: "sound", DRAWING_STEP: 2, MIN_DURATION_SECONDS: 1, DEFAULT_DURATION_SECONDS: 30,
+    SEGMENT_SECONDS,
+    snapDurationToSegments: (value, maxSeconds) =>
+      StudioUtils.snapDurationToSegments(value, SEGMENT_SECONDS, maxSeconds),
     canvasWrap: () => wrap,
     timelineProgressFromClientX: (x) => x / 300,
     timelineCssX: (progress) => progress * 300,
@@ -331,6 +336,53 @@ test("background range pause resumes from the exact paused audio position", () =
   h.transport.playBgPlayer()
   assert.equal(h.audio.currentTime, 12)
   assert.equal(h.audio.paused, false)
+})
+
+// 끝 지점을 아무 데나 끌어도 구간 길이는 마디(2.5초) 단위로 떨어져야 한다.
+// 예전엔 15.4초 같은 길이가 그대로 남아 도화지 마지막 마디가 0.4초 토막이 되고
+// "15초"와 "15.4초" 라벨이 겹쳤다. 시간 표시는 초를 버려서 둘 다 0:15 로 보였다.
+test("background range end snaps to whole bars", () => {
+  const h = createHarness({ bgOffset: 0, bgEndOffset: 30, audioDuration: 60 })
+  const cases = [
+    { drag: 15.4, expectEnd: 15 },
+    { drag: 14.6, expectEnd: 15 },
+    { drag: 13.2, expectEnd: 12.5 },
+    { drag: 3.4, expectEnd: 2.5 },
+    { drag: 0.1, expectEnd: 2.5 }, // 최소 한 마디
+  ]
+  for (const item of cases) {
+    h.transport.seekBgEnd(item.drag)
+    assert.equal(h.state.bgEndOffset, item.expectEnd, `${item.drag}초로 끌었을 때`)
+    h.transport.ensureTimelineDuration(false)
+    assert.equal(
+      Math.round((h.state.duration % 2.5) * 1000) / 1000,
+      0,
+      `${item.drag}초 -> 길이 ${h.state.duration}초 가 마디 배수가 아님`,
+    )
+  }
+})
+
+// 12.5초를 "0:12"로 보여 주면 학생이 12초로 읽고 눈금과 다르다고 느낀다.
+test("background range readout keeps the half second", () => {
+  const h = createHarness({ bgOffset: 0, bgEndOffset: 30, audioDuration: 60 })
+  h.transport.seekBgEnd(13.2)
+  assert.equal(h.state.bgEndOffset, 12.5)
+  h.transport.syncBgPlayerUI()
+  assert.equal(h.el.bgEndInput.value, "0:12.5")
+  assert.match(h.el.bgTime.textContent, /^0:00 ~ 0:12\.5 \//)
+  // 정수 초는 그대로 정수로 보여 준다.
+  h.transport.seekBgEnd(15)
+  h.transport.syncBgPlayerUI()
+  assert.equal(h.el.bgEndInput.value, "0:15")
+})
+
+test("background range snapping respects a start offset and the audio end", () => {
+  const h = createHarness({ bgOffset: 4, bgEndOffset: 30, audioDuration: 20 })
+  // 시작이 4초면 남은 길이는 16초 → 여섯 마디(15초)까지만 쓸 수 있다.
+  h.transport.seekBgEnd(19.6)
+  assert.equal(h.state.bgEndOffset, 19)
+  h.transport.ensureTimelineDuration(false)
+  assert.equal(h.state.duration, 15)
 })
 
 test("sound drawing resumes the background clock from the selected playhead", () => {

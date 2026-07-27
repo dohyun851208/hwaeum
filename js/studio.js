@@ -364,6 +364,12 @@
     return StudioUtils.normalizeDuration(value, { min: MIN_DURATION_SECONDS, fallback: DEFAULT_DURATION_SECONDS })
   }
 
+  // 배경 구간 길이는 항상 마디(2.5초) 단위로 떨어지게 한다 — 도화지 마디선·시간 라벨이
+  // 2.5초마다 찍히므로, 배수가 아니면 마지막에 토막 마디가 생기고 라벨이 겹친다.
+  function snapDurationToSegments(value, maxSeconds) {
+    return StudioUtils.snapDurationToSegments(value, SEGMENT_SECONDS, maxSeconds)
+  }
+
   function secondsLabel(value) {
     return StudioUtils.secondsLabel(value)
   }
@@ -497,6 +503,8 @@
     DRAWING_STEP,
     MIN_DURATION_SECONDS,
     DEFAULT_DURATION_SECONDS,
+    SEGMENT_SECONDS,
+    snapDurationToSegments,
     canvasWrap,
     timelineProgressFromClientX,
     timelineCssX,

@@ -17,6 +17,13 @@
   const DRAWING_STEP = Number.isFinite(deps.DRAWING_STEP) ? deps.DRAWING_STEP : 2
   const MIN_DURATION_SECONDS = Number.isFinite(deps.MIN_DURATION_SECONDS) ? deps.MIN_DURATION_SECONDS : 1
   const DEFAULT_DURATION_SECONDS = Number.isFinite(deps.DEFAULT_DURATION_SECONDS) ? deps.DEFAULT_DURATION_SECONDS : 30
+  const SEGMENT_SECONDS = Number.isFinite(deps.SEGMENT_SECONDS) ? deps.SEGMENT_SECONDS : 2.5
+  const snapDurationToSegments =
+    typeof deps.snapDurationToSegments === "function"
+      ? deps.snapDurationToSegments
+      : function (value) {
+          return value
+        }
   const clock = deps.clock || {}
   const nowMs =
     typeof clock.now === "function"
@@ -389,8 +396,15 @@
     return minutes + ":" + (seconds < 10 ? "0" : "") + seconds
   }
 
+  // 구간은 마디(2.5초) 단위로 붙으므로 0.5초 자리가 남을 수 있다. 반올림해 버리면
+  // 12.5초가 "0:12"로 보여서 "맞춘 값과 눈금이 다르다"는 오해가 생긴다 — 있는 그대로 보여 준다.
   function fmtInputTime(sec) {
-    return fmtTime(Math.round(Math.max(0, Number(sec) || 0)))
+    const value = Math.round(Math.max(0, Number(sec) || 0) * 10) / 10
+    const minutes = Math.floor(value / 60)
+    const seconds = value - minutes * 60
+    const whole = Math.floor(seconds + 1e-6)
+    const frac = Math.round((seconds - whole) * 10)
+    return minutes + ":" + (whole < 10 ? "0" : "") + whole + (frac ? "." + frac : "")
   }
 
   function parseTimeInput(value) {
@@ -412,8 +426,13 @@
     return isFinite(duration) && duration > 0 ? duration : 0
   }
 
+  function round3(value) {
+    return Math.round(value * 1000) / 1000
+  }
+
+  // 배경 구간은 최소 한 마디. 한 마디보다 짧은 배경이면 그 배경 전체를 쓴다.
   function bgMinGap(total) {
-    return total ? Math.min(MIN_DURATION_SECONDS, total) : 0
+    return total ? Math.min(SEGMENT_SECONDS, total) : 0
   }
 
   function defaultBgEnd(total, start) {
@@ -435,7 +454,11 @@
     state.bgOffset = deps.clampNumber(state.bgOffset, 0, maxStart)
     let end = parseFloat(state.bgEndOffset)
     if (!keepEnd || !isFinite(end) || end <= state.bgOffset + gap * 0.5) end = defaultBgEnd(total, state.bgOffset)
-    state.bgEndOffset = deps.clampNumber(end, Math.min(total, state.bgOffset + gap), total)
+    end = deps.clampNumber(end, Math.min(total, state.bgOffset + gap), total)
+    // 끝 지점을 마디 경계로 붙인다 — 길이가 2.5초 배수가 아니면 도화지 마지막 마디가
+    // 토막 나고 마지막 시간 라벨이 앞 라벨과 겹친다.
+    const snapped = snapDurationToSegments(end - state.bgOffset, total - state.bgOffset)
+    state.bgEndOffset = Math.min(total, round3(state.bgOffset + snapped))
   }
 
   function ensureTimelineDuration(resetScroll) {

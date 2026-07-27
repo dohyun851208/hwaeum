@@ -22,6 +22,24 @@
     return round3(Math.max(min, isFinite(n) ? n : fallback))
   }
 
+  // Snap a background range length to whole timeline segments (one bar = one segment).
+  // The canvas draws a grid line every segment and labels every segment, so a length that
+  // is not a whole multiple leaves a stub bar and makes the last label collide with the
+  // one before it. Keeps at least one bar and never runs past maxSeconds.
+  function snapDurationToSegments(value, segmentSeconds, maxSeconds) {
+    const segment = Number(segmentSeconds)
+    const raw = Number(value)
+    const safeRaw = isFinite(raw) ? Math.max(0, raw) : 0
+    if (!isFinite(segment) || segment <= 0) return round3(safeRaw)
+    const max = Number(maxSeconds)
+    const hasMax = isFinite(max) && max > 0
+    // A background shorter than a single bar cannot be snapped - use all of it.
+    if (hasMax && max < segment) return round3(max)
+    let bars = Math.round(safeRaw / segment)
+    if (hasMax) bars = Math.min(bars, Math.floor((max + 0.001) / segment))
+    return round3(Math.max(1, bars) * segment)
+  }
+
   function secondsLabel(value) {
     const n = round3(Math.max(0, Number(value) || 0))
     const whole = Math.round(n)
@@ -143,6 +161,7 @@
     round3: round3,
     secondsLabel: secondsLabel,
     simplifyEffectStamps: simplifyEffectStamps,
+    snapDurationToSegments: snapDurationToSegments,
     simplifyPath: simplifyPath,
     simplifyPoints: simplifyPoints,
     simplifyStrokes: simplifyStrokes,
