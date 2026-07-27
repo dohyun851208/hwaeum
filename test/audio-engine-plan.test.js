@@ -1395,6 +1395,73 @@ test("audited isolated quiet rows use replacement pitch and measured gain", () =
   }
 })
 
+// 이웃 음 파일을 빌려 쓴 칸(cents != 0)은 "그리는 중" 소리도 제 음높이로 나야 한다.
+// 예전엔 글라이드 배속을 표기 midi 뺄셈으로만 구해서, 비올라 라·시·레·파와 첼로 라가
+// 빌려 온 파일 그대로(반음~온음 낮게/높게) 났다. 재생은 멀쩡한데 펜 소리만 어긋났다.
+test("드로잉 중 글라이드도 빌려 쓴 샘플의 실제 음높이를 보정한다", () => {
+  const cases = [
+    { id: "flute", midi: 71 },
+    { id: "violin", midi: 76 },
+    { id: "viola", midi: 65 },
+    { id: "viola", midi: 69 },
+    { id: "viola", midi: 71 },
+    { id: "viola", midi: 74 },
+    { id: "cello", midi: 69 },
+    { id: "viola", midi: 67, plain: true }, // 대조군: 빌려 쓰지 않은 칸
+  ]
+
+  for (const item of cases) {
+    const sandbox = loadEngine()
+    const engine = new sandbox.AudioEngine()
+    const ctx = makeAudioContext()
+    engine.ensureContext = () => ctx
+
+    const recipe = {
+      duration: 30,
+      atmosphere: "calm",
+      instrument: item.id,
+      style: "bright",
+      version: "balanced",
+      mode: "melody",
+    }
+    const plan = engine.resolvePlan(recipe, [])
+    const rows = core.drawableScale(plan.style, plan.melodyAsset)
+    const rowIndex = rows.indexOf(item.midi)
+    assert.ok(rowIndex >= 0, `${item.id} 도화지에 ${item.midi} 칸이 있어야 함`)
+    const y = 1 - (rowIndex + 0.5) / rows.length
+
+    const playMidi = engine._liveMidi(plan, y)
+    const segment = sandbox.SDAudioPlan.nearestSampleSegment(plan.melodyAsset, playMidi)
+    assert.ok(segment, `${item.id} ${item.midi} 세그먼트`)
+    if (item.plain) assert.ok(!segment.cents, `${item.id} ${item.midi} 는 대조군(cents 없음)`)
+    else assert.ok(segment.cents, `${item.id} ${item.midi} 는 빌려 쓴 칸이어야 함(cents != 0)`)
+
+    // 이 칸에서 획을 시작한 상태 — 획 하나는 시작할 때 고른 파일 하나로 끝까지 간다.
+    const rateParam = makeParam()
+    engine.livePreview = {
+      kind: "sample",
+      signature: engine._liveSignature(plan),
+      sampleMidi: segment.midi,
+      sampleSegment: segment,
+      rateParam: rateParam,
+      rateParams: [rateParam],
+    }
+    engine.stopLivePreview = () => assert.fail(`${item.id} ${item.midi} 멀티샘플은 재시작하면 안 됨`)
+
+    engine.liveDrawingMove(recipe, y)
+
+    const target = rateParam.events.find((event) => event[0] === "target")
+    assert.ok(target, `${item.id} ${item.midi} 글라이드 이벤트`)
+    // 파일에 실제 녹음된 음높이 + 배속 = 학생이 그린 그 음이어야 한다.
+    const recordedPitch = segment.midi + (segment.cents || 0) / 100
+    const sounding = recordedPitch + 12 * Math.log2(target[1])
+    assert.ok(
+      Math.abs(sounding - playMidi) < 1e-9,
+      `${item.id} ${item.midi}: 그리는 중 ${sounding.toFixed(2)} 가 나옴(기대 ${playMidi})`,
+    )
+  }
+})
+
 test("note-level melody gain is clamped to roughly +/-3 dB inside each instrument", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()

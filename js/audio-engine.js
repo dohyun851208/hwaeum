@@ -1468,6 +1468,9 @@
       rateParams: [source.playbackRate],
       signature: this._liveSignature(plan),
       sampleMidi: segment ? segment.midi : null,
+      // 획 하나는 시작할 때 고른 파일 하나로 끝까지 간다. 그 파일의 "실제 녹음 음높이"를
+      // 알아야 글라이드 배속을 맞출 수 있어 세그먼트(cents 포함)를 그대로 들고 다닌다.
+      sampleSegment: segment || null,
       stopNodes: [source],
     }
     source.onended = function () {
@@ -1625,7 +1628,11 @@
               : plan.melodyAsset.baseMidi != null
                 ? plan.melodyAsset.baseMidi
                 : midi
-          const nextRate = Math.pow(2, (midi - baseMidi) / 12)
+          // 획을 시작할 때 고른 세그먼트를 기준으로 배속을 잰다. cents 는
+          // "그 파일에 실제 녹음된 음높이 − 표기 midi"다(예: viola 라 칸 = viola_Gs4.mp3, cents -100).
+          // 표기 midi 만 빼면 빌려 쓴 파일이 원래 음 그대로 나서 반음 어긋난다.
+          const baseSegment = self.livePreview.sampleSegment || { midi: baseMidi, cents: 0 }
+          const nextRate = segmentPlaybackRate(plan.melodyAsset, midi, baseSegment)
           ;(self.livePreview.rateParams || [self.livePreview.rateParam]).forEach(function (rateParam) {
             if (!rateParam) return
             rateParam.cancelScheduledValues(now)
