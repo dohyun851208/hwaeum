@@ -69,8 +69,10 @@
     wind1: { label: "산들바람", src: "sound/효과-자연음(유자레코즈)/바람1.mp3", image: "./assets/effects/wind-breeze.webp" },
     wind2: { label: "거센바람", src: "sound/효과-자연음(유자레코즈)/바람2.mp3", image: "./assets/effects/wind-gust.webp" },
     wind3: { label: "회오리바람", src: "sound/효과-자연음(유자레코즈)/바람3.mp3", image: "./assets/effects/wind-whirl.webp" },
-    rain1: { label: "가랑비", src: "sound/효과-자연음(유자레코즈)/비1.mp3", image: "./assets/effects/rain-drizzle.webp" },
-    rain2: { label: "소나기", src: "sound/효과-자연음(유자레코즈)/비2.mp3", image: "./assets/effects/rain-shower.webp" },
+    // 비1↔비2 는 원본 파일 이름과 실제 소리가 반대였다(비1이 비2보다 14 dB 크고 굵다).
+    // 학생이 고른 이름대로 들리도록 음원을 맞바꿨다 — 라벨·그림은 그대로 둔다.
+    rain1: { label: "가랑비", src: "sound/효과-자연음(유자레코즈)/비2.mp3", image: "./assets/effects/rain-drizzle.webp" },
+    rain2: { label: "소나기", src: "sound/효과-자연음(유자레코즈)/비1.mp3", image: "./assets/effects/rain-shower.webp" },
     rain3: { label: "큰 빗방울", src: "sound/효과-자연음(유자레코즈)/비3.mp3", image: "./assets/effects/rain-drops.webp" },
     forest1: { label: "새소리 숲", src: "sound/효과-자연음(유자레코즈)/숲1.mp3", image: "./assets/effects/forest-birds.webp" },
     forest2: { label: "흔들리는 잎", src: "sound/효과-자연음(유자레코즈)/숲2.mp3", image: "./assets/effects/forest-leaves.webp" },
