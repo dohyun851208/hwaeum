@@ -570,8 +570,12 @@ body:not([data-step="2"]) .transport {
   transition: border-color 160ms ease, background 160ms ease;
 }
 .setup-grid.picture-only .dropframe {
-  width: 100%;
-  height: clamp(260px, 36vh, 360px);
+  /* 명화가 즐겨 쓰는 4:3 액자 비율. 높이로 크기를 정하고 너비가 따라오게 해야
+     aspect-ratio 가 고정 높이에 눌리지 않는다(예전엔 눌려서 납작한 상자가 됐다). */
+  aspect-ratio: 4 / 3;
+  width: auto;
+  height: clamp(360px, 56vh, 560px);
+  max-width: 100%;
   justify-self: center;
 }
 .dropframe:hover {
@@ -730,6 +734,95 @@ body.is-publishing #saveTakeBtn {
   gap: 6px;
   align-content: start;
 }
+/* 1단계 그림 감상 칸 — 액자 바로 아래에 액자 너비를 따라 놓인다. */
+.picture-thought {
+  display: grid;
+  gap: 6px;
+  width: min(100%, clamp(360px, 56vh, 560px) * 4 / 3);
+  margin: 14px auto 0;
+}
+.picture-thought > span {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+.picture-thought textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 253, 247, 0.92);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+.picture-thought textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.75;
+}
+.picture-thought textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 2단계 배경음악 감상 칸 — 악기 노트와 같은 구조를 쓰되 악기 톤 변수는 안 쓴다. */
+.atmosphere-card-slot {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+.atmosphere-note {
+  display: grid;
+  gap: 7px;
+  justify-items: center;
+  padding: 11px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--canvas);
+  transition: all 150ms ease;
+}
+.atmosphere-card-slot.active .atmosphere-note {
+  border-color: var(--brand-gold-strong);
+  background:
+    linear-gradient(135deg, rgba(255, 224, 138, 0.3), rgba(255, 250, 238, 0.94) 62%),
+    var(--canvas);
+  box-shadow: inset 0 0 0 1px rgba(244, 201, 87, 0.42);
+}
+.atmosphere-note-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.atmosphere-card-slot.active .atmosphere-note-label {
+  color: var(--ink);
+}
+.atmosphere-note-field {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 253, 247, 0.92);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+.atmosphere-note-field::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+.atmosphere-note-field:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
 .instrument-note {
   display: grid;
   gap: 7px;
@@ -3275,10 +3368,12 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   --completion-panel-bg: rgba(255, 255, 255, 0.76);
   --completion-field-bg: rgba(255, 255, 255, 0.9);
   --completion-panel-border: var(--line);
-  grid-template-columns: minmax(360px, 0.82fr) minmax(520px, 1.18fr);
+  /* 좌: 표지 + 듣기 · 중: 제목과 성찰 · 우: 내 작품 */
+  grid-template-columns: minmax(260px, 0.78fr) minmax(460px, 1.34fr) minmax(300px, 0.88fr);
   align-items: start;
   gap: 18px;
 }
+.completion-preview-column,
 .completion-work-list,
 .completion-detail-panel {
   min-width: 0;
@@ -3290,8 +3385,16 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   display: grid;
   gap: 14px;
 }
-.completion-current-preview {
-  display: none;
+.completion-preview-column {
+  display: grid;
+  gap: 10px;
+  position: sticky;
+  top: 12px;
+}
+.completion-preview-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
 }
 .completion-gallery .placard,
 .completion-gallery .reflection-fields,

@@ -950,7 +950,7 @@
     }
   }
 
-  // === 이름 변경 모달: 관리자 번호 + 새 이름을 한 화면에서 받는다 ===
+  // === 이름 변경 모달: 관리자 공통 코드 + 새 이름을 한 화면에서 받는다 ===
 
   function setRenameModalError(text) {
     if (!el.renameModalError) return
@@ -994,7 +994,7 @@
     const adminPin = el.renameAdminPinInput ? el.renameAdminPinInput.value.trim() : ""
     const displayName = cleanText(el.renameNameInput ? el.renameNameInput.value : "", 40)
     if (!adminPin) {
-      setRenameModalError("관리자 번호를 넣어 주세요.")
+      setRenameModalError("관리자 공통 코드를 넣어 주세요.")
       if (el.renameAdminPinInput) el.renameAdminPinInput.focus()
       return
     }
@@ -1029,10 +1029,10 @@
       setStatus("먼저 화음 갤러리에 들어가 주세요.", true)
       return
     }
-    const adminPin = promptTrimmed("관리자 번호를 입력하세요.", loadStashedAdminPin())
+    const adminPin = promptTrimmed("관리자 공통 코드를 입력하세요.", loadStashedAdminPin())
     if (adminPin == null) return
     if (!adminPin) {
-      setStatus("화음 갤러리를 삭제하려면 관리자 번호를 넣어 주세요.", true)
+      setStatus("화음 갤러리를 삭제하려면 관리자 공통 코드를 넣어 주세요.", true)
       return
     }
     if (!confirm("#" + channel + " 갤러리와 안에 있는 음악을 모두 삭제할까요?")) return
@@ -1389,10 +1389,10 @@
 
   async function deleteActiveWork() {
     if (!state.activeWork || !ShareStore || !ShareStore.deleteWork) return
-    const adminPin = promptTrimmed("관리자 번호를 입력하세요.", loadStashedAdminPin())
+    const adminPin = promptTrimmed("관리자 공통 코드를 입력하세요.", loadStashedAdminPin())
     if (adminPin == null) return
     if (!adminPin) {
-      setStatus("이 작품을 지우려면 관리자 번호가 필요합니다.", true)
+      setStatus("이 작품을 지우려면 관리자 공통 코드가 필요합니다.", true)
       return
     }
     if (!confirm("이 공유 작품을 지울까요?")) return

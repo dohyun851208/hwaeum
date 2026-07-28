@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 갤러리</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260703-viewer-action-wrap" />
+    <link rel="stylesheet" href="./styles.css?v=20260729-admin-code" />
   </head>
   <body class="channel-body">
     <div class="channel-shell">
@@ -117,17 +117,17 @@
       </div>
     </div>
 
-    <!-- 이름 변경 모달: 관리자 번호 + 새 이름 동시 입력 -->
+    <!-- 이름 변경 모달: 관리자 공통 코드 + 새 이름 동시 입력 -->
     <div class="publish-modal" id="renameModal" hidden>
       <div class="publish-modal-panel" role="dialog" aria-modal="true" aria-labelledby="renameModalTitle">
         <button class="publish-modal-close" id="renameModalCloseBtn" type="button" aria-label="닫기">×</button>
         <p class="eyebrow">갤러리 관리</p>
         <h3 id="renameModalTitle">갤러리 이름 바꾸기</h3>
-        <p class="publish-modal-lead">관리자 번호를 확인하고 새 이름을 정해 주세요.</p>
+        <p class="publish-modal-lead">관리자 공통 코드를 확인하고 새 이름을 정해 주세요.</p>
         <form class="publish-modal-form" id="renameModalForm">
           <label class="publish-modal-field" for="renameAdminPinInput">
-            <span>관리자 번호</span>
-            <input id="renameAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 번호 (8624)" aria-label="관리자 번호" />
+            <span>관리자 공통 코드</span>
+            <input id="renameAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 공통 코드 (8624)" aria-label="관리자 공통 코드" />
           </label>
           <label class="publish-modal-field" for="renameNameInput">
             <span>새 갤러리 이름</span>
@@ -142,7 +142,7 @@
       </div>
     </div>
 
-    <script src="./js/share-store.js?v=20260703-rename-modal" defer></script>
-    <script src="./js/channel.js?v=20260703-viewer-info-card" defer></script>
+    <script src="./js/share-store.js?v=20260729-admin-code" defer></script>
+    <script src="./js/channel.js?v=20260729-admin-code" defer></script>
   </body>
 </html>

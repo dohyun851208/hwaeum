@@ -35,6 +35,7 @@
       defaultAtmosphere,
       applyInstrumentTone,
       getNextCustomBgId,
+      syncReflectionFromNotes,
     } = deps
 
     // 요소 자식 노드를 모두 제거한다. innerHTML="" 대신 XSS-안전한 방법 사용.
@@ -229,7 +230,59 @@
         })
         b.appendChild(del)
       }
-      el.atmosphereGrid.appendChild(b)
+      // 카드는 button 이라 입력칸을 그 안에 넣을 수 없다 — 슬롯으로 감싸 감상 노트를 형제로 붙인다.
+      const slot = document.createElement("div")
+      slot.className = "atmosphere-card-slot" + (a.id === state.atmosphere.id ? " active" : "")
+      slot.appendChild(b)
+      slot.appendChild(buildAtmosphereNote(a))
+      el.atmosphereGrid.appendChild(slot)
+    }
+
+    // ── 배경음악 감상 노트 (2단계) ───────────────────────────────────
+    // 악기 감상 노트와 같은 구조. 최종으로 고른 배경의 메모는 4단계 "배경음악을 고른 이유"로 옮겨진다.
+    function buildAtmosphereNote(a) {
+      const note = document.createElement("div")
+      note.className = "atmosphere-note"
+
+      const label = document.createElement("label")
+      label.className = "atmosphere-note-label"
+      label.setAttribute("for", "atmosphereNote-" + a.id)
+      label.textContent = "내 느낌"
+      note.appendChild(label)
+
+      const field = document.createElement("textarea")
+      field.className = "atmosphere-note-field"
+      field.id = "atmosphereNote-" + a.id
+      field.rows = 2
+      field.maxLength = NOTE_MAX_LENGTH
+      field.placeholder = "어떤 느낌인가요?"
+      field.dataset.noteAtmosphere = a.id
+      field.value = state.backgroundNotes[a.id] || ""
+      field.addEventListener("input", () => {
+        // 값을 바로 state 로 옮겨 둔다 — 카드를 눌러 그리드가 다시 그려져도 글이 남는다.
+        state.backgroundNotes[a.id] = field.value
+        if (typeof syncReflectionFromNotes === "function") syncReflectionFromNotes()
+      })
+      note.appendChild(field)
+      return note
+    }
+
+    // 배경 그리드도 카드를 누를 때마다 통째로 다시 그리므로 커서를 기억했다 되돌린다.
+    function captureAtmosphereNoteFocus() {
+      const active = document.activeElement
+      const id = active && active.dataset ? active.dataset.noteAtmosphere : null
+      if (!id) return null
+      return { id: id, start: active.selectionStart, end: active.selectionEnd }
+    }
+
+    function restoreAtmosphereNoteFocus(focus) {
+      if (!focus || !el.atmosphereGrid || typeof el.atmosphereGrid.querySelector !== "function") return
+      const field = el.atmosphereGrid.querySelector('[data-note-atmosphere="' + focus.id + '"]')
+      if (!field || typeof field.focus !== "function") return
+      field.focus()
+      if (typeof field.setSelectionRange === "function" && focus.start != null) {
+        field.setSelectionRange(focus.start, focus.end)
+      }
     }
 
     // 업로드한 "내가 찾은 음악" 삭제 — 목록·배경에서 빼고 Blob URL 도 해제한다.
@@ -260,6 +313,7 @@
     }
 
     function renderAtmospheres() {
+      const noteFocus = captureAtmosphereNoteFocus()
       clearEl(el.atmosphereGrid)
       // group 별로 묶고(미지정·업로드분은 "분위기"), 정해진 순서대로 소제목과 함께 그린다.
       const groups = {}
@@ -284,6 +338,7 @@
         if (g === STUDENT_MUSIC_GROUP) el.atmosphereGrid.appendChild(buildUploadCard())
         ;(groups[g] || []).forEach(appendAtmosphereCard)
       })
+      restoreAtmosphereNoteFocus(noteFocus)
     }
 
     function buildUploadCard() {
@@ -513,6 +568,7 @@
       field.addEventListener("input", () => {
         // 값을 바로 state 에 옮겨 둔다 — 연주곡이 끝나 그리드가 다시 그려져도 글이 남는다.
         state.instrumentNotes[instrument.id] = field.value
+        if (typeof syncReflectionFromNotes === "function") syncReflectionFromNotes()
       })
       note.appendChild(field)
 

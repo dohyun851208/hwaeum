@@ -132,8 +132,12 @@
     drawingInputMode: DRAW_MODE_PICTURE,
     bgPreviewId: null, // 현재 미리듣기 중인 배경 id
     examplePreviewId: null, // 현재 감상 재생 중인 악기 id
-    instrumentNotes: {}, // 2단계 악기별 감상 메모 — 이번 화면에서만 유지(작품·갤러리에 저장하지 않음)
+    instrumentNotes: {}, // 2단계 악기별 감상 메모 — 이번 화면에서만 유지(고른 악기 것만 4단계로 옮겨짐)
     instrumentAnswerShown: {}, // 예시 답안을 펼쳐 본 악기 id
+    backgroundNotes: {}, // 2단계 배경별 감상 메모 — 이번 화면에서만 유지(고른 배경 것만 4단계로 옮겨짐)
+    // 4단계에서 학생이 직접 손댄 칸. 한 번 손대면 2단계 메모가 그 칸을 덮지 않는다.
+    reflectionEdited: {},
+    pictureThought: "", // 1단계 그림 감상 — 4단계 칸과 같은 값을 공유하고 작품에 저장된다
     bgOffset: 0, // 배경음악을 이 지점(초)부터 — 캔버스 가로축이 [bgOffset, bgOffset+길이]에 대응, 최종 곡에도 반영
     bgEndOffset: 0,
     backgroundReason: "",
@@ -223,6 +227,8 @@
     composerInput: $("composerInput"),
     placardMeta: $("placardMeta"),
     placardDetail: $("placardDetail"),
+    pictureThoughtInput: $("pictureThoughtInput"),
+    pictureThoughtCompletionInput: $("pictureThoughtCompletionInput"),
     bgReasonInput: $("bgReasonInput"),
     melodyIntentInput: $("melodyIntentInput"),
     hashtagsInput: $("hashtagsInput"),
@@ -477,6 +483,7 @@
     defaultAtmosphere,
     applyInstrumentTone,
     getNextCustomBgId: () => "custom-" + ++customBgSeq,
+    syncReflectionFromNotes,
   })
   const {
     bgSrcFor,
@@ -697,6 +704,7 @@
       actionCount: normalizeActionCount(state.actionCount),
       bgOffset: recipeBgOffset(),
       bgEndOffset: recipeBgEndOffset(),
+      pictureThought: cleanText(state.pictureThought, 180),
       backgroundReason: cleanText(state.backgroundReason, 180),
       melodyIntent: cleanText(state.melodyIntent, 180),
       hashtags: normalizeHashtags(state.hashtags),
@@ -1170,10 +1178,31 @@
     return usedInstrumentLabelsForRecipe(recipe)
   }
 
+  // 2단계에서 적은 감상을 4단계 성찰 칸으로 옮긴다. 여러 배경·악기를 들어보며 적어도
+  // 실제로 고른 것 하나만 넘어간다. 학생이 4단계에서 그 칸을 손댄 뒤에는 덮어쓰지 않는다
+  // — 공들여 고친 글이 2단계로 돌아가 메모를 만졌다는 이유로 사라지면 안 된다.
+  function syncReflectionFromNotes() {
+    const carry = [
+      { key: "backgroundReason", note: state.backgroundNotes[state.atmosphere && state.atmosphere.id] },
+      { key: "melodyIntent", note: state.instrumentNotes[state.instrument && state.instrument.id] },
+    ]
+    carry.forEach(function (item) {
+      if (state.reflectionEdited[item.key]) return
+      const next = cleanText(item.note || "", 180)
+      if (state[item.key] === next) return
+      state[item.key] = next
+    })
+    syncReflectionInputs()
+  }
+
   function syncReflectionInputs() {
     if (el.composerInput && el.composerInput.value !== state.composerName) {
       el.composerInput.value = state.composerName
     }
+    // 1단계 칸과 4단계 칸은 같은 값을 보여 준다(그림 하나에 생각 하나).
+    ;[el.pictureThoughtInput, el.pictureThoughtCompletionInput].forEach(function (field) {
+      if (field && field.value !== state.pictureThought) field.value = state.pictureThought
+    })
     if (el.bgReasonInput && el.bgReasonInput.value !== state.backgroundReason) {
       el.bgReasonInput.value = state.backgroundReason
     }
@@ -2021,6 +2050,7 @@
       state.bgOffset = 0
       state.bgEndOffset = 0
     }
+    state.pictureThought = recipe.pictureThought || ""
     state.backgroundReason = recipe.backgroundReason || ""
     state.melodyIntent = recipe.melodyIntent || ""
     state.hashtags = Array.isArray(recipe.hashtags) ? keywordText(recipe.hashtags) : recipe.hashtags || ""
@@ -2139,7 +2169,7 @@
     el.openClaimedChannelBtn.hidden = false
   }
 
-  // 관리자 번호(8624)로 화음 갤러리를 만들거나, 내가 점유한 갤러리 이름·코드를 고친다.
+  // 관리자 공통 코드(8624)로 화음 갤러리를 만들거나, 내가 점유한 갤러리 이름·코드를 고친다.
   async function claimChannelFromForm() {
     hideOpenClaimedChannelButton()
     if (!ShareStore || !ShareStore.claimChannel) {
@@ -2151,7 +2181,7 @@
     const displayName = el.shareDisplayNameInput ? el.shareDisplayNameInput.value.trim() : ""
     const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
     if (!adminPin) {
-      setShareMessage("화음 갤러리를 만들려면 관리자 번호(8624)를 넣어 주세요.", true)
+      setShareMessage("화음 갤러리를 만들려면 관리자 공통 코드(8624)를 넣어 주세요.", true)
       return
     }
     if (!channel) {
@@ -2184,7 +2214,7 @@
     }
   }
 
-  // 관리자 번호를 화음 갤러리 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 번호가 남지 않게).
+  // 관리자 공통 코드를 화음 갤러리 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 번호가 남지 않게).
   const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
   function rememberAdminPin() {
     try {
@@ -2209,6 +2239,7 @@
     return {
       title: state.title || "무제",
       composerName: cleanText(state.composerName, COMPOSER_NAME_MAX),
+      pictureThought: cleanText(state.pictureThought, 180),
       backgroundReason: cleanText(state.backgroundReason, 180),
       melodyIntent: cleanText(state.melodyIntent, 180),
       hashtags: normalizeHashtags(state.hashtags),
@@ -2670,16 +2701,27 @@
         state.composerName = cleanText(el.composerInput.value, COMPOSER_NAME_MAX)
       })
     }
+    // 1단계 칸과 4단계 칸은 같은 생각 하나를 나눠 쓴다 — 어느 쪽에 적어도 반대쪽에 그대로 보인다.
+    ;[el.pictureThoughtInput, el.pictureThoughtCompletionInput].forEach(function (field) {
+      if (!field) return
+      field.addEventListener("input", () => {
+        state.pictureThought = field.value
+        const other = field === el.pictureThoughtInput ? el.pictureThoughtCompletionInput : el.pictureThoughtInput
+        if (other && other.value !== field.value) other.value = field.value
+      })
+    })
     if (el.bgReasonInput) {
       el.bgReasonInput.addEventListener("input", () => {
         el.bgReasonInput.classList.remove("field-invalid")
         state.backgroundReason = el.bgReasonInput.value
+        state.reflectionEdited.backgroundReason = true // 이후 2단계 메모가 덮지 않는다
       })
     }
     if (el.melodyIntentInput) {
       el.melodyIntentInput.addEventListener("input", () => {
         el.melodyIntentInput.classList.remove("field-invalid")
         state.melodyIntent = el.melodyIntentInput.value
+        state.reflectionEdited.melodyIntent = true
       })
     }
     if (el.hashtagsInput) {

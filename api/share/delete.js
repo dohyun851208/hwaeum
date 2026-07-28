@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
     if (!metaBlob) return send(res, 404, { error: "이미 삭제되었거나 없는 작품입니다." })
 
     const adminOk = hashAdmin(body.adminPin)
-    if (!adminOk) return send(res, 403, { error: "이 작품을 삭제하려면 관리자 번호가 필요해요." })
+    if (!adminOk) return send(res, 403, { error: "이 작품을 삭제하려면 관리자 공통 코드가 필요해요." })
 
     const targets = blobs.map((blob) => blob.pathname || blob.url).filter(Boolean)
     if (targets.length) await del(targets)

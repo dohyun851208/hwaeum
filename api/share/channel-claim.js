@@ -18,7 +18,7 @@ const {
 const MIN_PIN_LENGTH = 4
 
 // 관리자(8624)가 화음 갤러리를 만들고 점유한다. 이미 다른 선생님이 점유한 갤러리는 거절한다.
-// 같은 선생님(ownerKey 일치)이거나, 그 갤러리의 코드를 정확히 아는 사람(=관리자 번호 + 갤러리 코드,
+// 같은 선생님(ownerKey 일치)이거나, 그 갤러리의 코드를 정확히 아는 사람(=관리자 공통 코드 + 갤러리 코드,
 // 다른 컴퓨터의 같은 선생님)이면 갤러리 이름·코드를 고칠 수 있다.
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["POST"])) return
@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
     const body = await parseJsonBody(req)
     const channel = cleanChannel(body.channel)
     if (!channel) return send(res, 400, { error: "번호를 적어 주세요." })
-    if (!hashAdmin(body.adminPin)) return send(res, 403, { error: "화음 갤러리를 만들려면 관리자 번호가 필요해요." })
+    if (!hashAdmin(body.adminPin)) return send(res, 403, { error: "화음 갤러리를 만들려면 관리자 공통 코드가 필요해요." })
     if (!body.ownerKey) return send(res, 400, { error: "선생님 정보를 확인하지 못했어요." })
 
     const pass = cleanPin(body.pass)

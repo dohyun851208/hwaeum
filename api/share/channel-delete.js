@@ -7,7 +7,7 @@ module.exports = async function handler(req, res) {
     const body = await parseJsonBody(req)
     const channel = cleanChannel(body.channel)
     if (!channel) return send(res, 400, { error: "삭제할 번호를 적어 주세요." })
-    if (!hashAdmin(body.adminPin)) return send(res, 403, { error: "화음 갤러리를 삭제하려면 관리자 번호가 필요해요." })
+    if (!hashAdmin(body.adminPin)) return send(res, 403, { error: "화음 갤러리를 삭제하려면 관리자 공통 코드가 필요해요." })
 
     const channelMeta = await loadChannelMeta(list, readJsonUrl, channel)
     if (!channelMeta) return send(res, 404, { error: "삭제할 화음 갤러리를 찾지 못했어요." })

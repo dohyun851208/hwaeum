@@ -142,7 +142,7 @@ test("channel viewer copies a work to another gallery with the target gallery co
   assert.match(copyActiveBody, /promptTrimmed\("복사할 갤러리 코드\(숫자\)를 입력하세요\."/)
   assert.match(copyActiveBody, /ShareStore\.copyWork\(state\.activeWork/)
   assert.match(copyActiveBody, /sourcePass: currentGalleryPass\(\)/)
-  assert.doesNotMatch(copyActiveBody, /관리자 번호/)
+  assert.doesNotMatch(copyActiveBody, /관리자 공통 코드/)
 
   assert.match(copyWorkBody, /postJson\("\/copy"/)
   assert.doesNotMatch(copyWorkBody, /adminPin/)

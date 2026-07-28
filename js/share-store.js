@@ -13,7 +13,7 @@
   const LOCAL_STORE_NAME = "works"
   const LOCAL_CHANNEL_STORE_NAME = "channels"
   const MIN_PIN_LENGTH = 4
-  // 로컬(서버 없는) 폴백에서만 쓰는 관리자 번호 검문. 배포 환경은 서버(_utils.cjs)가 진짜 검문소.
+  // 로컬(서버 없는) 폴백에서만 쓰는 관리자 공통 코드 검문. 배포 환경은 서버(_utils.cjs)가 진짜 검문소.
   const LOCAL_ADMIN_PIN = "8624"
   const MAX_UPLOAD_TOTAL_BYTES = 3.5 * 1024 * 1024
   const objectUrlCache = new Map()
@@ -381,7 +381,7 @@
 
   async function claimLocalChannel(channel, pin, displayName, owner, adminPin) {
     if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) {
-      throw new Error("화음 갤러리를 만들려면 관리자 번호가 필요해요.")
+      throw new Error("화음 갤러리를 만들려면 관리자 공통 코드가 필요해요.")
     }
     const existing = await getLocalChannel(channel)
     // 갤러리 코드가 정확히 맞으면 다른 브라우저 프로필이라도 같은 선생님으로 본다.
@@ -526,14 +526,14 @@
         }
       })) || { found: false, allowed: false }
     if (!outcome.found) throw new Error("이미 삭제되었거나 없는 작품입니다.")
-    if (!outcome.allowed) throw new Error("이 작품을 삭제하려면 관리자 번호가 필요해요.")
+    if (!outcome.allowed) throw new Error("이 작품을 삭제하려면 관리자 공통 코드가 필요해요.")
     return { ok: true, deleted: work.id, localOnly: true }
   }
 
   async function deleteLocalChannel(channel, adminPin) {
     const channelRecord = await getLocalChannel(channel)
     if (!channelRecord) throw new Error("삭제할 화음 갤러리를 찾지 못했어요.")
-    if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) throw new Error("화음 갤러리를 삭제하려면 관리자 번호가 필요해요.")
+    if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) throw new Error("화음 갤러리를 삭제하려면 관리자 공통 코드가 필요해요.")
     const deletedWorks =
       (await withLocalStore("readwrite", function (store, setResult) {
         const req = store.getAll()
@@ -708,7 +708,7 @@
   async function deleteWork(work, adminPin) {
     if (!work || !work.id || !work.channel) throw new Error("삭제할 작품을 찾지 못했어요.")
     const pin = String(adminPin || "").trim()
-    if (!pin) throw new Error("이 작품을 삭제하려면 관리자 번호가 필요해요.")
+    if (!pin) throw new Error("이 작품을 삭제하려면 관리자 공통 코드가 필요해요.")
     if (work.localOnly) return deleteLocalWork(work, pin)
     try {
       return await postJson("/delete", {
@@ -726,7 +726,7 @@
     const normalized = normalizeChannel(channel)
     if (!normalized) throw new Error("삭제할 번호를 적어 주세요.")
     const pin = String(adminPin || "").trim()
-    if (!pin) throw new Error("화음 갤러리를 삭제하려면 관리자 번호가 필요해요.")
+    if (!pin) throw new Error("화음 갤러리를 삭제하려면 관리자 공통 코드가 필요해요.")
     try {
       const result = await postJson("/channel-delete", {
         channel: normalized,
