@@ -25,6 +25,9 @@
 - `decisions/2026-07-03-instrument-scoped-pitch-axis.md` — 도화지 축을 선택 악기 기준으로 표시(국악 10칸, 저장/화면 좌표 분리)
 - `decisions/2026-07-14-runtime-module-boundaries.md` — 빌드 없는 classic 스크립트의 오디오·transport 모듈 경계와 로드 순서
 - `decisions/2026-07-26-instrument-listening-note.md` — 2단계 악기 설명을 예시 답안으로 감추고 감상 노트 입력칸 제공
+- `decisions/2026-07-29-mis-cut-sample-head-trim.md` — 원본 테이크의 "그 음이 아닌 머리"를 큐레이션 단계에서 트림(첫 사례: 비올라 레)
+- `decisions/2026-07-29-live-preview-note-gain-clamp.md` — 펜 소리의 음별 음량 보정이 기준 게인 천장에 다시 잘리던 문제(비올라·프렌치호른)
+- `decisions/2026-07-29-pen-preview-stable-region-start.md` — 펜 소리는 샘플 어택 대신 안정 구간(loopStart)에서 시작(여린 세기 녹음의 느린 음정 온셋 해결)
 
 ## 작성 규칙
 

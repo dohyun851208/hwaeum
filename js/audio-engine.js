@@ -76,6 +76,11 @@
     gayageum: { 55: 1, 57: 1, 60: 1, 62: 1, 64: 1, 67: 1, 69: 1, 72: 1, 74: 1, 76: 1 },
   }
   const LIVE_PREVIEW_MAX_GAIN = 0.95
+  // 음별 보정까지 곱한 뒤의 상한. 보정을 온전히 전달하려면 최대 2.109 가 필요하고
+  // (프렌치호른 · "그림소리 강조"), 천장 없이 실측한 출력 최대는 0.241 로 클리핑까지
+  // 12.3 dB 여유였다. 그래서 보정이 잘리지 않을 만큼만 올려 잡는다.
+  // (측정: tools/measure-instrument-loudness.cjs 기준 게인 · 샘플 피크 대조)
+  const LIVE_PREVIEW_NOTE_MAX_GAIN = 2.2
   const MASTER_OUTPUT_GAIN = 0.56
   const NOTE_PREVIEW_GAIN_BOOST = 2
   const NOTE_PREVIEW_SYNTH_GAIN = 0.24 * NOTE_PREVIEW_GAIN_BOOST
@@ -206,10 +211,15 @@
     return clamp(outputGain, 0.12, LIVE_PREVIEW_MAX_GAIN * boost)
   }
 
+  // 음별 보정은 측정으로 정한 "악기 안의 상대 보정"이라 기준 게인과 같은 천장으로 다시
+  // 자르면 안 된다. 자르면 기준 게인이 이미 천장에 닿은 악기(비올라·프렌치호른)에서 보정이
+  // 통째로 1.0 이 돼, 여리게 녹음된 음이 펜 소리에서 묻힌다. 전체 재생에는 이 천장이 없어서
+  // 펜 소리와 재생이 서로 달라지기까지 했다.
+  // (비올라는 원본을 piano 로 골라 와 기준 게인이 가장 높다 → 15칸 중 11칸이 보정을 잃었다.)
   function livePreviewNoteTargetGain(plan, noteEnvPeak, uiMidi) {
     const boost = isGugakInstrument(plan && plan.instrument) ? GUGAK_DRAWING_GAIN_BOOST : 1
     const gain = livePreviewTargetGain(plan, noteEnvPeak) * noteMelodyOutputGainForUiMidi(plan && plan.instrument, uiMidi)
-    return clamp(gain, 0.12, LIVE_PREVIEW_MAX_GAIN * boost)
+    return clamp(gain, 0.12, LIVE_PREVIEW_NOTE_MAX_GAIN * boost)
   }
 
   function melodyPlaybackEnvPeak(plan, noteEnvPeak) {
@@ -587,6 +597,7 @@
     this.onState = null // (isPlaying) 콜백
     this.livePreview = null
     this.livePreviewToken = 0
+    this.livePending = null // 불러오는 중인 라이브 미리듣기 {token, src, signature, normY}
     this.ambience = null // 드로잉 화면에서 깔리는 배경음(패드)
     this.ambienceToken = 0
     this.isPaused = false // 일시정지 상태(ctx.suspend)
@@ -1452,6 +1463,13 @@
     source.buffer = sustain.buffer
     applySustainPlanToSource(source, sustain)
     source.playbackRate.setValueAtTime(baseRate, start)
+    // 펜 소리는 "즉각 반응"이 목적 — 파일 어택을 기다리지 않고 안정 구간(loopStart)에서 시작한다.
+    // 필하모니아 서양 원본은 음정이 뜨는 시점이 느리다(측정 중앙값 110~180ms, 비올라는 최대 390ms).
+    // 국악 음원은 반대로 소금 20ms · 대금 10ms 로 이미 즉각 발음돼 손댈 이유가 없고,
+    // 시김새·발음이 학습 내용이라 원음 그대로 둔다 → 서양 악기에만 적용한다.
+    // 전체 재생은 그대로 어택부터 — 자연스러운 발음은 곡에서 살리고, 펜은 즉답을 준다.
+    const usePenStableStart = multi && isWesternInstrument(plan.instrument) && sustain.loop && sustain.loopStart != null
+    const liveStartOffset = usePenStableStart ? sustain.loopStart : sustain.offset
 
     if (useFilter) source.connect(filter)
     else source.connect(env)
@@ -1480,7 +1498,7 @@
         } catch (e) {}
       })
     }
-    source.start(start, sustain.offset)
+    source.start(start, liveStartOffset)
     return live
   }
 
@@ -1555,6 +1573,19 @@
     return this._createSynthLivePreview(ctx, plan, normY)
   }
 
+  // 이 음높이가 필요로 하는 실제 녹음 파일. liveDrawingStart와 liveDrawingMove가
+  // "지금 불러오는 중인 파일이 내가 필요한 그 파일인가"를 같은 기준으로 판단해야 한다.
+  AudioEngine.prototype._liveSampleSrc = function (plan, midi) {
+    const asset = plan && plan.melodyAsset
+    if (!asset) return null
+    // 멀티샘플이면 현재 음높이에 가장 가까운 실제 녹음 파일을 쓴다.
+    if (isMultiSample(asset)) {
+      const seg = nearestSampleSegment(asset, midi)
+      if (seg && seg.src) return seg.src
+    }
+    return asset.src || null
+  }
+
   AudioEngine.prototype.liveDrawingStart = function (recipe, normY) {
     const ctx = this.ensureContext()
     if (this.isPaused) {
@@ -1570,17 +1601,17 @@
       const plan = self.resolvePlan(recipe, [])
       const midi = self._liveMidi(plan, normY)
       if (midi == null) return Promise.resolve()
-      const asset = plan.melodyAsset
-      // 멀티샘플이면 현재 음높이에 가장 가까운 실제 녹음 파일을 불러온다(음 바뀌면 liveDrawingMove가 다시 호출).
-      let src = asset && asset.src
-      if (isMultiSample(asset)) {
-        const seg = nearestSampleSegment(asset, midi)
-        if (seg && seg.src) src = seg.src
-      }
+      const src = self._liveSampleSrc(plan, midi)
       if (src) {
+        // 로딩이 끝날 때까지 livePreview는 null이다. 그동안 들어오는 펜 이동이 이 로딩을
+        // 취소시키지 않도록(취소되면 펜을 멈출 때까지 소리가 안 난다) 진행 상황을 남겨 둔다.
+        // normY는 착지 시점에 다시 읽는다 — 불러오는 사이 펜이 옮겨간 음높이로 시작해야 한다.
+        const pending = { token: token, src: src, signature: self._liveSignature(plan), normY: normY }
+        self.livePending = pending
         return self.loadBuffer(ctx, src).then(function (buffer) {
           if (token !== self.livePreviewToken) return
-          self.livePreview = self._createLivePreview(ctx, plan, normY, buffer)
+          self.livePending = null
+          self.livePreview = self._createLivePreview(ctx, plan, pending.normY, buffer)
         })
       }
       self.livePreview = self._createLivePreview(ctx, plan, normY, null)
@@ -1605,7 +1636,18 @@
         self.stopLivePreview(true)
         return
       }
-      if (!self.livePreview || self.livePreview.signature !== self._liveSignature(plan)) {
+      if (!self.livePreview) {
+        // 이미 같은 악기·같은 파일을 불러오는 중이면 새로 시작하지 않는다. 새로 시작하면
+        // 토큰이 올라가 그 로딩이 폐기되고, 펜을 움직이는 내내 첫 음이 무음이 된다.
+        const pending = self.livePending
+        if (pending && pending.signature === self._liveSignature(plan) && pending.src === self._liveSampleSrc(plan, midi)) {
+          pending.normY = normY
+          return
+        }
+        self.liveDrawingStart(recipe, normY)
+        return
+      }
+      if (self.livePreview.signature !== self._liveSignature(plan)) {
         self.liveDrawingStart(recipe, normY)
         return
       }
@@ -1670,6 +1712,8 @@
 
   AudioEngine.prototype.stopLivePreview = function (immediate) {
     this.livePreviewToken += 1
+    // 토큰이 올라간 순간 진행 중이던 로딩은 어차피 폐기된다 — 흔적도 같이 지운다.
+    this.livePending = null
     const live = this.livePreview
     if (!live || !this.ctx) return
     this.livePreview = null

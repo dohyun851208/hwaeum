@@ -109,6 +109,19 @@ MIN_ONSET_DB = -42.0
 MIN_LOOP_TAIL_DB = -40.0
 MAX_LOOP_SPREAD_DB = 12.0
 
+# 원본 테이크 중엔 "그 음이 아닌 소리"(활 삑소리·옆 테이크 누출)가 먼저 들어간 뒤에야
+# 진짜 음이 시작되는 것이 있다. 위 onset 게이트는 "앞부분에 소리가 있는가"만 재기 때문에
+# 오히려 그 잡음 덕분에 합격한다 — 그래서 여기서 복사할 때 잘라낸다.
+# srcToken 은 이 초 값을 실측한 테이크를 고정한다. 나중에 큐레이션이 다른 테이크를 고르면
+# 그 초 값은 의미가 없으므로 그대로 적용해선 안 된다.
+HEAD_TRIMS = {
+    ("viola", 62): {
+        "srcToken": "D4",
+        "seconds": 0.336,
+        "reason": "앞 0.336초가 1225Hz(D#6) 삑소리 — 진짜 D4(292Hz)는 그 뒤에 시작",
+    },
+}
+
 # Hand curation for samples whose exact note source is too short or abnormally quiet.
 # cents describes the source pitch relative to the target midi entry.
 SAMPLE_OVERRIDES = {
@@ -395,6 +408,49 @@ def summary_row(inst_id, entries):
     return (inst_id, len(entries), entries[0]["note"], entries[-1]["note"], base["midi"], base["note"], base["src"])
 
 
+def trim_head(src_path, dest_path, seconds):
+    """src 의 앞 seconds 초를 버리고 dest 로 재인코딩한다(모노 96k — 원본과 동일 설정)."""
+    result = subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", src_path, "-ss", f"{seconds}",
+         "-c:a", "libmp3lame", "-b:a", "96k", "-ac", "1", "-ar", "44100", dest_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.decode("utf-8", "replace").strip() or f"ffmpeg trim failed: {src_path}")
+
+
+def handle_stale_head_trim(inst_id, midi, token_norm, trim, src_path, dest_path):
+    """HEAD_TRIMS 에 등록된 테이크가 아닌 다른 테이크가 선택됐을 때의 정책.
+
+    등록된 초 값(trim["seconds"])은 trim["srcToken"] 테이크에서 실측한 값이라
+    다른 파일에 그대로 적용하면 멀쩡한 어택을 잘라먹을 수 있다. 그렇다고 조용히
+    넘기면 잘라낸 잡음이 소리 없이 되살아난다.
+
+    지금은 가장 보수적으로 "멈추고 사람에게 묻는다"로 둔다.
+    """
+    raise SystemExit(
+        f"{inst_id} midi {midi}: HEAD_TRIMS 는 '{trim['srcToken']}' 테이크 기준인데 "
+        f"'{token_norm}' 이 선택됐습니다. 새 테이크의 머리를 다시 확인하고 "
+        f"HEAD_TRIMS 를 갱신하거나 항목을 지우세요. ({trim['reason']})"
+    )
+
+
+def copy_sample(src_path, dest_path, inst_id, midi, token_norm):
+    """원본을 dest 로 옮긴다. 머리 잡음이 등록된 음이면 그만큼 잘라서 옮긴다."""
+    trim = HEAD_TRIMS.get((inst_id, midi))
+    if not trim:
+        shutil.copy2(src_path, dest_path)
+        return
+    if trim["srcToken"] == token_norm:
+        trim_head(src_path, dest_path, trim["seconds"])
+        print(f"  · {inst_id} {token_norm}: 머리 {trim['seconds']}초 잘라냄 ({trim['reason']})")
+        return
+    # 등록해 둔 테이크가 아니다 — 이 초 값이 이 파일에도 맞는다는 보장이 없다.
+    # TODO: 여기서 어떻게 할지 결정 (아래 설명 참고)
+    handle_stale_head_trim(inst_id, midi, token_norm, trim, src_path, dest_path)
+
+
 def main():
     os.makedirs(os.path.dirname(GENERATED_JS), exist_ok=True)
     existing_maps = read_existing_western_maps()
@@ -440,7 +496,7 @@ def main():
                 if override["srcMidi"] in best:
                     src_path = best[override["srcMidi"]][3]
             dest_name = f"{inst_id}_{token_norm}.mp3"
-            shutil.copy2(src_path, os.path.join(dest_dir, dest_name))
+            copy_sample(src_path, os.path.join(dest_dir, dest_name), inst_id, midi, token_norm)
             rel = js_str(["sound", "선율-서양(필하모니아)", group_kr, inst_id, dest_name])
             entry = {"midi": midi, "note": pretty, "src": rel}
             if cents is not None:
