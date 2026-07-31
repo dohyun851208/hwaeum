@@ -152,6 +152,8 @@ const files = [
   "js/studio-export.js",
   "js/studio-setup-render.js",
   "js/studio-transport.js",
+  "js/studio-takes-ui.js",
+  "js/studio-share.js",
   "js/studio.js",
 ]
 for (const f of files) window.eval(read(f))

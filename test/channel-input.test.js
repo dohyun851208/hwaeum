@@ -22,10 +22,10 @@ function functionBody(source, name) {
 }
 
 test("channel input can be cleared without restoring the previous channel", () => {
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
 
-  assert.match(functionBody(studio, "sharedChannelInputSource"), /value == null \? state\.sharedChannel : value/)
-  assert.match(functionBody(studio, "syncShareInputs"), /sharedChannelInputSource\(channel\)/)
-  assert.doesNotMatch(functionBody(studio, "syncShareInputs"), /channel \|\| state\.sharedChannel/)
-  assert.doesNotMatch(functionBody(studio, "openChannelPage"), /channelArg \|\| state\.sharedChannel/)
+  assert.match(functionBody(share, "sharedChannelInputSource"), /value == null \? state\.sharedChannel : value/)
+  assert.match(functionBody(share, "syncShareInputs"), /sharedChannelInputSource\(channel\)/)
+  assert.doesNotMatch(functionBody(share, "syncShareInputs"), /channel \|\| state\.sharedChannel/)
+  assert.doesNotMatch(functionBody(share, "openChannelPage"), /channelArg \|\| state\.sharedChannel/)
 })

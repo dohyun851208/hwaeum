@@ -220,13 +220,14 @@ test("드로잉 읽기 표시는 길이 다음에 시도한 횟수를 보여준�
 test("완성 화면 그림에는 재생 버튼이 있고 음악 저장은 WebM만 사용한다", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const takesUi = fs.readFileSync(path.join(projectDir, "js", "studio-takes-ui.js"), "utf8")
   const engine = fs.readFileSync(path.join(projectDir, "js", "audio-engine.js"), "utf8")
 
   assert.match(source, /function ensureFramePlayButton\(\)/)
   assert.match(source, /framePlayBtn/)
   // 음악 저장은 완성 탭 일괄 버튼이 아니라 시도별 버튼으로 옮겼고, 여전히 WebM만 사용한다.
   assert.doesNotMatch(html, /id="exportAudioBtn"/)
-  assert.match(source, /makeTakeActionButton\("음악 저장"[^)]*WebM/)
+  assert.match(takesUi, /makeTakeActionButton\("음악 저장"[^)]*WebM/)
   assert.doesNotMatch(html, /exportWavBtn|오디오 내보내기\(WAV\)/)
   assert.match(engine, /exportCompressedAudio/)
   assert.doesNotMatch(engine, /AudioEngine\.prototype\.exportWav/)
@@ -246,6 +247,8 @@ test("드로잉 화면에서 믹스 선택 UI를 제거한다", () => {
 test("완성 화면은 작품 저장과 공유를 한곳에서 제공한다", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const takesUi = fs.readFileSync(path.join(projectDir, "js", "studio-takes-ui.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
 
   assert.match(html, /id="drawingSaveTakeBtn"[^>]*>저장<\/button>/)
   assert.match(html, /id="drawingSaveNewTakeBtn"[^>]*>새 시도로 저장<\/button>/)
@@ -263,16 +266,16 @@ test("완성 화면은 작품 저장과 공유를 한곳에서 제공한다", ()
   assert.match(source, /drawingSaveNewTakeBtn: \$\("drawingSaveNewTakeBtn"\)/)
   assert.match(source, /if \(el\.drawingSaveTakeBtn\) el\.drawingSaveTakeBtn\.addEventListener\("click", saveTake\)/)
   assert.match(source, /if \(el\.drawingSaveNewTakeBtn\) el\.drawingSaveNewTakeBtn\.addEventListener\("click", saveNewTake\)/)
-  assert.match(source, /if \(el\.publishShareBtn\) el\.publishShareBtn\.addEventListener\("click", publishCurrentTake\)/)
-  assert.match(source, /takes\.update\(state\.activeTakeId, recipe, name\)/)
-  assert.match(source, /cover\.className = "take-cover"/)
-  assert.match(source, /makeTakeActionButton\("수정"/)
+  assert.match(share, /if \(el\.publishShareBtn\) el\.publishShareBtn\.addEventListener\("click", publishCurrentTake\)/)
+  assert.match(takesUi, /takes\.update\(state\.activeTakeId, recipe, name\)/)
+  assert.match(takesUi, /cover\.className = "take-cover"/)
+  assert.match(takesUi, /makeTakeActionButton\("수정"/)
 })
 
 test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const start = source.indexOf("function resetCompose()")
-  const end = source.indexOf("// --- 시도(테이크) ---", start)
+  const end = source.indexOf("// === § 23  관리자 상태 · 공유 진입 ===", start)
   const resetCompose = source.slice(start, end)
 
   assert.ok(start >= 0)
@@ -286,7 +289,7 @@ test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () =>
 test("레시피 불러오기도 배경 구간 설정과 길이를 유지한다", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
   const start = source.indexOf("function loadRecipe(recipe)")
-  const end = source.indexOf("// === § 25  공유 & 화음 갤러리 ===", start)
+  const end = source.indexOf("function restoreFromHash()", start)
   const loadRecipe = source.slice(start, end)
 
   assert.ok(start >= 0)
@@ -298,6 +301,8 @@ test("레시피 불러오기도 배경 구간 설정과 길이를 유지한다",
 
 test("레시피 링크 공유는 드로잉 단계에서 시작하고 완성 탭 글을 제외한다", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const takesUi = fs.readFileSync(path.join(projectDir, "js", "studio-takes-ui.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
   const start = source.indexOf("function buildSharedRecipe()")
   const end = source.indexOf("function stampEffectAtPointer", start)
   const buildSharedRecipe = source.slice(start, end)
@@ -309,10 +314,10 @@ test("레시피 링크 공유는 드로잉 단계에서 시작하고 완성 탭 
   assert.match(buildSharedRecipe, /melodyIntent: ""/)
   assert.match(buildSharedRecipe, /hashtags: \[\]/)
   assert.match(buildSharedRecipe, /composerName: cleanText\(state\.composerName, COMPOSER_NAME_MAX\)/)
-  assert.match(source, /Core\.encodeRecipe\(buildSharedRecipe\(\)\)/)
+  assert.match(share, /Core\.encodeRecipe\(deps\.buildSharedRecipe\(\)\)/)
   assert.match(source, /const restoredRecipeLink = restoreFromHash\(\)[\s\S]*setStep\(restoredRecipeLink \? DRAWING_STEP : 0\)/)
   assert.match(source, /state\.sharedRecipeLoaded = true/)
-  assert.match(source, /const items = state\.sharedRecipeLoaded \? \[\] : takes\.list\(\)/)
+  assert.match(takesUi, /const items = state\.sharedRecipeLoaded \? \[\] : takes\.list\(\)/)
 })
 
 test("갤러리 스튜디오 보기는 복사본을 3단계로 복원한다", () => {

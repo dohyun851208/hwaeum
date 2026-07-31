@@ -18,12 +18,14 @@
 | `audio-engine.js` | Web Audio 합주(라이브 + 오프라인 렌더)·피치 시프트·시김새·**합성 폴백** | music-core, manifest, sample-maps, audio-plan/node-scope/pad-graph |
 | `drawing.js` | 캔버스 드로잉·가이드/팔레트 렌더·보정 음 오버레이 | Canvas, music-core |
 | `takes.js` | 시도(테이크) 저장·비교(localStorage)·썸네일 | localStorage |
-| `studio.js` | **오케스트레이터** — 5단계 위저드 흐름·업로드·무드 틴팅·테이크·공유 | 위 전부, DOM |
+| `studio.js` | **오케스트레이터** — 5단계 위저드 흐름·업로드·무드 틴팅·하위 워크플로 연결 | 위 전부, DOM |
 | `studio-export.js` | WebM 음악·커버 PNG·드로잉 PNG/WebM 내보내기 워크플로 | studio.js에서 호출 |
 | `studio-setup-render.js` | 분위기·악기 선택 화면 렌더(2단계 악기 감상 노트·예시 답안 포함) | studio.js에서 호출 |
 | `studio-transport.js` | 재생 버튼·플레이헤드·무배경 시계·배경 구간 플레이어의 시간 상태와 제어 | AudioEngine, DrawingCanvas |
+| `studio-takes-ui.js` | 시도 저장·다시 저장·선택·목록 카드·시도별 재생/내보내기 UI | TakesStore, studio.js에서 주입한 콜백 |
+| `studio-share.js` | 공유 필수 항목 검사·공유 모달·갤러리 입장/생성·작품 게시·레시피 링크 | share-store, studio.js에서 주입한 콜백 |
 | `studio-utils.js` | 공통 유틸(duration 정규화·메타 sanitize·색 변환 등) | studio.js 전반 |
-| `share-store.js` | 화음 갤러리 서버 I/O(publish·list·delete·claim) | studio.js, channel.js |
+| `share-store.js` | 화음 갤러리 서버 I/O(publish·list·delete·claim) | studio-share.js, channel.js |
 
 ## 의존 방향 (지킬 것)
 
@@ -32,7 +34,7 @@ music-core (순수 음악 규칙) ─┬─ drawing (Canvas)
                              └─ audio-plan (순수 재생 계획) ─┐
 manifest · sample-maps ───────────────────────────────────────┤
 audio-node-scope · audio-pad-graph ───────────────────────────┴─ audio-engine (Web Audio)
-takes · studio-utils · studio-export · studio-setup-render · studio-transport
+takes · studio-utils · studio-export · studio-setup-render · studio-transport · studio-takes-ui · studio-share
                                       └───────────────────────── studio (DOM 최상위)
 ```
 
@@ -52,6 +54,8 @@ takes · studio-utils · studio-export · studio-setup-render · studio-transpor
 - 음악·이미지·영상 내보내기 → `studio-export.js`
 - 분위기·악기 선택 화면 렌더 → `studio-setup-render.js`
 - 재생·일시정지·정지·플레이헤드·배경 구간 시간 상태 → `studio-transport.js`
+- 시도 저장·선택·목록 카드·시도별 동작 → `studio-takes-ui.js`
+- 공유 모달·화음 갤러리 입장/생성·작품 게시·레시피 링크 → `studio-share.js`
 - 공통 유틸(duration·색·메타) → `studio-utils.js`
 - 화음 갤러리 서버 통신 → `share-store.js`
 

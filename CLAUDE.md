@@ -74,15 +74,15 @@ npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (�
  (그림·설정)    (캔버스 선)     (순수 음악 규칙)    (순수 재생 계획)    (Web Audio 합주)
                     ▲                  ▲                    │
                     │                  └── manifest/sample maps
-              studio.js ──▶ studio-transport.js / studio-export.js
-            (위저드 오케스트레이션)      (재생 시간 상태 / 내보내기)
+              studio.js ──▶ studio-transport.js / studio-export.js / studio-takes-ui.js / studio-share.js
+            (위저드 오케스트레이션)      (재생 시간 상태 / 내보내기 / 시도 UI / 공유 UI)
 ```
 
 - **`music-core.js`는 순수 함수 계층** — DOM·Web Audio에 의존하지 않습니다. 그래서 단위 테스트가 쉽습니다. **이 순수성을 깨지 마세요.**
 - **`audio-plan.js`**는 샘플 선택·음 변환·획/탐색 계획을 계산하는 순수 계층입니다. **DOM·Web Audio에 의존시키지 마세요.**
 - **`audio-node-scope.js` / `audio-pad-graph.js`**는 각각 재생 노드 수명과 공통 합성 패드 그래프를 담당합니다.
 - **`audio-engine.js`**는 위 계산 결과를 Web Audio 라이브·오프라인 그래프에 스케줄하고 피치 시프트·시김새·합성 폴백을 적용합니다.
-- **`studio.js`**가 5단계 위저드를 묶는 오케스트레이터(업로드·무드 틴팅·재생·내보내기·공유). 기능별로 `studio-export.js`(내보내기)·`studio-setup-render.js`(설정 화면 렌더)·`studio-transport.js`(재생·플레이헤드·배경 구간 시간 상태)·`studio-utils.js`(공통 유틸)·`share-store.js`(갤러리 서버 I/O)로 분리되어 있습니다.
+- **`studio.js`**가 5단계 위저드를 묶는 오케스트레이터(업로드·무드 틴팅·단계 연결). 기능별로 `studio-export.js`(내보내기)·`studio-setup-render.js`(설정 화면 렌더)·`studio-transport.js`(재생·플레이헤드·배경 구간 시간 상태)·`studio-takes-ui.js`(시도 저장·선택·목록 UI)·`studio-share.js`(공유 모달·갤러리 입장/생성·작품 게시·레시피 링크)·`studio-utils.js`(공통 유틸)·`share-store.js`(갤러리 서버 I/O)로 분리되어 있습니다.
 - **`manifest.js`**는 데이터 주도 — **음원/악기/음계 추가·교체는 거의 여기만 수정**합니다.
 
 자세한 모듈 책임과 "어디를 고치나"는 → **`js/CLAUDE.md`**

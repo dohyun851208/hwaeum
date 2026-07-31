@@ -79,7 +79,7 @@ test("channel viewer fills the frame, sizes down, and shows the play control on 
 
 test("shared gallery viewers separate composer, description, and attempt count", () => {
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
   const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
 
@@ -104,7 +104,7 @@ test("shared gallery viewers separate composer, description, and attempt count",
   assert.match(functionBody(channel, "openViewer"), /setOptionalText\(el\.viewerMelodyCard, el\.viewerMelody, meta\.melodyIntent\)/)
   assert.match(functionBody(channel, "renderViewerTags"), /className = "channel-viewer-tag"/)
   assert.doesNotMatch(channelHtml, /화음 갤러리 감상/)
-  assert.match(functionBody(studio, "sharedMetadata"), /actionCount:\s*normalizeActionCount\(recipe && recipe\.actionCount\)/)
+  assert.match(functionBody(share, "sharedMetadata"), /actionCount:\s*deps\.normalizeActionCount\(recipe && recipe\.actionCount\)/)
   assert.match(css, /\.channel-viewer-meta-list\s*\{[\s\S]*display:\s*grid/)
   assert.match(css, /\.channel-viewer-note-card\s*\{[\s\S]*background:\s*rgba\(255,\s*247,\s*223,\s*0\.045\)/)
   assert.match(css, /\.channel-viewer-actions \.channel-action-button\.danger\s*\{[\s\S]*background:\s*transparent/)
@@ -154,12 +154,12 @@ test("channel viewer copies a work to another gallery with the target gallery co
 })
 
 test("shared publish stores a drawing image file for channel viewers", () => {
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
   const store = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
   const publishApi = fs.readFileSync(path.join(projectDir, "api", "share", "publish.js"), "utf8")
 
-  assert.match(functionBody(studio, "publishSharedWork"), /renderDrawingSnapshotCanvas\(\)/)
-  assert.match(functionBody(studio, "publishSharedWork"), /drawingBlob: drawing/)
+  assert.match(functionBody(share, "publishSharedWork"), /deps\.renderDrawingSnapshotCanvas\(\)/)
+  assert.match(functionBody(share, "publishSharedWork"), /drawingBlob: drawing/)
   assert.match(functionBody(store, "publishWork"), /drawing: drawing \? await encodeBlob\(drawing\) : null/)
   assert.match(functionBody(store, "localPublicWork"), /drawingUrl: objectUrlFor\(record\.id, "drawing", drawing\)/)
   assert.match(publishApi, /const drawing = files\.drawing \? decodeFile\(files\.drawing, "image\/webp"\) : null/)
@@ -180,10 +180,11 @@ test("shared publish uploads meta json once", () => {
 
 test("saved takes and shared works describe every used instrument", () => {
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
+  const takesUi = fs.readFileSync(path.join(projectDir, "js", "studio-takes-ui.js"), "utf8")
 
-  assert.match(functionBody(studio, "renderTakes"), /usedInstrumentLabelsForRecipe\(t\.recipe\)/)
-  assert.match(functionBody(studio, "sharedMetadata"), /usedInstrumentLabelsForRecipe\(recipe\)/)
-  assert.match(functionBody(studio, "publishSharedWork"), /const metadata = sharedMetadata\(recipe\)/)
+  assert.match(functionBody(takesUi, "renderTakes"), /deps\.usedInstrumentLabelsForRecipe\(take\.recipe\)/)
+  assert.match(functionBody(share, "sharedMetadata"), /deps\.usedInstrumentLabelsForRecipe\(recipe\)/)
+  assert.match(functionBody(share, "publishSharedWork"), /const metadata = sharedMetadata\(recipe\)/)
   assert.match(functionBody(channel, "workDescriptionLine"), /cleanText\(meta\.instrumentLabel,\s*72\)/)
 })

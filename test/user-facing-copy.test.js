@@ -10,6 +10,8 @@ test("studio and gallery user-facing labels avoid leftover English section words
   const channel = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const index = fs.readFileSync(path.join(projectDir, "index.html"), "utf8")
   const studioSource = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const takesUiSource = fs.readFileSync(path.join(projectDir, "js", "studio-takes-ui.js"), "utf8")
+  const studioShareSource = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
   const channelSource = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
   const shareStore = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
 
@@ -66,7 +68,11 @@ test("studio and gallery user-facing labels avoid leftover English section words
   assert.doesNotMatch(channel, /이름 저장은 관리자 공통 코드와 갤러리 코드가 필요합니다/)
   assert.doesNotMatch(channel, new RegExp("갤러리 " + "비밀" + "번호"))
   assert.doesNotMatch(studioSource, /관리자 PIN/)
+  assert.doesNotMatch(studioShareSource, /관리자 PIN/)
   assert.doesNotMatch(channelSource, /관리자 PIN/)
   assert.doesNotMatch(shareStore, /관리자 PIN이 필요/)
-  assert.doesNotMatch(studioSource + channelSource + shareStore, new RegExp("갤러리 " + "비밀" + "번호|비" + "번"))
+  assert.doesNotMatch(
+    studioSource + takesUiSource + studioShareSource + channelSource + shareStore,
+    new RegExp("갤러리 " + "비밀" + "번호|비" + "번"),
+  )
 })

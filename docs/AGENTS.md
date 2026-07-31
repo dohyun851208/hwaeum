@@ -28,6 +28,7 @@
 - `decisions/2026-07-29-mis-cut-sample-head-trim.md` — 원본 테이크의 "그 음이 아닌 머리"를 큐레이션 단계에서 트림(첫 사례: 비올라 레)
 - `decisions/2026-07-29-live-preview-note-gain-clamp.md` — 펜 소리의 음별 음량 보정이 기준 게인 천장에 다시 잘리던 문제(비올라·프렌치호른)
 - `decisions/2026-07-29-pen-preview-stable-region-start.md` — 펜 소리는 샘플 어택 대신 안정 구간(loopStart)에서 시작(여린 세기 녹음의 느린 음정 온셋 해결)
+- `decisions/2026-07-31-studio-workflow-modules.md` — `studio.js`의 시도 UI·공유 UI를 콜백 주입형 classic-script 팩토리로 분리
 
 ## 작성 규칙
 

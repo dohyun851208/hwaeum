@@ -50,9 +50,9 @@ test("고른 배경·악기 메모만 4단계로 옮기고 학생이 고친 칸�
 })
 
 test("새 감상 칸은 화음 갤러리 공유 필수 항목이 아니다", () => {
-  const studio = read("js", "studio.js")
-  const start = studio.indexOf("function publishTake(t)")
-  const body = studio.slice(start, studio.indexOf("if (missing.length > 0)", start))
+  const share = read("js", "studio-share.js")
+  const start = share.indexOf("function publishTake(t)")
+  const body = share.slice(start, share.indexOf("if (missing.length > 0)", start))
   // 기존 5개 그대로 — 새 칸을 필수로 만들지 않는다.
   assert.match(body, /label: "제목"/)
   assert.match(body, /label: "작곡가"/)
@@ -94,6 +94,8 @@ test("관리자 번호는 관리자 공통 코드로 부른다", () => {
     ["studio.html"],
     ["channel.html"],
     ["js", "studio.js"],
+    ["js", "studio-takes-ui.js"],
+    ["js", "studio-share.js"],
     ["js", "channel.js"],
     ["js", "share-store.js"],
     ["api", "share", "channel-claim.js"],

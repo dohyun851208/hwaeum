@@ -29,10 +29,10 @@ test("gallery-generated cover images do not bake in a play button", () => {
 })
 
 test("channel play overlay is only added for covers without an embedded play button", () => {
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
 
-  assert.match(functionBody(studio, "sharedMetadata"), /coverHasEmbeddedPlay:\s*false/)
+  assert.match(functionBody(share, "sharedMetadata"), /coverHasEmbeddedPlay:\s*false/)
   assert.equal(metadataFromInput({ coverHasEmbeddedPlay: false }).coverHasEmbeddedPlay, false)
   assert.equal(metadataFromInput({}).coverHasEmbeddedPlay, true)
   assert.equal(metadataFromInput({ actionCount: 7.8 }).actionCount, 7)
@@ -42,12 +42,12 @@ test("channel play overlay is only added for covers without an embedded play but
 })
 
 test("shared gallery cover images leave title text to the gallery UI", () => {
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
   const shareStore = fs.readFileSync(path.join(projectDir, "js", "share-store.js"), "utf8")
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
 
   assert.doesNotMatch(functionBody(shareStore, "renderCoverCanvas"), /fillText|titleLine|options\.hashtags|options\.composerName/)
-  assert.match(functionBody(studio, "publishSharedWork"), /composerName: metadata\.composerName/)
+  assert.match(functionBody(share, "publishSharedWork"), /composerName: metadata\.composerName/)
   assert.match(functionBody(channel, "coverUrl"), /recipePictureUrl\(work\)/)
   assert.match(functionBody(channel, "workDisplayTitle"), /title \+ " \(" \+ composer \+ "\)"/)
   assert.match(functionBody(channel, "createAlbumCard"), /title\.textContent = workDisplayTitle\(work\)/)

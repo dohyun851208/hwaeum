@@ -98,10 +98,10 @@ test("share-store exposes channel claim + pass-aware listing", () => {
 
 test("publish flow asks channel + code together in one modal", () => {
   const studioHtml = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
   const styles = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
-  const publishTakeBody = functionBody(studio, "publishTake")
-  const submitBody = functionBody(studio, "submitPublishModal")
+  const publishTakeBody = functionBody(share, "publishTake")
+  const submitBody = functionBody(share, "submitPublishModal")
 
   assert.match(studioHtml, /id="publishModal"/)
   assert.match(studioHtml, /id="publishChannelInput"[^>]*maxlength="4"/)
@@ -209,9 +209,9 @@ test("shared work delete stays on the channel page and requires the admin pin", 
 
 test("channel page opens locked channels with the student entry code or the gate code", () => {
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
-  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const share = fs.readFileSync(path.join(projectDir, "js", "studio-share.js"), "utf8")
   const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
-  const openChannelPageBody = functionBody(studio, "openChannelPage")
+  const openChannelPageBody = functionBody(share, "openChannelPage")
   const loadChannelBody = functionBody(channel, "loadChannel")
   const openInputChannelBody = functionBody(channel, "openInputChannel")
 

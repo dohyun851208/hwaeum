@@ -1,6 +1,6 @@
 /*
  * studio.js — 위저드 오케스트레이션
- * 상태 관리, 카드 렌더, 단계 이동, 그림 업로드, 무드 틴팅, 재생, 시도 저장, 내보내기, 공유 링크.
+ * 상태 관리, 단계 이동, 그림 업로드, 무드 틴팅, 하위 워크플로 연결.
  */
 ;(function () {
   "use strict"
@@ -497,7 +497,75 @@
     renderComposeInstruments: renderComposeInstrumentsFromSetup,
   } = _studioSetupRender
 
-  // === § 7d  재생·시간 상태 (studio-transport.js 초기화) ===
+  // === § 7d  시도 저장·목록 UI (studio-takes-ui.js 초기화) ===
+
+  const _studioTakesUI = window.HwaeumStudioTakesUI({
+    root: window,
+    document,
+    state,
+    el,
+    D,
+    engine,
+    takes,
+    StudioUtils,
+    defaultCoverSrc: DEFAULT_COVER_SRC,
+    composerNameMax: COMPOSER_NAME_MAX,
+    drawingStep: DRAWING_STEP,
+    defaultAtmosphere,
+    renderThumbnail: window.TakesStore.renderThumbnail,
+    usedInstrumentLabelsForRecipe,
+    requireDrawn,
+    commitHashtagInput,
+    buildRecipe,
+    loadRecipe,
+    exportAudio,
+    exportCover,
+    setStep,
+    play: () => studioTransport.play(),
+    pause: () => studioTransport.pause(),
+  })
+  const { renderTakes, saveTake, saveNewTake, selectTake } = _studioTakesUI
+
+  // === § 7e  공유·화음 갤러리 (studio-share.js 초기화) ===
+
+  const _studioShare = window.HwaeumStudioShare({
+    root: window,
+    document,
+    state,
+    el,
+    ShareStore,
+    StudioUtils,
+    Core,
+    engine,
+    shareStep: SHARE_STEP,
+    composerNameMax: COMPOSER_NAME_MAX,
+    defaultCoverSrc: DEFAULT_COVER_SRC,
+    shareAudioBitsPerSecond: SHARE_AUDIO_BITS_PER_SECOND,
+    saveTake,
+    selectTake,
+    hashtagList,
+    defaultAtmosphere,
+    usedInstrumentLabelsForRecipe,
+    usedInstrumentLabels,
+    normalizeActionCount,
+    requireDrawn,
+    buildRecipe,
+    buildSharedRecipe,
+    notesFor,
+    canvasToBlob,
+    renderDrawingSnapshotCanvas,
+  })
+  const {
+    bindShareControls,
+    syncShareInputs,
+    prefillBrowsePass,
+    publishSharedWork,
+    loadSharedChannel,
+    restoreSharedChannelFromUrl,
+    shareLink,
+  } = _studioShare
+
+  // === § 7f  재생·시간 상태 (studio-transport.js 초기화) ===
 
   studioTransport = window.HwaeumStudioTransport({
     root: window,
@@ -1655,8 +1723,7 @@
     el.exportStatus.textContent = "드로잉만 초기화했습니다. 배경음악 구간은 그대로 유지됩니다."
   }
 
-  // === § 23  시도 (Takes) ===
-  // --- 시도(테이크) ---
+  // === § 23  관리자 상태 · 공유 진입 ===
 
   function syncAdminModeUI() {
     // 관리자 모드 버튼은 제거됨 — 상태만 body 데이터셋에 반영(공유 삭제 로직/디버그 API용).
@@ -1668,355 +1735,6 @@
     saveAdminMode(state.adminMode)
     syncAdminModeUI()
     renderTakes()
-  }
-
-  function playTake(t) {
-    if (!t) return
-    if (engine.isPlaying || engine.isPaused || engine.ambience) engine.stop()
-    selectTake(t)
-    state.playingTakeId = t.id
-    play()
-    renderTakes()
-  }
-
-  function toggleTakePause(t) {
-    if (!t || state.playingTakeId !== t.id) return
-    pause()
-    renderTakes()
-  }
-
-  function renderTakeName(meta, take, index) {
-    const row = document.createElement("div")
-    row.className = "take-name-line"
-    const num = document.createElement("span")
-    num.className = "take-number"
-    num.textContent = index + "번"
-    row.appendChild(num)
-
-    // 제목은 읽기 전용 텍스트로만 표시한다(시도별 제목 편집·저장 기능 제거).
-    // 기본값 "무제"는 화면에서 "제목"으로 보여 준다.
-    const rawTitle = take.name || (take.recipe && take.recipe.title) || ""
-    const titleText = document.createElement("span")
-    titleText.className = "take-name-text"
-    titleText.textContent = rawTitle && rawTitle !== "무제" ? rawTitle : "제목"
-    row.appendChild(titleText)
-
-    meta.appendChild(row)
-  }
-
-  function takeDisplayTitle(take) {
-    const rawTitle = (take && (take.name || (take.recipe && take.recipe.title))) || ""
-    return rawTitle && rawTitle !== "무제" ? rawTitle : "제목"
-  }
-
-  function takePictureSrc(take) {
-    const recipe = (take && take.recipe) || {}
-    return normalizePictureData(recipe.picture) || DEFAULT_COVER_SRC
-  }
-
-  function renderTakes() {
-    const items = state.sharedRecipeLoaded ? [] : takes.list()
-    el.takesList.innerHTML = ""
-    el.takesEmpty.style.display = items.length ? "none" : "block"
-    el.takesEmpty.textContent = state.sharedRecipeLoaded
-      ? "공유 링크로 불러온 곡입니다. 저장하면 내 작품에 추가됩니다."
-      : "드로잉 후 저장하면 여기에 모입니다. 같은 작품은 저장할 때마다 다시 덮어씁니다."
-    el.takesCount.textContent = items.length ? items.length + "개" : ""
-    items.forEach((t, idx) => {
-      const atmos = D.atmospheres.find((a) => a.id === t.recipe.atmosphere) || defaultAtmosphere()
-      const wrap = document.createElement("div")
-      wrap.className = "take" + (t.id === state.activeTakeId ? " active" : "")
-      wrap.tabIndex = 0
-      wrap.title = "이 작품 정보 보기"
-      wrap.addEventListener("click", function () {
-        selectTake(t)
-      })
-      wrap.addEventListener("keydown", function (event) {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          selectTake(t)
-        }
-      })
-      const cover = document.createElement("div")
-      cover.className = "take-cover"
-      const coverImg = document.createElement("img")
-      coverImg.className = "take-cover-img"
-      coverImg.alt = takeDisplayTitle(t) + " 그림"
-      coverImg.src = takePictureSrc(t)
-      coverImg.addEventListener("error", function () {
-        if (coverImg.src !== DEFAULT_COVER_SRC) coverImg.src = DEFAULT_COVER_SRC
-      })
-      cover.appendChild(coverImg)
-      const cv = document.createElement("canvas")
-      cv.width = 160
-      cv.height = 100
-      cv.className = "take-thumb"
-      window.TakesStore.renderThumbnail(cv, t.recipe, atmos.color)
-      cover.appendChild(cv)
-      const meta = document.createElement("div")
-      meta.className = "take-meta"
-      renderTakeName(meta, t, idx + 1)
-      const detail = document.createElement("span")
-      detail.className = "take-detail"
-      detail.textContent = atmos.label + " · " + usedInstrumentLabelsForRecipe(t.recipe) + " · " + secondsLabel(t.recipe.duration)
-      meta.appendChild(detail)
-      if (t.recipe && t.recipe.composerName) {
-        const composer = document.createElement("span")
-        composer.className = "take-composer"
-        composer.textContent = "작곡가 " + cleanText(t.recipe.composerName, COMPOSER_NAME_MAX)
-        meta.appendChild(composer)
-      }
-      const tags = normalizeHashtags(t.recipe && t.recipe.hashtags)
-      if (tags.length) {
-        const tagLine = document.createElement("span")
-        tagLine.className = "take-tags"
-        tagLine.textContent = hashtagText(tags)
-        meta.appendChild(tagLine)
-      }
-      const tools = document.createElement("div")
-      tools.className = "take-tools"
-      const isPlayingTake = state.playingTakeId === t.id && (engine.isPlaying || engine.isPaused || !!engine.ambience)
-      const isPausedTake = isPlayingTake && engine.isPaused
-      const playB = document.createElement("button")
-      playB.type = "button"
-      playB.className = "btn tiny primary take-play"
-      playB.textContent = "▶"
-      playB.title = "이 작품 처음부터 듣기"
-      playB.setAttribute("aria-label", (t.name || "작품") + " 처음부터 듣기")
-      playB.addEventListener("click", function (event) {
-        event.stopPropagation()
-        playTake(t)
-      })
-      const pauseB = document.createElement("button")
-      pauseB.type = "button"
-      pauseB.className = "btn tiny take-pause"
-      pauseB.textContent = isPausedTake ? "▶" : "❚❚"
-      pauseB.title = isPausedTake ? "이어 듣기" : "일시정지"
-      pauseB.disabled = !isPlayingTake
-      pauseB.setAttribute("aria-label", (t.name || "작품") + " " + (isPausedTake ? "이어 듣기" : "일시정지"))
-      pauseB.addEventListener("click", function (event) {
-        event.stopPropagation()
-        if (!isPlayingTake) return
-        toggleTakePause(t)
-      })
-      const delB = document.createElement("button")
-      delB.type = "button"
-      delB.className = "btn tiny"
-      delB.textContent = "✕"
-      delB.title = "삭제"
-      delB.addEventListener("click", function (event) {
-        event.stopPropagation()
-        if (state.playingTakeId === t.id) {
-          state.playingTakeId = null
-          engine.stop()
-        }
-        takes.remove(t.id)
-        if (state.activeTakeId === t.id) state.activeTakeId = null
-        if (state.playingTakeId === t.id) state.playingTakeId = null
-        renderTakes()
-      })
-      tools.appendChild(playB)
-      tools.appendChild(pauseB)
-      tools.appendChild(delB)
-
-      const actions = document.createElement("div")
-      actions.className = "take-actions"
-      actions.appendChild(makeTakeActionButton("음악 저장", "이 작품의 음악을 WebM으로 저장", () => exportTakeAudio(t)))
-      actions.appendChild(makeTakeActionButton("이미지 저장", "이 작품의 커버 이미지를 PNG로 저장", () => exportTakeImage(t)))
-      actions.appendChild(makeTakeActionButton("수정", "이 작품을 3단계에서 수정", () => editTake(t)))
-
-      wrap.appendChild(cover)
-      wrap.appendChild(meta)
-      wrap.appendChild(tools)
-      wrap.appendChild(actions)
-      el.takesList.appendChild(wrap)
-    })
-  }
-
-  function makeTakeActionButton(label, title, handler) {
-    const btn = document.createElement("button")
-    btn.type = "button"
-    btn.className = "btn tiny take-action"
-    btn.textContent = label
-    btn.title = title
-    btn.addEventListener("click", function (event) {
-      event.stopPropagation()
-      handler()
-    })
-    return btn
-  }
-
-  // 시도별 액션: 먼저 그 시도의 레시피를 현재 상태로 불러온 뒤(selectTake) 기존 내보내기/공유 로직을 재사용한다.
-  function exportTakeAudio(t) {
-    selectTake(t)
-    exportAudio()
-  }
-
-  function exportTakeImage(t) {
-    selectTake(t)
-    exportCover()
-  }
-
-  function copyTakeRecipeLink(t) {
-    selectTake(t)
-    shareLink()
-  }
-
-  function editTake(t) {
-    selectTake(t)
-    setStep(DRAWING_STEP)
-    if (el.statusText) el.statusText.textContent = "작품 수정"
-  }
-
-  function publishCurrentTake() {
-    const saved = saveTake()
-    if (!saved) return
-    publishTake(saved)
-  }
-
-  function publishTake(t) {
-    selectTake(t)
-    const missing = []
-    if (!el.titleInput?.value.trim()) missing.push({ field: el.titleInput, label: "제목" })
-    if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "작곡가" })
-    if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: "배경음악을 고른 이유" })
-    if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: "선율을 표현한 의도" })
-    if (!hashtagList().length) missing.push({ field: el.hashtagsInput, label: "작품을 잘 나타내는 단어" })
-    if (missing.length > 0) {
-      missing.forEach(({ field }) => field.classList.add("field-invalid"))
-      el.exportStatus.textContent = "공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", ")
-      el.exportStatus.classList.add("error")
-      missing[0].field.focus()
-      missing[0].field.scrollIntoView({ behavior: "smooth", block: "center" })
-      return
-    }
-    if (!ShareStore) {
-      el.exportStatus.textContent = "공유 모듈을 불러오지 못했어요."
-      el.exportStatus.classList.add("error")
-      return
-    }
-    el.exportStatus.classList.remove("error")
-    // 번호와 갤러리 코드를 한 모달에서 같이 받는다.
-    openPublishModal()
-  }
-
-  // === § 23.5  공유 모달 (번호 + 갤러리 코드 동시 입력) ===
-
-  function setPublishModalError(text) {
-    if (!el.publishModalError) return
-    el.publishModalError.textContent = text || ""
-    el.publishModalError.hidden = !text
-  }
-
-  function openPublishModal() {
-    if (!el.publishModal || !el.publishChannelInput || !el.publishPassInput) return
-    const channel = state.sharedChannel || (ShareStore.loadChannel ? ShareStore.loadChannel() : "")
-    el.publishChannelInput.value = channel || ""
-    el.publishPassInput.value = channel && ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
-    setPublishModalError("")
-    el.publishModal.hidden = false
-    el.body.classList.add("publish-modal-open")
-    const focusTarget = !channel ? el.publishChannelInput : !el.publishPassInput.value ? el.publishPassInput : el.publishModalSubmitBtn || el.publishPassInput
-    focusTarget.focus({ preventScroll: true })
-  }
-
-  function closePublishModal() {
-    if (!el.publishModal || el.publishModal.hidden) return
-    el.publishModal.hidden = true
-    el.body.classList.remove("publish-modal-open")
-    if (el.publishShareBtn) el.publishShareBtn.focus({ preventScroll: true })
-  }
-
-  function submitPublishModal(event) {
-    if (event) event.preventDefault()
-    if (!ShareStore) return
-    const channel = ShareStore.normalizeChannel(el.publishChannelInput ? el.publishChannelInput.value : "")
-    if (!channel) {
-      setPublishModalError("번호를 적어 주세요.")
-      if (el.publishChannelInput) el.publishChannelInput.focus()
-      return
-    }
-    const pass = ShareStore.cleanPin(el.publishPassInput ? el.publishPassInput.value : "")
-    if (pass.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setPublishModalError("갤러리 코드는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상이에요.")
-      if (el.publishPassInput) el.publishPassInput.focus()
-      return
-    }
-    if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pass)
-    closePublishModal()
-    publishSharedWork(channel, pass)
-  }
-
-  function bindPublishModal() {
-    if (!el.publishModal) return
-    el.publishModal.addEventListener("click", (event) => {
-      if (event.target === el.publishModal) closePublishModal()
-    })
-    if (el.publishModalForm) el.publishModalForm.addEventListener("submit", submitPublishModal)
-    if (el.publishModalCloseBtn) el.publishModalCloseBtn.addEventListener("click", closePublishModal)
-    if (el.publishModalCancelBtn) el.publishModalCancelBtn.addEventListener("click", closePublishModal)
-    if (el.publishChannelInput) {
-      el.publishChannelInput.addEventListener("input", () => {
-        setPublishModalError("")
-        // 이 갤러리에 기억해 둔 코드가 있으면 미리 채워 준다.
-        const channel = ShareStore ? ShareStore.normalizeChannel(el.publishChannelInput.value) : ""
-        if (channel && el.publishPassInput && ShareStore.loadPass) {
-          const saved = ShareStore.loadPass(channel)
-          if (saved) el.publishPassInput.value = saved
-        }
-      })
-    }
-    if (el.publishPassInput) {
-      el.publishPassInput.addEventListener("input", () => setPublishModalError(""))
-    }
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && el.publishModal && !el.publishModal.hidden) {
-        event.preventDefault()
-        closePublishModal()
-      }
-    })
-  }
-
-  function saveTake() {
-    return saveTakeWithMode(false)
-  }
-
-  function saveNewTake() {
-    return saveTakeWithMode(true)
-  }
-
-  function saveTakeWithMode(forceNew) {
-    if (!requireDrawn()) return
-    commitHashtagInput() // 아직 칩이 안 된 단어도 잃지 않게
-    const recipe = buildRecipe()
-    const name = state.title
-    let take = null
-    if (!forceNew && !state.sharedRecipeLoaded && state.activeTakeId && typeof takes.update === "function") {
-      take = takes.update(state.activeTakeId, recipe, name)
-    }
-    const updated = !!take
-    if (!take) take = takes.add(recipe, name)
-    state.activeTakeId = take.id
-    state.sharedRecipeLoaded = false
-    renderTakes()
-    const message = updated ? "현재 작품을 다시 저장했어요." : forceNew ? "새 작품으로 저장했어요." : "내 작품에 저장했어요."
-    if (state.step === DRAWING_STEP && el.statusText) el.statusText.textContent = updated ? "다시 저장했어요" : "저장했어요"
-    el.exportStatus.textContent = message
-    return take
-  }
-
-  // 시도 카드 클릭 → 그 시도의 결과(제목·분위기·악기·설명 단어·그린 음)를 완성 화면에 불러온다.
-  function selectTake(t) {
-    state.sharedRecipeLoaded = false
-    state.activeTakeId = t.id
-    const title = t.name || (t.recipe && t.recipe.title) || ""
-    if (title) {
-      state.title = title
-      if (el.titleInput) el.titleInput.value = title
-    }
-    loadRecipe(t.recipe)
-    renderTakes()
-    el.exportStatus.textContent = "‘" + (title || "작품") + "’ 정보를 불러왔어요."
   }
 
   // === § 24  레시피 불러오기 ===
@@ -2076,392 +1794,8 @@
     updateReadouts()
   }
 
-  // === § 25  공유 & 화음 갤러리 ===
-
-  function sharedChannelInputSource(value) {
-    return value == null ? state.sharedChannel : value
-  }
-
-  function normalizeSharedChannel(value) {
-    return ShareStore ? ShareStore.normalizeChannel(value || "") : String(value || "")
-  }
-
-  function syncShareInputs(channel) {
-    const normalized = normalizeSharedChannel(sharedChannelInputSource(channel))
-    state.sharedChannel = normalized
-    if (el.channelBrowseInput && el.channelBrowseInput.value !== normalized) el.channelBrowseInput.value = normalized
-  }
-
-  function adminPinValue() {
-    return el.shareAdminPinInput ? el.shareAdminPinInput.value.trim() : ""
-  }
-
-  function channelPageUrl(channel, workId) {
-    try {
-      const url = new URL("./channel.html", location.href)
-      const normalized = normalizeSharedChannel(sharedChannelInputSource(channel))
-      if (normalized) url.search = "?channel=" + encodeURIComponent(normalized)
-      else url.search = ""
-      url.hash = workId ? "work=" + encodeURIComponent(workId) : ""
-      return url.href
-    } catch (e) {
-      const normalized = encodeURIComponent(String(sharedChannelInputSource(channel) || "").trim())
-      return "./channel.html" + (normalized ? "?channel=" + normalized : "") + (workId ? "#work=" + encodeURIComponent(workId) : "")
-    }
-  }
-
-  const CHANNEL_ENTRY_PASS_SESSION_KEY = "hwaeum.channelEntryPass"
-  function rememberChannelEntryPass(channel, pass) {
-    const normalized = normalizeSharedChannel(channel)
-    const pin = ShareStore && ShareStore.cleanPin ? ShareStore.cleanPin(pass) : String(pass || "").replace(/\D/g, "").slice(0, 6)
-    try {
-      const s = window.sessionStorage
-      if (!s || !normalized) return pin
-      if (pin) s.setItem(CHANNEL_ENTRY_PASS_SESSION_KEY, JSON.stringify({ channel: normalized, pass: pin }))
-      else s.removeItem(CHANNEL_ENTRY_PASS_SESSION_KEY)
-    } catch (e) {}
-    return pin
-  }
-
-  // 한 번 입장한 갤러리의 코드를 기억해 두었다가 들어가기 입력칸에 미리 채운다.
-  function prefillBrowsePass() {
-    if (!el.channelBrowsePassInput || !ShareStore || !ShareStore.loadPass) return
-    if (el.channelBrowsePassInput.value) return
-    const saved = ShareStore.loadPass(state.sharedChannel)
-    if (saved) el.channelBrowsePassInput.value = saved
-  }
-
-  function openChannelPage(channelArg, workId, passArg) {
-    if (!ShareStore) {
-      setShareMessage("공유 모듈을 불러오지 못했어요.", true)
-      return
-    }
-    const channel = ShareStore.normalizeChannel(sharedChannelInputSource(channelArg) || "")
-    if (!channel) {
-      setShareMessage("번호를 적어 주세요.", true)
-      return
-    }
-    const pass = passArg != null ? ShareStore.cleanPin(passArg) : ShareStore.cleanPin(el.channelBrowsePassInput ? el.channelBrowsePassInput.value : "")
-    if (!pass) {
-      setShareMessage("갤러리 코드를 넣어 주세요.", true)
-      return
-    }
-    syncShareInputs(channel)
-    rememberChannelEntryPass(channel, pass)
-    rememberAdminPin()
-    window.location.href = channelPageUrl(channel, workId)
-  }
-
-  function hideOpenClaimedChannelButton() {
-    if (!el.openClaimedChannelBtn) return
-    el.openClaimedChannelBtn.hidden = true
-    delete el.openClaimedChannelBtn.dataset.channel
-  }
-
-  function showOpenClaimedChannelButton(channel) {
-    if (!el.openClaimedChannelBtn) return
-    const normalized = normalizeSharedChannel(channel)
-    if (!normalized) {
-      hideOpenClaimedChannelButton()
-      return
-    }
-    el.openClaimedChannelBtn.dataset.channel = normalized
-    el.openClaimedChannelBtn.hidden = false
-  }
-
-  // 관리자 공통 코드(8624)로 화음 갤러리를 만들거나, 내가 점유한 갤러리 이름·코드를 고친다.
-  async function claimChannelFromForm() {
-    hideOpenClaimedChannelButton()
-    if (!ShareStore || !ShareStore.claimChannel) {
-      setShareMessage("공유 모듈을 불러오지 못했어요.", true)
-      return
-    }
-    const adminPin = adminPinValue()
-    const channel = ShareStore.normalizeChannel(el.claimChannelInput ? el.claimChannelInput.value : "")
-    const displayName = el.shareDisplayNameInput ? el.shareDisplayNameInput.value.trim() : ""
-    const pin = ShareStore.cleanPin(el.shareChannelPassInput ? el.shareChannelPassInput.value : "")
-    if (!adminPin) {
-      setShareMessage("화음 갤러리를 만들려면 관리자 공통 코드(8624)를 넣어 주세요.", true)
-      return
-    }
-    if (!channel) {
-      setShareMessage("만들 번호를 적어 주세요.", true)
-      return
-    }
-    if (pin.length < (ShareStore.MIN_PIN_LENGTH || 4)) {
-      setShareMessage("갤러리 코드는 숫자 " + (ShareStore.MIN_PIN_LENGTH || 4) + "자리 이상으로 정해 주세요.", true)
-      return
-    }
-    if (el.claimChannelBtn) el.claimChannelBtn.disabled = true
-    try {
-      setShareMessage("#" + channel + " 갤러리를 만드는 중입니다.", false)
-      const result = await ShareStore.claimChannel({ channel: channel, pin: pin, displayName: displayName, adminPin: adminPin })
-      if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pin)
-      syncShareInputs(channel)
-      showOpenClaimedChannelButton(channel)
-      const name = (result.channel && result.channel.displayName) || displayName
-      setShareMessage(
-        (result.claimed === false ? "#" + channel + " 갤러리 설정을 저장했어요." : "#" + channel + " 갤러리를 만들었어요.") +
-          (name ? " 갤러리 이름: " + name + "." : "") +
-          (result.localOnly ? " (이 브라우저에만 저장됨)" : ""),
-        false,
-      )
-    } catch (e) {
-      console.error(e)
-      setShareMessage(e.message || "화음 갤러리를 만들지 못했어요.", true)
-    } finally {
-      if (el.claimChannelBtn) el.claimChannelBtn.disabled = false
-    }
-  }
-
-  // 관리자 공통 코드를 화음 갤러리 페이지로 이어 보낸다(URL 대신 sessionStorage — 기록·로그에 번호가 남지 않게).
-  const ADMIN_PIN_SESSION_KEY = "hwaeum.adminPin"
-  function rememberAdminPin() {
-    try {
-      const s = window.sessionStorage
-      if (!s) return
-      const pin = adminPinValue()
-      if (pin) s.setItem(ADMIN_PIN_SESSION_KEY, pin)
-      else s.removeItem(ADMIN_PIN_SESSION_KEY)
-    } catch (e) {}
-  }
-
-  function setShareMessage(text, error) {
-    const target = state.step === SHARE_STEP && el.shareStatus ? el.shareStatus : el.exportStatus
-    if (!target) return
-    target.textContent = text
-    target.classList.toggle("error", !!error)
-  }
-
-  function sharedMetadata(recipe) {
-    const atmos = state.atmosphere || defaultAtmosphere()
-    const instrumentLabel = recipe ? usedInstrumentLabelsForRecipe(recipe) : usedInstrumentLabels()
-    return {
-      title: state.title || "무제",
-      composerName: cleanText(state.composerName, COMPOSER_NAME_MAX),
-      pictureThought: cleanText(state.pictureThought, 180),
-      backgroundReason: cleanText(state.backgroundReason, 180),
-      melodyIntent: cleanText(state.melodyIntent, 180),
-      hashtags: normalizeHashtags(state.hashtags),
-      atmosphereLabel: atmos.label,
-      instrumentLabel: instrumentLabel,
-      duration: state.duration,
-      actionCount: normalizeActionCount(recipe && recipe.actionCount),
-      coverHasEmbeddedPlay: false,
-    }
-  }
-
-  function updateShareUrl(channel, workId) {
-    try {
-      const url = new URL(location.href)
-      if (channel) url.searchParams.set("shareChannel", channel)
-      if (workId) url.hash = "work=" + encodeURIComponent(workId)
-      else if (url.hash.indexOf("#work=") === 0) url.hash = ""
-      history.replaceState(null, "", url.href)
-    } catch (e) {}
-  }
-
-  async function loadSharedChannel(channel, options) {
-    options = options || {}
-    if (!ShareStore) {
-      setShareMessage("공유 모듈을 불러오지 못했어요.", true)
-      return
-    }
-    const normalized = ShareStore.normalizeChannel(sharedChannelInputSource(channel) || "")
-    if (!normalized) {
-      setShareMessage("번호를 적어 주세요.", true)
-      return
-    }
-    syncShareInputs(normalized)
-    state.sharedLoading = true
-    setShareMessage("#" + normalized + " 갤러리를 불러오는 중입니다.", false)
-    try {
-      const result = await ShareStore.listChannel(normalized, ShareStore.loadPass ? ShareStore.loadPass(normalized) : "")
-      state.sharedWorks = result.works || []
-      setShareMessage(
-        "#" + normalized + " 갤러리에 " + (result.localOnly ? "이 브라우저에 저장된 " : "공유된 ") + "음악 " + state.sharedWorks.length + "개를 불러왔어요.",
-        false,
-      )
-      if (options.updateUrl !== false) updateShareUrl(normalized)
-    } catch (e) {
-      console.error(e)
-      state.sharedWorks = []
-      setShareMessage(e.message || "화음 갤러리를 불러오지 못했어요.", true)
-    } finally {
-      state.sharedLoading = false
-    }
-  }
-
-  async function publishSharedWork(channelArg, passArg) {
-    if (!requireDrawn()) return
-    if (!ShareStore) {
-      el.exportStatus.textContent = "공유 모듈을 불러오지 못했어요."
-      el.exportStatus.classList.add("error")
-      return
-    }
-    const explicitChannel = typeof channelArg === "string" || typeof channelArg === "number" ? channelArg : null
-    const channelSource = explicitChannel != null ? explicitChannel : state.sharedChannel
-    const channel = ShareStore.normalizeChannel(channelSource)
-    if (!channel) {
-      el.exportStatus.textContent = "번호를 적어 주세요."
-      el.exportStatus.classList.add("error")
-      return
-    }
-    const pass = passArg != null ? ShareStore.cleanPin(passArg) : ShareStore.loadPass ? ShareStore.loadPass(channel) : ""
-    syncShareInputs(channel)
-    const recipe = buildRecipe()
-    const metadata = sharedMetadata(recipe)
-    const publishButton = el.publishShareBtn
-    if (publishButton) publishButton.disabled = true
-
-    const progressEl = document.getElementById("publishProgress")
-    const progressFill = document.getElementById("publishProgressFill")
-    function setProgress(ratio) {
-      if (!progressEl || !progressFill) return
-      progressEl.hidden = false
-      progressFill.style.width = Math.round(Math.min(1, ratio) * 100) + "%"
-    }
-
-    document.body.classList.add("is-publishing")
-    try {
-      el.exportStatus.classList.remove("error")
-      el.exportStatus.textContent = "표지 이미지를 작게 압축하는 중입니다."
-      setProgress(0.05)
-      const images = await ShareStore.createImageBlobs({
-        pictureSrc: state.pic,
-        defaultCoverSrc: DEFAULT_COVER_SRC,
-        title: metadata.title,
-        composerName: metadata.composerName,
-        hashtags: keywordText(metadata.hashtags),
-        accent: state.atmosphere.color,
-      })
-      el.exportStatus.textContent = "드로잉 이미지를 작게 압축하는 중입니다."
-      setProgress(0.08)
-      const drawing = await canvasToBlob(await renderDrawingSnapshotCanvas(), "image/webp", 0.62)
-      el.exportStatus.textContent = "음악을 압축하는 중입니다. 완료될 때까지 기다려 주세요."
-      setProgress(0.1)
-      if (!engine.renderCompressedAudioBlob) throw new Error("압축 음악을 만들 수 없는 브라우저입니다.")
-      const music = await engine.renderCompressedAudioBlob(recipe, notesFor(recipe), {
-        audioBitsPerSecond: SHARE_AUDIO_BITS_PER_SECOND,
-        onProgress: function (ratio) {
-          setProgress(0.1 + ratio * 0.8) // 10% → 90%
-          if (ratio >= 0.2) el.exportStatus.textContent = "음악을 압축하는 중입니다… " + Math.round(ratio * 100) + "%"
-        },
-      })
-      el.exportStatus.textContent =
-        "공유 서버에 올리는 중입니다. 음악 " +
-        ShareStore.formatBytes(music.size) +
-        ", 표지 " +
-        ShareStore.formatBytes(images.cover.size) +
-        ", 드로잉 " +
-        ShareStore.formatBytes(drawing.size) +
-        "."
-      setProgress(0.92)
-      const result = await ShareStore.publishWork({
-        channel: channel,
-        pass: pass,
-        title: metadata.title,
-        recipe: recipe,
-        metadata: metadata,
-        coverBlob: images.cover,
-        thumbBlob: images.thumb,
-        drawingBlob: drawing,
-        musicBlob: music,
-      })
-      const work = result.work
-      setProgress(1.0)
-      el.exportStatus.textContent = result.localOnly ? "#" + channel + " 갤러리에 이 브라우저용으로 저장했어요." : "#" + channel + " 갤러리에 공유했어요."
-      state.sharedChannel = channel
-      window.location.href = channelPageUrl(channel, work && work.id)
-    } catch (e) {
-      console.error(e)
-      el.exportStatus.textContent = e.message || "공유 업로드에 실패했어요."
-      el.exportStatus.classList.add("error")
-      if (progressEl) progressEl.hidden = true
-    } finally {
-      document.body.classList.remove("is-publishing")
-      if (publishButton) publishButton.disabled = false
-    }
-  }
-
-  function restoreSharedChannelFromUrl() {
-    if (!ShareStore) return false
-    let params
-    try {
-      params = new URL(location.href).searchParams
-    } catch (e) {
-      return false
-    }
-    const channel = ShareStore.normalizeChannel(params.get("shareChannel") || params.get("channel") || "")
-    if (!channel) return false
-    const focus = (location.hash || "").indexOf("#work=") === 0 ? decodeURIComponent(location.hash.slice(6)) : ""
-    syncShareInputs(channel)
-    window.location.replace(channelPageUrl(channel, focus))
-    return true
-  }
-
-  // === § 26  공유 링크 ===
-
-  function shareLink() {
-    const code = Core.encodeRecipe(buildSharedRecipe())
-    const url = setShareHash(code)
-    const copied = function () {
-      el.exportStatus.textContent = "공유 링크를 복사했어요. 링크를 열면 드로잉 화면에서 시작합니다."
-    }
-    const fallback = function () {
-      if (copyViaSelection(url)) {
-        copied()
-        return
-      }
-      if (typeof prompt === "function") prompt("공유 링크", url)
-      el.exportStatus.textContent = "공유 링크를 주소창에 만들었어요. 주소창의 링크를 복사하세요."
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      try {
-        const write = navigator.clipboard.writeText(url)
-        if (write && typeof write.then === "function") write.then(copied, fallback)
-        else copied()
-      } catch (e) {
-        fallback()
-      }
-    } else {
-      fallback()
-    }
-  }
-
-  function setShareHash(code) {
-    const hash = "r=" + code
-    try {
-      const url = new URL(location.href)
-      url.search = ""
-      url.hash = hash
-      history.replaceState(null, "", url.href)
-      return url.href
-    } catch (e) {
-      location.hash = hash
-      return location.href
-    }
-  }
-
-  function copyViaSelection(text) {
-    if (!document.execCommand) return false
-    const input = document.createElement("textarea")
-    input.value = text
-    input.setAttribute("readonly", "")
-    input.style.position = "fixed"
-    input.style.left = "-9999px"
-    input.style.top = "0"
-    document.body.appendChild(input)
-    input.select()
-    try {
-      return document.execCommand("copy")
-    } catch (e) {
-      return false
-    } finally {
-      document.body.removeChild(input)
-    }
-  }
-
+  // 공유 모달·화음 갤러리·링크 생성은 studio-share.js가 맡는다.
+  // 이 파일에는 앱 전체 상태를 되살리는 레시피 해시 복원만 남긴다.
   function restoreFromHash() {
     const h = location.hash || ""
     if (h.indexOf("#copy=") === 0) {
@@ -2665,31 +1999,7 @@
     if (el.saveTakeBtn) el.saveTakeBtn.addEventListener("click", saveTake)
     if (el.drawingSaveTakeBtn) el.drawingSaveTakeBtn.addEventListener("click", saveTake)
     if (el.drawingSaveNewTakeBtn) el.drawingSaveNewTakeBtn.addEventListener("click", saveNewTake)
-    if (el.publishShareBtn) el.publishShareBtn.addEventListener("click", publishCurrentTake)
-    if (el.channelBrowseInput) {
-      el.channelBrowseInput.addEventListener("input", () => {
-        syncShareInputs(el.channelBrowseInput.value)
-        prefillBrowsePass()
-      })
-    }
-    if (el.channelOpenForm) {
-      el.channelOpenForm.addEventListener("submit", function (event) {
-        event.preventDefault()
-        openChannelPage(el.channelBrowseInput ? el.channelBrowseInput.value : state.sharedChannel)
-      })
-    } else if (el.loadChannelBtn) {
-      el.loadChannelBtn.addEventListener("click", () => openChannelPage(el.channelBrowseInput ? el.channelBrowseInput.value : state.sharedChannel))
-    }
-    if (el.claimChannelBtn) {
-      el.claimChannelBtn.addEventListener("click", claimChannelFromForm)
-    }
-    if (el.openClaimedChannelBtn) {
-      el.openClaimedChannelBtn.addEventListener("click", () => openChannelPage(el.openClaimedChannelBtn.dataset.channel || "", "", el.shareChannelPassInput ? el.shareChannelPassInput.value : ""))
-    }
-    const claimedChannelInputs = [el.shareAdminPinInput, el.claimChannelInput, el.shareDisplayNameInput, el.shareChannelPassInput]
-    claimedChannelInputs.forEach(function (input) {
-      if (input) input.addEventListener("input", hideOpenClaimedChannelButton)
-    })
+    bindShareControls()
 
     el.titleInput.addEventListener("input", () => {
       el.titleInput.classList.remove("field-invalid")
@@ -2749,7 +2059,6 @@
         if (event.target === el.hashtagChipBox) el.hashtagsInput.focus()
       })
     }
-    bindPublishModal()
     window.addEventListener("resize", () => {
       if (state.step !== DRAWING_STEP) return
       refreshTimeline(false)
