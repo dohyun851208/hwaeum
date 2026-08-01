@@ -776,6 +776,11 @@
     finishSoundFlowAtCurrentPoint()
     stopPlaybackForPlayheadSeek()
     resetPlayheadToStart()
+    const wrap = deps.canvasWrap()
+    if (wrap) {
+      wrap.scrollLeft = 0
+      deps.syncCanvasScrollState()
+    }
     if (announce && el.exportStatus) el.exportStatus.textContent = "재생 위치를 처음으로 옮겼어요."
   }
 

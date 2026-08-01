@@ -195,7 +195,7 @@ function createHarness(options) {
     flowRecord(progress) { this.records.push(progress) },
     finishFlowStroke(commit) { this.finishes.push(commit); this.flowActive = false },
   }
-  const counters = { refreshTimeline: 0, updateReadouts: 0, renderAtmospheres: 0, renderTakes: 0 }
+  const counters = { refreshTimeline: 0, updateReadouts: 0, renderAtmospheres: 0, renderTakes: 0, syncCanvasScrollState: 0 }
   const recipe = { duration: state.duration, path: [] }
   const transport = createStudioTransport({
     root: { setTimeout, clearTimeout },
@@ -208,7 +208,7 @@ function createHarness(options) {
     canvasWrap: () => wrap,
     timelineProgressFromClientX: (x) => x / 300,
     timelineCssX: (progress) => progress * 300,
-    syncCanvasScrollState() {},
+    syncCanvasScrollState() { counters.syncCanvasScrollState += 1 },
     bgSrcFor: (atmosphere) => atmosphere.src || "",
     canSelectBgRange: () => !!state.atmosphere.src,
     normalizeDuration: (value) => Math.max(1, Number(value) || 30),
@@ -224,7 +224,7 @@ function createHarness(options) {
     getStateSummary: () => ({ duration: state.duration }),
     console: { warn() {}, error() {} },
   })
-  return { transport, clock, audio, engine, state, draw, el, counters, recipe }
+  return { transport, clock, audio, engine, state, draw, el, counters, recipe, wrap }
 }
 
 function approx(actual, expected, epsilon) {
@@ -288,11 +288,12 @@ test("pausing remembers the live playhead and stop resets it to the beginning", 
   assert.equal(h.el.playhead.getAttribute("aria-valuenow"), "0")
 })
 
-test("move-to-start stops playback and resets only the playhead position", () => {
+test("move-to-start stops playback and moves the playhead and score view to the beginning", () => {
   const h = createHarness({ noBackground: true })
   h.transport.setSelectedPlayhead(0.5, false, false)
   h.transport.play()
   h.clock.step(6000)
+  h.wrap.scrollLeft = 240
 
   h.transport.movePlayheadToStart(true)
 
@@ -300,6 +301,8 @@ test("move-to-start stops playback and resets only the playhead position", () =>
   assert.equal(h.transport.getTimeState().selectedPlayheadProgress, 0)
   assert.equal(h.el.playhead.getAttribute("aria-valuenow"), "0")
   assert.equal(h.el.playhead.style.left, "0px")
+  assert.equal(h.wrap.scrollLeft, 0)
+  assert.equal(h.counters.syncCanvasScrollState, 1)
   assert.equal(h.el.exportStatus.textContent, "재생 위치를 처음으로 옮겼어요.")
   assert.deepEqual(h.recipe.path, [])
 })

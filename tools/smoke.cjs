@@ -547,6 +547,12 @@ check(
   canvasWrap.style.getPropertyValue("--canvas-scroll-left") === "360px",
   canvasWrap.style.getPropertyValue("--canvas-scroll-left"),
 )
+window.document.getElementById("playheadStartBtn").click()
+check(
+  "재생바를 처음으로 옮기면 악보도 맨 앞으로 이동",
+  canvasWrap.scrollLeft === 0 && canvasWrap.style.getPropertyValue("--canvas-scroll-left") === "0px",
+  canvasWrap.scrollLeft + "/" + canvasWrap.style.getPropertyValue("--canvas-scroll-left"),
+)
 const firstEffect = window.document.querySelector("#effectList .effect-btn")
 let warmedEffectId = ""
 const originalWarmEffect = SD.engine.warmEffect
