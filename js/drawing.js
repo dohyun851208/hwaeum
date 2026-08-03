@@ -437,7 +437,48 @@
   }
 
   function cleanStroke(stroke) {
-    return (stroke || []).map((p) => ({ x: clamp(p.x, 0, 1), y: clamp(p.y, 0, 1) }))
+    return (stroke || []).map((p) => {
+      const x = Number(p && p.x)
+      return { x: Math.max(0, isFinite(x) ? x : 0), y: clamp(Number(p && p.y) || 0, 0, 1) }
+    })
+  }
+
+  // 배경 구간을 줄이는 동안 새 끝점 뒤의 획은 지우지 않고 화면 밖에 보관한다.
+  // 재생·레시피에는 현재 구간(0..1)에 걸친 부분만 넘기며, 경계를 가로지르는 선은
+  // 끝점에서 잘라 시각과 소리가 같은 시각에 멈추게 한다.
+  function visibleStroke(stroke) {
+    const source = stroke || []
+    const out = []
+    for (let i = 0; i < source.length; i++) {
+      const point = source[i]
+      if (point.x <= 1) {
+        out.push({ x: Math.max(0, point.x), y: point.y })
+        continue
+      }
+      const previous = i > 0 ? source[i - 1] : null
+      if (previous && previous.x < 1 && point.x > previous.x) {
+        const progress = (1 - previous.x) / (point.x - previous.x)
+        out.push({ x: 1, y: previous.y + (point.y - previous.y) * progress })
+      }
+      break
+    }
+    return out
+  }
+
+  function copyStoredStrokes(strokes) {
+    return (strokes || []).map((stroke) => cleanStroke(stroke))
+  }
+
+  function retimeStoredStrokes(strokes, previousDuration, nextDuration) {
+    const previous = Number(previousDuration)
+    const next = Number(nextDuration)
+    if (!(previous > 0) || !(next > 0) || Math.abs(previous - next) < 1e-9) return
+    const factor = previous / next
+    ;(strokes || []).forEach((stroke) => {
+      ;(stroke || []).forEach((point) => {
+        point.x = Math.max(0, (Number(point.x) || 0) * factor)
+      })
+    })
   }
 
   function sameStrokeState(aStrokes, aInsts, bStrokes, bInsts) {
@@ -478,7 +519,8 @@
 
   DrawingCanvas.prototype._snapshot = function () {
     return {
-      strokes: this.getStrokes(),
+      // 현재 구간 밖에 잠시 숨은 획도 undo에서 되살릴 수 있게 원본 좌표를 보관한다.
+      strokes: copyStoredStrokes(this.strokes),
       strokeInstruments: this.getStrokeInstruments(),
     }
   }
@@ -586,15 +628,27 @@
   }
 
   DrawingCanvas.prototype.getStrokes = function () {
-    return this.strokes.map((s) => s.map((p) => ({ x: p.x, y: p.y })))
+    return this.strokes.map(visibleStroke)
   }
 
   // 선율/썸네일/레시피용: 모든 획의 점을 시간(x) 순으로 합친 평탄 경로
   DrawingCanvas.prototype.getPath = function () {
     const all = []
-    for (const s of this.strokes) for (const p of s) all.push({ x: p.x, y: p.y })
+    for (const s of this.getStrokes()) for (const p of s) all.push({ x: p.x, y: p.y })
     all.sort((a, b) => a.x - b.x)
     return all
+  }
+
+  // 정규화 x 좌표가 가리키던 '초'를 유지한 채 새 구간 길이에 맞춰 좌표만 바꾼다.
+  // 예: 30초 도화지의 x=1/3(10초) → 40초 도화지의 x=1/4(여전히 10초).
+  DrawingCanvas.prototype.retimeDuration = function (previousDuration, nextDuration) {
+    const previous = Number(previousDuration)
+    const next = Number(nextDuration)
+    if (!(previous > 0) || !(next > 0) || Math.abs(previous - next) < 1e-9) return false
+    retimeStoredStrokes(this.strokes, previous, next)
+    this.undoStack.forEach((snapshot) => retimeStoredStrokes(snapshot && snapshot.strokes, previous, next))
+    if (this.pendingUndoSnapshot) retimeStoredStrokes(this.pendingUndoSnapshot.strokes, previous, next)
+    return true
   }
 
   DrawingCanvas.prototype._point = function (e) {
@@ -823,9 +877,10 @@
       // 선율형은 점 하나(점 찍기)도 짧은 음으로 표현
       const melodyAsset = st.melodyAsset || this._assetForInstrument(this.activeInstrument, st)
       const melodyAssets = this.strokeInstruments.map((id) => this._assetForInstrument(id, st) || melodyAsset)
+      const visibleStrokes = this.getStrokes()
       this.notes =
-        this.strokes.length >= 1
-          ? Core.autocompleteMelodyStrokes(this.strokes, {
+        visibleStrokes.length >= 1
+          ? Core.autocompleteMelodyStrokes(visibleStrokes, {
               durationSec: st.duration,
               style: st.style,
               melodyAsset: melodyAsset,
@@ -924,7 +979,8 @@
   }
 
   DrawingCanvas.prototype._timeToX = function (ratio) {
-    return this._timelineLeft() + clamp(ratio || 0, 0, 1) * this._timelineWidth()
+    // 구간 끝 뒤에 잠시 보관한 획은 캔버스 밖에 그려 브라우저 클리핑에 맡긴다.
+    return this._timelineLeft() + Math.max(0, Number(ratio) || 0) * this._timelineWidth()
   }
 
   DrawingCanvas.prototype.renderPitchLabels = function () {

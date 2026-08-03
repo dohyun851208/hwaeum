@@ -1164,8 +1164,9 @@
   }
 
   function refreshTimeline(resetScroll) {
-    renderPaletteLabels()
+    // 새 길이의 실제 캔버스 폭을 먼저 적용해야 시간 라벨도 같은 폭을 기준으로 놓인다.
     syncTimelineWidth(resetScroll)
+    renderPaletteLabels()
     draw.compute()
     draw.render()
     renderPitchAxisLabels()
@@ -1778,8 +1779,8 @@
     renderInstruments()
     renderComposeInstruments()
     renderEffects()
-    renderPaletteLabels()
     syncTimelineWidth(true)
+    renderPaletteLabels()
     // 다중 획 우선 복원, 없으면(옛 레시피) 단일 path를 하나의 획으로
     draw.setActiveInstrument(state.instrument.id)
     if (recipe.strokes && recipe.strokes.length) draw.setStrokes(recipe.strokes, recipe.strokeInstruments)

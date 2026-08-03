@@ -18,10 +18,10 @@ function loadDrawing() {
       playableScale() {
         return [60, 62, 64, 65, 67, 69, 71, 72]
       },
-      autocompleteMelodyStrokes(strokes) {
+      autocompleteMelodyStrokes(strokes, options) {
         return strokes.flatMap((stroke, voice) =>
           stroke.map((point) => ({
-            time: point.x * 30,
+            time: point.x * options.durationSec,
             duration: 0.25,
             midi: 60,
             velocity: 0.7,
@@ -161,4 +161,41 @@ test("turning flow mode off closes the active preview without notifying flow end
   assert.equal(draw.flowMode, false)
   assert.equal(draw.flowActive, false)
   assert.deepEqual(events, ["preview:start", "flow:start", "preview:end"])
+})
+
+test("duration changes preserve the absolute time of drawn strokes", () => {
+  const DrawingCanvas = loadDrawing()
+  let duration = 30
+  const draw = new DrawingCanvas(makeCanvas(), {
+    getState: () => ({ duration, style: {}, mode: "melody" }),
+  })
+
+  draw.setStrokes(
+    [
+      [{ x: 10 / 30, y: 0.4 }],
+      [{ x: 25 / 30, y: 0.6 }],
+    ],
+    ["violin", "flute"],
+  )
+
+  draw.retimeDuration(30, 40)
+  duration = 40
+  draw.compute()
+  assert.equal(draw.getStrokes()[0][0].x * duration, 10)
+  assert.equal(draw.getStrokes()[1][0].x * duration, 25)
+  assert.deepEqual(Array.from(draw.notes, (note) => note.time), [10, 25])
+
+  draw.retimeDuration(40, 20)
+  duration = 20
+  draw.compute()
+  assert.equal(draw.getStrokes()[0][0].x * duration, 10)
+  assert.deepEqual(Array.from(draw.getStrokes()[1]), [], "새 끝점 뒤의 획은 현재 구간에서 숨긴다")
+  assert.deepEqual(Array.from(draw.notes, (note) => note.time), [10])
+
+  draw.retimeDuration(20, 40)
+  duration = 40
+  draw.compute()
+  assert.equal(draw.getStrokes()[0][0].x * duration, 10)
+  assert.equal(draw.getStrokes()[1][0].x * duration, 25, "구간을 다시 늘리면 숨긴 획이 돌아온다")
+  assert.deepEqual(Array.from(draw.notes, (note) => note.time), [10, 25])
 })

@@ -162,6 +162,17 @@ test("배경음악 구간 선택은 src가 있는 배경 음원에 열린다", (
   assert.match(source, /bgEndOffset: recipeBgEndOffset\(\)/)
 })
 
+test("배경 구간 길이를 바꾸면 새 캔버스 폭을 기준으로 시간 라벨을 다시 놓는다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const start = source.indexOf("function refreshTimeline(resetScroll)")
+  const end = source.indexOf("function updateReadouts()", start)
+  const refreshTimeline = source.slice(start, end)
+
+  assert.ok(start >= 0)
+  assert.ok(end > start)
+  assert.ok(refreshTimeline.indexOf("syncTimelineWidth(resetScroll)") < refreshTimeline.indexOf("renderPaletteLabels()"))
+})
+
 test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")

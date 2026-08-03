@@ -469,9 +469,13 @@
       if (isFinite(segment) && segment > 0) next = deps.normalizeDuration(segment)
     }
     if (next == null) next = deps.normalizeDuration(state.duration || DEFAULT_DURATION_SECONDS)
-    if (Math.abs((Number(state.duration) || 0) - next) < 0.001) return false
+    const previous = Number(state.duration) || DEFAULT_DURATION_SECONDS
+    if (Math.abs(previous - next) < 0.001) return false
+    const selectedPlayheadSeconds = selectedPlayheadProgress * previous
     state.duration = next
-    rememberPlayheadProgress(selectedPlayheadProgress)
+    if (draw && typeof draw.retimeDuration === "function") draw.retimeDuration(previous, next)
+    // 재생 시작 위치도 비율이 아니라 원래 선택한 초를 유지한다.
+    rememberPlayheadProgress(selectedPlayheadSeconds / next)
     deps.refreshTimeline(!!resetScroll)
     return true
   }

@@ -192,8 +192,10 @@ function createHarness(options) {
     flowActive: false,
     records: [],
     finishes: [],
+    retimes: [],
     flowRecord(progress) { this.records.push(progress) },
     finishFlowStroke(commit) { this.finishes.push(commit); this.flowActive = false },
+    retimeDuration(previous, next) { this.retimes.push([previous, next]) },
   }
   const counters = { refreshTimeline: 0, updateReadouts: 0, renderAtmospheres: 0, renderTakes: 0, syncCanvasScrollState: 0 }
   const recipe = { duration: state.duration, path: [] }
@@ -482,4 +484,19 @@ test("background range metadata updates the shared drawing duration", () => {
   assert.equal(h.state.duration, 10)
   assert.ok(h.counters.refreshTimeline >= 1)
   assert.equal(h.el.bgTime.textContent, "0:05 ~ 0:15 / 1:00")
+})
+
+test("background range resizing keeps drawing and playhead at their original seconds", () => {
+  const h = createHarness({ duration: 30, bgOffset: 0, bgEndOffset: 30, audioDuration: 60 })
+  h.transport.setSelectedPlayhead(10 / 30, false, false)
+
+  h.transport.seekBgEnd(40)
+  assert.equal(h.state.duration, 40)
+  assert.deepEqual(h.draw.retimes.at(-1), [30, 40])
+  approx(h.transport.selectedPlaybackStartSec(), 10)
+
+  h.transport.seekBgEnd(20)
+  assert.equal(h.state.duration, 20)
+  assert.deepEqual(h.draw.retimes.at(-1), [40, 20])
+  approx(h.transport.selectedPlaybackStartSec(), 10)
 })
