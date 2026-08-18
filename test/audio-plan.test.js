@@ -26,6 +26,7 @@ function loadData() {
 test("audio-plan supports both CommonJS and the classic browser global", () => {
   assert.equal(typeof AudioPlan.resolvePlan, "function")
   assert.equal(typeof AudioPlan.nearestSampleSegment, "function")
+  assert.equal(typeof AudioPlan.normalizeSoundLayers, "function")
 
   const sandbox = {}
   sandbox.self = sandbox
@@ -119,6 +120,10 @@ test("seekPlan trims crossing notes and shifts timed plan entries", () => {
     ],
     rhythmHits: [{ time: 6, velocity: 0.5 }],
     effectStamps: [{ id: "wind1", time: 9 }],
+    soundLayers: [
+      { id: "long", time: 2, sourceOffset: 10, duration: 6, gain: 0.6 },
+      { id: "later", time: 9, sourceOffset: 3, duration: 1, gain: 0.4 },
+    ],
   }
 
   const shifted = AudioPlan.seekPlan(plan, 5)
@@ -135,4 +140,36 @@ test("seekPlan trims crossing notes and shifts timed plan entries", () => {
   ])
   assert.deepEqual(plain(shifted.rhythmHits), [{ time: 1, velocity: 0.5 }])
   assert.deepEqual(plain(shifted.effectStamps), [{ id: "wind1", time: 4 }])
+  assert.deepEqual(plain(shifted.soundLayers), [
+    { id: "long", time: 0, sourceOffset: 13, duration: 3, gain: 0.6 },
+    { id: "later", time: 4, sourceOffset: 3, duration: 1, gain: 0.4 },
+  ])
+})
+
+test("uploaded sound layers keep source trimming separate from project placement", () => {
+  const file = { name: "class-song.mp3" }
+  const layers = AudioPlan.normalizeSoundLayers(
+    [
+      {
+        id: "student-1",
+        name: "긴 음악",
+        src: "blob:student-1",
+        file,
+        sourceDuration: 95,
+        trimStart: 61.5,
+        trimEnd: 74,
+        startTime: 8,
+        volume: 0.72,
+      },
+      { id: "outside", src: "blob:outside", sourceDuration: 20, trimStart: 0, trimEnd: 5, startTime: 30 },
+    ],
+    20,
+  )
+
+  assert.equal(layers.length, 1)
+  assert.equal(layers[0].time, 8)
+  assert.equal(layers[0].sourceOffset, 61.5)
+  assert.equal(layers[0].duration, 12, "작품 끝에서만 잘리고 원본 선택 구간은 바뀌지 않는다")
+  assert.equal(layers[0].gain, 0.72)
+  assert.equal(layers[0].asset.file, file)
 })

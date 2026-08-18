@@ -339,6 +339,7 @@
   }
 
   function stopPlaybackForPlayheadSeek() {
+    if (typeof deps.stopSoundLayerPreview === "function") deps.stopSoundLayerPreview()
     if (!bgPlayer.paused) pauseBgPlayer()
     if (engine.isPlaying || engine.isPaused) engine.stop()
   }
@@ -474,6 +475,7 @@
     const selectedPlayheadSeconds = selectedPlayheadProgress * previous
     state.duration = next
     if (draw && typeof draw.retimeDuration === "function") draw.retimeDuration(previous, next)
+    if (typeof deps.onDurationChange === "function") deps.onDurationChange(previous, next)
     // 재생 시작 위치도 비율이 아니라 원래 선택한 초를 유지한다.
     rememberPlayheadProgress(selectedPlayheadSeconds / next)
     deps.refreshTimeline(!!resetScroll)
@@ -605,6 +607,7 @@
 
   function playBgPlayer() {
     if (!deps.bgSrcFor(state.atmosphere)) return
+    if (typeof deps.stopSoundLayerPreview === "function") deps.stopSoundLayerPreview()
     deps.stopBackgroundPreview()
     deps.stopExamplePreview()
     engine.stop()
@@ -706,6 +709,7 @@
   }
 
   function play() {
+    if (typeof deps.stopSoundLayerPreview === "function") deps.stopSoundLayerPreview()
     if (engine.isPlaying && engine.isPaused) {
       engine.resume()
       return
@@ -789,6 +793,7 @@
   }
 
   function stop() {
+    if (typeof deps.stopSoundLayerPreview === "function") deps.stopSoundLayerPreview()
     deps.stopBackgroundPreview()
     deps.stopExamplePreview()
     deps.renderAtmospheres()

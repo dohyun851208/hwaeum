@@ -197,7 +197,7 @@ function createHarness(options) {
     finishFlowStroke(commit) { this.finishes.push(commit); this.flowActive = false },
     retimeDuration(previous, next) { this.retimes.push([previous, next]) },
   }
-  const counters = { refreshTimeline: 0, updateReadouts: 0, renderAtmospheres: 0, renderTakes: 0, syncCanvasScrollState: 0 }
+  const counters = { refreshTimeline: 0, updateReadouts: 0, renderAtmospheres: 0, renderTakes: 0, syncCanvasScrollState: 0, durationChanges: [], stopSoundLayerPreview: 0 }
   const recipe = { duration: state.duration, path: [] }
   const transport = createStudioTransport({
     root: { setTimeout, clearTimeout },
@@ -223,7 +223,9 @@ function createHarness(options) {
     buildRecipe: () => recipe,
     notesFor: () => [],
     renderTakes() { counters.renderTakes += 1 },
+    stopSoundLayerPreview() { counters.stopSoundLayerPreview += 1 },
     getStateSummary: () => ({ duration: state.duration }),
+    onDurationChange(previous, next) { counters.durationChanges.push([previous, next]) },
     console: { warn() {}, error() {} },
   })
   return { transport, clock, audio, engine, state, draw, el, counters, recipe, wrap }
@@ -249,6 +251,7 @@ test("main playback accepts an empty melody and starts from the selected playhea
   assert.deepEqual(h.engine.calls.play[0].notes, [])
   assert.equal(h.engine.calls.play[0].recipe, h.recipe)
   approx(h.engine.calls.play[0].options.startOffset, 15)
+  assert.equal(h.counters.stopSoundLayerPreview, 1)
 })
 
 test("transport toggles play, pause, and resume while keeping button state in sync", () => {
@@ -493,10 +496,12 @@ test("background range resizing keeps drawing and playhead at their original sec
   h.transport.seekBgEnd(40)
   assert.equal(h.state.duration, 40)
   assert.deepEqual(h.draw.retimes.at(-1), [30, 40])
+  assert.deepEqual(h.counters.durationChanges.at(-1), [30, 40])
   approx(h.transport.selectedPlaybackStartSec(), 10)
 
   h.transport.seekBgEnd(20)
   assert.equal(h.state.duration, 20)
   assert.deepEqual(h.draw.retimes.at(-1), [40, 20])
+  assert.deepEqual(h.counters.durationChanges.at(-1), [40, 20])
   approx(h.transport.selectedPlaybackStartSec(), 10)
 })

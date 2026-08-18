@@ -225,6 +225,45 @@
     return { start: start, end: end, length: Math.max(0.05, end - start) }
   }
 
+  // 사용자가 올린 긴 소리는 배경 구간과 독립된 작품 시간(초)에 놓인다.
+  // 원본 자르기 범위와 작품 안 시작 시점을 분리해 배경 길이가 바뀌어도 위치가 흔들리지 않게 한다.
+  function normalizeSoundLayers(layers, totalDuration) {
+    const projectDuration = Math.max(0.05, Number(totalDuration) || 30)
+    return (Array.isArray(layers) ? layers : [])
+      .slice(0, 3)
+      .map(function (layer, index) {
+        if (!layer || !layer.src) return null
+        const sourceDuration = Math.max(
+          0.05,
+          Number(layer.sourceDuration) || Number(layer.trimEnd) || Number(layer.duration) || projectDuration,
+        )
+        const sourceStart = clamp(Number(layer.trimStart) || 0, 0, Math.max(0, sourceDuration - 0.05))
+        let sourceEnd = Number(layer.trimEnd)
+        if (!isFinite(sourceEnd) || sourceEnd <= sourceStart + 0.01) {
+          sourceEnd = Math.min(sourceDuration, sourceStart + projectDuration)
+        }
+        sourceEnd = clamp(sourceEnd, Math.min(sourceDuration, sourceStart + 0.05), sourceDuration)
+        const time = Math.max(0, Number(layer.startTime) || 0)
+        const duration = Math.min(sourceEnd - sourceStart, Math.max(0, projectDuration - time))
+        if (!(duration > 0.001)) return null
+        return {
+          id: String(layer.id || "sound-layer-" + index),
+          name: String(layer.name || "소리 파일"),
+          asset: {
+            id: String(layer.id || "sound-layer-" + index),
+            label: String(layer.name || "소리 파일"),
+            src: layer.src,
+            file: layer.file,
+          },
+          time: time,
+          sourceOffset: sourceStart,
+          duration: duration,
+          gain: clamp(layer.volume == null ? 0.65 : Number(layer.volume), 0, 1),
+        }
+      })
+      .filter(Boolean)
+  }
+
   function isContiguous(note, next) {
     if (!next) return false
     if (note.voice != null || next.voice != null) {
@@ -338,6 +377,7 @@
       voiceAssets: voiceAssets,
       effects: effects,
       effectStamps: effectStamps,
+      soundLayers: normalizeSoundLayers(recipe.soundLayers, duration),
       gugak: gugak,
       notes: playbackNotesForPlan(notes || [], instrument, melodyAsset, voiceAssets),
       uiNotes: notes || [],
@@ -379,6 +419,22 @@
           return Object.assign({}, item, { time: item.time - offset })
         })
     }
+    const shiftSoundLayers = function (items) {
+      return (items || [])
+        .filter(function (item) {
+          return item && item.time + item.duration > offset && item.time < totalDuration
+        })
+        .map(function (item) {
+          const visibleStart = Math.max(item.time, offset)
+          const visibleEnd = Math.min(item.time + item.duration, totalDuration)
+          const skipped = Math.max(0, offset - item.time)
+          return Object.assign({}, item, {
+            time: visibleStart - offset,
+            sourceOffset: item.sourceOffset + skipped,
+            duration: Math.max(0.001, visibleEnd - visibleStart),
+          })
+        })
+    }
     return Object.assign({}, plan, {
       duration: remaining,
       totalDuration: totalDuration,
@@ -388,6 +444,7 @@
       strokeSegments: shiftStrokeSegments(plan.strokeSegments, offset, totalDuration),
       rhythmHits: shiftTimed(plan.rhythmHits),
       effectStamps: shiftTimed(plan.effectStamps),
+      soundLayers: shiftSoundLayers(plan.soundLayers),
     })
   }
 
@@ -398,6 +455,7 @@
     isContiguous: isContiguous,
     isMultiSample: isMultiSample,
     nearestSampleSegment: nearestSampleSegment,
+    normalizeSoundLayers: normalizeSoundLayers,
     phraseEnd: phraseEnd,
     playableMidiList: playableMidiList,
     playbackMidiForInstrument: playbackMidiForInstrument,

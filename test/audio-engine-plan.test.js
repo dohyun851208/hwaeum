@@ -182,6 +182,64 @@ test("AudioEngine keeps resolvePlan and seekPlan compatibility wrappers", () => 
   assert.deepEqual(plain(engine.seekPlan(enginePlan, 2)), plain(sandbox.SDAudioPlan.seekPlan(directPlan, 2)))
 })
 
+test("uploaded sound layers schedule their trimmed source at the requested project second", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const plan = engine.resolvePlan(
+    {
+      duration: 20,
+      atmosphere: "none",
+      instrument: "violin",
+      style: "bright",
+      version: "balanced",
+      mode: "melody",
+      soundLayers: [
+        {
+          id: "student-1",
+          name: "긴 음악",
+          src: "blob:student-1",
+          sourceDuration: 80,
+          trimStart: 41,
+          trimEnd: 50,
+          startTime: 6,
+          volume: 0.5,
+        },
+      ],
+    },
+    [],
+  )
+  const registered = []
+
+  const usedReal = engine.schedule(
+    ctx,
+    ctx.destination,
+    plan,
+    {
+      pad: null,
+      melody: null,
+      melodySamples: null,
+      effects: [],
+      soundLayers: [{ layer: plan.soundLayers[0], buffer: { duration: 80 } }],
+      byInstrument: {},
+    },
+    0.25,
+    (node) => registered.push(node),
+  )
+
+  assert.equal(usedReal, true)
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.deepEqual(ctx.created.buffers[0].startCalls[0], [6.25, 41, 9])
+  assert.deepEqual(ctx.created.buffers[0].stopCalls[0], [15.27])
+  assert.equal(registered[0], ctx.created.buffers[0])
+  assert.deepEqual(ctx.created.gains[0].gain.events, [
+    ["set", 0, 6.25],
+    ["linear", 0.4, 6.28],
+    ["set", 0.4, 15.22],
+    ["linear", 0, 15.25],
+  ])
+})
+
 test("배경음악 없음(silent) 분위기는 합성 패드 폴백도 깔지 않는다", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()

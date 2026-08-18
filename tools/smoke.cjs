@@ -152,6 +152,7 @@ const files = [
   "js/studio-export.js",
   "js/studio-setup-render.js",
   "js/studio-transport.js",
+  "js/studio-sound-layers.js",
   "js/studio-takes-ui.js",
   "js/studio-share.js",
   "js/studio.js",
@@ -222,6 +223,7 @@ const summaryKeys = [
   "effectIds",
   "effectStamps",
   "effectStampId",
+  "soundLayers",
   "isPlaying",
   "isPaused",
   "lastMode",
@@ -495,6 +497,8 @@ check("효과음 도장 버튼 존재", qc("#effectList .effect-btn") === effect
 check("효과음 도장 버튼 이미지 표시", qc("#effectList .effect-btn img") === effectCount, qc("#effectList .effect-btn img") + "/" + effectCount)
 check("새 동물 효과음 도장 표시", /귀뚜라미/.test(window.document.getElementById("effectList").textContent), window.document.getElementById("effectList").textContent)
 check("새 효과 도장 표시", /방울pop/.test(window.document.getElementById("effectList").textContent), window.document.getElementById("effectList").textContent)
+check("소리 추가하기 섹션 존재", qc("#soundLayerList") === 1 && qc("#soundLayerAddBtn") === 1 && qc("#soundLayerInput[multiple]") === 1)
+check("추가 소리 최대 개수 표시", window.document.getElementById("soundLayerCount").textContent === "0/3개")
 
 SD.draw.setPath([
   { x: 0, y: 0.6 },
@@ -504,6 +508,7 @@ SD.draw.setPath([
 const recipe = SD.buildRecipe()
 check("레시피 path 보존(<=121)", recipe.path.length > 1 && recipe.path.length <= 121)
 check("레시피에 업로드 그림 저장", recipe.picture === smokeImageData, recipe.picture)
+check("레시피에 추가 소리 배열 포함", Array.isArray(recipe.soundLayers) && recipe.soundLayers.length === 0)
 const back = window.MusicCore.decodeRecipe(window.MusicCore.encodeRecipe(recipe))
 check("레시피 코덱 왕복", JSON.stringify(back) === JSON.stringify(recipe))
 

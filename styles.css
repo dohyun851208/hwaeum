@@ -3174,6 +3174,202 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }
+.sound-layer-strip {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.sound-layer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.sound-layer-head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 900;
+}
+.sound-layer-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.sound-layer-add-wrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+}
+.sound-layer-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sound-layer-add:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.sound-layer-list {
+  display: grid;
+  gap: 10px;
+}
+.sound-layer-empty {
+  margin: 0;
+  padding: 15px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  background: rgba(255, 250, 238, 0.48);
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+.sound-layer-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 253, 247, 0.9);
+}
+.sound-layer-card.is-loading {
+  opacity: 0.72;
+}
+.sound-layer-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.sound-layer-file {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin-right: auto;
+}
+.sound-layer-file strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sound-layer-file span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+.sound-layer-remove {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+.sound-layer-remove:hover,
+.sound-layer-remove:focus-visible {
+  border-color: #b94c3f;
+  color: #9f342a;
+  outline: none;
+}
+.sound-layer-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(210px, 1fr) minmax(150px, 0.65fr);
+  gap: 12px;
+}
+.sound-layer-control {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px 11px;
+  border-radius: 9px;
+  background: rgba(31, 38, 38, 0.045);
+}
+.sound-layer-control-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sound-layer-control-head span:first-child {
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+.sound-layer-value {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.sound-layer-ranges {
+  display: grid;
+  gap: 5px;
+}
+.sound-layer-range-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+.sound-layer-range {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.sound-layer-range.range-end,
+.sound-layer-range.range-volume {
+  accent-color: var(--brand-gold-strong);
+}
+.sound-layer-preview {
+  justify-self: start;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--canvas);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.sound-layer-preview:hover,
+.sound-layer-preview:focus-visible,
+.sound-layer-preview.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  outline: none;
+}
+.sound-layer-status {
+  min-height: 1.3em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.sound-layer-status.error {
+  color: #a9362c;
+  font-weight: 800;
+}
 .compose-control-strip .mode-label {
   white-space: nowrap;
 }
@@ -4576,6 +4772,7 @@ body:not(.channel-body)::after {
 .version-row,
 .instrument-strip,
 .effect-strip,
+.sound-layer-strip,
 .compose-instrument-group,
 .take-actions {
   border-color: var(--line);

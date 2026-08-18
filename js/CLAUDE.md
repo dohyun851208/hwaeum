@@ -22,6 +22,7 @@
 | `studio-export.js` | WebM 음악·커버 PNG·드로잉 PNG/WebM 내보내기 워크플로 | studio.js에서 호출 |
 | `studio-setup-render.js` | 분위기·악기 선택 화면 렌더(2단계 악기 감상 노트·예시 답안 포함) | studio.js에서 호출 |
 | `studio-transport.js` | 재생 버튼·플레이헤드·무배경 시계·배경 구간 플레이어의 시간 상태와 제어 | AudioEngine, DrawingCanvas |
+| `studio-sound-layers.js` | 3단계 사용자 소리 업로드(최대 3개)·원본 구간/작품 시작점/음량·단독 미리듣기 UI | AudioEngine, studio.js에서 주입한 상태/콜백 |
 | `studio-takes-ui.js` | 시도 저장·다시 저장·선택·목록 카드·시도별 재생/내보내기 UI | TakesStore, studio.js에서 주입한 콜백 |
 | `studio-share.js` | 공유 필수 항목 검사·공유 모달·갤러리 입장/생성·작품 게시·레시피 링크 | share-store, studio.js에서 주입한 콜백 |
 | `studio-utils.js` | 공통 유틸(duration 정규화·메타 sanitize·색 변환 등) | studio.js 전반 |
@@ -54,6 +55,7 @@ takes · studio-utils · studio-export · studio-setup-render · studio-transpor
 - 음악·이미지·영상 내보내기 → `studio-export.js`
 - 분위기·악기 선택 화면 렌더 → `studio-setup-render.js`
 - 재생·일시정지·정지·플레이헤드·배경 구간 시간 상태 → `studio-transport.js`
+- 사용자 소리 업로드·자르기·배치·미리듣기 UI → `studio-sound-layers.js`
 - 시도 저장·선택·목록 카드·시도별 동작 → `studio-takes-ui.js`
 - 공유 모달·화음 갤러리 입장/생성·작품 게시·레시피 링크 → `studio-share.js`
 - 공통 유틸(duration·색·메타) → `studio-utils.js`

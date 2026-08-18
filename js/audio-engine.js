@@ -31,6 +31,7 @@
   const sampleSegmentBounds = AudioPlan.sampleSegmentBounds
   const segmentPlaybackRate = AudioPlan.segmentPlaybackRate
   const EFFECT_GAIN = 0.15
+  const SOUND_LAYER_OUTPUT_GAIN = 0.8
   const BACKGROUND_OUTPUT_GAIN = 1.5
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
   // Instrument gain is calibrated from the stable sustain region of the default
@@ -710,6 +711,12 @@
     return this.loadAssetBuffer(ctx, effect)
   }
 
+  AudioEngine.prototype.warmSoundLayer = function (layer) {
+    if (!layer || !layer.src) return Promise.resolve(null)
+    const ctx = this.ensureContext()
+    return this.loadAssetBuffer(ctx, layer)
+  }
+
   // recipe(ids) → 실제 데이터 객체로 해석
   AudioEngine.prototype.resolvePlan = function (recipe, notes) {
     return AudioPlan.resolvePlan(recipe, notes, { core: Core, data: Data })
@@ -722,7 +729,7 @@
   AudioEngine.prototype.preload = async function (ctx, plan) {
     const self = this
     const jobs = []
-    const out = { pad: null, melody: null, melodySamples: null, effects: [], byInstrument: {} }
+    const out = { pad: null, melody: null, melodySamples: null, effects: [], soundLayers: [], byInstrument: {} }
     const padAsset = plan.padAsset && plan.padAsset.src ? plan.padAsset : plan.backgroundAsset
     jobs.push(this.loadAssetBuffer(ctx, padAsset).then((b) => (out.pad = b)))
 
@@ -754,8 +761,12 @@
     plan.effects.forEach((fx, idx) => {
       jobs.push(this.loadAssetBuffer(ctx, fx).then((b) => (out.effects[idx] = { asset: fx, buffer: b })))
     })
+    ;(plan.soundLayers || []).forEach((layer, idx) => {
+      jobs.push(this.loadAssetBuffer(ctx, layer.asset).then((b) => (out.soundLayers[idx] = { layer: layer, buffer: b })))
+    })
     await Promise.all(jobs)
     out.effects = out.effects.filter(Boolean)
+    out.soundLayers = out.soundLayers.filter(Boolean)
     // 기본 악기 버퍼를 out.melody/out.melodySamples 로도 노출(하위 호환 경로).
     const def = out.byInstrument[plan.instrument.id]
     if (def) {
@@ -878,7 +889,43 @@
       usedReal = true
     })
 
-    // 3) 선율 또는 리듬 — 오케스트라: voice(획)마다 그 악기로 따로 스케줄해 동시에 울린다
+    // 3) 사용자가 올린 긴 소리 — 원본 구간을 작품의 절대 초 위치에 한 번만 놓는다.
+    ;(buffers.soundLayers || []).forEach(function (item) {
+      const buffer = item.buffer
+      const layer = item.layer
+      if (!buffer || !layer) return
+      const at = start + Math.max(0, Number(layer.time) || 0)
+      const sourceOffset = safeBufferOffset(buffer, layer.sourceOffset)
+      const outDuration = safeBufferDuration(buffer, sourceOffset, Math.min(layer.duration, dur - layer.time))
+      if (!(outDuration > 0.001)) return
+      const src = ctx.createBufferSource()
+      const g = ctx.createGain()
+      const level = clamp(Number(layer.gain) || 0, 0, 1) * SOUND_LAYER_OUTPUT_GAIN
+      const fade = Math.min(0.03, Math.max(0.003, outDuration * 0.2))
+      src.buffer = buffer
+      g.gain.setValueAtTime(0, at)
+      g.gain.linearRampToValueAtTime(level, at + fade)
+      g.gain.setValueAtTime(level, Math.max(at + fade, at + outDuration - fade))
+      g.gain.linearRampToValueAtTime(0, at + outDuration)
+      src.connect(g)
+      g.connect(dest)
+      register(src)
+      try {
+        src.start(at, sourceOffset, outDuration)
+        src.stop(at + outDuration + 0.02)
+        usedReal = true
+      } catch (error) {
+        warnScheduleFallback("추가 소리 스케줄 실패", error, {
+          id: layer.id,
+          time: layer.time,
+          sourceOffset: sourceOffset,
+          duration: outDuration,
+        })
+        disconnectQuietly(src, g)
+      }
+    })
+
+    // 4) 선율 또는 리듬 — 오케스트라: voice(획)마다 그 악기로 따로 스케줄해 동시에 울린다
     if (plan.mode === "rhythm") {
       const melodyGain = ctx.createGain()
       melodyGain.gain.setValueAtTime(melodyOutputGain(plan, plan.instrument), start)

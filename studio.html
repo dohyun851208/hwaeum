@@ -223,6 +223,21 @@
                   <span class="mode-label">효과음</span>
                   <div class="effect-list" id="effectList"></div>
                 </div>
+                <section class="sound-layer-strip" aria-labelledby="soundLayerTitle">
+                  <div class="sound-layer-head">
+                    <div>
+                      <h3 id="soundLayerTitle">소리 추가하기</h3>
+                      <p>소리 파일을 최대 3개까지 추가할 수 있어요. 필요한 부분만 골라 작품에 넣고 미리 들어보세요.</p>
+                    </div>
+                    <div class="sound-layer-add-wrap">
+                      <span class="sound-layer-count" id="soundLayerCount">0/3개</span>
+                      <button class="btn small sound-layer-add" id="soundLayerAddBtn" type="button">+ 소리 파일 추가</button>
+                      <input id="soundLayerInput" type="file" accept="audio/*" multiple hidden />
+                    </div>
+                  </div>
+                  <div class="sound-layer-list" id="soundLayerList"></div>
+                  <p class="sound-layer-status" id="soundLayerStatus" aria-live="polite">음악이나 녹음 파일을 배경음악 위에 겹쳐 보세요.</p>
+                </section>
               </div>
             </section>
           </div>
@@ -404,8 +419,9 @@
     <script src="./js/studio-export.js?v=20260714-export-workflow"></script>
     <script src="./js/studio-setup-render.js?v=20260729-reflection-notes"></script>
     <script src="./js/studio-transport.js?v=20260803-timeline-retime"></script>
+    <script src="./js/studio-sound-layers.js?v=20260818-sound-layers"></script>
     <script src="./js/studio-takes-ui.js?v=20260731-takes-ui-split"></script>
     <script src="./js/studio-share.js?v=20260731-share-split"></script>
-    <script src="./js/studio.js?v=20260803-timeline-retime" defer></script>
+    <script src="./js/studio.js?v=20260818-sound-layers" defer></script>
   </body>
 </html>

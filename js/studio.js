@@ -37,6 +37,8 @@
   const DEFAULT_STYLE_ID = "bright" // 기본 음계 = C장조(서양 악기는 파(F)도 난다)
   const GUGAK_STYLE_ID = "gugak" // 국악기만 5음(펜타토닉)+시김새 — 파(F)·시(B) 없음
   const CUSTOM_BG_MAX_BYTES = 50 * 1024 * 1024
+  const SOUND_LAYER_MAX_BYTES = 50 * 1024 * 1024
+  const SOUND_LAYER_MAX_COUNT = 3
   const PIXABAY_MUSIC_URL = "https://pixabay.com/music/"
   const INSTRUMENT_GROUPS = ["서양", "국악"]
   const DEFAULT_INSTRUMENT_FAMILY = "그 밖의 악기"
@@ -102,6 +104,7 @@
 
   function studioCopyRecipe(recipe) {
     const copy = cloneJson(recipe)
+    copy.soundLayers = [] // 업로드 원본은 다른 탭/브라우저로 복사할 수 없다.
     const atmosphere = D.atmospheres.find((a) => a.id === copy.atmosphere)
     if (!atmosphere || atmosphere.custom || String(copy.atmosphere || "").indexOf("custom-") === 0) {
       copy.atmosphere = defaultAtmosphere().id
@@ -129,6 +132,7 @@
     effectIds: [], // 옛 레시피 호환용: 자동 배치 효과
     effectStamps: [], // 새 방식: 캔버스에 찍은 효과음 도장 [{ id, x, y }]
     effectStampId: null,
+    soundLayers: [], // 사용자가 올린 긴 소리 최대 3개 — 원본 구간과 작품 안 시작 초를 따로 저장
     drawingInputMode: DRAW_MODE_PICTURE,
     bgPreviewId: null, // 현재 미리듣기 중인 배경 id
     examplePreviewId: null, // 현재 감상 재생 중인 악기 id
@@ -220,6 +224,11 @@
     composeInstrumentList: $("composeInstrumentList"),
     orchestraLegend: $("orchestraLegend"),
     effectList: $("effectList"),
+    soundLayerInput: $("soundLayerInput"),
+    soundLayerAddBtn: $("soundLayerAddBtn"),
+    soundLayerList: $("soundLayerList"),
+    soundLayerCount: $("soundLayerCount"),
+    soundLayerStatus: $("soundLayerStatus"),
     frame: $("frame"),
     frameImg: $("frameImg"),
     frameCanvas: $("frameCanvas"),
@@ -288,6 +297,7 @@
 
   // DrawingCanvas와 설정 렌더러가 transport보다 먼저 만들어지므로 호출 시점에 위임한다.
   let studioTransport = null
+  let soundLayerUI = null
   function soundDrawingProgress() {
     return studioTransport ? studioTransport.soundDrawingProgress() : 0
   }
@@ -314,6 +324,7 @@
       syncUndoButton()
     },
     onPreviewStart: (point) => {
+      if (soundLayerUI) soundLayerUI.stopPreview()
       // 전체곡 재생 중에도 펜 소리는 들린다(미리듣기는 본 재생과 독립 믹스). 다만 "재생 중" 표시는 그대로 둔다.
       if (!((engine.isPlaying || engine.isStarting) && !engine.isPaused)) {
         el.statusText.textContent = state.instrument.label + " 드로잉 중"
@@ -596,8 +607,14 @@
     buildRecipe,
     notesFor,
     renderTakes,
+    stopSoundLayerPreview: () => {
+      if (soundLayerUI) soundLayerUI.stopPreview()
+    },
     getStateSummary: () =>
       window.SoundDrawing && window.SoundDrawing.getStateSummary ? window.SoundDrawing.getStateSummary() : null,
+    onDurationChange: () => {
+      if (soundLayerUI) soundLayerUI.handleDurationChange()
+    },
   })
   const {
     pulseControl,
@@ -622,6 +639,31 @@
     stop,
     movePlayheadToStart,
   } = studioTransport
+
+  soundLayerUI = window.HwaeumStudioSoundLayers({
+    root: window,
+    document,
+    state,
+    el,
+    engine,
+    maxLayers: SOUND_LAYER_MAX_COUNT,
+    maxBytes: SOUND_LAYER_MAX_BYTES,
+    copyrightNotice: CUSTOM_BG_COPYRIGHT_NOTICE,
+    getProjectDuration: () => state.duration,
+    beforePreview: () => {
+      stopBackgroundPreview()
+      stopExamplePreview()
+      pauseBgPlayer()
+      engine.stop()
+    },
+    beforeEdit: () => {
+      if (engine.isPlaying || engine.isPaused || engine.ambience) {
+        pauseBgPlayer()
+        engine.stop()
+      }
+    },
+    onChange: () => recordUserAction(),
+  })
 
   // === § 8  타임라인 지오메트리 & 스크롤 동기화 ===
 
@@ -783,6 +825,7 @@
       mode: "melody",
       effectIds: stampedEffectIds(),
       effectStamps: simplifyEffectStamps(state.effectStamps),
+      soundLayers: soundLayerUI ? soundLayerUI.recipeLayers() : [],
       path: simplifyPath(draw.getPath()), // 썸네일/재생용 시간순 평탄 경로
       strokes: built.strokes, // 그린 그대로의 다중 획(시각 복원용)
       strokeInstruments: built.instruments, // 획별 악기(오케스트라) — voice 인덱스와 1:1
@@ -1006,6 +1049,7 @@
       melodyIntent: "",
       hashtags: [],
       composerName: cleanText(state.composerName, COMPOSER_NAME_MAX),
+      soundLayers: [], // 업로드 원본은 레시피 링크에 저장하지 않는다. 갤러리 음악 렌더에는 buildRecipe()가 사용된다.
       shareMode: "drawing",
     })
   }
@@ -1714,6 +1758,7 @@
     state.effectIds = []
     state.effectStamps = []
     state.effectStampId = null
+    if (soundLayerUI) soundLayerUI.clear({ silent: true })
     clearAppUndoHistory()
     renderEffects()
     renderEffectStamps()
@@ -1721,7 +1766,7 @@
     setupBgPlayer(true)
     setSelectedPlayhead(0, false, false)
     el.statusText.textContent = "전체 듣기"
-    el.exportStatus.textContent = "드로잉만 초기화했습니다. 배경음악 구간은 그대로 유지됩니다."
+    el.exportStatus.textContent = "드로잉, 효과음, 추가 소리를 초기화했습니다. 배경음악 구간은 그대로 유지됩니다."
   }
 
   // === § 23  관리자 상태 · 공유 진입 ===
@@ -1762,6 +1807,7 @@
     const stampIds = state.effectStamps.map((stamp) => stamp.id)
     state.effectIds = (recipe.effectIds || []).filter((id) => !!D.effects[id] && stampIds.indexOf(id) === -1)
     state.effectStampId = null
+    if (soundLayerUI) soundLayerUI.restoreRecipe(recipe.soundLayers || [])
     if (canSelectBgRange()) {
       state.bgOffset = Math.max(0, Number(recipe.bgOffset) || 0)
       state.bgEndOffset = Math.max(0, Number(recipe.bgEndOffset) || 0)
@@ -2144,6 +2190,16 @@
         effectIds: state.effectIds.slice(),
         effectStamps: state.effectStamps.map((stamp) => ({ id: stamp.id, x: stamp.x, y: stamp.y })),
         effectStampId: state.effectStampId,
+        soundLayers: state.soundLayers.map((layer) => ({
+          id: layer.id,
+          name: layer.name,
+          sourceDuration: layer.sourceDuration,
+          trimStart: layer.trimStart,
+          trimEnd: layer.trimEnd,
+          startTime: layer.startTime,
+          volume: layer.volume,
+          status: layer.status,
+        })),
         isPlaying: engine.isPlaying,
         isPaused: engine.isPaused,
         lastMode: engine.lastMode,
