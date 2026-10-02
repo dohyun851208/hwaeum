@@ -37,43 +37,38 @@
   // Instrument gain is calibrated from the stable sustain region of the default
   // drawing pitch rows, with violin as the reference loudness.
   const INSTRUMENT_MELODY_OUTPUT_GAINS = {
-    flute: 1.08,
-    oboe: 1.03,
-    clarinet: 0.91,
-    frenchHorn: 1.3332,
+    flute: 1.32,
+    oboe: 1.29,
+    clarinet: 1.11,
+    frenchHorn: 1.25,
     violin: 0.81,
-    viola: 1.15,
-    cello: 0.73,
-    doubleBass: 0.296,
-    sogeum: 0.52,
-    daegeum: 0.97,
-    danso: 0.23,
-    haegeum: 0.36,
-    // Gayageum keeps its raw tone path, but its plucked sample has much higher
-    // attack peaks than sustained gugak samples. Trim output instead of filtering.
-    gayageum: 0.522,
+    viola: 1.3,
+    cello: 0.89,
+    doubleBass: 0.35,
+    sogeum: 0.62,
+    daegeum: 1.16,
+    danso: 0.2,
+    haegeum: 0.43,
+    gayageum: 0.45,
   }
   const NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB = 3
-  // 자동 루프(지속음) 파일럿 악기는 음마다 녹음 강약 차가 커서(더블베이스 B2·E3는 ±3dB로도
-  // 15dB가량 조용하게 남음) 루프 구간 RMS 측정 기준으로 더 넓게 보정한다.
+  // 더블베이스만 측정으로 승인된 ±12 dB 예외다. 자동 루프 적용 범위와 분리한다.
   const AUTO_LOOP_NOTE_GAIN_LIMIT_DB = 12
   // Per-note gain is measured inside each instrument after the instrument-level
   // calibration above and clamped to +/-3 dB so the sample character survives.
   const NOTE_MELODY_OUTPUT_GAINS = {
-    flute: { 55: 1.413, 57: 1.413, 59: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 65: 1.413, 67: 1.413, 69: 1.413, 71: 1.306, 72: 1.413, 74: 1.413, 76: 1.288, 77: 0.732, 79: 0.708 },
-    oboe: { 55: 1.413, 57: 1.031, 59: 1.413, 60: 1.413, 62: 0.996, 64: 0.708, 65: 1.043, 67: 0.848, 69: 1.328, 71: 1.344, 72: 1.413, 74: 1.344, 76: 0.708, 77: 0.919, 79: 1.17 },
-    clarinet: { 55: 0.969, 57: 1.165, 59: 1.248, 60: 0.936, 62: 1.22, 64: 1.413, 65: 1.307, 67: 1.413, 69: 0.958, 71: 0.825, 72: 0.844, 74: 0.77, 76: 1.015, 77: 0.904, 79: 0.854 },
-    frenchHorn: { 55: 1.413, 57: 1.413, 59: 1.413, 60: 1.413, 62: 1.413, 64: 1.341, 65: 1.141, 67: 1.017, 69: 0.938, 71: 0.917, 72: 1.413, 74: 1.413, 76: 0.754, 77: 0.856, 79: 0.708 },
-    violin: { 55: 0.708, 57: 0.868, 59: 0.909, 60: 0.747, 62: 1.184, 64: 1.008, 65: 0.919, 67: 1.329, 69: 0.919, 71: 1.068, 72: 0.941, 74: 1.413, 76: 1.323, 77: 1.413, 79: 1.068 },
-    viola: { 55: 1.413, 57: 1.413, 59: 0.708, 60: 0.885, 62: 1.413, 64: 1.413, 65: 1.345, 67: 1.413, 69: 1.295, 71: 0.747, 72: 1.236, 74: 1.236, 76: 1.153, 77: 0.865, 79: 1.208 },
-    cello: { 55: 1.127, 57: 1.413, 59: 1.413, 60: 1.309, 62: 0.96, 64: 0.708, 65: 0.708, 67: 1.309, 69: 0.765, 71: 1.413, 72: 1.077, 74: 1.14, 76: 1.208, 77: 0.96, 79: 1.413 },
-    // doubleBass 는 자동 루프 파일럿 — 루프 구간 RMS 기준 ±12dB 측정값 (B2·E3 샘플이 유독 작게 녹음됨).
-    doubleBass: { 55: 0.985, 57: 0.984, 59: 0.8, 60: 0.591, 62: 0.989, 64: 1.783, 65: 1.269, 67: 0.748, 69: 0.871, 71: 3.981, 72: 1.6, 74: 0.787, 76: 3.981, 77: 1.595, 79: 1.013 },
-    sogeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 67: 1.413, 69: 1.047, 72: 1.212, 74: 0.708, 76: 0.708 },
-    daegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 0.943, 67: 0.749, 69: 0.724, 72: 0.943, 74: 0.724, 76: 1.071 },
-    danso: { 55: 1.413, 57: 1.413, 60: 0.977, 62: 0.977, 64: 1.122, 67: 1.148, 69: 1.148, 72: 0.871, 74: 0.733, 76: 0.733 },
-    haegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.135, 64: 0.708, 67: 1.122, 69: 1.059, 72: 0.708, 74: 0.804, 76: 1.413 },
-    // Preserve gayageum sample dynamics; do not boost individual plucked rows.
+    flute: { 55: 1.413, 57: 1.413, 59: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 65: 1.413, 67: 1.413, 69: 1.413, 71: 1.413, 72: 1.413, 74: 1.413, 76: 1.413, 77: 1.225, 79: 0.708 },
+    oboe: { 55: 1.413, 57: 0.989, 59: 1.413, 60: 1.413, 62: 0.943, 64: 0.708, 65: 0.925, 67: 0.812, 69: 1.271, 71: 1.413, 72: 1.413, 74: 1.4, 76: 0.926, 77: 0.926, 79: 1.136 },
+    clarinet: { 55: 0.971, 57: 1.234, 59: 1.24, 60: 0.925, 62: 1.253, 64: 1.413, 65: 1.352, 67: 1.413, 69: 0.947, 71: 0.847, 72: 0.827, 74: 0.766, 76: 0.995, 77: 0.904, 79: 0.875 },
+    frenchHorn: { 55: 1.413, 57: 1.413, 59: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 65: 1.243, 67: 1.07, 69: 0.996, 71: 0.992, 72: 1.413, 74: 1.413, 76: 0.819, 77: 0.881, 79: 0.708 },
+    violin: { 55: 0.708, 57: 0.99, 59: 1.056, 60: 0.913, 62: 1.262, 64: 1.2, 65: 1.122, 67: 1.413, 69: 0.708, 71: 1.095, 72: 1.108, 74: 1.413, 76: 1.397, 77: 1.413, 79: 1.011 },
+    viola: { 55: 1.413, 57: 1.338, 59: 0.708, 60: 0.858, 62: 1.413, 64: 1.413, 65: 1.413, 67: 1.413, 69: 1.413, 71: 0.934, 72: 1.259, 74: 1.259, 76: 1.167, 77: 0.879, 79: 1.261 },
+    cello: { 55: 1.397, 57: 1.413, 59: 1.413, 60: 1.225, 62: 0.999, 64: 0.708, 65: 0.708, 67: 1.277, 69: 0.789, 71: 1.413, 72: 1.075, 74: 1.101, 76: 1.196, 77: 0.948, 79: 1.413 },
+    doubleBass: { 55: 1.009, 57: 1.003, 59: 0.837, 60: 0.603, 62: 1.057, 64: 1.824, 65: 1.331, 67: 0.763, 69: 0.904, 71: 3.981, 72: 1.643, 74: 0.811, 76: 3.981, 77: 1.633, 79: 1.04 },
+    sogeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 67: 1.413, 69: 1.413, 72: 1.413, 74: 0.984, 76: 0.795 },
+    daegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 1.035, 67: 0.814, 69: 0.792, 72: 1.071, 74: 0.832, 76: 1.216 },
+    danso: { 55: 1.413, 57: 1.413, 60: 1.04, 62: 1.04, 64: 1.16, 67: 1.171, 69: 1.171, 72: 0.914, 74: 0.785, 76: 0.785 },
+    haegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.281, 64: 0.784, 67: 1.286, 69: 1.164, 72: 0.708, 74: 0.929, 76: 1.413 },
     gayageum: { 55: 1, 57: 1, 60: 1, 62: 1, 64: 1, 67: 1, 69: 1, 72: 1, 74: 1, 76: 1 },
   }
   const LIVE_PREVIEW_MAX_GAIN = 0.95
@@ -171,7 +166,7 @@
   }
 
   function noteMelodyOutputGainLimitDb(instrumentId) {
-    return instrumentId && SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS[instrumentId]
+    return instrumentId === "doubleBass"
       ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB
       : NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB
   }
@@ -388,40 +383,32 @@
     const safeOffset = clamp(Number(offset) || 0, 0, Math.max(0, total - 0.01))
     const safeDuration = Math.min(Math.max(0, Number(duration) || 0), Math.max(0, total - safeOffset))
     if (!(safeDuration > 0.08)) return null
-    const region = refineSustainLoopRegion(sampleSustainLoopRegion(safeOffset, safeDuration, loopHint), safeOffset, safeDuration, buffer, loopHint)
+    const region = loopHint && loopHint.start != null ? loopHint : sampleSustainLoopRegion(safeOffset, safeDuration, loopHint)
     if (!region) return null
     const sampleRate = buffer.sampleRate
     const sourceLength = buffer.length || Math.round(total * sampleRate)
     const startFrame = clamp(Math.floor(safeOffset * sampleRate), 0, Math.max(0, sourceLength - 1))
     const endFrame = clamp(Math.ceil((safeOffset + safeDuration) * sampleRate), startFrame + 1, sourceLength)
     const outLength = endFrame - startFrame
-    const loopStartFrame = clamp(Math.round((region.start - safeOffset) * sampleRate), 0, Math.max(0, outLength - 2))
-    const loopEndFrame = clamp(Math.round((region.end - safeOffset) * sampleRate), loopStartFrame + 2, outLength)
-    const loopFrames = loopEndFrame - loopStartFrame
-    // 포락선에서 검출한 구간(절대 초 힌트)은 이음매 양쪽 음량이 다를 수 있어 크로스페이드를 길게 잡는다.
-    const fadeSec = loopHint && loopHint.start != null ? 0.16 : 0.08
-    const fadeFrames = Math.floor(Math.min(fadeSec * sampleRate, loopFrames * 0.25))
-    if (fadeFrames < 8) return null
+    const channels = []
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) channels.push(buffer.getChannelData(ch).subarray(startFrame, endFrame))
+    const support = {
+      start: region.start - startFrame / sampleRate, end: region.end - startFrame / sampleRate,
+    }
+    const leveled = Core.levelSustainSupport(channels, sampleRate, support)
+    const frames = Core.sustainLoopFrames(leveled, sampleRate, support)
+    if (!frames) return null
     const out = ctx.createBuffer(buffer.numberOfChannels, outLength, sampleRate)
     for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-      const input = buffer.getChannelData(ch)
       const data = out.getChannelData(ch)
-      for (let i = 0; i < outLength; i++) data[i] = input[startFrame + i] || 0
-      for (let i = 0; i < fadeFrames; i++) {
-        const x = (i + 1) / (fadeFrames + 1)
-        const tailIndex = loopEndFrame - fadeFrames + i
-        const headIndex = loopStartFrame + i
-        const fadeOut = Math.cos(x * Math.PI * 0.5)
-        const fadeIn = Math.sin(x * Math.PI * 0.5)
-        data[tailIndex] = data[tailIndex] * fadeOut + data[headIndex] * fadeIn
-      }
+      data.set(Core.crossfadeSustainLoop(leveled[ch], frames))
     }
     return {
       buffer: out,
       offset: 0,
       duration: outLength / sampleRate,
-      loopStart: loopStartFrame / sampleRate,
-      loopEnd: loopEndFrame / sampleRate,
+      loopStart: frames.start / sampleRate,
+      loopEnd: frames.end / sampleRate,
     }
   }
   function preparePlaybackSustain(ctx, source, offset, duration, loopHint) {
@@ -458,11 +445,12 @@
     }
     return null
   }
-  // 포락선 기반 자동 루프 구간 파일럿. 고정 비율(28~78%)은 파일 안에 감쇠가 포함된
-  // 샘플(필하모니아 현악)에서 조용한 꼬리를 물고 돌아 맥동이 들린다. 측정에서 이음매
-  // 음량차가 가장 컸던 악기부터 켜고, 귀 검증 후 명단을 넓힌다.
-  // (docs/decisions/2026-07-02-sustain-loop-stable-region.md)
-  const SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS = { doubleBass: true }
+  // 관악·찰현 악기는 안정 구간과 페이드 재료를 함께 검출한다.
+  // 음별 게인 한도는 이 목록과 독립적이다 (2026-10-02 ADR).
+  const SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS = {
+    violin: true, viola: true, cello: true, doubleBass: true, flute: true, oboe: true,
+    clarinet: true, frenchHorn: true, sogeum: true, daegeum: true, danso: true, haegeum: true,
+  }
   function autoSustainLoopHint(buffer, offset, usableSourceDur, plan) {
     const instrumentId = plan && plan.instrument && plan.instrument.id
     if (!instrumentId || !SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS[instrumentId]) return null
@@ -475,10 +463,39 @@
       return null
     }
     if (!channel || !channel.length) return null
-    return Core.findStableLoopRegion(channel, buffer.sampleRate, offset, usableSourceDur)
+    return Core.findStableLoopRegion(channel, buffer.sampleRate, offset, usableSourceDur, {
+      targetLoopSec: 1.02, minLoopSec: 0.42, align: false,
+    })
+  }
+
+  const samplePlanCache = new WeakMap()
+  function pluckedSamplePlan(ctx, buffer, offset, duration, asset, segment) {
+    if (!buffer.getChannelData || !ctx.createBuffer || !buffer.sampleRate) return { buffer, offset, duration, loop: false }
+    const next = (asset.sampleMap || []).filter((s) => s.offset > offset + 0.1).sort((a, b) => a.offset - b.offset)[0]
+    const boundary = Math.min(buffer.duration, offset + 6, next ? next.offset - 0.05 : buffer.duration)
+    const end = Core.pluckedSampleEnd(buffer.getChannelData(0), buffer.sampleRate, offset, duration, boundary)
+    const first = Math.round(offset * buffer.sampleRate)
+    const length = Math.max(1, Math.floor(end * buffer.sampleRate) - first)
+    const out = ctx.createBuffer(buffer.numberOfChannels, length, buffer.sampleRate)
+    const fade = Math.min(length, Math.round(0.06 * buffer.sampleRate))
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      const data = out.getChannelData(ch)
+      data.set(buffer.getChannelData(ch).subarray(first, first + length))
+      for (let i = 0; i < fade; i++) data[length - fade + i] *= (1 + Math.cos(Math.PI * i / Math.max(1, fade - 1))) / 2
+    }
+    return { buffer: out, offset: 0, duration: length / buffer.sampleRate, loop: false }
   }
 
   function continuousSustainPlan(ctx, buffer, offset, usableSourceDur, plan, segment) {
+    let cache = samplePlanCache.get(buffer)
+    if (!cache) { cache = new Map(); samplePlanCache.set(buffer, cache) }
+    const key = [plan.instrument.id, offset, usableSourceDur].join("|")
+    if (cache.has(key)) return cache.get(key)
+    if (isGayageumPlan(plan)) {
+      const pluck = pluckedSamplePlan(ctx, buffer, offset, usableSourceDur, plan.melodyAsset, segment)
+      cache.set(key, pluck)
+      return pluck
+    }
     const bufferDuration = audioBufferDuration(buffer)
     if (!shouldSustainSample(plan) || !(bufferDuration > 0.45 && usableSourceDur > 0.45)) {
       return { buffer: buffer, offset: offset, duration: usableSourceDur, loop: false }
@@ -486,9 +503,9 @@
     // preparePlaybackSustain 의 baking/clamp/loop 로직을 그대로 재사용하되, 실제 source 가 아니라
     // 가짜 probe 에 적용해 결과만 읽는다(실제 source.buffer 이중 설정 방지).
     const probe = { buffer: buffer }
-    const loopHint = sustainLoopHint(plan, segment) || autoSustainLoopHint(buffer, offset, usableSourceDur, plan)
+    const loopHint = autoSustainLoopHint(buffer, offset, usableSourceDur, plan) || sustainLoopHint(plan, segment)
     const sustain = preparePlaybackSustain(ctx, probe, offset, usableSourceDur, loopHint)
-    return {
+    const result = {
       buffer: probe.buffer,
       offset: sustain.offset,
       duration: sustain.duration,
@@ -496,6 +513,8 @@
       loopStart: probe.loopStart,
       loopEnd: probe.loopEnd,
     }
+    cache.set(key, result)
+    return result
   }
   // 계산된 loop 계획을 source 에 적용한다(buffer 는 호출부가 한 번만 설정하므로 여기선 loop 파라미터만).
   function applySustainPlanToSource(source, plan) {
@@ -599,6 +618,7 @@
     this.livePreview = null
     this.livePreviewToken = 0
     this.livePending = null // 불러오는 중인 라이브 미리듣기 {token, src, signature, normY}
+    this.liveRetiring = new Set()
     this.ambience = null // 드로잉 화면에서 깔리는 배경음(패드)
     this.ambienceToken = 0
     this.isPaused = false // 일시정지 상태(ctx.suspend)
@@ -942,7 +962,7 @@
         if (!byVoice.has(key)) byVoice.set(key, [])
         byVoice.get(key).push(note)
       })
-      ;(plan.strokeSegments || []).forEach(function (segment) {
+      ;(plan.sourceStrokeSegments || plan.strokeSegments || []).forEach(function (segment) {
         const key = segment.voice == null ? "_" : String(segment.voice)
         voiceKeys.add(key)
         if (!strokesByVoice.has(key)) strokesByVoice.set(key, [])
@@ -963,6 +983,7 @@
           instrument: inst,
           melodyAsset: asset,
           gugak: va ? va.gugak : plan.gugak,
+          sampleSourceNotes: plan.sourceNotes && plan.sourceNotes.filter((note) => (note.voice == null ? "_" : String(note.voice)) === key),
         })
         const melodyGain = ctx.createGain()
         melodyGain.gain.setValueAtTime(melodyOutputGain(voicePlan, inst), start)
@@ -1031,7 +1052,7 @@
       .forEach(function (item) {
         const midi = Math.round(Number(item.midi))
         if (!isFinite(midi)) return
-        const itemTime = clamp(Number(item.time) || 0, 0, Math.max(0, sequenceEnd))
+        const itemTime = Math.min(Number(item.time) || 0, Math.max(0, sequenceEnd))
         if (!triggers.length || retriggerRepeated || midi !== lastMidi) {
           triggers.push(Object.assign({}, item, { time: itemTime, midi: midi }))
           lastMidi = midi
@@ -1047,40 +1068,38 @@
     const sampleBuffers = instBuffers.melodySamples
     const multi = isMultiSample(asset)
     const triggers = pluckedSampleTriggers(items, sequenceEnd, !!options.retriggerRepeated)
-    const minEnvDuration = options.minEnvDuration || STROKE_TAP_SECONDS
     for (let i = 0; i < triggers.length; i++) {
       const item = triggers[i]
-      const next = triggers[i + 1]
-      const eventStart = clamp(Number(item.time) || 0, 0, sequenceEnd)
-      let eventEnd = next ? next.time : sequenceEnd
-      if (item.duration != null && isFinite(Number(item.duration))) {
-        eventEnd = Math.min(eventEnd, eventStart + Math.max(0, Number(item.duration)))
-      }
-      const eventDuration = Math.max(0.03, eventEnd - eventStart)
-      const envDuration = Math.max(eventDuration, minEnvDuration)
-      const when = start + eventStart
+      const eventStart = Math.min(Number(item.time) || 0, sequenceEnd)
+      const when = start + Math.max(0, eventStart)
       const segment = nearestSampleSegment(asset, item.midi)
       const srcBuffer = multi ? sampleBufferFor(sampleBuffers, segment, buffer) : buffer
       if (!srcBuffer) continue
       const baseRate = segmentPlaybackRate(asset, item.midi, segment)
       const fallbackOffset = 0
       const sourceBounds = multi ? { offset: 0, duration: audioBufferDuration(srcBuffer) } : sampleSegmentBounds(srcBuffer, segment, fallbackOffset)
-      const offset = sourceBounds.offset
-      const usableSourceDur = sourceBounds.duration
+      const pluck = continuousSustainPlan(ctx, srcBuffer, sourceBounds.offset, sourceBounds.duration, plan, segment)
+      const elapsed = Math.max(0, -eventStart)
+      const offset = pluck.offset + elapsed * baseRate
+      const usableSourceDur = pluck.duration - elapsed * baseRate
       if (!(usableSourceDur > 0.01)) continue
 
       const src = ctx.createBufferSource()
       const env = ctx.createGain()
       const velocity = item.velocity == null ? 0.7 : item.velocity
-      const srcPlaySeconds = Math.max(eventDuration + 0.18, minEnvDuration)
-      src.buffer = srcBuffer
+      const srcPlaySeconds = usableSourceDur / baseRate
+      src.buffer = pluck.buffer
       src.playbackRate.setValueAtTime(baseRate, when)
-      applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, velocity * 0.85), when, envDuration, 0.012, plan)
-      connectGugakSampleTone(ctx, src, env, plan, when)
+      // 원음에 이미 들어 있는 감쇠를 보존한다. 끝 페이드는 격리한 버퍼에 구워져 있다.
+      const peak = melodyPlaybackEnvPeak(plan, velocity * 0.85)
+      env.gain.setValueAtTime(elapsed ? peak : 0.0001, when)
+      if (!elapsed) env.gain.linearRampToValueAtTime(peak, when + 0.005)
+      const filter = connectGugakSampleTone(ctx, src, env, plan, when)
       const noteGain = connectMelodyEnv(ctx, env, dest, plan, [item], start, when, 0.001)
+      src.onended = function () { disconnectQuietly(src, env, noteGain, filter) }
 
       try {
-        const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, offset, Math.min(usableSourceDur, srcPlaySeconds * baseRate + 0.02)))
+        const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, offset, usableSourceDur))
         src.start(when, safeBufferOffset(src.buffer, offset), srcDur)
         src.stop(when + srcPlaySeconds + 0.05)
         register(src)
@@ -1096,141 +1115,79 @@
     }
   }
 
-  // ⚠ source.buffer 는 "한 번만" 설정(이중 설정 시 브라우저 throw → 선율 무음).
-  // continuousSustainPlan 이후 공통 블록: source 노드 설정·글라이드·엔벨로프·start/stop.
-  // scheduleSampleStrokes / scheduleSampleMelody 두 경로의 공통 코어.
-  function _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
-                                      phraseStart, phraseDuration, phraseStop,
-                                      events, start, glideSeconds, attackSeconds, envPeakArg, register) {
-    const env = ctx.createGain()
-    const startOffset = sustain.offset
-    const startSourceDur = sustain.duration
-    const src = ctx.createBufferSource()
-    src.buffer = sustain.buffer
-    applySustainPlanToSource(src, sustain)
-    src.playbackRate.setValueAtTime(baseRate, phraseStart)
-    for (let k = 1; k < events.length; k++) {
-      const ev = events[k]
-      const nextRate = segmentPlaybackRate(asset, ev.midi, segment)
-      src.playbackRate.setTargetAtTime(nextRate, start + ev.time, glideSeconds)
+  const SAMPLE_HANDOFF_SECONDS = 0.04
+
+  function sampleStartOffset(sustain, plan, continuation) {
+    return sustain.loop && (continuation || isWesternInstrument(plan.instrument)) ? sustain.loopStart : sustain.offset
+  }
+
+  function progressedSampleOffset(sustain, initial, elapsed, rate) {
+    let offset = initial + Math.max(0, elapsed) * rate
+    if (sustain.loop && offset >= sustain.loopEnd) {
+      offset = sustain.loopStart + (offset - sustain.loopStart) % (sustain.loopEnd - sustain.loopStart)
     }
-    applySampleMelodyEnv(env, melodyPlaybackEnvPeak(plan, envPeakArg * 0.85), phraseStart, phraseDuration, attackSeconds, plan)
-    connectGugakSampleTone(ctx, src, env, plan, phraseStart)
-    const noteGain = connectMelodyEnv(ctx, env, dest, plan, events, start, phraseStart, glideSeconds)
-    try {
-      if (src.loop) {
-        src.start(phraseStart, safeBufferOffset(src.buffer, startOffset))
-      } else {
-        const srcDur = Math.max(0.001, safeBufferDuration(src.buffer, startOffset, Math.min(startSourceDur, phraseDuration * baseRate + 0.18)))
-        src.start(phraseStart, safeBufferOffset(src.buffer, startOffset), srcDur)
+    return offset
+  }
+
+  function scheduleSustainedSequence(ctx, dest, plan, events, end, instBuffers, start, register) {
+    const asset = plan.melodyAsset
+    const runs = AudioPlan.sampleVoiceRuns(events, end)
+    for (const run of runs) {
+      const finish = Math.min(end + SAMPLE_HANDOFF_SECONDS, run.end + SAMPLE_HANDOFF_SECONDS)
+      if (finish <= 0) continue
+      const segment = nearestSampleSegment(asset, run.midi)
+      const buffer = isMultiSample(asset) ? sampleBufferFor(instBuffers.melodySamples, segment, instBuffers.melody) : instBuffers.melody
+      if (!buffer) continue
+      const bounds = isMultiSample(asset) ? { offset: 0, duration: audioBufferDuration(buffer) } : sampleSegmentBounds(buffer, segment, 0)
+      const sustain = continuousSustainPlan(ctx, buffer, bounds.offset, bounds.duration, plan, segment)
+      const rate = segmentPlaybackRate(asset, run.midi, segment)
+      const at = Math.max(0, run.time)
+      const elapsed = at - run.time
+      const initial = sampleStartOffset(sustain, plan, run.continuation)
+      const offset = progressedSampleOffset(sustain, initial, elapsed, rate)
+      if (!sustain.loop && offset >= sustain.offset + sustain.duration) continue
+      const src = ctx.createBufferSource()
+      const env = ctx.createGain()
+      src.buffer = sustain.buffer
+      applySustainPlanToSource(src, sustain)
+      src.playbackRate.setValueAtTime(rate, start + at)
+      const peak = melodyPlaybackEnvPeak(plan, (run.velocity == null ? 0.7 : run.velocity) * 0.85)
+      const attack = Math.min(SAMPLE_HANDOFF_SECONDS, Math.max(0.001, run.end - run.time))
+      function level(t) {
+        return Math.max(0.0001, peak * Math.min(1, Math.max(0, (t - run.time) / attack)) *
+          Math.min(1, Math.max(0, (finish - t) / SAMPLE_HANDOFF_SECONDS)))
       }
-      src.stop(phraseStop + 0.18)
+      env.gain.setValueAtTime(elapsed > 0 ? 0.0001 : level(at), start + at)
+      // 탐색으로 파형 중간을 열 때도 클릭이 나지 않도록 아주 짧게 진입한다.
+      if (elapsed > 0) {
+        const enter = Math.min(at + 0.005, finish, run.time + attack > at ? run.time + attack : finish)
+        env.gain.linearRampToValueAtTime(level(enter), start + enter)
+      }
+      if (run.time + attack > at) env.gain.linearRampToValueAtTime(peak, start + run.time + attack)
+      if (run.end > at) env.gain.setValueAtTime(peak, start + run.end)
+      env.gain.linearRampToValueAtTime(0.0001, start + finish)
+      const filter = connectGugakSampleTone(ctx, src, env, plan, start + at)
+      const noteGain = connectMelodyEnv(ctx, env, dest, plan, [run], start, start + at, 0.001)
+      src.onended = function () { disconnectQuietly(src, env, noteGain, filter) }
+      if (src.loop) src.start(start + at, safeBufferOffset(src.buffer, offset))
+      else src.start(start + at, safeBufferOffset(src.buffer, offset), Math.max(0.001, sustain.offset + sustain.duration - offset))
+      src.stop(start + finish)
       register(src)
-    } catch (e) {
-      warnScheduleFallback("샘플 프레이즈 시작 실패", e, {
-        instrument: plan.instrument && plan.instrument.id,
-        offset: startOffset,
-        sourceDuration: startSourceDur,
-        bufferDuration: audioBufferDuration(src.buffer),
-      })
-      disconnectQuietly(src, env, noteGain)
     }
   }
 
   AudioEngine.prototype.scheduleSampleStrokes = function (ctx, dest, plan, strokeSegments, instBuffers, start, register) {
-    const asset = plan.melodyAsset
-    const buffer = instBuffers.melody
-    const sampleBuffers = instBuffers.melodySamples
-    const multi = isMultiSample(asset)
-    const samplePhrase = asset.sampleMode === "phrase"
-    const glideSeconds = liveNoteGlideSeconds(plan)
-    const attackSeconds = 0.035
     for (const stroke of strokeSegments || []) {
       if (!stroke || !stroke.events || !stroke.events.length) continue
-      if (isGayageumPlan(plan)) {
-        schedulePluckedSampleSequence(ctx, dest, plan, stroke.events, instBuffers, start, stroke.end, register)
-        continue
-      }
-      const first = stroke.events[0]
-      const phraseStart = start + stroke.start
-      const phraseDuration = Math.max(0.03, stroke.duration)
-      const phraseStop = start + stroke.end
-      const segment = nearestSampleSegment(asset, first.midi)
-      const srcBuffer = multi ? sampleBufferFor(sampleBuffers, segment, buffer) : buffer
-      if (!srcBuffer) continue
-      const baseRate = segmentPlaybackRate(asset, first.midi, segment)
-      const fallbackOffset = segment ? 0 : samplePhrase ? Math.min(0.05, Math.max(0, audioBufferDuration(srcBuffer) * 0.08)) : 0
-      const sourceBounds = multi ? { offset: 0, duration: audioBufferDuration(srcBuffer) } : sampleSegmentBounds(srcBuffer, segment, fallbackOffset)
-      const offset = sourceBounds.offset
-      const usableSourceDur = sourceBounds.duration
-      if (!(usableSourceDur > 0.01)) continue
-      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan, segment)
-      _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
-        phraseStart, phraseDuration, phraseStop,
-        stroke.events, start, glideSeconds, attackSeconds, 0.7, register)
+      if (isGayageumPlan(plan)) schedulePluckedSampleSequence(ctx, dest, plan, stroke.sourceEvents || stroke.events, instBuffers, start, stroke.end, register)
+      else scheduleSustainedSequence(ctx, dest, plan, stroke.sourceEvents || stroke.events, stroke.end, instBuffers, start, register)
     }
   }
 
   AudioEngine.prototype.scheduleSampleMelody = function (ctx, dest, plan, notes, instBuffers, start, register) {
-    const asset = plan.melodyAsset
-    const buffer = instBuffers.melody
-    const sampleBuffers = instBuffers.melodySamples
-    const multi = isMultiSample(asset)
-    const samplePhrase = asset.sampleMode === "phrase"
-    const glideSeconds = noteGlideSeconds(plan)
-    const attackSeconds = phraseAttackSeconds(plan)
-    if (isGayageumPlan(plan)) {
-      const phrases = contiguousPhrases(notes)
-      for (const phraseNotes of phrases) {
-        schedulePluckedSampleSequence(ctx, dest, plan, phraseNotes, instBuffers, start, phraseEnd(phraseNotes), register, {
-          retriggerRepeated: true,
-        })
-      }
-      return
-    }
-    if (multi) {
-      const phrases = contiguousPhrases(notes)
-      for (const phraseNotes of phrases) {
-        const first = phraseNotes[0]
-        const last = phraseNotes[phraseNotes.length - 1]
-        const phraseStart = start + first.time
-        const phraseDuration = phraseEnd(phraseNotes) - first.time
-        const phraseStop = start + last.time + last.duration
-        const segment = nearestSampleSegment(asset, first.midi)
-        const srcBuffer = sampleBufferFor(sampleBuffers, segment, buffer)
-        if (!srcBuffer) continue
-        const baseRate = segmentPlaybackRate(asset, first.midi, segment)
-        const usableSourceDur = audioBufferDuration(srcBuffer)
-        if (!(usableSourceDur > 0.01)) continue
-        // 라이브 미리듣기와 같은 기준으로 지속음(loop)을 건다. source.buffer 는 한 번만 설정.
-        const sustain = continuousSustainPlan(ctx, srcBuffer, 0, usableSourceDur, plan, segment)
-        _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
-          phraseStart, phraseDuration, phraseStop,
-          phraseNotes, start, glideSeconds, attackSeconds, first.velocity, register)
-      }
-      return
-    }
-    const phrases = contiguousPhrases(notes)
-    for (const notes of phrases) {
-      const first = notes[0]
-      const last = notes[notes.length - 1]
-      const phraseStart = start + first.time
-      const phraseDuration = phraseEnd(notes) - first.time
-      const phraseStop = start + last.time + last.duration
-      const segment = nearestSampleSegment(asset, first.midi)
-      const srcBuffer = buffer
-      if (!srcBuffer) continue
-      const baseRate = segmentPlaybackRate(asset, first.midi, segment)
-      const fallbackOffset = segment ? 0 : samplePhrase ? this.phraseOffset(srcBuffer, first) : 0
-      const sourceBounds = sampleSegmentBounds(srcBuffer, segment, fallbackOffset)
-      const offset = sourceBounds.offset
-      const usableSourceDur = sourceBounds.duration
-      if (!(usableSourceDur > 0.01)) continue
-      // 길게 그린 선은 샘플 원본보다 길어도 한 음으로 이어지고, 짧게 그려도 라이브처럼 안 끊긴다.
-      const sustain = continuousSustainPlan(ctx, srcBuffer, offset, usableSourceDur, plan, segment)
-      _scheduleSampleSourceNode(ctx, dest, plan, asset, segment, sustain, baseRate,
-        phraseStart, phraseDuration, phraseStop,
-        notes, start, glideSeconds, attackSeconds, first.velocity, register)
+    for (const phrase of contiguousPhrases(plan.sampleSourceNotes || plan.sourceNotes || notes)) {
+      if (isGayageumPlan(plan)) schedulePluckedSampleSequence(ctx, dest, plan, phrase, instBuffers, start, phraseEnd(phrase), register, { retriggerRepeated: true })
+      else scheduleSustainedSequence(ctx, dest, plan, phrase, phraseEnd(phrase), instBuffers, start, register)
     }
   }
 
@@ -1468,7 +1425,7 @@
     return segmentPlaybackRate(plan.melodyAsset, midi, nearestSampleSegment(plan.melodyAsset, midi))
   }
 
-  AudioEngine.prototype._createSampleLivePreview = function (ctx, plan, buffer, normY) {
+  AudioEngine.prototype._createSampleLivePreview = function (ctx, plan, buffer, normY, transition) {
     const uiMidi = this._liveUiMidi(plan, normY)
     const midi = playbackMidiForInstrument(uiMidi, plan.instrument, plan.melodyAsset)
     if (midi == null) return null
@@ -1490,12 +1447,12 @@
     const baseRate = segmentPlaybackRate(plan.melodyAsset, midi, segment)
 
     env.gain.setValueAtTime(0.0001, start)
-    env.gain.linearRampToValueAtTime(baseTargetGain, start + 0.035)
+    env.gain.linearRampToValueAtTime(baseTargetGain, start + (isGayageumPlan(plan) ? 0.005 : SAMPLE_HANDOFF_SECONDS))
     noteGain.gain.setValueAtTime(noteGainValue, start)
 
     // 멀티샘플(서양 선율)은 원음 음색을 그대로 살리기 위해 필터 없이 source → env 직결.
     // 풀 플레이백(connectGugakSampleTone)과 동일한 신호 경로.
-    const useFilter = !multi && !isGayageumPlan(plan)
+    const useFilter = isGugakInstrument(plan.instrument) && !isGayageumPlan(plan)
     if (useFilter) {
       filter = ctx.createBiquadFilter()
       configureSampleToneFilter(filter, plan, start)
@@ -1514,15 +1471,17 @@
     // 필하모니아 서양 원본은 음정이 뜨는 시점이 느리다(측정 중앙값 110~180ms, 비올라는 최대 390ms).
     // 국악 음원은 반대로 소금 20ms · 대금 10ms 로 이미 즉각 발음돼 손댈 이유가 없고,
     // 시김새·발음이 학습 내용이라 원음 그대로 둔다 → 서양 악기에만 적용한다.
-    // 전체 재생은 그대로 어택부터 — 자연스러운 발음은 곡에서 살리고, 펜은 즉답을 준다.
-    const usePenStableStart = multi && isWesternInstrument(plan.instrument) && sustain.loop && sustain.loopStart != null
-    const liveStartOffset = usePenStableStart ? sustain.loopStart : sustain.offset
+    // 저장 획도 같은 시작 규칙을 사용한다. 국악기 첫 발음의 어택은 보존한다.
+    const liveStartOffset = sampleStartOffset(sustain, plan, !!transition)
 
     if (useFilter) source.connect(filter)
     else source.connect(env)
 
     const live = {
       kind: "sample",
+      midi: midi,
+      startedAt: start,
+      plucked: isGayageumPlan(plan),
       source: source,
       env: env,
       noteGain: noteGain,
@@ -1533,19 +1492,22 @@
       rateParams: [source.playbackRate],
       signature: this._liveSignature(plan),
       sampleMidi: segment ? segment.midi : null,
-      // 획 하나는 시작할 때 고른 파일 하나로 끝까지 간다. 그 파일의 "실제 녹음 음높이"를
-      // 알아야 글라이드 배속을 맞출 수 있어 세그먼트(cents 포함)를 그대로 들고 다닌다.
+      // 이 발음이 고른 원음의 조율·음량 보정은 발음이 끝날 때까지 유지한다.
       sampleSegment: segment || null,
       stopNodes: [source],
     }
+    const engine = this
     source.onended = function () {
+      live.ended = true
+      engine.liveRetiring.delete(live)
       ;[source, env, noteGain, filter].forEach(function (node) {
         try {
           node.disconnect()
         } catch (e) {}
       })
     }
-    source.start(start, liveStartOffset)
+    if (sustain.loop) source.start(start, liveStartOffset)
+    else source.start(start, liveStartOffset, Math.max(0.001, sustain.duration))
     return live
   }
 
@@ -1600,7 +1562,9 @@
       signature: this._liveSignature(plan),
       stopNodes: [osc, lfo],
     }
+    const engine = this
     osc.onended = function () {
+      engine.liveRetiring.delete(live)
       ;[osc, env, noteGain, filter, lfo, lfoGain].forEach(function (node) {
         try {
           node.disconnect()
@@ -1643,7 +1607,7 @@
     const run = function () {
       // 전체곡 재생 중에도 펜 소리가 들리도록 재생은 멈추지 않고 라이브 미리듣기만 새로 깐다.
       // (라이브 미리듣기는 ctx.destination에 직접 연결돼 본 재생 master와 독립적으로 믹스된다.)
-      self.stopLivePreview(true)
+      self.stopLivePreview(false)
       const token = ++self.livePreviewToken
       const plan = self.resolvePlan(recipe, [])
       const midi = self._liveMidi(plan, normY)
@@ -1655,7 +1619,13 @@
         // normY는 착지 시점에 다시 읽는다 — 불러오는 사이 펜이 옮겨간 음높이로 시작해야 한다.
         const pending = { token: token, src: src, signature: self._liveSignature(plan), normY: normY }
         self.livePending = pending
-        return self.loadBuffer(ctx, src).then(function (buffer) {
+        const loading = self.loadBuffer(ctx, src)
+        if (isMultiSample(plan.melodyAsset)) {
+          ;(plan.melodyAsset.sampleMap || []).forEach(function (segment) {
+            if (segment.src && segment.src !== src) self.loadBuffer(ctx, segment.src)
+          })
+        }
+        return loading.then(function (buffer) {
           if (token !== self.livePreviewToken) return
           self.livePending = null
           self.livePreview = self._createLivePreview(ctx, plan, pending.normY, buffer)
@@ -1698,54 +1668,38 @@
         self.liveDrawingStart(recipe, normY)
         return
       }
+      const live = self.livePreview
       const now = ctx.currentTime
-      const liveGlideSeconds = liveNoteGlideSeconds(plan)
-      if (self.livePreview.noteGain) {
-        const nextTargetGain = livePreviewNoteTargetGain(plan, self.livePreview.noteEnvPeak || 0.7 * 0.85, uiMidi)
-        const baseTargetGain = self.livePreview.baseTargetGain || 1
-        const nextGain = baseTargetGain > 0 ? nextTargetGain / baseTargetGain : 1
-        self.livePreview.noteGain.gain.cancelScheduledValues(now)
-        self.livePreview.noteGain.gain.setTargetAtTime(nextGain, now, liveGlideSeconds)
-      }
-      if (self.livePreview.kind === "sample") {
-        if (isMultiSample(plan.melodyAsset)) {
-          // 멀티샘플(서양 선율): 드로잉 중엔 시작 시 불러온 한 음을 기준으로 피치만 매끄럽게 글라이드.
-          // (음마다 파일을 비동기로 다시 불러오면 빠른 드로잉에서 매번 무효화돼 소리가 안 남)
-          const baseMidi =
-            self.livePreview.sampleMidi != null
-              ? self.livePreview.sampleMidi
-              : plan.melodyAsset.baseMidi != null
-                ? plan.melodyAsset.baseMidi
-                : midi
-          // 획을 시작할 때 고른 세그먼트를 기준으로 배속을 잰다. cents 는
-          // "그 파일에 실제 녹음된 음높이 − 표기 midi"다(예: viola 라 칸 = viola_Gs4.mp3, cents -100).
-          // 표기 midi 만 빼면 빌려 쓴 파일이 원래 음 그대로 나서 반음 어긋난다.
-          const baseSegment = self.livePreview.sampleSegment || { midi: baseMidi, cents: 0 }
-          const nextRate = segmentPlaybackRate(plan.melodyAsset, midi, baseSegment)
-          ;(self.livePreview.rateParams || [self.livePreview.rateParam]).forEach(function (rateParam) {
-            if (!rateParam) return
-            rateParam.cancelScheduledValues(now)
-            rateParam.setTargetAtTime(nextRate, now, liveGlideSeconds)
-          })
-        } else {
-          const nextSegment = nearestSampleSegment(plan.melodyAsset, midi)
-          const nextSampleMidi = nextSegment ? nextSegment.midi : null
-          if (nextSampleMidi !== self.livePreview.sampleMidi) {
-            self.stopLivePreview(true)
-            self.liveDrawingStart(recipe, normY)
-            return
-          }
-          const nextRate = segmentPlaybackRate(plan.melodyAsset, midi, nextSegment)
-          ;(self.livePreview.rateParams || [self.livePreview.rateParam]).forEach(function (rateParam) {
-            if (!rateParam) return
-            rateParam.cancelScheduledValues(now)
-            rateParam.setTargetAtTime(nextRate, now, liveGlideSeconds)
-          })
+      if (live.kind === "sample") {
+        if (live.midi === midi) {
+          if (self.livePending) { self.livePreviewToken++; self.livePending = null }
+          return
         }
+        const pending = self.livePending
+        if (pending && pending.midi === midi) { pending.normY = normY; return }
+        const token = ++self.livePreviewToken
+        const src = self._liveSampleSrc(plan, midi)
+        const next = { token, src, midi, normY, signature: self._liveSignature(plan) }
+        self.livePending = next
+        function switchVoice(buffer) {
+          if (token !== self.livePreviewToken || self.livePreview !== live) return
+          self.livePending = null
+          // 새 파일이 준비된 순간에만 교체한다. 빠른 왕복/펜 떼기는 토큰으로 취소된다.
+          const replacement = buffer ? self._createSampleLivePreview(ctx, plan, buffer, next.normY, true) : self._createSynthLivePreview(ctx, plan, next.normY)
+          if (!replacement) return
+          if (live.plucked && !live.ended) self.liveRetiring.add(live)
+          else self._retireLivePreview(live, ctx, SAMPLE_HANDOFF_SECONDS)
+          self.livePreview = replacement
+        }
+        if (self.decodedCache.has(src)) switchVoice(self.decodedCache.get(src))
+        else self.loadBuffer(ctx, src).then(switchVoice)
       } else {
-        const nextFreq = midiToFreq(midi)
-        self.livePreview.osc.frequency.cancelScheduledValues(now)
-        self.livePreview.osc.frequency.setTargetAtTime(nextFreq, now, liveGlideSeconds)
+        if (live.noteGain) {
+          const gain = livePreviewNoteTargetGain(plan, live.noteEnvPeak || 0.7 * 0.78, uiMidi) / (live.baseTargetGain || 1)
+          live.noteGain.gain.setTargetAtTime(gain, now, liveNoteGlideSeconds(plan))
+        }
+        live.osc.frequency.cancelScheduledValues(now)
+        live.osc.frequency.setTargetAtTime(midiToFreq(midi), now, liveNoteGlideSeconds(plan))
       }
     }
     if (ctx.state === "suspended") return ctx.resume().then(run)
@@ -1757,26 +1711,34 @@
     this.stopLivePreview(false)
   }
 
+  AudioEngine.prototype._retireLivePreview = function (live, ctx, release) {
+    if (!live || live.ended) return
+    const now = ctx.currentTime + 0.005
+    this.liveRetiring.add(live)
+    try {
+      const gain = live.env.gain
+      if (typeof gain.cancelAndHoldAtTime === "function") gain.cancelAndHoldAtTime(now)
+      else {
+        gain.cancelScheduledValues(now)
+        gain.setValueAtTime((live.baseTargetGain || gain.value || 0.5) * Math.min(1, Math.max(0, (now - (live.startedAt || 0)) / SAMPLE_HANDOFF_SECONDS)), now)
+      }
+      gain.linearRampToValueAtTime(0.0001, now + release)
+    } catch (e) {}
+    ;(live.stopNodes || []).forEach(function (node) { try { node.stop(now + release) } catch (e) {} })
+  }
+
   AudioEngine.prototype.stopLivePreview = function (immediate) {
-    this.livePreviewToken += 1
-    // 토큰이 올라간 순간 진행 중이던 로딩은 어차피 폐기된다 — 흔적도 같이 지운다.
+    this.livePreviewToken++
     this.livePending = null
     const live = this.livePreview
-    if (!live || !this.ctx) return
     this.livePreview = null
-    const now = this.ctx.currentTime
-    const stopAt = immediate ? now : now + 0.09
-    try {
-      live.env.gain.cancelScheduledValues(now)
-      live.env.gain.setTargetAtTime(0.0001, now, immediate ? 0.001 : 0.025)
-    } catch (e) {}
-    try {
-      ;(live.stopNodes || []).forEach(function (node) {
-        try {
-          node.stop(stopAt)
-        } catch (e) {}
-      })
-    } catch (e) {}
+    if (!this.ctx) return
+    if (!immediate && live && live.plucked) { if (!live.ended) this.liveRetiring.add(live); return }
+    if (immediate) {
+      for (const old of this.liveRetiring) this._retireLivePreview(old, this.ctx, 0.005)
+      this.liveRetiring.clear()
+    }
+    this._retireLivePreview(live, this.ctx, immediate ? 0.005 : 0.09)
   }
 
   // --- 드로잉 화면 배경음(패드 루프) ---

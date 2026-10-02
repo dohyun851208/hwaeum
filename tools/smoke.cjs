@@ -140,7 +140,7 @@ const files = [
   "js/music-core.js",
   "js/manifest.js",
   "js/sample-maps.js",
-  "js/sample-maps-western.js",
+  "js/sample-maps-western.js", "js/sample-calibration.js",
   "js/audio-plan.js",
   "js/audio-node-scope.js",
   "js/audio-pad-graph.js",

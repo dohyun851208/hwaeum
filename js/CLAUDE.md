@@ -12,6 +12,7 @@
 | `music-core.js` | **순수 로직** — 음계·피치 보정·시간 재샘플링·리듬·시김새·레시피 코덱·WAV 인코딩 | 없음(DOM·오디오 X) |
 | `manifest.js` | **데이터** — 음원·배경·악기·음계 카탈로그 | 없음 |
 | `sample-maps.js` | 악기 샘플 매핑(음이름→샘플, 피치 보정 기준) | 없음 |
+| `sample-calibration.js` | 체크인된 MP3의 실제 안정 구간 조율값. 기존 차용 cents와 별도로 적용 | manifest, sample-maps, sample-maps-western 뒤 |
 | `audio-plan.js` | **순수 재생 계획** — 샘플 선택·악기별 음 변환·획/프레이즈·탐색 구간 계산 | 호출 시 music-core, manifest 주입 |
 | `audio-node-scope.js` | transport/preview AudioScheduledSourceNode 수명·정리 범위 | 없음 |
 | `audio-pad-graph.js` | 전체 재생·드로잉 ambience가 공유하는 합성 패드 음색 그래프 | Web Audio 인터페이스 |
@@ -48,6 +49,8 @@ takes · studio-utils · studio-export · studio-setup-render · studio-transpor
 - 새 악기/음원/배경 추가 → `manifest.js` (+ 필요 시 `sample-maps.js`)
 - 음 보정·리듬·시김새·음계 규칙 → `music-core.js` (테스트 동반)
 - 샘플 선택·악기별 음 변환·탐색 계획 → `audio-plan.js`
+- 안정 구간·접합·완만한 포락선 보정·자연 감쇠 끝 검출 → `music-core.js`
+- 원음 조율 재측정 → `../tools/measure-sustain.cjs`, `../tools/calibrate-sustain.py` → `sample-calibration.js`
 - 합성음/실제음 폴백·렌더 품질 → `audio-engine.js`
 - 재생 노드 수명 → `audio-node-scope.js`, 합성 배경 패드 음색 그래프 → `audio-pad-graph.js`
 - 캔버스 입력·가이드 표시 → `drawing.js`

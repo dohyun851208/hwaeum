@@ -42,8 +42,14 @@
   function nearestSampleSegment(asset, midi) {
     const map = sampleMapFor(asset)
     if (!map) return null
-    let best = map[0]
-    for (const item of map) {
+    // min/maxRate는 소스 선택 범위다. 재생 배속을 자르면 표시 음높이가 틀어진다.
+    const eligible = map.filter(function (item) {
+      const rate = segmentPlaybackRate(asset, midi, item)
+      return (!asset.minRate || rate >= asset.minRate) && (!asset.maxRate || rate <= asset.maxRate)
+    })
+    const candidates = eligible.length ? eligible : map
+    let best = candidates[0]
+    for (const item of candidates) {
       if (Math.abs(item.midi - midi) < Math.abs(best.midi - midi)) best = item
     }
     return best
@@ -51,7 +57,7 @@
 
   function segmentPlaybackRate(asset, midi, segment) {
     if (!segment) return samplePlaybackRate(asset, midi)
-    const detectedSemitone = segment.midi + (segment.cents || 0) / 100
+    const detectedSemitone = segment.midi + ((segment.cents || 0) + (segment.tuningCents || 0)) / 100
     return Math.pow(2, (midi - detectedSemitone) / 12)
   }
 
@@ -188,6 +194,9 @@
           end: endTime - offset,
           duration: Math.max(0.01, endTime - startTime),
           events: events,
+          sourceEvents: (segment.sourceEvents || segment.events || []).map(function (event) {
+            return Object.assign({}, event, { time: event.time - offset })
+          }),
         })
       })
       .filter(function (segment) {
@@ -223,6 +232,21 @@
     if (!isFinite(end) || end <= start + 0.05) end = Math.min(total, start + (plan.totalDuration || plan.duration || 30))
     end = clamp(end, Math.min(total, start + 0.05), total)
     return { start: start, end: end, length: Math.max(0.05, end - start) }
+  }
+
+  // 한 칸을 오래 그린 것은 하나의 발음이다. 음이 바뀌면 그 음에 맞는 원음을
+  // 선택하고 짧게 겹친다. 음량·조율 보정은 각 발음이 고른 원음에 고정한다.
+  function sampleVoiceRuns(events, end) {
+    const runs = []
+    for (const event of events || []) {
+      // 획 끝점에만 있는 높이는 유지 시간이 0이다. 종료 뒤 새 소리를 만들지 않는다.
+      if (event.time >= end && runs.length) continue
+      const previous = runs[runs.length - 1]
+      if (previous && previous.midi === event.midi) continue
+      if (previous) previous.end = event.time
+      runs.push(Object.assign({}, event, { end: end, continuation: runs.length > 0 }))
+    }
+    return runs
   }
 
   // 사용자가 올린 긴 소리는 배경 구간과 독립된 작품 시간(초)에 놓인다.
@@ -442,6 +466,13 @@
       notes: shiftNotes(plan.notes),
       uiNotes: shiftNotes(plan.uiNotes),
       strokeSegments: shiftStrokeSegments(plan.strokeSegments, offset, totalDuration),
+      sourceStrokeSegments: (plan.strokeSegments || []).map(function (segment) {
+        return Object.assign({}, segment, {
+          start: segment.start - offset, end: segment.end - offset,
+          events: segment.events.map((event) => Object.assign({}, event, { time: event.time - offset })),
+        })
+      }).filter((segment) => segment.end + 6 > 0 && segment.start < remaining),
+      sourceNotes: (plan.notes || []).map((note) => Object.assign({}, note, { time: note.time - offset })),
       rhythmHits: shiftTimed(plan.rhythmHits),
       effectStamps: shiftTimed(plan.effectStamps),
       soundLayers: shiftSoundLayers(plan.soundLayers),
@@ -465,6 +496,7 @@
     resolvePlan: resolvePlan,
     sampleBufferFor: sampleBufferFor,
     sampleMapFor: sampleMapFor,
+    sampleVoiceRuns: sampleVoiceRuns,
     samplePlaybackRate: samplePlaybackRate,
     sampleSegmentBounds: sampleSegmentBounds,
     seekPlan: seekPlan,

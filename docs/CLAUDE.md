@@ -30,6 +30,8 @@
 - `decisions/2026-07-29-pen-preview-stable-region-start.md` — 펜 소리는 샘플 어택 대신 안정 구간(loopStart)에서 시작(여린 세기 녹음의 느린 음정 온셋 해결)
 - `decisions/2026-07-31-studio-workflow-modules.md` — `studio.js`의 시도 UI·공유 UI를 콜백 주입형 classic-script 팩토리로 분리
 
+- `decisions/2026-10-02-sustain-source-calibration.md` — 지속음 접합·음별 소스 전환·조율·가야금 자연 감쇠 통일
+
 ## 작성 규칙
 
 - 파일명: `YYYY-MM-DD-짧은제목.md` (날짜 = 작성/결정일)

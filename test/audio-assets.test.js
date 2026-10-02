@@ -8,7 +8,7 @@ const projectDir = path.resolve(__dirname, "..")
 
 function loadManifest() {
   const sandbox = {}
-  const files = ["manifest.js", "sample-maps.js", "sample-maps-western.js"]
+  const files = ["manifest.js", "sample-maps.js", "sample-maps-western.js", "sample-calibration.js"]
   sandbox.self = sandbox
   for (const file of files) {
     const code = fs.readFileSync(path.join(projectDir, "js", file), "utf8")
@@ -276,7 +276,7 @@ test("studio loads every audio dependency in browser order", () => {
     "./js/music-core.js",
     "./js/manifest.js",
     "./js/sample-maps.js",
-    "./js/sample-maps-western.js",
+    "./js/sample-maps-western.js", "./js/sample-calibration.js",
     "./js/audio-plan.js",
     "./js/audio-node-scope.js",
     "./js/audio-pad-graph.js",

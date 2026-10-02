@@ -7,7 +7,8 @@ const MusicCore = require(path.join(ROOT, "js", "music-core.js"))
 const WESTERN_IDS = new Set(["flute", "oboe", "clarinet", "frenchHorn", "violin", "viola", "cello", "doubleBass"])
 // 재생 시 포락선 기반 자동 루프를 쓰는 악기 — 들리는 음량이 그 루프 구간에서 나오므로
 // 측정도 같은 구간을 잰다. js/audio-engine.js 의 SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS 와 맞출 것.
-const AUTO_LOOP_IDS = new Set(["doubleBass"])
+const AUTO_LOOP_IDS = new Set([...WESTERN_IDS, "sogeum", "daegeum", "danso", "haegeum"])
+const EXTENDED_NOTE_GAIN_IDS = new Set(["doubleBass"])
 const PCM_SAMPLE_RATE = 44100
 const INSTRUMENT_IDS = [
   "flute",
@@ -29,7 +30,7 @@ const GUGAK_UI_MIDI = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76]
 const WESTERN_MELODY_OUTPUT_GAIN = 1.5
 const GUGAK_DRAWING_GAIN_BOOST = 1.3
 const NOTE_GAIN_LIMIT_DB = 3
-// 자동 루프 악기는 음마다 녹음 강약 차가 커서 더 넓게 보정한다.
+// 루프 적용 범위와 별개인, 측정으로 승인된 음별 보정 예외.
 // js/audio-engine.js 의 AUTO_LOOP_NOTE_GAIN_LIMIT_DB 와 맞출 것.
 const AUTO_LOOP_NOTE_GAIN_LIMIT_DB = 12
 
@@ -101,7 +102,9 @@ function measureMeanDb(absPath, offset, duration) {
   return match ? Number(match[1]) : NaN
 }
 
+const pcmCache = new Map()
 function decodePcm(absPath) {
+  if (pcmCache.has(absPath)) return pcmCache.get(absPath)
   const result = spawnSync(
     "ffmpeg",
     ["-hide_banner", "-loglevel", "error", "-i", absPath, "-f", "f32le", "-ac", "1", "-ar", String(PCM_SAMPLE_RATE), "-"],
@@ -109,7 +112,9 @@ function decodePcm(absPath) {
   )
   const buf = result.stdout
   if (!buf || !buf.length) return null
-  return new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 4))
+  const pcm = new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 4))
+  pcmCache.set(absPath, pcm)
+  return pcm
 }
 
 function pcmMeanDb(pcm, offset, duration) {
@@ -122,12 +127,19 @@ function pcmMeanDb(pcm, offset, duration) {
 }
 
 // 자동 루프 악기: 재생이 실제로 반복하는 안정 구간의 RMS를 잰다. 검출 실패 시 null(호출부 폴백).
-function autoLoopMeanDb(absPath) {
+function autoLoopMeanDb(absPath, offset, duration) {
   const pcm = decodePcm(absPath)
   if (!pcm || !pcm.length) return null
-  const region = MusicCore.findStableLoopRegion(pcm, PCM_SAMPLE_RATE, 0, pcm.length / PCM_SAMPLE_RATE)
+  const first = Math.floor((offset || 0) * PCM_SAMPLE_RATE)
+  const last = duration > 0 ? Math.min(pcm.length, Math.ceil(((offset || 0) + duration) * PCM_SAMPLE_RATE)) : pcm.length
+  const source = pcm.subarray(first, last)
+  const region = MusicCore.findStableLoopRegion(source, PCM_SAMPLE_RATE, 0, source.length / PCM_SAMPLE_RATE, { targetLoopSec: 1.02, minLoopSec: 0.42, align: false })
   if (!region) return null
-  return pcmMeanDb(pcm, region.start, region.end - region.start)
+  const leveled = MusicCore.levelSustainSupport([source], PCM_SAMPLE_RATE, region)
+  const frames = MusicCore.sustainLoopFrames(leveled, PCM_SAMPLE_RATE, region)
+  if (!frames) return null
+  const baked = MusicCore.crossfadeSustainLoop(leveled[0], frames)
+  return pcmMeanDb(baked, frames.start / PCM_SAMPLE_RATE, (frames.end - frames.start) / PCM_SAMPLE_RATE)
 }
 
 function nearestSample(asset, midi) {
@@ -174,10 +186,10 @@ function measureSegmentSource(id, asset, segment) {
   if (!rel) return null
   const absPath = relativePathToAbs(rel)
   if (!fs.existsSync(absPath)) return null
-  const range = segment && !segment.src && (segment.offset != null || segment.duration != null)
+  const range = id === "gayageum" ? pluckedAttackRange(segment) : segment && !segment.src && (segment.offset != null || segment.duration != null)
     ? stableSegmentRange(segment)
     : stableWholeFileRange(absPath)
-  const loopDb = AUTO_LOOP_IDS.has(id) && segment && segment.src ? autoLoopMeanDb(absPath) : null
+  const loopDb = AUTO_LOOP_IDS.has(id) ? autoLoopMeanDb(absPath, segment && !segment.src ? segment.offset : 0, segment && !segment.src ? segment.duration : 0) : null
   return {
     sourceDb: loopDb != null ? loopDb : measureMeanDb(absPath, range.offset, range.duration),
     sourceFile: path.basename(rel),
@@ -225,10 +237,19 @@ function printNoteGainCandidates(data, gains) {
     let maxRaw = -Infinity
     let minAfter = Infinity
     let maxAfter = -Infinity
-    const limitDb = AUTO_LOOP_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
+    const limitDb = EXTENDED_NOTE_GAIN_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
+    // 보정 한도 때문에 큰 음만 줄어드는 경우에도 악기 전체의 평균은 유지한다.
+    let low = -24, high = 24
+    for (let pass = 0; pass < 48; pass++) {
+      const center = (low + high) / 2
+      const adjusted = energyAverageDb(rows.map((row) => row.effectiveDb + clamp(targetDb - row.effectiveDb + center, -limitDb, limitDb)))
+      if (adjusted < targetDb) low = center
+      else high = center
+    }
+    const normalizationDb = (low + high) / 2
     for (const row of rows) {
-      const deltaDb = clamp(targetDb - row.effectiveDb, -limitDb, limitDb)
-      const gain = Math.pow(10, deltaDb / 20)
+      const deltaDb = clamp(targetDb - row.effectiveDb + normalizationDb, -limitDb, limitDb)
+      const gain = id === "gayageum" ? 1 : Math.pow(10, deltaDb / 20)
       map[row.uiMidi] = Number(gain.toFixed(3))
       minRaw = Math.min(minRaw, row.effectiveDb)
       maxRaw = Math.max(maxRaw, row.effectiveDb)
@@ -258,7 +279,7 @@ function printNoteDetails(data, gains, noteGains) {
   console.log("instrument,uiMidi,playbackMidi,sourceMidi,sourceNote,sourceDb,currentAfterDb,localReferenceDb,quietVsNeighborsDb,upperGainLimit,sourceFile")
   for (const id of INSTRUMENT_IDS) {
     const rows = instrumentRows(data, id, gains)
-    const limitDb = AUTO_LOOP_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
+    const limitDb = EXTENDED_NOTE_GAIN_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
     const maxGain = Math.pow(10, limitDb / 20)
     const afterRows = rows.map((row) => {
       const gain = noteGains[id] && noteGains[id][row.uiMidi] > 0 ? noteGains[id][row.uiMidi] : 1
@@ -302,7 +323,7 @@ function printReplacementCandidates(data, gains, noteGains) {
     const asset = data.melodies[id]
     const rows = instrumentRows(data, id, gains)
     const targetDb = energyAverageDb(rows.map((row) => row.effectiveDb))
-    const limitDb = AUTO_LOOP_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
+    const limitDb = EXTENDED_NOTE_GAIN_IDS.has(id) ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB : NOTE_GAIN_LIMIT_DB
     const baseOutputDb =
       dbGain(WESTERN_IDS.has(id) ? WESTERN_MELODY_OUTPUT_GAIN : GUGAK_DRAWING_GAIN_BOOST) +
       dbGain(gains[id] == null ? 1 : gains[id])

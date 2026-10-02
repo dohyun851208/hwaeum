@@ -21,7 +21,7 @@ function loadManifest() {
   const sandbox = {}
   sandbox.self = sandbox
   vm.createContext(sandbox)
-  for (const file of ["manifest.js", "sample-maps.js", "sample-maps-western.js"]) {
+  for (const file of ["manifest.js", "sample-maps.js", "sample-maps-western.js", "sample-calibration.js"]) {
     const code = fs.readFileSync(path.join(projectDir, "js", file), "utf8")
     vm.runInContext(code, sandbox, { filename: file })
   }

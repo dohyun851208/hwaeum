@@ -14,7 +14,7 @@ function loadEngine() {
   for (const file of [
     "manifest.js",
     "sample-maps.js",
-    "sample-maps-western.js",
+    "sample-maps-western.js", "sample-calibration.js",
     "audio-plan.js",
     "audio-node-scope.js",
     "audio-pad-graph.js",
@@ -129,6 +129,99 @@ function makeAudioContext() {
     },
   }
 }
+
+function sustainFixture(id) {
+  const sandbox = loadEngine(), engine = new sandbox.AudioEngine(), ctx = makeAudioContext()
+  engine.ctx = ctx
+  const recipe = { duration: 6, atmosphere: "none", instrument: id, style: ["danso", "gayageum", "haegeum"].includes(id) ? "gugak" : "bright", version: "balanced", mode: "melody" }
+  const plan = engine.resolvePlan(recipe, [])
+  const rows = core.drawableScale(plan.style, plan.melodyAsset)
+  const y = (midi) => 1 - (rows.indexOf(midi) + .5) / rows.length
+  const samples = {}
+  for (const segment of plan.melodyAsset.sampleMap) {
+    const buffer = { duration: 180, id: segment.src || segment.offset }
+    samples[segment.midi] = buffer
+    if (segment.src) engine.decodedCache.set(segment.src, buffer)
+  }
+  const buffer = { duration: 180 }
+  engine.decodedCache.set(plan.melodyAsset.src, buffer)
+  return { sandbox, engine, ctx, recipe, plan, y, samples, buffer }
+}
+
+test("수평 획은 유지하고 음을 옮길 때 원음과 고정 보정을 함께 교체한다", async () => {
+  for (const [id, from, to] of [["doubleBass",74,76], ["viola",57,59], ["flute",64,65], ["danso",57,64]]) {
+    const f = sustainFixture(id)
+    await f.engine.liveDrawingStart(f.recipe, f.y(from))
+    const old = f.engine.livePreview
+    const originalGainEvents = plain(old.noteGain.gain.events)
+    await f.engine.liveDrawingMove(f.recipe, f.y(from))
+    assert.equal(f.engine.livePreview, old, id + " 수평 획")
+    f.ctx.currentTime = 1
+    await f.engine.liveDrawingMove(f.recipe, f.y(to))
+    const next = f.engine.livePreview
+    assert.notEqual(next.source, old.source, id + " 도착 칸 원음")
+    assert.deepEqual(plain(old.noteGain.gain.events), originalGainEvents, id + " 이전 원음의 게인은 바꾸지 않는다")
+    assert.ok(next.source.startCalls[0][1] > 0, "이어지는 관악기 발음을 다시 공격하지 않는다")
+    const midi = f.engine._liveMidi(f.plan, f.y(to))
+    const segment = f.sandbox.SDAudioPlan.nearestSampleSegment(f.plan.melodyAsset, midi)
+    const recorded = segment.midi + ((segment.cents || 0) + (segment.tuningCents || 0)) / 100
+    assert.ok(Math.abs(recorded + 12*Math.log2(next.source.playbackRate.events[0][1]) - midi) < 1e-9)
+    const storedCtx = makeAudioContext()
+    f.engine.scheduleSampleStrokes(storedCtx, storedCtx.destination, f.plan, [{ end: 4, events: [{ time: 0, midi: f.engine._liveMidi(f.plan, f.y(from)), uiMidi: from }, { time: 1, midi, uiMidi: to }] }], { melody: f.buffer, melodySamples: f.samples }, 0, noop)
+    assert.equal(storedCtx.created.buffers[1].playbackRate.events[0][1], next.source.playbackRate.events[0][1], id + " 그릴 때와 재생 배속")
+  }
+})
+
+test("음원 로딩 중 왕복하거나 펜을 떼면 늦게 온 음이 재생되지 않는다", async () => {
+  const f = sustainFixture("violin")
+  await f.engine.liveDrawingStart(f.recipe, f.y(55))
+  const old = f.engine.livePreview
+  f.engine.decodedCache.clear()
+  let finish
+  f.engine.loadBuffer = () => new Promise((resolve) => { finish = resolve })
+  await f.engine.liveDrawingMove(f.recipe, f.y(79))
+  assert.equal(f.engine.livePreview, old, "파일을 기다리는 동안 기존 발음을 유지")
+  await f.engine.liveDrawingMove(f.recipe, f.y(55))
+  finish({ duration: 2 })
+  await Promise.resolve()
+  assert.equal(f.engine.livePreview, old, "되돌아온 뒤의 낡은 요청은 폐기")
+  await f.engine.liveDrawingMove(f.recipe, f.y(79))
+  f.engine.liveDrawingEnd()
+  finish({ duration: 2 })
+  await Promise.resolve()
+  assert.equal(f.engine.livePreview, null, "펜을 뗀 뒤 소리가 새로 시작하면 안 된다")
+})
+
+test("플레이헤드부터 시작해도 해당 발음의 파일·배속·루프 위상을 복원한다", () => {
+  const f = sustainFixture("violin")
+  f.plan.strokeSegments = [{ start: 0, end: 6, duration: 6, events: [{ time: 0, midi: 55, uiMidi: 55 }, { time: 3, midi: 79, uiMidi: 79 }] }]
+  f.engine.scheduleSampleStrokes(f.ctx, f.ctx.destination, f.plan, f.plan.strokeSegments, { melody: f.buffer, melodySamples: f.samples }, 0, noop)
+  const full = f.ctx.created.buffers[1]
+  const seek = f.engine.seekPlan(f.plan, 4.5), ctx = makeAudioContext()
+  f.engine.scheduleSampleStrokes(ctx, ctx.destination, seek, seek.strokeSegments, { melody: f.buffer, melodySamples: f.samples }, 0, noop)
+  assert.equal(ctx.created.buffers.length, 1)
+  const resumed = ctx.created.buffers[0]
+  assert.equal(resumed.buffer, full.buffer)
+  const rate = full.playbackRate.events[0][1]
+  assert.equal(resumed.playbackRate.events[0][1], rate)
+  let expected = full.startCalls[0][1] + 1.5 * rate
+  if (expected >= full.loopEnd) expected = full.loopStart + (expected - full.loopStart) % (full.loopEnd - full.loopStart)
+  assert.ok(Math.abs(resumed.startCalls[0][1] - expected) < 1e-9)
+  assert.ok(rate < 1.1, "낮은 솔 파일의 4배속을 끌고 오지 않는다")
+})
+
+test("단소 미리듣기와 저장 획은 같은 필터·음원 구간으로 이어진다", async () => {
+  const f = sustainFixture("danso")
+  await f.engine.liveDrawingStart(f.recipe, f.y(57))
+  f.ctx.currentTime = 1
+  await f.engine.liveDrawingMove(f.recipe, f.y(64))
+  const live = f.engine.livePreview
+  assert.ok(live.filter)
+  const ctx = makeAudioContext(), midi = f.engine._liveMidi(f.plan, f.y(64))
+  f.engine.scheduleSampleStrokes(ctx, ctx.destination, f.plan, [{ end: 4, events: [{ time: 0, midi: 69, uiMidi: 57 }, { time: 1, midi, uiMidi: 64 }] }], { melody: f.buffer }, 0, noop)
+  assert.equal(ctx.created.buffers[1].startCalls[0][1], live.source.startCalls[0][1])
+  assert.equal(ctx.created.filters.length, 2)
+})
 
 function expectedStableLoop(duration, offset = 0) {
   const dur = Number(duration) || 0
@@ -298,7 +391,7 @@ test("gayageum synth fallback decays like a plucked string instead of holding a 
   assert.equal(gainEvents.some((event) => event[0] === "set" && event[1] > 0.1 && event[2] > 1), false)
 })
 
-test("scheduleSampleMelody sustains contiguous notes as one connected sample phrase", () => {
+test("sample phrases crossfade the selected source for each changed pitch", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -315,8 +408,9 @@ test("scheduleSampleMelody sustains contiguous notes as one connected sample phr
 
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: buffer, melodySamples: null }, 0, noop)
 
-  assert.equal(ctx.created.buffers.length, 1)
-  assert.ok(ctx.created.buffers[0].playbackRate.events.length >= 3)
+  assert.equal(ctx.created.buffers.length, 3)
+  assert.ok(ctx.created.buffers.every((source) => source.playbackRate.events.length === 1))
+  assert.ok(ctx.created.buffers[0].stopCalls[0][0] > ctx.created.buffers[1].startCalls[0][0])
 })
 
 test("scheduleSampleMelody bridges tiny drawing gaps as one connected sample phrase", () => {
@@ -359,7 +453,7 @@ test("sample playback mirrors live drawing by not adding synthetic ornament ramp
   const rateEvents = ctx.created.buffers[0].playbackRate.events
   assert.equal(rateEvents.filter((event) => event[0] === "set").length, 1)
   assert.equal(rateEvents.some((event) => event[0] === "linear"), false)
-  assert.ok(rateEvents.some((event) => event[0] === "target"))
+  assert.equal(rateEvents.some((event) => event[0] === "target"), false)
 })
 
 test("full playback uses stored drawing strokes as one continuous sample source", () => {
@@ -404,7 +498,7 @@ test("full playback uses stored drawing strokes as one continuous sample source"
   assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 15)
 })
 
-test("stroke sample playback uses live drawing glide timing", () => {
+test("stroke sample playback overlaps successive sustained voices", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -420,7 +514,7 @@ test("stroke sample playback uses live drawing glide timing", () => {
     style: "gugak",
     version: "balanced",
     mode: "melody",
-    strokes: [[{ x: 0, y: yFor(67) }, { x: 0.25, y: yFor(69) }]],
+    strokes: [[{ x: 0, y: yFor(67) }, { x: 0.25, y: yFor(69) }, { x: 0.5, y: yFor(69) }]],
     strokeInstruments: ["haegeum"],
   }
   const plan = engine.resolvePlan(recipe, [{ time: 0, duration: 7.5, midi: 60, velocity: 0.7, voice: 0 }])
@@ -440,9 +534,9 @@ test("stroke sample playback uses live drawing glide timing", () => {
     noop,
   )
 
-  const target = ctx.created.buffers[0].playbackRate.events.find((event) => event[0] === "target")
-  assert.ok(target)
-  assert.equal(target[3], 0.09)
+  assert.equal(ctx.created.buffers.length, 2)
+  const overlap = ctx.created.buffers[0].stopCalls[0][0] - ctx.created.buffers[1].startCalls[0][0]
+  assert.ok(Math.abs(overlap - 0.04) < 1e-9)
 })
 
 test("stroke sample playback ignores mapped offsets outside the loaded buffer", () => {
@@ -512,7 +606,7 @@ test("sample melody playback ignores mapped offsets outside the loaded buffer", 
   assert.equal(ctx.created.buffers[0].startCalls[0][1], 0)
 })
 
-test("scheduleSampleMelody snaps sustained sample loops to nearby zero crossings", () => {
+test("sustain fallback stays within the source buffer when channel metadata is incomplete", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -531,8 +625,8 @@ test("scheduleSampleMelody snaps sustained sample loops to nearby zero crossings
 
   assert.equal(ctx.created.buffers.length, 1)
   assert.equal(ctx.created.buffers[0].loop, true)
-  assert.equal(ctx.created.buffers[0].loopStart, 0.69)
-  assert.equal(ctx.created.buffers[0].loopEnd, 1.88)
+  assert.ok(ctx.created.buffers[0].loopStart >= 0)
+  assert.ok(ctx.created.buffers[0].loopEnd <= buffer.duration)
 })
 
 test("sustained sample playback bakes a crossfaded loop buffer when PCM data is available", () => {
@@ -710,7 +804,7 @@ test("double bass without PCM data still falls back to the fixed ratio loop", ()
   assertStableLoop(ctx.created.buffers[0], 2.4)
 })
 
-test("multi-sample melody sustains contiguous notes as one connected phrase", () => {
+test("multi-sample melody selects the destination pitch source at every transition", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -737,12 +831,11 @@ test("multi-sample melody sustains contiguous notes as one connected phrase", ()
     noop,
   )
 
-  assert.equal(ctx.created.buffers.length, 1)
-  assert.deepEqual(ctx.created.buffers[0].buffer, c4)
-  assert.ok(ctx.created.buffers[0].playbackRate.events.some((event) => event[0] === "target"))
+  assert.deepEqual(ctx.created.buffers.map((source) => source.buffer), [c4, d4, e4])
+  assert.ok(ctx.created.buffers.every((source) => source.playbackRate.events.length === 1))
 })
 
-test("haegeum connected notes glide smoothly without re-triggering the grace bend", () => {
+test("haegeum transitions enter the sustain without synthetic grace bends", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -769,9 +862,9 @@ test("haegeum connected notes glide smoothly without re-triggering the grace ben
 
   const rateEvents = ctx.created.buffers[0].playbackRate.events
   const targets = rateEvents.filter((event) => event[0] === "target")
-  assert.equal(ctx.created.buffers.length, 1)
-  assert.ok(targets.length >= 2, "connected haegeum notes should glide on the same sample source")
-  assert.ok(targets.every((event) => event[3] === 0.12), "haegeum uses a slower full-playback glide")
+  assert.equal(ctx.created.buffers.length, 3)
+  assert.equal(targets.length, 0)
+  assert.ok(ctx.created.buffers[1].startCalls[0][1] > 0, "continuation skips the recorded attack")
   assert.equal(
     rateEvents.some((event) => event[0] === "set" && Math.abs(event[2] - 0.5) < 1e-6),
     false,
@@ -812,55 +905,7 @@ test("multi-sample melody keeps separate strokes as separate sample starts", () 
   )
 })
 
-test("멀티샘플 악기는 드로잉 중 비동기 재시작 없이 피치만 글라이드해야 한다(실시간 미리듣기 무음 방지)", () => {
-  const sandbox = loadEngine()
-  const engine = new sandbox.AudioEngine()
-  const mockCtx = { currentTime: 1, state: "running" }
-  engine.ensureContext = () => mockCtx
 
-  const recipe = { duration: 30, atmosphere: "calm", instrument: "violin", style: "bright", version: "balanced", mode: "melody" }
-  const plan = engine.resolvePlan(recipe, [])
-  assert.equal(plan.melodyAsset.sampleMode, "multi", "전제: violin 은 멀티샘플")
-
-  const rateParam = makeParam()
-  engine.livePreview = { kind: "sample", signature: engine._liveSignature(plan), sampleMidi: plan.melodyAsset.baseMidi, rateParam: rateParam }
-
-  let restarted = false
-  engine.stopLivePreview = () => { restarted = true }
-  engine.liveDrawingStart = () => { restarted = true; return Promise.resolve() }
-
-  // 음높이를 여기저기 옮겨도(샘플 경계를 여러 번 넘어도) 재시작이 일어나면 안 된다.
-  engine.liveDrawingMove(recipe, 0.1)
-  engine.liveDrawingMove(recipe, 0.9)
-  engine.liveDrawingMove(recipe, 0.4)
-
-  assert.equal(restarted, false, "멀티샘플 미리듣기는 음 경계마다 재시작하면 안 됨")
-  assert.ok(rateParam.events.some((e) => e[0] === "target"), "playbackRate 를 글라이드해야 함")
-})
-
-test("haegeum live drawing preview uses a slower pitch glide", () => {
-  const sandbox = loadEngine()
-  const engine = new sandbox.AudioEngine()
-  const ctx = makeAudioContext()
-  const recipe = { duration: 30, atmosphere: "calm", instrument: "haegeum", style: "gugak", version: "balanced", mode: "melody" }
-  const plan = engine.resolvePlan(recipe, [])
-  const rateParam = makeParam()
-  engine.ensureContext = () => ctx
-  engine.livePreview = {
-    kind: "sample",
-    signature: engine._liveSignature(plan),
-    sampleMidi: 67,
-    rateParam: rateParam,
-  }
-
-  const rows = core.drawableScale(plan.style, plan.melodyAsset)
-  const y = 1 - (rows.indexOf(67) + 0.5) / rows.length
-  engine.liveDrawingMove(recipe, y)
-
-  const target = rateParam.events.find((event) => event[0] === "target")
-  assert.ok(target, "haegeum live preview should glide instead of restarting")
-  assert.equal(target[3], 0.09)
-})
 
 test("live drawing preview uses the full-playback melody gain target", () => {
   const sandbox = loadEngine()
@@ -876,7 +921,7 @@ test("live drawing preview uses the full-playback melody gain target", () => {
   const target = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
   const expected = plan.version.melodyGain * 1.5 * 0.81 * (0.7 * 0.85) * 0.56
   const noteGain = ctx.created.gains[1].gain.events.find((event) => event[0] === "set")[1]
-  assert.ok(Math.abs(noteGain - Math.min(0.95, expected * 1.329) / expected) < 1e-9)
+  assert.ok(Math.abs(noteGain - Math.pow(10, 3 / 20)) < 1e-9)
   assert.ok(Math.abs(target - expected) < 1e-9, "드로잉 중 미리듣기 음량은 전체 재생 선율 기준을 따라야 한다")
   assert.ok(target <= 0.95, "마스터 리미터 없는 프리뷰는 클리핑 방지 상한을 지켜야 한다")
 })
@@ -893,7 +938,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine._createSampleLivePreview(previewCtx, plan, { duration: 2.4 }, 0.5)
 
   const previewTarget = previewCtx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const previousDrawingTarget = plan.version.melodyGain * 0.52 * (0.7 * 0.85) * 0.56
+  const previousDrawingTarget = plan.version.melodyGain * 0.62 * (0.7 * 0.85) * 0.56
   assert.ok(Math.abs(previewTarget - previousDrawingTarget * 1.3) < 1e-9)
 
   const ctx = makeAudioContext()
@@ -901,7 +946,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
   const phrasePeak = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
-  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.52 * 0.56
+  const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.62 * 0.56
   assert.ok(Math.abs(playbackOutputTarget - previewTarget) < 1e-9)
 
   const toneFilter = ctx.created.filters.find((filter) => filter.frequency.events.some((event) => event[1] === 2300))
@@ -1330,19 +1375,19 @@ test("선율 gain은 서양 기준과 악기별 음량 보정을 함께 적용�
 
   const hasGain = (values, expected) => values.some((value) => Math.abs(value - expected) < 1e-9)
 
-  assert.ok(hasGain(fluteValues, 1.68 * 1.5 * 1.08), "flute gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(oboeValues, 1.68 * 1.5 * 1.03), "oboe gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(clarinetValues, 1.68 * 1.5 * 0.91), "clarinet gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(frenchHornValues, 1.68 * 1.5 * 1.3332), "french horn gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(fluteValues, 1.68 * 1.5 * 1.32), "flute gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(oboeValues, 1.68 * 1.5 * 1.29), "oboe gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(clarinetValues, 1.68 * 1.5 * 1.11), "clarinet gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(frenchHornValues, 1.68 * 1.5 * 1.25), "french horn gain follows measured instrument loudness calibration")
   assert.ok(hasGain(violinValues, 1.68 * 1.5 * 0.81), "violin is the reference calibrated instrument gain")
-  assert.ok(hasGain(violaValues, 1.68 * 1.5 * 1.15), "viola gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(celloValues, 1.68 * 1.5 * 0.73), "cello gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(doubleBassValues, 1.68 * 1.5 * 0.296), "double bass gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(sogeumValues, 1.68 * 0.52), "sogeum gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(daegeumValues, 1.68 * 0.97), "daegeum gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(dansoValues, 1.68 * 0.23), "danso gain follows measured instrument loudness calibration")
-  assert.ok(hasGain(gayageumValues, 1.68 * 0.522), "gayageum output is trimmed because plucked attack peaks read louder than sustain RMS")
-  assert.ok(hasGain(haegeumValues, 1.68 * 0.36), "haegeum gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(violaValues, 1.68 * 1.5 * 1.3), "viola gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(celloValues, 1.68 * 1.5 * 0.89), "cello gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(doubleBassValues, 1.68 * 1.5 * 0.35), "double bass gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(sogeumValues, 1.68 * 0.62), "sogeum gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(daegeumValues, 1.68 * 1.16), "daegeum gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(dansoValues, 1.68 * 0.2), "danso gain follows measured instrument loudness calibration")
+  assert.ok(hasGain(gayageumValues, 1.68 * 0.45), "gayageum output is trimmed because plucked attack peaks read louder than sustain RMS")
+  assert.ok(hasGain(haegeumValues, 1.68 * 0.43), "haegeum gain follows measured instrument loudness calibration")
   assert.equal(sogeumValues.includes(1.68 * 1.5), false, "국악기 선율에는 서양 1.5배 증폭을 적용하지 않는다")
 })
 
@@ -1391,22 +1436,23 @@ test("viola F4 uses the measured replacement-sample gain and pitch correction", 
     noop,
   )
 
-  const expectedRate = Math.pow(2, -1 / 12)
+  const selected = sandbox.SDAudioPlan.nearestSampleSegment(plan.melodyAsset, 65)
+  const expectedRate = Math.pow(2, (-100 - (selected.tuningCents || 0)) / 1200)
   const rateEvents = ctx.created.buffers[0].playbackRate.events
   const gainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
   assert.ok(rateEvents.some((event) => event[0] === "set" && Math.abs(event[1] - expectedRate) < 1e-12))
-  assert.ok(gainEvents.some((event) => (event[0] === "set" || event[0] === "target") && Math.abs(event[1] - 1.345) < 1e-9))
+  assert.ok(gainEvents.some((event) => (event[0] === "set" || event[0] === "target") && Math.abs(event[1] - Math.pow(10, 3 / 20)) < 1e-9))
 })
 
 test("audited isolated quiet rows use replacement pitch and measured gain", () => {
   const cases = [
-    { id: "flute", midi: 71, cents: -200, gain: 1.306 },
-    { id: "violin", midi: 76, cents: -100, gain: 1.323 },
-    { id: "viola", midi: 69, cents: -100, gain: 1.295 },
-    { id: "viola", midi: 71, cents: -100, gain: 0.747 },
-    { id: "viola", midi: 74, cents: -200, gain: 1.236 },
-    { id: "cello", midi: 69, cents: -100, gain: 0.765 },
-    { id: "sogeum", midi: 69, cents: 191, gain: 1.047 },
+    { id: "flute", midi: 71, cents: -200, gain: Math.pow(10, 3 / 20) },
+    { id: "violin", midi: 76, cents: -100, gain: 1.397 },
+    { id: "viola", midi: 69, cents: -100, gain: Math.pow(10, 3 / 20) },
+    { id: "viola", midi: 71, cents: -100, gain: 0.934 },
+    { id: "viola", midi: 74, cents: -200, gain: 1.259 },
+    { id: "cello", midi: 69, cents: -100, gain: 0.789 },
+    { id: "sogeum", midi: 69, cents: 191, gain: Math.pow(10, 3 / 20) },
     { id: "haegeum", midi: 76, cents: 100, gain: Math.pow(10, 3 / 20) },
   ]
 
@@ -1437,7 +1483,8 @@ test("audited isolated quiet rows use replacement pitch and measured gain", () =
       noop,
     )
 
-    const expectedRate = Math.pow(2, -item.cents / 1200)
+    const selected = sandbox.SDAudioPlan.nearestSampleSegment(plan.melodyAsset, plan.notes[0].midi)
+    const expectedRate = Math.pow(2, (-item.cents - (selected.tuningCents || 0)) / 1200)
     const rateEvents = ctx.created.buffers[0].playbackRate.events
     const gainEvents = ctx.created.gains.flatMap((gain) => gain.gain.events)
     assert.ok(
@@ -1456,69 +1503,6 @@ test("audited isolated quiet rows use replacement pitch and measured gain", () =
 // 이웃 음 파일을 빌려 쓴 칸(cents != 0)은 "그리는 중" 소리도 제 음높이로 나야 한다.
 // 예전엔 글라이드 배속을 표기 midi 뺄셈으로만 구해서, 비올라 라·시·레·파와 첼로 라가
 // 빌려 온 파일 그대로(반음~온음 낮게/높게) 났다. 재생은 멀쩡한데 펜 소리만 어긋났다.
-test("드로잉 중 글라이드도 빌려 쓴 샘플의 실제 음높이를 보정한다", () => {
-  const cases = [
-    { id: "flute", midi: 71 },
-    { id: "violin", midi: 76 },
-    { id: "viola", midi: 65 },
-    { id: "viola", midi: 69 },
-    { id: "viola", midi: 71 },
-    { id: "viola", midi: 74 },
-    { id: "cello", midi: 69 },
-    { id: "viola", midi: 67, plain: true }, // 대조군: 빌려 쓰지 않은 칸
-  ]
-
-  for (const item of cases) {
-    const sandbox = loadEngine()
-    const engine = new sandbox.AudioEngine()
-    const ctx = makeAudioContext()
-    engine.ensureContext = () => ctx
-
-    const recipe = {
-      duration: 30,
-      atmosphere: "calm",
-      instrument: item.id,
-      style: "bright",
-      version: "balanced",
-      mode: "melody",
-    }
-    const plan = engine.resolvePlan(recipe, [])
-    const rows = core.drawableScale(plan.style, plan.melodyAsset)
-    const rowIndex = rows.indexOf(item.midi)
-    assert.ok(rowIndex >= 0, `${item.id} 도화지에 ${item.midi} 칸이 있어야 함`)
-    const y = 1 - (rowIndex + 0.5) / rows.length
-
-    const playMidi = engine._liveMidi(plan, y)
-    const segment = sandbox.SDAudioPlan.nearestSampleSegment(plan.melodyAsset, playMidi)
-    assert.ok(segment, `${item.id} ${item.midi} 세그먼트`)
-    if (item.plain) assert.ok(!segment.cents, `${item.id} ${item.midi} 는 대조군(cents 없음)`)
-    else assert.ok(segment.cents, `${item.id} ${item.midi} 는 빌려 쓴 칸이어야 함(cents != 0)`)
-
-    // 이 칸에서 획을 시작한 상태 — 획 하나는 시작할 때 고른 파일 하나로 끝까지 간다.
-    const rateParam = makeParam()
-    engine.livePreview = {
-      kind: "sample",
-      signature: engine._liveSignature(plan),
-      sampleMidi: segment.midi,
-      sampleSegment: segment,
-      rateParam: rateParam,
-      rateParams: [rateParam],
-    }
-    engine.stopLivePreview = () => assert.fail(`${item.id} ${item.midi} 멀티샘플은 재시작하면 안 됨`)
-
-    engine.liveDrawingMove(recipe, y)
-
-    const target = rateParam.events.find((event) => event[0] === "target")
-    assert.ok(target, `${item.id} ${item.midi} 글라이드 이벤트`)
-    // 파일에 실제 녹음된 음높이 + 배속 = 학생이 그린 그 음이어야 한다.
-    const recordedPitch = segment.midi + (segment.cents || 0) / 100
-    const sounding = recordedPitch + 12 * Math.log2(target[1])
-    assert.ok(
-      Math.abs(sounding - playMidi) < 1e-9,
-      `${item.id} ${item.midi}: 그리는 중 ${sounding.toFixed(2)} 가 나옴(기대 ${playMidi})`,
-    )
-  }
-})
 
 test("note-level melody gain is clamped to roughly +/-3 dB inside each instrument", () => {
   const sandbox = loadEngine()
@@ -1539,7 +1523,7 @@ test("note-level melody gain is clamped to roughly +/-3 dB inside each instrumen
   const minGain = Math.pow(10, -3 / 20)
   const maxGain = Math.pow(10, 3 / 20)
   assert.ok(noteGainEvents.some((event) => event[0] === "set" && Math.abs(event[1] - 0.708) < 1e-9))
-  assert.ok(noteGainEvents.some((event) => event[0] === "target" && Math.abs(event[1] - maxGain) < 1e-9))
+  assert.ok(noteGainEvents.some((event) => event[0] === "set" && Math.abs(event[1] - maxGain) < 1e-9))
   assert.ok(0.708 >= minGain - 0.001)
   assert.ok(maxGain <= Math.pow(10, 3 / 20) + 0.001)
 })
@@ -1935,7 +1919,7 @@ test("배경음악 bgOffset: 버퍼 길이를 넘으면 클램프된다", () => 
   assert.ok(padSource.startCalls[0][1] <= 40, "bgOffset이 버퍼 길이로 클램프됨: " + padSource.startCalls[0][1])
 })
 
-test("짧게 그린 획도 라이브처럼 지속음(loop)으로 이어진다 — 한 source + 피치 글라이드", () => {
+test("짧은 획도 음별 안정 구간을 루프하고 겹쳐 연결한다", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -1969,15 +1953,15 @@ test("짧게 그린 획도 라이브처럼 지속음(loop)으로 이어진다 �
     noop,
   )
 
-  // 획 하나당 단 하나의 sample source (음마다 재타격하지 않음)
-  assert.equal(ctx.created.buffers.length, 1)
+  // 음이 바뀔 때만 별도 source로 이어 받는다. 유지 시간 0인 끝점에서는 새로 발음하지 않는다.
+  assert.equal(ctx.created.buffers.length, 2)
   assert.equal(ctx.created.buffers[0].startCalls.length, 1)
   // 핵심: 짧은 획도 이제 loop 로 지속됨 (게이트 통일의 직접 검증)
   assert.equal(ctx.created.buffers[0].loop, true)
-  // 음 변화는 새 source 가 아니라 playbackRate 글라이드로 표현됨
+  // 각 source의 배속은 그 원음과 목표 음높이에 고정된다.
   const rateEvents = ctx.created.buffers[0].playbackRate.events
   assert.equal(rateEvents.filter((event) => event[0] === "set").length, 1)
-  assert.ok(rateEvents.some((event) => event[0] === "target"), "음 변화는 playbackRate 글라이드여야 한다")
+  assert.equal(rateEvents.some((event) => event[0] === "target"), false)
 })
 
 test("gayageum stroke playback retriggers pitch changes instead of gliding one decayed pluck", () => {
@@ -2029,14 +2013,6 @@ test("gayageum stroke playback retriggers pitch changes instead of gliding one d
   })
 })
 
-test("드로잉 미리듣기와 전체 재생이 같은 지속음 헬퍼(continuousSustainPlan)를 쓴다", () => {
-  const source = fs.readFileSync(path.join(projectDir, "js", "audio-engine.js"), "utf8")
-  // 네 군데(획/멀티/단일 phrase 재생 + 라이브 미리듣기)가 모두 공통 헬퍼를 거쳐야 한다.
-  const calls = source.match(/continuousSustainPlan\(/g) || []
-  assert.ok(calls.length >= 5, "정의 1 + 호출 4 이상이어야 한다 (실제: " + calls.length + ")")
-  // 과거의 분기 기준(악구 길이 > 샘플 길이)이 스케줄러에 남아 있으면 안 된다.
-  assert.doesNotMatch(source, /needSustain = phraseDuration \* baseRate > usableSourceDur \* 0\.85/)
-})
 
 test("preparePlaybackSustain 은 continuousSustainPlan 안에서만 호출된다 (실제 source 이중 buffer 설정 방지)", () => {
   const source = fs.readFileSync(path.join(projectDir, "js", "audio-engine.js"), "utf8")

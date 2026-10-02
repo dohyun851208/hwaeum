@@ -15,7 +15,7 @@ function loadSandbox() {
     "music-core.js",
     "manifest.js",
     "sample-maps.js",
-    "sample-maps-western.js",
+    "sample-maps-western.js", "sample-calibration.js",
     "audio-plan.js",
     "audio-node-scope.js",
     "audio-pad-graph.js",

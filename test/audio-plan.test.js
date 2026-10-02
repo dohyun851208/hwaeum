@@ -17,7 +17,7 @@ function loadData() {
   const sandbox = {}
   sandbox.self = sandbox
   vm.createContext(sandbox)
-  for (const file of ["manifest.js", "sample-maps.js", "sample-maps-western.js"]) {
+  for (const file of ["manifest.js", "sample-maps.js", "sample-maps-western.js", "sample-calibration.js"]) {
     vm.runInContext(fs.readFileSync(path.join(projectDir, "js", file), "utf8"), sandbox, { filename: file })
   }
   return sandbox.SDStudioData
