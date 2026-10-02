@@ -8,8 +8,8 @@ const core = require("../js/music-core.js")
 
 const projectDir = path.resolve(__dirname, "..")
 
-function loadEngine() {
-  const sandbox = { MusicCore: core, setTimeout, clearTimeout }
+function loadEngine(timers) {
+  const sandbox = Object.assign({ MusicCore: core, setTimeout, clearTimeout }, timers)
   sandbox.self = sandbox
   for (const file of [
     "manifest.js",
@@ -131,7 +131,20 @@ function makeAudioContext() {
 }
 
 function sustainFixture(id) {
-  const sandbox = loadEngine(), engine = new sandbox.AudioEngine(), ctx = makeAudioContext()
+  const timers = new Map()
+  let serial = 0
+  const ctx = makeAudioContext()
+  const sandbox = loadEngine({
+    setTimeout(fn, ms) { const id = ++serial; timers.set(id, { fn, at: ctx.currentTime + ms / 1000 }); return id },
+    clearTimeout(id) { timers.delete(id) },
+  }), engine = new sandbox.AudioEngine()
+  function advance(seconds) {
+    const until = ctx.currentTime + seconds
+    for (const [id, timer] of timers) {
+      if (timer.at <= until) { timers.delete(id); ctx.currentTime = timer.at; timer.fn() }
+    }
+    ctx.currentTime = until
+  }
   engine.ctx = ctx
   const recipe = { duration: 6, atmosphere: "none", instrument: id, style: ["danso", "gayageum", "haegeum"].includes(id) ? "gugak" : "bright", version: "balanced", mode: "melody" }
   const plan = engine.resolvePlan(recipe, [])
@@ -145,7 +158,7 @@ function sustainFixture(id) {
   }
   const buffer = { duration: 180 }
   engine.decodedCache.set(plan.melodyAsset.src, buffer)
-  return { sandbox, engine, ctx, recipe, plan, y, samples, buffer }
+  return { sandbox, engine, ctx, recipe, plan, y, samples, buffer, advance, timers }
 }
 
 test("수평 획은 유지하고 음을 옮길 때 원음과 고정 보정을 함께 교체한다", async () => {
@@ -158,6 +171,7 @@ test("수평 획은 유지하고 음을 옮길 때 원음과 고정 보정을 �
     assert.equal(f.engine.livePreview, old, id + " 수평 획")
     f.ctx.currentTime = 1
     await f.engine.liveDrawingMove(f.recipe, f.y(to))
+    f.advance(.071)
     const next = f.engine.livePreview
     assert.notEqual(next.source, old.source, id + " 도착 칸 원음")
     assert.deepEqual(plain(old.noteGain.gain.events), originalGainEvents, id + " 이전 원음의 게인은 바꾸지 않는다")
@@ -180,12 +194,14 @@ test("음원 로딩 중 왕복하거나 펜을 떼면 늦게 온 음이 재생�
   let finish
   f.engine.loadBuffer = () => new Promise((resolve) => { finish = resolve })
   await f.engine.liveDrawingMove(f.recipe, f.y(79))
+  f.advance(.071)
   assert.equal(f.engine.livePreview, old, "파일을 기다리는 동안 기존 발음을 유지")
   await f.engine.liveDrawingMove(f.recipe, f.y(55))
   finish({ duration: 2 })
   await Promise.resolve()
   assert.equal(f.engine.livePreview, old, "되돌아온 뒤의 낡은 요청은 폐기")
   await f.engine.liveDrawingMove(f.recipe, f.y(79))
+  f.advance(.071)
   f.engine.liveDrawingEnd()
   finish({ duration: 2 })
   await Promise.resolve()
@@ -204,7 +220,7 @@ test("플레이헤드부터 시작해도 해당 발음의 파일·배속·루프
   assert.equal(resumed.buffer, full.buffer)
   const rate = full.playbackRate.events[0][1]
   assert.equal(resumed.playbackRate.events[0][1], rate)
-  let expected = full.startCalls[0][1] + 1.5 * rate
+  let expected = full.startCalls[0][1] + (4.5 - full.startCalls[0][0]) * rate
   if (expected >= full.loopEnd) expected = full.loopStart + (expected - full.loopStart) % (full.loopEnd - full.loopStart)
   assert.ok(Math.abs(resumed.startCalls[0][1] - expected) < 1e-9)
   assert.ok(rate < 1.1, "낮은 솔 파일의 4배속을 끌고 오지 않는다")
@@ -215,12 +231,66 @@ test("단소 미리듣기와 저장 획은 같은 필터·음원 구간으로 �
   await f.engine.liveDrawingStart(f.recipe, f.y(57))
   f.ctx.currentTime = 1
   await f.engine.liveDrawingMove(f.recipe, f.y(64))
+  f.advance(.071)
   const live = f.engine.livePreview
   assert.ok(live.filter)
   const ctx = makeAudioContext(), midi = f.engine._liveMidi(f.plan, f.y(64))
   f.engine.scheduleSampleStrokes(ctx, ctx.destination, f.plan, [{ end: 4, events: [{ time: 0, midi: 69, uiMidi: 57 }, { time: 1, midi, uiMidi: 64 }] }], { melody: f.buffer }, 0, noop)
   assert.equal(ctx.created.buffers[1].startCalls[0][1], live.source.startCalls[0][1])
   assert.equal(ctx.created.filters.length, 2)
+})
+
+test("경계의 50ms 왕복은 재발음하지 않고 새 칸에 멈추면 70ms 뒤 한 번 전환한다", async () => {
+  const f = sustainFixture("violin")
+  await f.engine.liveDrawingStart(f.recipe, f.y(55))
+  const first = f.engine.livePreview
+  for (let i = 0; i < 40; i++) {
+    await f.engine.liveDrawingMove(f.recipe, f.y(i % 2 ? 55 : 57))
+    f.advance(.05)
+  }
+  assert.equal(f.ctx.created.buffers.length, 1)
+  await f.engine.liveDrawingMove(f.recipe, f.y(57))
+  f.advance(.069)
+  assert.equal(f.engine.livePreview, first)
+  f.advance(.002)
+  const next = f.engine.livePreview
+  assert.equal(f.ctx.created.buffers.length, 2, "추가 pointermove 없이도 체류를 확인한다")
+  const middle = next.startedAt + .02
+  const amplitude = (live) => live.env.gain.events.find((e) => e[0] === "linear" && Math.abs(e[2] - middle) < 1e-8)[1] / live.baseTargetGain
+  assert.ok(Math.abs(amplitude(first) ** 2 + amplitude(next) ** 2 - 1) < 1e-9, "서로 다른 파일의 중간에서 전력이 꺼지지 않는다")
+  await f.engine.liveDrawingMove(f.recipe, f.y(59))
+  f.engine.liveDrawingEnd()
+  f.advance(.1)
+  assert.equal(f.ctx.created.buffers.length, 2, "펜을 뗀 뒤 체류 타이머가 발음하면 안 된다")
+  assert.equal(f.timers.size, 0)
+})
+
+test("전체 곡의 각 획은 원음 어택부터, 서양 펜 소리와 이어지는 음은 안정 구간부터 시작한다", () => {
+  const f = sustainFixture("violin")
+  f.engine.scheduleSampleStrokes(f.ctx, f.ctx.destination, f.plan, [
+    { end: 2, events: [{ time: 0, midi: 55 }, { time: 1, midi: 57 }] },
+    { end: 4, events: [{ time: 3, midi: 55 }] },
+  ], { melody: f.buffer, melodySamples: f.samples }, 0, noop)
+  const [first, changed, separate] = f.ctx.created.buffers
+  assert.equal(first.startCalls[0][1], 0)
+  assert.equal(separate.startCalls[0][1], 0)
+  assert.equal(changed.startCalls[0][1], changed.loopStart)
+  const live = f.engine._createSampleLivePreview(f.ctx, f.plan, f.samples[55], f.y(55))
+  assert.equal(live.source.startCalls[0][1], live.source.loopStart)
+})
+
+test("해금 라이브 전환의 두 원음은 같은 진행 중 음높이에서 이어진다", async () => {
+  const f = sustainFixture("haegeum")
+  await f.engine.liveDrawingStart(f.recipe, f.y(55))
+  f.advance(.3)
+  const old = f.engine.livePreview
+  await f.engine.liveDrawingMove(f.recipe, f.y(64))
+  f.advance(.071)
+  const next = f.engine.livePreview
+  const oldSet = old.rateParam.events.filter((e) => e[0] === "set").at(-1)
+  assert.ok(Math.abs(oldSet[1] / old.rateScale - next.rateParam.events[0][1] / next.rateScale) < 1e-8)
+  assert.equal(next.rateParam.events.find((e) => e[0] === "target")[3], .09)
+  assert.ok(next.pitchMotion.from < next.pitchMotion.target)
 })
 
 function expectedStableLoop(duration, offset = 0) {
@@ -434,7 +504,7 @@ test("scheduleSampleMelody bridges tiny drawing gaps as one connected sample phr
   assert.ok(ctx.created.buffers[0].stopCalls[0][0] >= 1.6)
 })
 
-test("sample playback mirrors live drawing by not adding synthetic ornament ramps", () => {
+test("해금은 인위적 시작 꾸밈음 없이 연결 음 사이의 120ms 시정수 미끄러짐을 유지한다", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -453,7 +523,7 @@ test("sample playback mirrors live drawing by not adding synthetic ornament ramp
   const rateEvents = ctx.created.buffers[0].playbackRate.events
   assert.equal(rateEvents.filter((event) => event[0] === "set").length, 1)
   assert.equal(rateEvents.some((event) => event[0] === "linear"), false)
-  assert.equal(rateEvents.some((event) => event[0] === "target"), false)
+  assert.ok(rateEvents.some((event) => event[0] === "target" && Math.abs(event[2] - .5) < 128/48000 && event[3] === .12))
 })
 
 test("full playback uses stored drawing strokes as one continuous sample source", () => {
@@ -863,7 +933,9 @@ test("haegeum transitions enter the sustain without synthetic grace bends", () =
   const rateEvents = ctx.created.buffers[0].playbackRate.events
   const targets = rateEvents.filter((event) => event[0] === "target")
   assert.equal(ctx.created.buffers.length, 3)
-  assert.equal(targets.length, 0)
+  assert.ok(targets.some((event) => Math.abs(event[2] - .5) < 128/48000 && event[3] === .12))
+  const incoming = ctx.created.buffers[1].playbackRate.events
+  assert.ok(incoming[0][1] < incoming.find((event) => event[0] === "target")[1], "새 파일도 직전 음높이부터 미끄러져야 한다")
   assert.ok(ctx.created.buffers[1].startCalls[0][1] > 0, "continuation skips the recorded attack")
   assert.equal(
     rateEvents.some((event) => event[0] === "set" && Math.abs(event[2] - 0.5) < 1e-6),
@@ -945,7 +1017,7 @@ test("국악 샘플은 드로잉 기준 음량을 30% 올리고 전체 재생도
   const dest = makeNode()
   engine.scheduleSampleMelody(ctx, dest, plan, plan.notes, { melody: { duration: 2.4 }, melodySamples: null }, 0, noop)
 
-  const phrasePeak = ctx.created.gains[0].gain.events.find((event) => event[0] === "linear")[1]
+  const phrasePeak = Math.max(...ctx.created.gains[0].gain.events.filter((event) => event[0] === "linear").map((event) => event[1]))
   const playbackOutputTarget = phrasePeak * plan.version.melodyGain * 0.62 * 0.56
   assert.ok(Math.abs(playbackOutputTarget - previewTarget) < 1e-9)
 
@@ -1958,10 +2030,10 @@ test("짧은 획도 음별 안정 구간을 루프하고 겹쳐 연결한다", (
   assert.equal(ctx.created.buffers[0].startCalls.length, 1)
   // 핵심: 짧은 획도 이제 loop 로 지속됨 (게이트 통일의 직접 검증)
   assert.equal(ctx.created.buffers[0].loop, true)
-  // 각 source의 배속은 그 원음과 목표 음높이에 고정된다.
+  // 해금은 각 원음의 보정을 유지하면서 직전 음에서 목표 음으로 미끄러진다.
   const rateEvents = ctx.created.buffers[0].playbackRate.events
   assert.equal(rateEvents.filter((event) => event[0] === "set").length, 1)
-  assert.equal(rateEvents.some((event) => event[0] === "target"), false)
+  assert.ok(rateEvents.some((event) => event[0] === "target" && event[3] === .12))
 })
 
 test("gayageum stroke playback retriggers pitch changes instead of gliding one decayed pluck", () => {
@@ -2005,7 +2077,7 @@ test("gayageum stroke playback retriggers pitch changes instead of gliding one d
   )
 
   assert.equal(ctx.created.buffers.length, 3)
-  assert.deepEqual(ctx.created.buffers.map((source) => source.startCalls[0][0]), [0, 0.5, 1])
+  assert.deepEqual(ctx.created.buffers.map((source) => Number(source.startCalls[0][0].toFixed(2))), [0, 0.57, 1.07])
   assert.deepEqual(ctx.created.buffers.map((source) => source.startCalls[0][1]), [0.1, 0.6, 1.1])
   ctx.created.buffers.forEach((source) => {
     assert.equal(source.loop, false)

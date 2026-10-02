@@ -324,6 +324,8 @@
     "commonCents": -2.805,
     "sources": {
       "sound/선율-서양(필하모니아)/현/viola/viola_G3.mp3": {
+        "reviewRequired": true,
+        "reviewReason": "비브라토 중심 판정 불확실: 기존 후보값 유지, 자동 재보정 보류",
         "hz": 199.002749,
         "residualCents": 29.146
       },
@@ -372,6 +374,8 @@
         "residualCents": -1.544
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_F5.mp3": {
+        "reviewRequired": true,
+        "reviewReason": "비브라토 중심 판정 불확실: 기존 후보값 유지, 자동 재보정 보류",
         "hz": 696.530687,
         "residualCents": -1.975
       },

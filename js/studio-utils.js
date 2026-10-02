@@ -111,9 +111,23 @@
     return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + alpha + ")"
   }
 
-  function simplifyPoints(points, maxPoints) {
+  function simplifyPoints(points, maxPoints, pitchAt) {
     const source = points || []
     if (!maxPoints || maxPoints < 1) return []
+    if (pitchAt && source.length) {
+      // 음 경계 전후의 점은 솎지 않는다. 짧은 복귀를 버리면 떨림이 긴 새 음으로 변한다.
+      const keep = new Set([0, source.length - 1])
+      let previous = pitchAt(source[0])
+      for (let i = 1; i < source.length; i++) {
+        const pitch = pitchAt(source[i])
+        if (pitch !== previous) { keep.add(i - 1); keep.add(i) }
+        previous = pitch
+      }
+      const count = Math.min(maxPoints, source.length)
+      for (let i = 0; i < count && keep.size < maxPoints; i++) keep.add(Math.floor(i * source.length / count))
+      // 정규화 좌표의 소수 셋째 자리 반올림도 긴 작품에서는 체류 시간을 바꾼다.
+      return Array.from(keep).sort((a, b) => a - b).map(i => ({ x: source[i].x, y: source[i].y }))
+    }
     if (source.length <= maxPoints) {
       return source.map((p) => ({ x: round3(p.x), y: round3(p.y) }))
     }

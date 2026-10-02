@@ -857,7 +857,12 @@
 
   DrawingCanvas.prototype._preview = function (point, force) {
     const now = root.performance && root.performance.now ? root.performance.now() : Date.now()
-    const movedPitch = this.lastPreviewY == null || Math.abs(point.y - this.lastPreviewY) > 0.045
+    const state = this.getState ? this.getState() : null
+    const asset = this._assetForInstrument(this.activeInstrument, state)
+    // 경계를 다시 넘은 입력을 110ms 제한으로 버리면 엔진의 70ms 체류 타이머를
+    // 취소할 수 없다. 칸이 바뀌는 입력은 작게 움직여도 즉시 전달한다.
+    const movedPitch = this.lastPreviewY == null ||
+      Core.quantizePitch(point.y, state && state.style, asset) !== Core.quantizePitch(this.lastPreviewY, state && state.style, asset)
     if (!force && !movedPitch && now - this.lastPreviewAt < 110) return
     this.lastPreviewAt = now
     this.lastPreviewY = point.y

@@ -1067,7 +1067,8 @@
     const buffer = instBuffers.melody
     const sampleBuffers = instBuffers.melodySamples
     const multi = isMultiSample(asset)
-    const triggers = pluckedSampleTriggers(items, sequenceEnd, !!options.retriggerRepeated)
+    const prepared = options.retriggerRepeated ? items : AudioPlan.sampleVoiceRuns(items, sequenceEnd, AudioPlan.DRAWING_PITCH_SETTLE_SECONDS)
+    const triggers = pluckedSampleTriggers(prepared, sequenceEnd, !!options.retriggerRepeated)
     for (let i = 0; i < triggers.length; i++) {
       const item = triggers[i]
       const eventStart = Math.min(Number(item.time) || 0, sequenceEnd)
@@ -1117,8 +1118,37 @@
 
   const SAMPLE_HANDOFF_SECONDS = 0.04
 
-  function sampleStartOffset(sustain, plan, continuation) {
-    return sustain.loop && (continuation || isWesternInstrument(plan.instrument)) ? sustain.loopStart : sustain.offset
+  function sampleStartOffset(sustain, plan, continuation, live) {
+    return sustain.loop && (continuation || (live && isWesternInstrument(plan.instrument))) ? sustain.loopStart : sustain.offset
+  }
+
+  function rampSampleGain(param, peak, when, duration, fadeIn) {
+    for (let i = 1; i <= 16; i++) {
+      const x = i / 16
+      const weight = fadeIn ? Math.sin(x * Math.PI / 2) : Math.cos(x * Math.PI / 2)
+      param.linearRampToValueAtTime(Math.max(0.0001, peak * weight), when + duration * x)
+    }
+  }
+
+  function sampleEnvelope(param, run, finish, peak, start, at, followed) {
+    const attack = Math.min(run.continuation ? SAMPLE_HANDOFF_SECONDS : 0.005, Math.max(0.001, run.end - run.time))
+    const elapsed = at > run.time
+    function level(t) {
+      const enter = clamp((t - run.time) / attack, 0, 1)
+      const leave = clamp((t - run.end) / SAMPLE_HANDOFF_SECONDS, 0, 1)
+      const entry = elapsed ? clamp((t - at) / 0.005, 0, 1) : 1
+      return Math.max(0.0001, peak * entry * (run.continuation ? Math.sin(enter * Math.PI / 2) : enter) *
+        (followed ? Math.cos(leave * Math.PI / 2) : 1 - leave))
+    }
+    const times = [at, finish, run.end]
+    if (elapsed) times.push(Math.min(at + 0.005, finish))
+    for (let i = 0; i <= 16; i++) {
+      times.push(run.time + attack * i / 16, run.end + SAMPLE_HANDOFF_SECONDS * i / 16)
+    }
+    param.setValueAtTime(level(at), start + at)
+    Array.from(new Set(times)).filter((t) => t > at && t <= finish).sort((a, b) => a - b).forEach(function (t) {
+      param.linearRampToValueAtTime(level(t), start + t)
+    })
   }
 
   function progressedSampleOffset(sustain, initial, elapsed, rate) {
@@ -1129,10 +1159,14 @@
     return offset
   }
 
-  function scheduleSustainedSequence(ctx, dest, plan, events, end, instBuffers, start, register) {
+  function scheduleSustainedSequence(ctx, dest, plan, events, end, instBuffers, start, register, settleSeconds) {
     const asset = plan.melodyAsset
-    const runs = AudioPlan.sampleVoiceRuns(events, end)
-    for (const run of runs) {
+    const runs = AudioPlan.sampleVoiceRuns(events, end, settleSeconds)
+    const sampleRate = ctx.sampleRate || 48000
+    const motionOrigin = start + (plan.playbackOffset || 0)
+    const motions = isHaegeumPlan(plan) ? AudioPlan.samplePitchMotion(runs, HAEGEUM_NOTE_GLIDE_SECONDS, sampleRate, motionOrigin) : null
+    for (let index = 0; index < runs.length; index++) {
+      const run = runs[index]
       const finish = Math.min(end + SAMPLE_HANDOFF_SECONDS, run.end + SAMPLE_HANDOFF_SECONDS)
       if (finish <= 0) continue
       const segment = nearestSampleSegment(asset, run.midi)
@@ -1144,28 +1178,32 @@
       const at = Math.max(0, run.time)
       const elapsed = at - run.time
       const initial = sampleStartOffset(sustain, plan, run.continuation)
-      const offset = progressedSampleOffset(sustain, initial, elapsed, rate)
+      let traveled = elapsed * rate
+      const scale = rate / midiToFreq(run.midi)
+      if (motions) {
+        traveled = AudioPlan.samplePitchTravel(motions, index, run.time, at, scale, sampleRate, motionOrigin)
+      }
+      const offset = progressedSampleOffset(sustain, initial, traveled, 1)
       if (!sustain.loop && offset >= sustain.offset + sustain.duration) continue
       const src = ctx.createBufferSource()
       const env = ctx.createGain()
       src.buffer = sustain.buffer
       applySustainPlanToSource(src, sustain)
-      src.playbackRate.setValueAtTime(rate, start + at)
+      if (motions) {
+        let active = index
+        while (active + 1 < motions.length && motions[active + 1].time <= at) active++
+        src.playbackRate.value = AudioPlan.pitchMotionValue(motions[active], at) * scale
+        src.playbackRate.setValueAtTime(src.playbackRate.value, start + at)
+        src.playbackRate.setTargetAtTime(motions[active].target * scale, start + Math.max(at, motions[active].time), motions[active].tau)
+        for (let j = active + 1; j < motions.length && motions[j].time < finish; j++) {
+          src.playbackRate.setTargetAtTime(motions[j].target * scale, start + motions[j].time, motions[j].tau)
+        }
+      } else {
+        src.playbackRate.value = rate
+        src.playbackRate.setValueAtTime(rate, start + at)
+      }
       const peak = melodyPlaybackEnvPeak(plan, (run.velocity == null ? 0.7 : run.velocity) * 0.85)
-      const attack = Math.min(SAMPLE_HANDOFF_SECONDS, Math.max(0.001, run.end - run.time))
-      function level(t) {
-        return Math.max(0.0001, peak * Math.min(1, Math.max(0, (t - run.time) / attack)) *
-          Math.min(1, Math.max(0, (finish - t) / SAMPLE_HANDOFF_SECONDS)))
-      }
-      env.gain.setValueAtTime(elapsed > 0 ? 0.0001 : level(at), start + at)
-      // 탐색으로 파형 중간을 열 때도 클릭이 나지 않도록 아주 짧게 진입한다.
-      if (elapsed > 0) {
-        const enter = Math.min(at + 0.005, finish, run.time + attack > at ? run.time + attack : finish)
-        env.gain.linearRampToValueAtTime(level(enter), start + enter)
-      }
-      if (run.time + attack > at) env.gain.linearRampToValueAtTime(peak, start + run.time + attack)
-      if (run.end > at) env.gain.setValueAtTime(peak, start + run.end)
-      env.gain.linearRampToValueAtTime(0.0001, start + finish)
+      sampleEnvelope(env.gain, run, finish, peak, start, at, index + 1 < runs.length)
       const filter = connectGugakSampleTone(ctx, src, env, plan, start + at)
       const noteGain = connectMelodyEnv(ctx, env, dest, plan, [run], start, start + at, 0.001)
       src.onended = function () { disconnectQuietly(src, env, noteGain, filter) }
@@ -1180,7 +1218,7 @@
     for (const stroke of strokeSegments || []) {
       if (!stroke || !stroke.events || !stroke.events.length) continue
       if (isGayageumPlan(plan)) schedulePluckedSampleSequence(ctx, dest, plan, stroke.sourceEvents || stroke.events, instBuffers, start, stroke.end, register)
-      else scheduleSustainedSequence(ctx, dest, plan, stroke.sourceEvents || stroke.events, stroke.end, instBuffers, start, register)
+      else scheduleSustainedSequence(ctx, dest, plan, stroke.sourceEvents || stroke.events, stroke.end, instBuffers, start, register, AudioPlan.DRAWING_PITCH_SETTLE_SECONDS)
     }
   }
 
@@ -1447,7 +1485,8 @@
     const baseRate = segmentPlaybackRate(plan.melodyAsset, midi, segment)
 
     env.gain.setValueAtTime(0.0001, start)
-    env.gain.linearRampToValueAtTime(baseTargetGain, start + (isGayageumPlan(plan) ? 0.005 : SAMPLE_HANDOFF_SECONDS))
+    if (transition && !isGayageumPlan(plan)) rampSampleGain(env.gain, baseTargetGain, start, SAMPLE_HANDOFF_SECONDS, true)
+    else env.gain.linearRampToValueAtTime(baseTargetGain, start + (isGayageumPlan(plan) ? 0.005 : SAMPLE_HANDOFF_SECONDS))
     noteGain.gain.setValueAtTime(noteGainValue, start)
 
     // 멀티샘플(서양 선율)은 원음 음색을 그대로 살리기 위해 필터 없이 source → env 직결.
@@ -1466,13 +1505,19 @@
     const source = ctx.createBufferSource()
     source.buffer = sustain.buffer
     applySustainPlanToSource(source, sustain)
-    source.playbackRate.setValueAtTime(baseRate, start)
+    const glideStart = Math.ceil(start * (ctx.sampleRate || 48000) / 128 - 1e-9) * 128 / (ctx.sampleRate || 48000)
+    const pitchMotion = { time: glideStart, from: midiToFreq(midi), target: midiToFreq(midi), tau: HAEGEUM_LIVE_NOTE_GLIDE_SECONDS }
+    if (transition && isHaegeumPlan(plan)) pitchMotion.from = transition.frequency || pitchMotion.target
+    const rateScale = baseRate / pitchMotion.target
+    source.playbackRate.value = pitchMotion.from === pitchMotion.target ? baseRate : pitchMotion.from * rateScale
+    source.playbackRate.setValueAtTime(source.playbackRate.value, start)
+    if (pitchMotion.from !== pitchMotion.target) source.playbackRate.setTargetAtTime(baseRate, glideStart, pitchMotion.tau)
     // 펜 소리는 "즉각 반응"이 목적 — 파일 어택을 기다리지 않고 안정 구간(loopStart)에서 시작한다.
     // 필하모니아 서양 원본은 음정이 뜨는 시점이 느리다(측정 중앙값 110~180ms, 비올라는 최대 390ms).
     // 국악 음원은 반대로 소금 20ms · 대금 10ms 로 이미 즉각 발음돼 손댈 이유가 없고,
     // 시김새·발음이 학습 내용이라 원음 그대로 둔다 → 서양 악기에만 적용한다.
-    // 저장 획도 같은 시작 규칙을 사용한다. 국악기 첫 발음의 어택은 보존한다.
-    const liveStartOffset = sampleStartOffset(sustain, plan, !!transition)
+    // 저장 획의 첫 발음은 원래 어택을 보존한다. 펜의 즉답 정책만 별도다.
+    const liveStartOffset = sampleStartOffset(sustain, plan, !!transition, true)
 
     if (useFilter) source.connect(filter)
     else source.connect(env)
@@ -1481,6 +1526,9 @@
       kind: "sample",
       midi: midi,
       startedAt: start,
+      fadeIn: !!transition && !isGayageumPlan(plan),
+      pitchMotion: pitchMotion,
+      rateScale: rateScale,
       plucked: isGayageumPlan(plan),
       source: source,
       env: env,
@@ -1597,6 +1645,11 @@
     return asset.src || null
   }
 
+  function clearLivePending(engine) {
+    if (engine.livePending && engine.livePending.timer != null) root.clearTimeout(engine.livePending.timer)
+    engine.livePending = null
+  }
+
   AudioEngine.prototype.liveDrawingStart = function (recipe, normY) {
     const ctx = this.ensureContext()
     if (this.isPaused) {
@@ -1672,11 +1725,12 @@
       const now = ctx.currentTime
       if (live.kind === "sample") {
         if (live.midi === midi) {
-          if (self.livePending) { self.livePreviewToken++; self.livePending = null }
+          if (self.livePending) { self.livePreviewToken++; clearLivePending(self) }
           return
         }
         const pending = self.livePending
         if (pending && pending.midi === midi) { pending.normY = normY; return }
+        clearLivePending(self)
         const token = ++self.livePreviewToken
         const src = self._liveSampleSrc(plan, midi)
         const next = { token, src, midi, normY, signature: self._liveSignature(plan) }
@@ -1685,14 +1739,26 @@
           if (token !== self.livePreviewToken || self.livePreview !== live) return
           self.livePending = null
           // 새 파일이 준비된 순간에만 교체한다. 빠른 왕복/펜 떼기는 토큰으로 취소된다.
-          const replacement = buffer ? self._createSampleLivePreview(ctx, plan, buffer, next.normY, true) : self._createSynthLivePreview(ctx, plan, next.normY)
+          const when = Math.ceil((ctx.currentTime + 0.005) * (ctx.sampleRate || 48000) / 128 - 1e-9) * 128 / (ctx.sampleRate || 48000)
+          const frequency = live.pitchMotion ? AudioPlan.pitchMotionValue(live.pitchMotion, when) : midiToFreq(live.midi)
+          const replacement = buffer ? self._createSampleLivePreview(ctx, plan, buffer, next.normY, { frequency: frequency }) : self._createSynthLivePreview(ctx, plan, next.normY)
           if (!replacement) return
+          if (isHaegeumPlan(plan) && live.rateScale) {
+            live.rateParam.cancelScheduledValues(when)
+            live.rateParam.setValueAtTime(frequency * live.rateScale, when)
+            live.rateParam.setTargetAtTime(midiToFreq(midi) * live.rateScale, when, HAEGEUM_LIVE_NOTE_GLIDE_SECONDS)
+          }
           if (live.plucked && !live.ended) self.liveRetiring.add(live)
-          else self._retireLivePreview(live, ctx, SAMPLE_HANDOFF_SECONDS)
+          else self._retireLivePreview(live, ctx, SAMPLE_HANDOFF_SECONDS, true)
           self.livePreview = replacement
         }
-        if (self.decodedCache.has(src)) switchVoice(self.decodedCache.get(src))
-        else self.loadBuffer(ctx, src).then(switchVoice)
+        // 멈춰 있는 펜에도 적용되도록 pointermove 횟수가 아닌 타이머로 체류를 확인한다.
+        next.timer = root.setTimeout(function () {
+          if (token !== self.livePreviewToken) return
+          next.timer = null
+          if (self.decodedCache.has(src)) switchVoice(self.decodedCache.get(src))
+          else self.loadBuffer(ctx, src).then(switchVoice)
+        }, AudioPlan.DRAWING_PITCH_SETTLE_SECONDS * 1000)
       } else {
         if (live.noteGain) {
           const gain = livePreviewNoteTargetGain(plan, live.noteEnvPeak || 0.7 * 0.78, uiMidi) / (live.baseTargetGain || 1)
@@ -1711,25 +1777,28 @@
     this.stopLivePreview(false)
   }
 
-  AudioEngine.prototype._retireLivePreview = function (live, ctx, release) {
+  AudioEngine.prototype._retireLivePreview = function (live, ctx, release, handoff) {
     if (!live || live.ended) return
     const now = ctx.currentTime + 0.005
     this.liveRetiring.add(live)
     try {
       const gain = live.env.gain
+      const progress = clamp((now - (live.startedAt || 0)) / SAMPLE_HANDOFF_SECONDS, 0, 1)
+      const currentGain = (live.baseTargetGain || gain.value || 0.5) * (live.fadeIn ? Math.sin(progress * Math.PI / 2) : progress)
       if (typeof gain.cancelAndHoldAtTime === "function") gain.cancelAndHoldAtTime(now)
       else {
         gain.cancelScheduledValues(now)
-        gain.setValueAtTime((live.baseTargetGain || gain.value || 0.5) * Math.min(1, Math.max(0, (now - (live.startedAt || 0)) / SAMPLE_HANDOFF_SECONDS)), now)
+        gain.setValueAtTime(currentGain, now)
       }
-      gain.linearRampToValueAtTime(0.0001, now + release)
+      if (handoff) rampSampleGain(gain, currentGain, now, release, false)
+      else gain.linearRampToValueAtTime(0.0001, now + release)
     } catch (e) {}
     ;(live.stopNodes || []).forEach(function (node) { try { node.stop(now + release) } catch (e) {} })
   }
 
   AudioEngine.prototype.stopLivePreview = function (immediate) {
     this.livePreviewToken++
-    this.livePending = null
+    clearLivePending(this)
     const live = this.livePreview
     this.livePreview = null
     if (!this.ctx) return

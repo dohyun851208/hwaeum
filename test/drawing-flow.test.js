@@ -9,6 +9,7 @@ const projectDir = path.resolve(__dirname, "..")
 function loadDrawing() {
   const sandbox = {
     MusicCore: {
+      quantizePitch(y) { const scale = this.drawableScale(); return scale[Math.max(0, Math.min(scale.length-1, Math.floor((1-y)*scale.length)))] },
       buildScale() {
         return [60, 62, 64, 65, 67, 69, 71, 72]
       },

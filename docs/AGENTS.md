@@ -31,6 +31,7 @@
 - `decisions/2026-07-31-studio-workflow-modules.md` — `studio.js`의 시도 UI·공유 UI를 콜백 주입형 classic-script 팩토리로 분리
 
 - `decisions/2026-10-02-sustain-source-calibration.md` — 지속음 접합·음별 소스 전환·조율·가야금 자연 감쇠 통일
+- `decisions/2026-10-02-natural-melody-transitions.md` — 경계 떨림 억제·등전력 전환·자연 비브라토·첫 어택·해금 미끄러짐 복원
 
 ## 작성 규칙
 

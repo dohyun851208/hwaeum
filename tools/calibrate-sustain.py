@@ -29,7 +29,7 @@ def pitch(x, expected, sr):
     den = corr[k-1]-2*corr[k]+corr[k+1]
     delta = .5*(corr[k-1]-corr[k+1])/den if den else 0
     hz = sr/(k+1+delta)
-    # Independent wide-range YIN candidate, without an expected-note search limit.
+    # A second estimator within this calibration pipeline, not independent validation.
     difference = np.maximum(0, energy[len(x)-lags] + energy[-1]-energy[lags] - 2*ac[lags])
     yin = difference * lags / np.maximum(np.cumsum(difference), 1e-20)
     minima = find_peaks(-yin)[0]
@@ -81,7 +81,7 @@ def analyze(directory, write=False):
         loop = x[s:e].astype(np.float64)
         levels = [float(10*np.log10(np.mean(loop[i:i+round(.05*sr)]**2)+1e-24)) for i in range(0, len(loop)-round(.05*sr), round(.025*sr))]
         seam = float(abs(loop[0]-2*loop[-1]+loop[-2])/(np.percentile(abs(np.diff(loop, n=2)), 99)+1e-20)) if looping else None
-        row = dict(id=cell['id'], uiMidi=cell['uiMidi'], cents=cents, hz=hz, validWindows=len(good),
+        row = dict(id=cell['id'], uiMidi=cell['uiMidi'], cents=cents, hz=hz, validWindows=len(good), calibrationReviewRequired=cell.get('calibrationReviewRequired', False),
                    centsSpread=float(np.percentile([1200*np.log2(v['hz']/hz) for v in good],90)-np.percentile([1200*np.log2(v['hz']/hz) for v in good],10)) if good else None,
                    wideOctaveDisagreements=int(sum(v['wideHz'] is not None and abs(1200*np.log2(v['wideHz']/v['hz'])) > 600 for v in good)),
                    seamP99Ratio=seam, loopRangeDb=max(levels)-min(levels) if levels else None,
@@ -107,6 +107,13 @@ def analyze(directory, write=False):
         text = target.read_text('utf-8')
         a = text.index('  const profiles = ')
         b = text.index('\n  Object.keys(profiles)', a)
+        # A fresh measurement must not silently override a manually deferred source.
+        previous = json.loads(text[a+len('  const profiles = '):b])
+        for instrument, profile in profiles.items():
+            for key, source in profile['sources'].items():
+                prior = previous.get(instrument, {}).get('sources', {}).get(key, {})
+                if prior.get('reviewRequired'):
+                    source.update(prior)
         text = text[:a]+'  const profiles = '+json.dumps(profiles, ensure_ascii=False, indent=2)+text[b:]
         target.write_text(text, encoding='utf-8')
     return rows

@@ -90,7 +90,8 @@ for (const inst of Data.instruments) {
       id: inst.id, group: inst.group, index, rows: visible.length, uiMidi, midi, expectedHz: 440 * Math.pow(2, (midi - 69) / 12),
       displayRoundTrip: Math.abs(backY - displayY), transpose: AP.playbackTranspose(inst, asset),
       segment: segment ? { midi: segment.midi, cents: segment.cents || 0, src: segment.src || null, offset: segment.offset, duration: segment.duration } : null,
-      src, multi, rate, playSources: regs.length, strokeSegments: plan.strokeSegments.length,
+      src, multi, rate, calibrationReviewRequired: !!(Data.sampleCalibration && Data.sampleCalibration[inst.id] && Data.sampleCalibration[inst.id].sources[multi ? src : src+'@'+segment.offset]?.reviewRequired),
+      playSources: regs.length, strokeSegments: plan.strokeSegments.length,
       live: { loop: !!ls.loop, loopStart: ls.loopStart, loopEnd: ls.loopEnd, start: ls.startCalls[0], baked: ls.buffer !== buffer, bufferLength: ls.buffer.length },
       play: ps ? { loop: !!ps.loop, loopStart: ps.loopStart, loopEnd: ps.loopEnd, start: ps.startCalls[0], baked: ps.buffer !== buffer, sameAsLive: ps.buffer.length === ls.buffer.length && ps.loopStart === ls.loopStart && ps.loopEnd === ls.loopEnd } : null,
     }

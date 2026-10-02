@@ -236,7 +236,9 @@
 
   // 한 칸을 오래 그린 것은 하나의 발음이다. 음이 바뀌면 그 음에 맞는 원음을
   // 선택하고 짧게 겹친다. 음량·조율 보정은 각 발음이 고른 원음에 고정한다.
-  function sampleVoiceRuns(events, end) {
+  const DRAWING_PITCH_SETTLE_SECONDS = 0.07
+
+  function sampleVoiceRuns(events, end, settleSeconds) {
     const runs = []
     for (const event of events || []) {
       // 획 끝점에만 있는 높이는 유지 시간이 0이다. 종료 뒤 새 소리를 만들지 않는다.
@@ -246,7 +248,52 @@
       if (previous) previous.end = event.time
       runs.push(Object.assign({}, event, { end: end, continuation: runs.length > 0 }))
     }
-    return runs
+    if (!(settleSeconds > 0)) return runs
+    const settled = []
+    for (const run of runs) {
+      const previous = settled[settled.length - 1]
+      if (!previous) settled.push(Object.assign({}, run, { end: end }))
+      else if (run.midi !== previous.midi && run.end - run.time > settleSeconds) {
+        const time = run.time + settleSeconds
+        previous.end = time
+        settled.push(Object.assign({}, run, { time: time, end: end, continuation: true }))
+      }
+    }
+    return settled
+  }
+
+  // Web Audio setTargetAtTime의 지수 곡선과 그 적분. 원음이 바뀌거나 중간부터
+  // 재생해도 해금의 같은 미끄러짐과 버퍼 경과 위치를 복원한다.
+  function pitchMotionValue(motion, time) {
+    return motion.target + (motion.from - motion.target) * Math.exp(-Math.max(0, time - motion.time) / motion.tau)
+  }
+
+  function samplePitchMotion(runs, tau, sampleRate, origin) {
+    return runs.reduce(function (motions, run) {
+      const target = 440 * Math.pow(2, (run.midi - 69) / 12)
+      const previous = motions[motions.length - 1]
+      const time = sampleRate ? Math.ceil((run.time + origin) * sampleRate / 128 - 1e-9) * 128 / sampleRate - origin : run.time
+      motions.push({ time: time, target: target, from: previous ? pitchMotionValue(previous, time) : target, tau: tau })
+      return motions
+    }, [])
+  }
+
+  // AudioBufferSource playbackRate는 128프레임마다 읽는 k-rate다. 연속 적분만
+  // 쓰면 미끄러짐 뒤의 버퍼 위치가 어긋나므로 실제 양자화된 배속을 누적한다.
+  function samplePitchTravel(motions, index, from, until, scale, sampleRate, origin) {
+    let frame = Math.round((from + origin) * sampleRate)
+    const last = Math.round((until + origin) * sampleRate)
+    let traveled = 0, active = index
+    while (frame < last) {
+      const quantum = Math.floor(frame / 128) * 128
+      const at = quantum / sampleRate - origin
+      while (active + 1 < motions.length && motions[active + 1].time <= at) active++
+      const rate = pitchMotionValue(motions[active], at) * scale
+      const next = Math.min(last, quantum + 128)
+      traveled += (next - frame) / sampleRate * rate
+      frame = next
+    }
+    return traveled
   }
 
   // 사용자가 올린 긴 소리는 배경 구간과 독립된 작품 시간(초)에 놓인다.
@@ -497,6 +544,10 @@
     sampleBufferFor: sampleBufferFor,
     sampleMapFor: sampleMapFor,
     sampleVoiceRuns: sampleVoiceRuns,
+    DRAWING_PITCH_SETTLE_SECONDS: DRAWING_PITCH_SETTLE_SECONDS,
+    samplePitchMotion: samplePitchMotion,
+    pitchMotionValue: pitchMotionValue,
+    samplePitchTravel: samplePitchTravel,
     samplePlaybackRate: samplePlaybackRate,
     sampleSegmentBounds: sampleSegmentBounds,
     seekPlan: seekPlan,

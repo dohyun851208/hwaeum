@@ -69,3 +69,17 @@ test("DrawingCanvas emits sustained preview lifecycle while pointer is held", ()
   assert.equal(events.at(-1)[0], "end")
   assert.ok(events.some((event) => event[0] === "move"))
 })
+
+test("칸 경계의 작은 왕복은 110ms 프리뷰 제한에 막히지 않는다", () => {
+  const DrawingCanvas = loadDrawingCanvas(), canvas = fakeCanvas(), moved = []
+  const drawing = new DrawingCanvas(canvas, {
+    getState: () => ({duration:30,style:C_MAJOR,mode:"melody"}),
+    onPreview: (point) => moved.push(point.y),
+  })
+  const count = core.drawableScale(C_MAJOR).length, boundary = 1-1/count
+  drawing._previewStart({x:0,y:boundary+.001})
+  for(let i=0;i<10;i++)drawing._preview({x:.1,y:boundary+(i%2?.001:-.001)},false)
+  assert.equal(moved.length,10,"모든 복귀 입력이 타이머를 취소할 수 있어야 한다")
+  drawing._preview({x:.2,y:boundary+.002},false)
+  assert.equal(moved.length,10,"같은 칸 내부의 불필요한 호출은 계속 제한한다")
+})

@@ -572,14 +572,23 @@
     const target = energy[b - a] / (b - a)
     if (!(target > 1e-20)) return channels
     const hop = Math.max(1, Math.round(0.01 * sampleRate))
-    const radius = Math.round(0.04 * sampleRate)
-    const gains = []
+    // 400ms 이동 평균을 두 번 통과시켜 3~8Hz의 자연 진폭 흔들림을 따라잡지 않는다.
+    const radius = Math.round(0.2 * sampleRate)
+    const levels = []
     for (let t = 0; t <= b - a + hop; t += hop) {
       const lo = Math.max(0, Math.min(b - a - 1, t - radius))
       const hi = Math.min(b - a, t + radius)
       const local = (energy[hi] - energy[lo]) / Math.max(1, hi - lo)
-      gains.push(Math.max(0.5, Math.min(2, Math.sqrt(target / Math.max(local, 1e-20)))))
+      levels.push(local)
     }
+    const smoothRadius = Math.round(radius / hop)
+    const gains = levels.map(function (_, index) {
+      let sum = 0, count = 0
+      for (let j = Math.max(0, index - smoothRadius); j <= Math.min(levels.length - 1, index + smoothRadius); j++) {
+        sum += levels[j]; count++
+      }
+      return Math.max(0.5, Math.min(2, Math.sqrt(target / Math.max(sum / count, 1e-20))))
+    })
     function gainAt(i) {
       const pos = Math.max(0, Math.min(gains.length - 1.000001, (i - a) / hop))
       const j = Math.floor(pos), x = pos - j

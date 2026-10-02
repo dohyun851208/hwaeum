@@ -9,6 +9,39 @@ const MusicCore = require("../js/music-core.js")
 
 const projectDir = path.resolve(__dirname, "..")
 
+test("그린 획의 짧은 왕복은 무시하되 새 음의 체류와 명시한 음표의 리듬을 구분한다", () => {
+  const events = [{ time: 0, midi: 55 }]
+  for (let i = 1; i < 40; i++) events.push({ time: i * .05, midi: i % 2 ? 57 : 55 })
+  assert.equal(AudioPlan.sampleVoiceRuns(events, 2, .07).length, 1)
+  events.push({ time: 2, midi: 60 })
+  const runs = AudioPlan.sampleVoiceRuns(events, 3, .07)
+  assert.equal(runs.length, 2)
+  assert.equal(runs[1].time, 2.07)
+  assert.equal(runs[0].end, 2.07)
+  assert.equal(AudioPlan.sampleVoiceRuns(events, 3).length, 41, "명시적으로 만든 음표는 짧아도 지우지 않는다")
+})
+
+test("해금의 빠른 재전환과 탐색 위치는 지수 미끄러짐의 값과 적분을 따른다", () => {
+  const motions = AudioPlan.samplePitchMotion([{ time: 0, midi: 69 }, { time: 1, midi: 81 }, { time: 1.1, midi: 69 }], .12)
+  assert.equal(motions[0].from, 440)
+  assert.equal(motions[1].from, 440)
+  assert.ok(Math.abs(motions[2].from - (880 - 440 * Math.exp(-.1/.12))) < 1e-9)
+  assert.ok(Math.abs(AudioPlan.samplePitchTravel(motions, 0, 0, .2, 1/440, 48000, 0) - .2) < 1e-9)
+  assert.ok(Math.abs(AudioPlan.pitchMotionValue(motions[2], 3) - 440) < .001)
+})
+
+test("비올라 두 원음의 기존 조율 후보값에는 검토 표시가 있고 차용 cents는 보존한다", () => {
+  const data = loadData(), asset = data.melodies.viola
+  for (const midi of [55,77]) {
+    const segment = asset.sampleMap.find(s=>s.midi===midi)
+    assert.ok(Number.isFinite(segment.tuningCents))
+    assert.equal(data.sampleCalibration.viola.sources[segment.src].reviewRequired, true)
+  }
+  assert.ok(asset.sampleMap.some(s=>s.tuningCents!=null), "확실한 다른 원음의 조율까지 끄지 않는다")
+  const borrowed = asset.sampleMap.find(s=>s.midi===65)
+  assert.equal(borrowed.cents, 100)
+})
+
 function plain(value) {
   return JSON.parse(JSON.stringify(value))
 }

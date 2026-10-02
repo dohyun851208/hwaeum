@@ -747,10 +747,10 @@
     return clampUnit((clientX - g.rect.left - g.labelWidth) / g.width)
   }
 
-  // 저장/공유용 다운샘플 — 절대 x(시간 위치)를 보존하도록 균등 인덱스로 솎는다.
+  // 저장/공유용 다운샘플 — 선율은 음 경계를 보존하고 썸네일만 균등 인덱스로 솎는다.
   // (resampleByTime은 x를 0..1로 정규화해 부분 드로잉을 늘려버리므로 여기선 쓰지 않음)
-  function simplifyPoints(points, maxPoints) {
-    return StudioUtils.simplifyPoints(points, maxPoints)
+  function simplifyPoints(points, maxPoints, pitchAt) {
+    return StudioUtils.simplifyPoints(points, maxPoints, pitchAt)
   }
 
   function simplifyPath(path) {
@@ -786,10 +786,12 @@
     const strokes = []
     const instruments = []
     rawStrokes.forEach((s, i) => {
-      const simplified = simplifyPoints(s, 70)
+      const instrumentId = rawInsts[i] != null ? rawInsts[i] : state.instrument.id
+      const asset = D.melodies[instrumentId]
+      const simplified = simplifyPoints(s, 70, (point) => Core.quantizePitch(point.y, state.style, asset))
       if (simplified.length > 0) {
         strokes.push(simplified)
-        instruments.push(rawInsts[i] != null ? rawInsts[i] : state.instrument.id)
+        instruments.push(instrumentId)
       }
     })
     return { strokes: strokes, instruments: instruments }

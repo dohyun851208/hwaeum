@@ -166,3 +166,31 @@ test("뜯는음 끝은 자연 감쇠 이후이고 다음 발음 앞이다", () =
   const end = core.pluckedSampleEnd(x, sr, 0, .4, 2.45)
   assert.ok(end > 1.2 && end < 2.45, String(end))
 })
+
+test("느린 감쇠를 고르면서 3~8Hz의 자연 진폭 비브라토는 90% 이상 보존한다", () => {
+  const sr = 8000
+  for (const hz of [3, 4, 5, 6, 7, 8]) {
+    const x = Float32Array.from({ length: sr * 6 }, (_, i) => (1 + .15*Math.sin(2*Math.PI*hz*i/sr))*Math.exp(-.08*i/sr)*Math.sin(2*Math.PI*200*i/sr))
+    const out = core.levelSustainSupport([x], sr, { start: 0, end: 6 })[0]
+    function depth(pcm) {
+      const levels = []
+      for (let i = sr; i < sr * 5; i += 80) {
+        let e = 0
+        for (let j = i; j < i + 80; j++) e += pcm[j] ** 2
+        levels.push(Math.log(Math.max(1e-20, e / 80)))
+      }
+      let a = 0, b = 0
+      // 원래의 느린 기울기를 선형 회귀로 제거하고 변조 주파수만 비교한다.
+      const mean = levels.reduce((s,v)=>s+v,0)/levels.length
+      let xy=0, xx=0
+      for(let i=0;i<levels.length;i++){const t=i-(levels.length-1)/2;xy+=t*(levels[i]-mean);xx+=t*t}
+      for (let i = 0; i < levels.length; i++) {
+        const v = levels[i] - mean - xy/xx*(i-(levels.length-1)/2)
+        a += v*Math.sin(2*Math.PI*hz*i*.01); b += v*Math.cos(2*Math.PI*hz*i*.01)
+      }
+      return Math.hypot(a,b)
+    }
+    const retained = depth(out)/depth(x)
+    assert.ok(retained >= .9 && retained < 1.1, hz + "Hz 비브라토 보존율 " + retained)
+  }
+})
