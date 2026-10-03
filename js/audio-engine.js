@@ -38,19 +38,23 @@
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
   // Instrument gain is calibrated from the stable sustain region of the default
   // drawing pitch rows, with violin as the reference loudness.
+  // 악기끼리는 A-가중 크기(낮은 소리를 덜 세는 귀 기준, 음별 보정 뒤)로 맞춘다. 에너지(RMS)로 맞추면
+  // 첼로 −3.8 · 더블베이스 −8.4 · 호른 −3.3 · 대금 −3.2 dB만큼 작게 들렸다(2026-10-03 비교 청취로 결정).
+  // 뜯는 가야금만 RMS 그대로다. 해금은 울림통 공명을 깎은 뒤(HAEGEUM_RESONANCE_CUTS)를 재서 게인이 크다.
+  // 값은 npm run measure:loudness 가 추천한 그대로 쓴다.
   const INSTRUMENT_MELODY_OUTPUT_GAINS = {
-    flute: 2.78,
-    oboe: 0.94,
-    clarinet: 1.16,
-    frenchHorn: 1.37,
+    flute: 2.45,
+    oboe: 0.73,
+    clarinet: 1.15,
+    frenchHorn: 1.97,
     violin: 0.81,
-    viola: 1.35,
-    cello: 0.90,
-    doubleBass: 0.36,
-    sogeum: 0.57,
-    daegeum: 1.18,
-    danso: 0.27,
-    haegeum: 0.37,
+    viola: 1.47,
+    cello: 1.41,
+    doubleBass: 0.94,
+    sogeum: 0.53,
+    daegeum: 1.70,
+    danso: 0.25,
+    haegeum: 2.00,
     gayageum: 0.47,
   }
   const NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB = 3
@@ -73,7 +77,7 @@
     sogeum: { 55: 3.981, 57: 3.981, 60: 3.981, 62: 3.981, 64: 2.816, 67: 2.318, 69: 1.425, 72: 1.425, 74: 0.606, 76: 0.478 },
     daegeum: { 55: 1.791, 57: 1.791, 60: 2.048, 62: 1.601, 64: 0.941, 67: 0.736, 69: 0.715, 72: 0.953, 74: 0.735, 76: 1.072 },
     danso: { 55: 2.02, 57: 2.02, 60: 1.05, 62: 1.05, 64: 1.146, 67: 1.12, 69: 1.12, 72: 0.86, 74: 0.708, 76: 0.708 },
-    haegeum: { 55: 2.024, 57: 2.024, 60: 2.397, 62: 1.131, 64: 0.699, 67: 1.139, 69: 1.031, 72: 0.578, 74: 0.85, 76: 1.54 },
+    haegeum: { 55: 1.871, 57: 1.871, 60: 2.084, 62: 1.56, 64: 0.856, 67: 2.54, 69: 2.214, 72: 1.072, 74: 0.42, 76: 1.374 },
     gayageum: { 55: 1, 57: 1, 60: 1, 62: 1, 64: 1, 67: 1, 69: 1, 72: 1, 74: 1, 76: 1 },
   }
   const LIVE_PREVIEW_MAX_GAIN = 3.2
@@ -94,8 +98,10 @@
   const GUGAK_DRAWING_GAIN_BOOST = 1.3
   const NOTE_GLIDE_SECONDS = 0.035
   const LIVE_NOTE_GLIDE_SECONDS = 0.025
-  const HAEGEUM_NOTE_GLIDE_SECONDS = 0.12
-  const HAEGEUM_LIVE_NOTE_GLIDE_SECONDS = 0.09
+  // 해금 음 사이 미끄러짐의 시정수. 0.12초(펜 0.09초)는 0.5초짜리 음의 앞 3분의 1을 음정 사이에서 흐렸다
+  // (음정이 맞는 시간 11%) → 비교 청취로 짧게 줄였다(2026-10-04).
+  const HAEGEUM_NOTE_GLIDE_SECONDS = 0.05
+  const HAEGEUM_LIVE_NOTE_GLIDE_SECONDS = 0.04
   const HAEGEUM_PHRASE_ATTACK_SECONDS = 0.06
   const STROKE_TAP_SECONDS = 0.16
   // 전체 재생을 예약할 때 두는 리드. 예약 시각이 과거로 가면 첫 음이 잘리므로 필요하다.
@@ -138,6 +144,10 @@
     for (let i = 0; i < arguments.length; i += 1) {
       const node = arguments[i]
       if (!node) continue
+      if (Array.isArray(node)) {
+        disconnectQuietly.apply(null, node)
+        continue
+      }
       try {
         node.disconnect()
       } catch (e) {}
@@ -282,16 +292,39 @@
     filter.frequency.setValueAtTime(isGugak ? 2300 : 2600, when)
     filter.Q.setValueAtTime(isGugak ? 0.9 : 0.65, when)
   }
+  // 해금 녹음은 기본음이 거의 없고 1.4~1.8 kHz 배음 하나가 압도한다(울림통 콧소리 공명). 국립국악원 단음·확장,
+  // 공유마당 세 출처가 모두 같아 녹음을 바꿔도 풀리지 않는다 → 그 공명을 두 곳에서 깎아 2·3배음을 살린다
+  // (2026-10-04 비교 청취로 결정). tools/measure-instrument-loudness.cjs 의 같은 표와 맞출 것.
+  const HAEGEUM_RESONANCE_CUTS = [
+    { frequency: 1450, Q: 1.4, gainDb: -14 },
+    { frequency: 1750, Q: 1.6, gainDb: -14 },
+  ]
+  // 국악 음색 필터(저역 통과) + 해금 공명 깎기. 앞에서부터 이어 붙인 필터 목록을 돌려준다.
+  function sampleToneFilters(ctx, plan, when) {
+    const filters = [ctx.createBiquadFilter()]
+    configureSampleToneFilter(filters[0], plan, when)
+    if (isHaegeumPlan(plan)) {
+      HAEGEUM_RESONANCE_CUTS.forEach(function (cut) {
+        const filter = ctx.createBiquadFilter()
+        filter.type = "peaking"
+        filter.frequency.setValueAtTime(cut.frequency, when)
+        filter.Q.setValueAtTime(cut.Q, when)
+        filter.gain.setValueAtTime(cut.gainDb, when)
+        filters[filters.length - 1].connect(filter)
+        filters.push(filter)
+      })
+    }
+    return filters
+  }
   function connectGugakSampleTone(ctx, source, env, plan, when) {
     if (isGayageumPlan(plan) || !isGugakInstrument(plan && plan.instrument) || typeof ctx.createBiquadFilter !== "function") {
       source.connect(env)
       return null
     }
-    const filter = ctx.createBiquadFilter()
-    configureSampleToneFilter(filter, plan, when)
-    source.connect(filter)
-    filter.connect(env)
-    return filter
+    const filters = sampleToneFilters(ctx, plan, when)
+    source.connect(filters[0])
+    filters[filters.length - 1].connect(env)
+    return filters
   }
   // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
   // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
@@ -1257,10 +1290,10 @@
     // 멀티샘플(서양 선율)은 원음 음색을 그대로 살리기 위해 필터 없이 source → env 직결.
     // 풀 플레이백(connectGugakSampleTone)과 동일한 신호 경로.
     const useFilter = isGugakInstrument(plan.instrument) && !isGayageumPlan(plan)
+    const toneFilters = useFilter ? sampleToneFilters(ctx, plan, start) : []
     if (useFilter) {
-      filter = ctx.createBiquadFilter()
-      configureSampleToneFilter(filter, plan, start)
-      filter.connect(env)
+      filter = toneFilters[0]
+      toneFilters[toneFilters.length - 1].connect(env)
     }
     env.connect(noteGain)
     noteGain.connect(ctx.destination)
@@ -1313,7 +1346,7 @@
     source.onended = function () {
       live.ended = true
       engine.liveRetiring.delete(live)
-      ;[source, env, noteGain, filter].forEach(function (node) {
+      ;[source, env, noteGain].concat(toneFilters).forEach(function (node) {
         try {
           node.disconnect()
         } catch (e) {}
@@ -1724,9 +1757,10 @@
     env.gain.setValueAtTime(0, start)
     env.gain.linearRampToValueAtTime(note.velocity * NOTE_PREVIEW_SAMPLE_GAIN * previewOutputGain(plan) * noteMelodyOutputGain(plan, note), start + 0.012)
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
-    src.connect(env)
+    // 재생·펜 소리와 같은 음색 필터를 거친다(해금은 공명을 깎은 만큼 게인이 커서, 빼면 이 소리만 크게 난다).
+    const toneFilters = connectGugakSampleTone(ctx, src, env, plan, start)
     env.connect(ctx.destination)
-    this._registerPreviewNode(src, [env])
+    this._registerPreviewNode(src, [env].concat(toneFilters || []))
     src.start(start, offset, Math.min(usableSourceDur, note.duration * baseRate + 0.04))
     src.stop(start + note.duration + 0.03)
   }

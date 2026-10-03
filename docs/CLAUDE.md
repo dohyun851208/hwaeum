@@ -36,6 +36,8 @@
 - `decisions/2026-10-02-cello-lowest-g-take.md` — 첼로 맨 아래 솔을 고르게 유지되는 같은 음 fortissimo 테이크로 고정(`TAKE_OVERRIDES`)
 - `decisions/2026-10-03-steady-sustain-takes.md` — 지속음 160칸 검사 후 고르지 않거나 작게 나는 서양 16칸(오보에 11칸)을 같은 음 다른 테이크·반음 옆 녹음으로 교체
 - `decisions/2026-10-03-loudness-audit.md` — 170칸 음량 전수 점검: 측정 도구 스테레오·국악 필터 오차 수정, 펜 소리 상한 분리, 튀는 서양 녹음 17칸 교체, 국악 4악기 음별 보정 한도 ±12 dB
+- `decisions/2026-10-03-perceived-loudness-a-weighting.md` — 악기끼리의 크기를 RMS 대신 귀 기준 A-가중(음별 보정 뒤)으로 맞춤: 비교 청취로 결정, 첼로 +3.9·더블베이스 +8.3·호른·대금 +3.2 dB, 가야금만 RMS, 음별 보정은 그대로
+- `decisions/2026-10-04-haegeum-resonance-cuts.md` — 해금의 울림통 콧소리 공명(1.4~1.8 kHz)을 두 곳에서 −14 dB 깎고 미끄러짐을 0.12→0.05초로: 무료 출처 셋이 모두 같은 음색이라 녹음 교체 대신 음색 처리, 재생·펜·음 미리듣기 같은 필터, 해금 게인 0.29→2.00
 - `decisions/2026-10-02-nature-effect-sound-match.md` — 자연 효과음을 이름에 맞게: 바람1↔2 맞바꿈, 이름의 순간을 맨 앞에, 없는 소리는 픽사베이 녹음(`build-nature-effects.py`)
 - `decisions/2026-10-03-instrument-example-pieces.md` — 2단계 악기 감상 연주곡을 같은 무리 카드와 같은 크기(LUFS)의 깨끗한 실제 녹음으로: 단소는 24 dB 작던 문덕곡 대신 국립국악원 청성곡, 먹먹하던 플루트·바이올린·더블베이스는 CC 실연 녹음(출처 줄·`라이센스.txt`)(`build-instrument-examples.py`)
 

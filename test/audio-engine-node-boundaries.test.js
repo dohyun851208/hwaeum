@@ -64,7 +64,7 @@ function makeContext() {
       return makeNode({ type: "sine", frequency: makeParam(), detune: makeParam() })
     },
     createBiquadFilter() {
-      return makeNode({ type: "lowpass", frequency: makeParam(), Q: makeParam() })
+      return makeNode({ type: "lowpass", frequency: makeParam(), Q: makeParam(), gain: makeParam() })
     },
     resume() {
       this.state = "running"
