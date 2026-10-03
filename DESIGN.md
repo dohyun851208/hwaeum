@@ -6,7 +6,7 @@ Hwaeum is one world seen in three lights, all carrying the `畵 + 音` seal:
 
 - **Landing (`index.html`)** — night ink paper. A melody line is drawn over a hidden ink landscape; each note brings the ink up and the finished song colours the whole painting. Only the brand word `화음`, the seal and one button are visible; two quiet icons sit in the bottom-right corner (sound, and `→` straight into the studio for returning visitors).
 - **Studio (`studio.html`)** — the daytime workroom: warm hanji paper, ink text, one sheet of paper per step. The header (brand, seal, step line) sits on the same paper as the work, never in a dark band.
-- **Gallery (`channel.html`)** — the landing's night again, as an exhibition room: ink walls, works hung in cream-matted frames with a placard (title, composer, words) beneath, soft light from above. Empty rooms (entry, locked, no works) show the landing painting dimly at the bottom and greet the visitor in the centre, like the landing.
+- **Gallery (`channel.html`)** — a lobby in the landing's night, then a real exhibition room. The lobby (entry, locked, no works) is the ink wall with the landing painting dim at the bottom and greets the visitor in the centre, like the landing. Once a gallery opens the visitor steps into the room: a photographed exhibition hall, works as square covers with a thin gold line on wooden shelves, and a coverflow stage under ceiling spotlights.
 
 Works are the protagonists. Decoration stays quiet, text stays short.
 
@@ -16,7 +16,7 @@ Works are the protagonists. Decoration stays quiet, text stays short.
 
 | Role | Landing | Studio token | Studio | Gallery token | Gallery | Usage |
 | --- | --- | --- | --- | --- | --- | --- |
-| Page | `#101d20` | `--paper` / `--paper-2` | `#f4f0e6` / `#ede7d9` + hanji grain | `--g-ink` / `--g-ink-deep` | `#101d20` / `#0a1416` + faint grain | Page background |
+| Page | `#101d20` | `--paper` / `--paper-2` | `#f4f0e6` / `#ede7d9` + hanji grain | `--g-ink` / `--g-ink-deep` | `#101d20` / `#0a1416` + faint grain (lobby); exhibition-hall photo when open | Page background |
 | Sheet / panel | — | `--canvas` | `#fffdf9` | `--g-panel` | `#14272b` | Step sheet, viewer, menu, dialogs |
 | Soft surface | — | `--soft` | `#f7f3ea` | `--g-hover` | `rgba(243,238,224,.07)` | Memo strips, hover |
 | Text strong | `#f4ead2` | `--ink` | `#1f2522` | `--g-cream` | `#f3eee0` | Titles, values |
@@ -27,7 +27,6 @@ Works are the protagonists. Decoration stays quiet, text stays short.
 | Gold | `#e2c58d` | `--gold` | `#9a7535` | `--g-gold` | `#e2c58d` | Eyebrows, words (#tags), drop and focus marks |
 | Accent | — | `--accent` | `#158f8b` (runtime mood) | — | — | Focus rings, selection, sound activity |
 | Seal | `#b8432f` | `--seal` | `#b8432f` | — | `#b8432f` | The `畵音` seal only |
-| Frame mat | — | — | — | `--g-mat` | `#efe9dc` | Gallery frames |
 | Danger | — | — | `#c4483a` | `--g-danger` | `#eba899` | Invalid field, delete |
 
 ### Rules
@@ -53,7 +52,7 @@ Works are the protagonists. Decoration stays quiet, text stays short.
 | Brand | 30px (studio) | Hand 400 | `화음` beside the seal |
 | Title | 28px (studio) · 24px (gallery header, viewer) · 36px (gallery entry) | 700 | Step titles, gallery name, work title |
 | Section | 16–18px | 700 | `악기`, `효과음`, card group heads, dialog titles |
-| Body | 15–16px | 400–500 | Sentences, field text, placard title (16/600) |
+| Body | 15–16px | 400–500 | Sentences, field text, cover caption title (15/600) |
 | Label | 14px | 600 | Field labels, card copy, buttons are 14–15/600 |
 | Help | 13–14px | 400 | Helper lines under fields |
 | Eyebrow / numbers | 12–13px | 600 | `1단계`, step numbers, time ticks, badges |
@@ -74,7 +73,7 @@ All spacing follows a 4px base: 8 (compact), 12 (control), 16 (group), 24–32 (
 
 - Desktop-first classroom tool. No mobile layouts unless requested.
 - Studio: header row `brand | step line | picture chip`, then one sheet per step.
-- Gallery wall: `repeat(auto-fill, minmax(200px, 1fr))`, 52px row and 32px column gaps; every frame is square and aligned on one line.
+- Gallery wall: wooden shelves of seven square covers (`WORKS_PER_SHELF`), slightly staggered heights. Every cover is square on purpose: the coverflow only reads as one continuous row when all covers share a shape (the viewer shows the whole picture).
 
 ### Rules
 
@@ -99,16 +98,17 @@ All spacing follows a 4px base: 8 (compact), 12 (control), 16 (group), 24–32 (
 
 - `①—②—③—④—⑤` on the paper: past steps teal, current step ink-filled with bold text, next steps grey outline.
 
-### Gallery Frame & Placard
+### Gallery Cover & Caption
 
-- Cover image with a 10px `--g-mat` mat, 3px radius, deep shadow, soft light above (masked so it has no edges).
-- Placard below: title 16/600 cream, composer 14 muted, words 14 gold. Title and composer are separate elements; the combined name stays in `aria-label`.
-- Coverflow uses the same frame; only the centre card shows its caption.
+- Square cover with a thin gold line (1px `rgba(255,224,138,.22)`) and a soft shadow, standing on a wooden shelf. No thick mat — it made the wall read as a digital album.
+- Caption band over the bottom of the cover: `제목 (작곡가)` on one line (15/600 cream) and the words below (14/600 muted). Title and composer are separate elements and CSS adds the brackets; the combined name stays in `aria-label`.
+- Coverflow shows the same square covers on the exhibition stage; the centre cover gets a brighter gold line and glow, side covers hide their caption.
 
 ### Gallery Entry
 
 - `body[data-gallery-state]` is `entry`, `loading`, `locked`, `open` or `empty` (set in `updateHeader()`).
 - `entry` and `locked` move the title block and the number/code form to the centre of the screen and show the landing painting dimly; `empty` keeps the header and centres the empty message.
+- Every state but `open` is the lobby (ink wall, hanji grain); `open` falls back to the exhibition-hall photo and its wall lines.
 
 ## 6. Motion & Interaction
 
@@ -125,10 +125,10 @@ All spacing follows a 4px base: 8 (compact), 12 (control), 16 (group), 24–32 (
 ## 7. Depth & Surface
 
 - Studio: a single soft shadow under each sheet; tiles and fields are flat with hairlines.
-- Gallery: frames carry the depth (mat + shadow + light); panels (viewer, menu, dialogs) are `--g-panel` with one large soft shadow.
-- Atmospheric images (landing painting) stay behind content and appear only where the room is empty.
+- Gallery: the exhibition room carries the depth (photographed hall, wooden shelves, coverflow stage with spotlights); panels (viewer, menu, dialogs) are `--g-panel` with one large soft shadow.
+- Atmospheric images (landing painting) stay behind content and appear only in the lobby.
 
 ## 8. Where it lives
 
 - `styles.css` ends with two override layers: `@renewal-2026-10` (studio) and `@gallery-renewal-2026-10` (gallery). They override the older rules above them; tests still pin some of those older rules, so remove them only together with their tests.
-- Decision records: `docs/decisions/2026-10-03-studio-hanji-type-fields.md`, `docs/decisions/2026-10-03-ink-gallery-renewal.md`.
+- Decision records: `docs/decisions/2026-10-03-studio-hanji-type-fields.md`, `docs/decisions/2026-10-03-ink-gallery-renewal.md`, `docs/decisions/2026-10-03-gallery-museum-walls.md`.

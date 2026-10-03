@@ -6968,10 +6968,11 @@ body:not(.channel-body) .upload-status.error {
 
 /* @gallery-renewal-2026-10 begin */
 /* ==========================================================================
-   2026-10 화음 갤러리 리뉴얼 — 먹빛 전시실
-   · 메인의 먹색(#101d20)·한지 결·금빛(#e2c58d)·낙관을 잇는다. 작품이 주인공이라 벽은 조용히 둔다.
+   2026-10 화음 갤러리 리뉴얼 — 먹빛 로비와 예전 전시실
+   · 로비(입구·잠김·빈 전시)는 메인의 먹색(#101d20)·한지 결·금빛(#e2c58d)·낙관을 잇는다.
    · 글꼴은 스튜디오와 같은 한 가족(Hwaeum Sans = Pretendard 400·500·600·700), 읽는 글자 14px 이상.
-   · 작품은 크림색 매트를 두른 액자 + 아래 이름표(제목·작곡가·단어)로 건다.
+   · 작품이 걸린 방(한눈에 보기·커버플로우)은 예전 전시실(사진 벽·나무 선반·정사각 표지·얇은 금빛 선)을
+     그대로 쓰고, 여기서는 표지 띠 이름표만 다듬는다.
    · 입구(번호 입력)와 잠긴 갤러리는 메인처럼 화면 가운데에서 맞이한다 — body[data-gallery-state].
    ========================================================================== */
 .channel-body {
@@ -6988,7 +6989,6 @@ body:not(.channel-body) .upload-status.error {
   --g-gold: #e2c58d;
   --g-gold-line: rgba(226, 197, 141, 0.38);
   --g-danger: #eba899;
-  --g-mat: #efe9dc;
   --g-radius: 10px;
   --channel-ink: var(--g-cream);
   --channel-muted: var(--g-muted);
@@ -6999,25 +6999,32 @@ body:not(.channel-body) .upload-status.error {
   --sans: "Hwaeum Sans", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --serif: var(--sans);
   --display: var(--sans);
-  background:
-    radial-gradient(ellipse 60% 42% at 50% -8%, rgba(226, 197, 141, 0.07), transparent 70%),
-    linear-gradient(180deg, var(--g-ink), var(--g-ink-deep));
-  background-attachment: fixed;
   color: var(--g-text);
   font-family: var(--sans);
   letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
 }
+/* 입구·잠김·빈 전시는 먹빛 로비, 작품이 걸린 방은 예전 전시실(.channel-body 기본 배경) */
+body.channel-body:not([data-gallery-state="open"]) {
+  background:
+    radial-gradient(ellipse 60% 42% at 50% -8%, rgba(226, 197, 141, 0.07), transparent 70%),
+    linear-gradient(180deg, var(--g-ink), var(--g-ink-deep));
+  background-attachment: fixed;
+}
+/* 로비에는 예전 전시실 벽의 세로 금선을 두지 않는다 */
+body.channel-body:not([data-gallery-state="open"]) .channel-library {
+  background: none;
+}
 .channel-body :is(button, input, textarea) {
   font-family: var(--sans);
 }
 /* 한지 결: 어두운 벽에 아주 옅은 섬유 */
-.channel-body::before {
+body.channel-body:not([data-gallery-state="open"])::before {
   inset: 0;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .93 0 0 0 0 .88 .07 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 /* 비어 있는 방(입구·잠김·빈 전시)에는 메인의 산수화가 어둠 속에 희미하게 깔린다 */
-.channel-body::after {
+body.channel-body:not([data-gallery-state="open"])::after {
   inset: auto 0 0 0;
   width: auto;
   height: 64vh;
@@ -7215,213 +7222,32 @@ body.channel-body:is([data-gallery-state="entry"], [data-gallery-state="locked"]
   color: #f6c3b7;
 }
 
-/* ---------- 작품 벽(한눈에 보기): 액자와 이름표 ---------- */
-.channel-body .channel-library {
-  padding: 44px clamp(24px, 4.4vw, 76px) 80px;
-  background: none;
-}
-body.channel-body:not([data-gallery-view="flow"]) .channel-shelves {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 52px 32px;
-  align-content: start;
-}
-.channel-body .channel-shelf {
-  display: contents;
-}
-.channel-body .channel-shelf::before,
-.channel-body .channel-shelf::after {
-  display: none;
-}
-.channel-body .channel-shelf .channel-album {
-  display: block;
-  border-radius: 4px;
-  transform: none;
-  text-align: left;
-}
-.channel-body .channel-shelf .channel-album-cover,
-.channel-body .channel-shelf .channel-album:hover .channel-album-cover {
-  display: grid;
-  gap: 16px;
-  aspect-ratio: auto;
-  overflow: visible;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  transform: none;
-}
-/* 위에서 비추는 조명 */
-.channel-body .channel-shelf .channel-album-cover::before {
-  content: "";
-  position: absolute;
-  top: -44px;
-  left: -22%;
-  right: -22%;
-  height: 78%;
-  background: radial-gradient(ellipse 50% 62% at 50% 22%, rgba(243, 238, 224, 0.1), transparent 72%);
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 28%, #000 62%, transparent);
-  mask-image: linear-gradient(180deg, transparent, #000 28%, #000 62%, transparent);
-  opacity: 0.75;
-  pointer-events: none;
-  transition: opacity 220ms ease;
-}
-.channel-body .channel-shelf .channel-album-cover img {
-  position: relative;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border: 10px solid var(--g-mat);
-  border-radius: 3px;
-  background: var(--g-mat);
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.35), 0 22px 44px rgba(0, 0, 0, 0.5);
-  transition: transform 220ms ease, box-shadow 220ms ease;
-}
-.channel-body .channel-shelf .channel-album:hover .channel-album-cover::before {
-  opacity: 1;
-}
-.channel-body .channel-shelf .channel-album:hover .channel-album-cover img {
-  transform: translateY(-4px);
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.35), 0 30px 56px rgba(0, 0, 0, 0.58);
-}
-.channel-body .channel-shelf .channel-album-overlay {
-  position: static;
-  display: grid;
-  gap: 4px;
-  min-height: 0;
-  padding: 0 2px;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  color: var(--g-text);
-}
+/* ---------- 작품 벽: 예전 전시실(나무 선반·커버플로우 무대)을 그대로 쓰고 이름표만 다듬는다 ---------- */
+/* 표지 띠: 「제목 (작곡가)」 한 줄 + 단어 한 줄, 읽는 글자 14px 이상 */
 .channel-body .channel-album-overlay {
-  backdrop-filter: none;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 0;
 }
-.channel-body .channel-album-overlay strong {
-  color: var(--g-cream);
-  font: 600 16px/1.35 var(--sans);
-  letter-spacing: -0.015em;
+.channel-body .channel-album-overlay strong,
+.channel-body .channel-album-overlay .channel-album-composer {
+  color: var(--channel-ink);
+  font-size: 15px;
+  font-weight: 600;
 }
 .channel-body .channel-album-overlay .channel-album-composer {
-  color: var(--g-muted);
-  font: 400 14px/1.4 var(--sans);
+  margin-left: 0.3em;
+}
+.channel-body .channel-album-overlay .channel-album-composer::before {
+  content: "(";
+}
+.channel-body .channel-album-overlay .channel-album-composer::after {
+  content: ")";
 }
 .channel-body .channel-album-overlay .channel-album-tags {
-  color: var(--g-gold);
-  font: 500 14px/1.4 var(--sans);
-}
-.channel-body .channel-album-overlay .channel-album-tags:empty {
-  display: none;
-}
-/* 표지에 재생 단추가 없던 예전 작품: 그림 한가운데에 단추 */
-.channel-body .channel-shelf .channel-album-play {
-  top: 0;
-  left: 0;
-  z-index: 2;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  transform: none;
-}
-.channel-body .channel-shelf .channel-album-play::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: rgba(16, 29, 32, 0.74);
-  box-shadow: 0 0 0 1px var(--g-gold-line);
-  transform: translate(-50%, -50%);
-}
-.channel-body .channel-shelf .channel-album-play svg {
-  position: relative;
-  width: 20px;
-  height: 20px;
-  color: var(--g-cream);
-  transform: translateX(1px);
-}
-.channel-body .channel-album:focus-visible {
-  outline: 2px solid var(--g-gold);
-  outline-offset: 8px;
-}
-.channel-body .channel-shelf .channel-album.is-drop-before::before,
-.channel-body .channel-shelf .channel-album.is-drop-after::after {
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--g-gold);
-  box-shadow: 0 0 14px rgba(226, 197, 141, 0.5);
-}
-.channel-body .channel-shelf .channel-album.is-drop-before::before {
-  left: -18px;
-}
-.channel-body .channel-shelf .channel-album.is-drop-after::after {
-  right: -18px;
-}
-
-/* ---------- 커버플로우: 조명 아래 한 점씩 ---------- */
-/* 무대는 화면 높이에 맞춘다 — 낮은 노트북 화면에서도 아래 번호(1 / 10)까지 한 화면에 */
-.channel-body .channel-library.channel-flow-mode {
-  padding-top: 12px;
-  padding-bottom: 12px;
-}
-.channel-body .channel-coverflow-stage {
-  height: calc(100vh - 76px - 24px);
-  min-height: 560px;
-  max-height: 780px;
-  border: 0;
-  border-radius: 0;
-  background: radial-gradient(ellipse 32% 56% at 50% 24%, rgba(243, 238, 224, 0.07), transparent 72%);
-  box-shadow: none;
-}
-.channel-body .channel-coverflow-stage::before {
-  bottom: 168px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(226, 197, 141, 0.3) 28%, rgba(226, 197, 141, 0.3) 72%, transparent);
-  filter: none;
-}
-.channel-body .channel-coverflow-stage::after {
-  bottom: 0;
-  height: 168px;
-  background: radial-gradient(ellipse 30% 70% at 50% 0%, rgba(226, 197, 141, 0.08), transparent 72%);
-}
-.channel-body .channel-coverflow .channel-album-cover {
-  border: 10px solid var(--g-mat);
-  border-radius: 4px;
-  background: var(--g-mat);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35), 0 30px 60px rgba(0, 0, 0, 0.55);
-}
-.channel-body .channel-coverflow .channel-flow-album.is-center .channel-album-cover {
-  border-color: var(--g-mat);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35), 0 38px 72px rgba(0, 0, 0, 0.6), 0 0 70px rgba(243, 238, 224, 0.07);
-}
-.channel-body .channel-coverflow .channel-album-overlay {
-  gap: 3px;
-  min-height: 0;
-  padding: 34px 16px 14px;
-  border: 0;
-  background: linear-gradient(180deg, transparent, rgba(10, 20, 22, 0.9) 48%);
-}
-.channel-body .channel-coverflow .channel-flow-album:not(.is-center) .channel-album-overlay {
-  opacity: 0;
-}
-.channel-body .channel-coverflow-counter {
-  right: 28px;
-  bottom: 24px;
-  padding: 7px 14px;
-  border: 1px solid var(--g-line-strong);
-  border-radius: 999px;
-  background: rgba(16, 29, 32, 0.72);
-  color: var(--g-cream);
-  font: 600 14px/1 var(--sans);
-  box-shadow: none;
+  grid-column: 1 / -1;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 /* ---------- 빈 전시 ---------- */

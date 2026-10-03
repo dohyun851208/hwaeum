@@ -56,6 +56,7 @@
 - `decisions/2026-10-03-studio-ink-frame-renewal.md` — 스튜디오 내부를 먹 액자(머리띠·단계·낙관) + 한지 작업면으로, 판 안의 판·노란 채움·중복 소제목 정리(`styles.css` `@renewal-2026-10` 구간)
 - `decisions/2026-10-03-studio-hanji-type-fields.md` — 먹색 머리띠 대신 한지 위 한 줄 머리·단계 줄, Pretendard 한 가족 4굵기(`assets/fonts/hwaeum-sans.css`), 모든 적는 칸 같은 모양, 낱말 단위 줄바꿈(keep-all), 2단계 카드+메모 한 장, 읽는 글자 14px 바닥·3단계 팔레트 정리
 - `decisions/2026-10-03-ink-gallery-renewal.md` — 화음 갤러리를 메인의 먹빛 전시실로: 매트 액자+이름표, 입구·잠김은 가운데에서 맞이(`body[data-gallery-state]`), 크림 주 단추, Pretendard(`styles.css` `@gallery-renewal-2026-10` 구간)
+- `decisions/2026-10-03-gallery-museum-walls.md` — 갤러리 작품 벽(한눈에 보기·커버플로우)을 예전 전시실(사진 벽·나무 선반·정사각 표지·얇은 금빛 선)로 되돌림, 머리줄·글꼴·먹빛 로비는 유지, 이름표 「제목 (작곡가)」 한 줄·단어 14px
 
 - `plans/2026-10-03-runtime-refactor.md` — 런타임 책임 분리 범위·단계·검증 결과
 - `decisions/2026-10-03-runtime-responsibility-refactor.md` — 샘플·그림 렌더·레시피·감상·로컬 저장 모듈 분리와 HTML 기반 검증 로더
