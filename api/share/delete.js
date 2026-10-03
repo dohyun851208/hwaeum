@@ -1,5 +1,5 @@
 const { del, list } = require("@vercel/blob")
-const { cleanChannel, hashAdmin, listAll, method, parseJsonBody, send } = require("./_utils.cjs")
+const { cleanChannel, hashAdmin, listAll, method, parseJsonBody, send, sendError } = require("./_utils.cjs")
 
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["POST", "DELETE"])) return
@@ -21,13 +21,6 @@ module.exports = async function handler(req, res) {
     if (targets.length) await del(targets)
     send(res, 200, { ok: true, deleted: workId })
   } catch (error) {
-    console.error(error)
-    const message =
-      String(error && error.message).indexOf("BLOB_READ_WRITE_TOKEN") !== -1
-        ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
-        : error && error.message
-          ? error.message
-          : "공유 작품을 삭제하지 못했어요."
-    send(res, 500, { error: message })
+    sendError(res, error, "공유 작품을 삭제하지 못했어요.")
   }
 }

@@ -1,8 +1,6 @@
+const { loadScripts } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
-const fs = require("node:fs")
-const path = require("node:path")
 const test = require("node:test")
-const vm = require("node:vm")
 
 const core = require("../js/music-core.js")
 
@@ -42,10 +40,9 @@ function fakeCanvas() {
 }
 
 function loadDrawingCanvas() {
-  const code = fs.readFileSync(path.resolve(__dirname, "..", "js", "drawing.js"), "utf8")
   const sandbox = { MusicCore: core, devicePixelRatio: 1, performance: { now: () => 1000 } }
   sandbox.self = sandbox
-  vm.runInNewContext(code, sandbox, { filename: "drawing.js" })
+  loadScripts(sandbox, { from: "drawing-renderer.js", through: "drawing.js" })
   return sandbox.DrawingCanvas
 }
 

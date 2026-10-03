@@ -105,7 +105,7 @@
     shelfDropPosition: "",
     suppressAlbumClick: false,
   }
-  const generatedDrawingUrls = new Map()
+  let channelLoadGeneration = 0
 
   function cleanText(value, max) {
     const text = String(value || "").replace(/\s+/g, " ").trim()
@@ -397,16 +397,6 @@
     return composer ? title + " (" + composer + ")" : title
   }
 
-  function workDescriptionLine(work) {
-    const meta = (work && work.metadata) || {}
-    return [
-      cleanText(meta.atmosphereLabel, 32),
-      cleanText(meta.instrumentLabel, 72),
-    ]
-      .filter(Boolean)
-      .join(" · ")
-  }
-
   function workViewerMeta(work) {
     const meta = (work && work.metadata) || {}
     return {
@@ -435,11 +425,6 @@
   function musicUrl(work) {
     const files = (work && work.files) || {}
     return files.musicUrl || ""
-  }
-
-  function drawingUrl(work) {
-    const files = (work && work.files) || {}
-    return files.drawingUrl || files.drawingImageUrl || ""
   }
 
   function canDeleteActive() {
@@ -544,6 +529,15 @@
     }
     if (el.shareBtn) el.shareBtn.hidden = !channel || state.locked || state.loading
     if (el.nameInput && document.activeElement !== el.nameInput) el.nameInput.value = name
+    // 입구·불러오기·잠김·전시·빈 전시 중 지금 화면을 적어 둔다 — CSS가 입구 화면을 가운데로 모은다.
+    if (el.body) el.body.dataset.galleryState = galleryState()
+  }
+
+  function galleryState() {
+    if (!state.channel) return "entry"
+    if (state.loading) return "loading"
+    if (state.locked) return "locked"
+    return state.works.length ? "open" : "empty"
   }
 
   function syncViewModeUI() {
@@ -595,12 +589,21 @@
     img.loading = "lazy"
     const overlay = document.createElement("span")
     overlay.className = "channel-album-overlay"
+    // 전시 이름표처럼 제목과 작곡가를 따로 적는다(소리 내어 읽는 이름은 aria-label에 함께 있다).
     const title = document.createElement("strong")
-    title.textContent = workDisplayTitle(work)
+    title.textContent = workTitle(work)
+    const composer = workComposer(work)
     const tags = document.createElement("span")
+    tags.className = "channel-album-tags"
     tags.textContent = tagsText(meta.hashtags) || [meta.atmosphereLabel, meta.instrumentLabel].filter(Boolean).join(" · ")
 
     overlay.appendChild(title)
+    if (composer) {
+      const by = document.createElement("span")
+      by.className = "channel-album-composer"
+      by.textContent = composer
+      overlay.appendChild(by)
+    }
     overlay.appendChild(tags)
     cover.appendChild(img)
     if (shouldShowCoverPlayOverlay(work)) {
@@ -894,6 +897,7 @@
   }
 
   async function loadChannel(channel, options) {
+    const generation = ++channelLoadGeneration
     options = options || {}
     if (!ShareStore || !ShareStore.listChannel) {
       setStatus("공유 모듈을 불러오지 못했어요.", true)
@@ -903,6 +907,9 @@
     if (!normalized) {
       state.channel = ""
       state.works = []
+      state.loading = false
+      state.channelMeta = null
+      state.locked = false
       state.flowIndex = 0
       renderShelves()
       setStatus("번호를 적어 주세요.", true)
@@ -923,6 +930,7 @@
     setStatus("", false)
     try {
       const result = await ShareStore.listChannel(normalized, state.pass)
+      if (generation !== channelLoadGeneration) return
       state.channelMeta = result.meta || null
       state.locked = !!result.locked
       state.works = state.locked ? [] : applyStoredWorkOrder(Array.isArray(result.works) ? result.works : [], normalized)
@@ -941,6 +949,7 @@
       if (options.updateUrl !== false) history.replaceState(null, "", channelUrl(normalized, options.focusWork || ""))
       if (!state.locked) focusWork(options.focusWork || workIdFromHash())
     } catch (error) {
+      if (generation !== channelLoadGeneration) return
       console.error(error)
       state.works = []
       state.flowIndex = 0
@@ -1122,11 +1131,6 @@
     el.viewerPlay.setAttribute("aria-label", el.viewerAudio.paused ? "재생" : "일시정지")
   }
 
-  function clampUnit(value) {
-    const n = Number(value)
-    return Math.max(0, Math.min(1, isFinite(n) ? n : 0))
-  }
-
   function recipeStrokes(recipe) {
     recipe = recipe || {}
     if (Array.isArray(recipe.strokes) && recipe.strokes.length) return recipe.strokes
@@ -1135,105 +1139,6 @@
 
   function canOpenStudioCopy(work) {
     return !!(work && work.recipe && recipeStrokes(work.recipe).length)
-  }
-
-  function strokeColor(index) {
-    const palette = ["#00a6a6", "#c8a344", "#5b8def", "#d76f51", "#7f6fd6", "#6aa84f"]
-    return palette[index % palette.length]
-  }
-
-  function renderGeneratedDrawingCanvas(work) {
-    const canvas = document.createElement("canvas")
-    const w = 1440
-    const h = 540
-    canvas.width = w
-    canvas.height = h
-    const ctx = canvas.getContext("2d")
-    ctx.fillStyle = "#fbf6ec"
-    ctx.fillRect(0, 0, w, h)
-
-    ctx.strokeStyle = "rgba(31,38,38,0.1)"
-    ctx.lineWidth = 1
-    for (let i = 0; i <= 12; i++) {
-      const x = Math.round((w * i) / 12)
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, h)
-      ctx.stroke()
-    }
-    for (let i = 0; i <= 14; i++) {
-      const y = Math.round((h * i) / 14)
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(w, y)
-      ctx.stroke()
-    }
-
-    recipeStrokes(work && work.recipe).forEach(function (stroke, index) {
-      if (!Array.isArray(stroke) || stroke.length < 2) return
-      ctx.save()
-      ctx.lineCap = "round"
-      ctx.lineJoin = "round"
-      ctx.lineWidth = 10
-      ctx.strokeStyle = strokeColor(index)
-      ctx.globalAlpha = 0.34
-      ctx.beginPath()
-      ctx.moveTo(clampUnit(stroke[0].x) * w, clampUnit(stroke[0].y) * h)
-      for (let i = 1; i < stroke.length; i++) ctx.lineTo(clampUnit(stroke[i].x) * w, clampUnit(stroke[i].y) * h)
-      ctx.stroke()
-      ctx.globalAlpha = 0.94
-      ctx.lineWidth = 4
-      ctx.stroke()
-      ctx.restore()
-    })
-
-    const stamps = (work && work.recipe && Array.isArray(work.recipe.effectStamps) ? work.recipe.effectStamps : []) || []
-    stamps.forEach(function (stamp) {
-      const x = clampUnit(stamp && stamp.x) * w
-      const y = clampUnit(stamp && stamp.y != null ? stamp.y : 0.5) * h
-      ctx.save()
-      ctx.fillStyle = "rgba(255,224,138,0.88)"
-      ctx.strokeStyle = "rgba(31,38,38,0.18)"
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.arc(x, y, 22, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.stroke()
-      ctx.restore()
-    })
-
-    ctx.fillStyle = "rgba(20,24,22,0.82)"
-    ctx.fillRect(0, h - 54, w, 54)
-    ctx.fillStyle = "#fbf6ec"
-    ctx.font = "800 26px 'Segoe UI', sans-serif"
-    ctx.fillText(workTitle(work) + " 드로잉", 28, h - 20)
-    return canvas
-  }
-
-  function canvasBlob(canvas, type, quality) {
-    return new Promise(function (resolve, reject) {
-      canvas.toBlob(
-        function (blob) {
-          if (blob) resolve(blob)
-          else reject(new Error("드로잉 이미지를 만들지 못했어요."))
-        },
-        type,
-        quality,
-      )
-    })
-  }
-
-  async function generatedDrawingUrl(work) {
-    const key = ((work && work.id) || "drawing") + ":" + ((work && work.updatedAt) || (work && work.createdAt) || "")
-    if (generatedDrawingUrls.has(key)) return generatedDrawingUrls.get(key)
-    const blob = await canvasBlob(renderGeneratedDrawingCanvas(work), "image/webp", 0.72)
-    const url = URL.createObjectURL(blob)
-    generatedDrawingUrls.set(key, url)
-    return url
-  }
-
-  async function drawingImageUrl(work) {
-    return drawingUrl(work) || generatedDrawingUrl(work)
   }
 
   // 확대해서 보기 프레임을 그림 비율에 맞춘다 — CSS 변수로 무대 크기를 넘기면

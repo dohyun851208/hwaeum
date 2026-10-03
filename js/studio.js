@@ -11,6 +11,7 @@
   const D = window.SDStudioData
   const ShareStore = window.HwaeumShareStore || null
   const StudioUtils = window.HwaeumStudioUtils
+  const recipeModel = window.HwaeumStudioRecipe({ core: Core, data: D, audioPlan: window.SDAudioPlan, utils: StudioUtils })
 
   const engine = new window.AudioEngine()
   const takes = new window.TakesStore("sda.takes")
@@ -171,7 +172,10 @@
     renderInstruments()
   })
 
-  const AUDIO_MODE_CREDIT = "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시)"
+  // 서양 연주곡 3개는 CC BY / CC BY-SA 녹음이라 연주곡을 듣는 2단계에 출처를 함께 적는다
+  // (곡명·주소·라이선스 전문 링크는 sound/감상-연주곡(서양악기)/라이센스.txt).
+  const AUDIO_MODE_CREDIT =
+    "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시) · 서양 연주곡(발췌·음량 조절): 플루트 Kristina Martincová (CC BY-SA 3.0), 바이올린 Howard Geisel·FreqMan (CC BY 4.0), 더블베이스 Răzvan Popescu·Radio România (CC BY-SA 4.0)"
 
   // === § 4  DOM 요소 참조 ===
 
@@ -273,6 +277,9 @@
 
   // === § 5  악기 색 · Undo 변수 ===
   // 악기별 줄 색 — 오케스트라에서 어떤 줄이 어떤 악기인지 색으로 구분
+  const reflectionUI = window.HwaeumStudioReflection({ state, el, document, utils: StudioUtils, composerNameMax: COMPOSER_NAME_MAX, updateReadouts })
+  const { syncReflectionFromNotes, syncReflectionInputs, commitHashtagInput, renderHashtagChips, hashtagList } = reflectionUI
+
   const INSTRUMENT_COLORS = {
     violin: "#c85f4d", viola: "#b8793f", cello: "#8f6046", doubleBass: "#5f5040",
     flute: "#2f9c95", oboe: "#788f4a", clarinet: "#5f6f9f", frenchHorn: "#c49732",
@@ -331,12 +338,12 @@
         el.statusText.classList.add("playing")
         el.body.dataset.livePreview = "drawing"
       }
-      engine.liveDrawingStart(buildRecipe(), point.y).catch(function (e) {
+      engine.liveDrawingStart(buildPreviewRecipe(), point.y).catch(function (e) {
         console.warn("드로잉 라이브 시작 실패", e)
       })
     },
     onPreview: (point) => {
-      engine.liveDrawingMove(buildRecipe(), point.y).catch(function (e) {
+      engine.liveDrawingMove(buildPreviewRecipe(), point.y).catch(function (e) {
         console.warn("드로잉 라이브 이동 실패", e)
       })
     },
@@ -428,10 +435,6 @@
 
   function hashtagText(value) {
     return StudioUtils.hashtagText(value)
-  }
-
-  function keywordText(value) {
-    return StudioUtils.keywordText ? StudioUtils.keywordText(value) : normalizeHashtags(value).join(" ")
   }
 
   // === § 7b  내보내기 워크플로 (studio-export.js 초기화) ===
@@ -749,114 +752,35 @@
 
   // 저장/공유용 다운샘플 — 선율은 음 경계를 보존하고 썸네일만 균등 인덱스로 솎는다.
   // (resampleByTime은 x를 0..1로 정규화해 부분 드로잉을 늘려버리므로 여기선 쓰지 않음)
-  function simplifyPoints(points, maxPoints, pitchAt) {
-    return StudioUtils.simplifyPoints(points, maxPoints, pitchAt)
-  }
-
-  function simplifyPath(path) {
-    return StudioUtils.simplifyPath(path)
-  }
-
-  function simplifyStrokes(strokes) {
-    return StudioUtils.simplifyStrokes(strokes)
-  }
-
   function simplifyEffectStamps(stamps) {
     return StudioUtils.simplifyEffectStamps(stamps, D.effects)
   }
 
-  function stampedEffectIds() {
-    const ids = state.effectIds.slice()
-    state.effectStamps.forEach((stamp) => {
-      if (D.effects[stamp.id] && ids.indexOf(stamp.id) === -1) ids.push(stamp.id)
-    })
-    return ids
-  }
+  // === § 9  레시피 — 캔버스를 여기서만 읽고 순수 변환 모듈에 전달 ===
 
-  function effectCount() {
-    return state.effectIds.length + state.effectStamps.length
-  }
-
-  // === § 9  Recipe 빌드 ===
-
-  // 획과 그 악기를 같은 필터링으로 묶어 1:1 정렬 보장(빈 획 제거 시에도 어긋나지 않게)
-  function buildStrokesAndInstruments() {
-    const rawStrokes = draw.getStrokes()
-    const rawInsts = draw.getStrokeInstruments()
-    const strokes = []
-    const instruments = []
-    rawStrokes.forEach((s, i) => {
-      const instrumentId = rawInsts[i] != null ? rawInsts[i] : state.instrument.id
-      const asset = D.melodies[instrumentId]
-      const simplified = simplifyPoints(s, 70, (point) => Core.quantizePitch(point.y, state.style, asset))
-      if (simplified.length > 0) {
-        strokes.push(simplified)
-        instruments.push(instrumentId)
-      }
-    })
-    return { strokes: strokes, instruments: instruments }
-  }
-
-  function recipeBgOffset() {
-    return canSelectBgRange() ? state.bgOffset : 0
-  }
-
-  function recipeBgEndOffset() {
-    return canSelectBgRange() ? state.bgEndOffset : 0
+  function buildPreviewRecipe() {
+    return recipeModel.buildPreviewRecipe(state)
   }
 
   function buildRecipe() {
-    const built = buildStrokesAndInstruments()
-    return {
-      title: cleanText(state.title || "무제", 24) || "무제",
-      composerName: cleanText(state.composerName, COMPOSER_NAME_MAX),
-      picture: normalizePictureData(state.recipePicture || state.pic),
-      pictureName: cleanText(state.picName || "그림", PICTURE_NAME_MAX),
-      duration: state.duration,
-      actionCount: normalizeActionCount(state.actionCount),
-      bgOffset: recipeBgOffset(),
-      bgEndOffset: recipeBgEndOffset(),
-      pictureThought: cleanText(state.pictureThought, 180),
-      backgroundReason: cleanText(state.backgroundReason, 180),
-      melodyIntent: cleanText(state.melodyIntent, 180),
-      hashtags: normalizeHashtags(state.hashtags),
-      atmosphere: state.atmosphere.id,
-      instrument: state.instrument.id,
-      style: state.style.id,
-      version: state.version.id,
-      mode: "melody",
-      effectIds: stampedEffectIds(),
-      effectStamps: simplifyEffectStamps(state.effectStamps),
+    return recipeModel.buildRecipe(state, {
+      strokes: draw.getStrokes(),
+      strokeInstruments: draw.getStrokeInstruments(),
+      path: draw.getPath(),
       soundLayers: soundLayerUI ? soundLayerUI.recipeLayers() : [],
-      path: simplifyPath(draw.getPath()), // 썸네일/재생용 시간순 평탄 경로
-      strokes: built.strokes, // 그린 그대로의 다중 획(시각 복원용)
-      strokeInstruments: built.instruments, // 획별 악기(오케스트라) — voice 인덱스와 1:1
-    }
+      bgRangeEnabled: canSelectBgRange(),
+    })
   }
 
   function notesFor(recipe) {
-    if (recipe.mode === "rhythm") return []
-    const fallbackAsset = D.melodies[state.instrument.id] || null
-    if (recipe.strokes && recipe.strokes.length) {
-      const style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
-      const melodyAssets = (recipe.strokeInstruments || []).map((id) => D.melodies[id] || fallbackAsset)
-      return Core.autocompleteMelodyStrokes(recipe.strokes, {
-        durationSec: recipe.duration,
-        style: style,
-        melodyAsset: fallbackAsset,
-        melodyAssets: melodyAssets,
-      })
-    }
-    if (!recipe.path || recipe.path.length < 1) return []
-    const style = D.styles.find((s) => s.id === recipe.style) || defaultStyle()
-    return Core.autocompleteMelody(recipe.path, { durationSec: recipe.duration, style: style, melodyAsset: fallbackAsset })
+    return recipeModel.notesFor(recipe)
   }
 
   function warmSelectedInstrument() {
     const inst = state.instrument
     const asset = D.melodies[inst.id]
     engine
-      .warmInstrument(buildRecipe())
+      .warmInstrument(buildPreviewRecipe())
       .then(function (buffer) {
         if (!asset || !asset.src) return
         if (!buffer) console.warn("악기 샘플을 불러오지 못해 합성음으로 대체합니다.")
@@ -870,12 +794,6 @@
     if (!el.audioModeNote) return
     el.audioModeNote.textContent = AUDIO_MODE_CREDIT
     el.audioModeNote.hidden = state.step !== SOUND_STEP
-  }
-
-  function instrumentParticle(label) {
-    const code = label.charCodeAt(label.length - 1)
-    if (code < 0xac00 || code > 0xd7a3) return label + "로"
-    return label + ((code - 0xac00) % 28 === 0 ? "로" : "으로")
   }
 
   // === § 10  분위기 카드 렌더링 ===
@@ -1256,27 +1174,7 @@
   }
 
   function usedInstrumentIdsForRecipe(recipe) {
-    const source = recipe || {}
-    const fallbackId = source.instrument || (state.instrument && state.instrument.id) || (D.instruments[0] && D.instruments[0].id)
-    const ids = []
-
-    const add = function (id) {
-      const realId = id || fallbackId
-      if (ids.indexOf(realId) === -1) ids.push(realId)
-    }
-
-    const strokes = Array.isArray(source.strokes) ? source.strokes : []
-    const strokeInsts = Array.isArray(source.strokeInstruments) ? source.strokeInstruments : []
-    if (strokes.length) {
-      strokes.forEach((stroke, index) => {
-        if (Array.isArray(stroke) && stroke.length) add(strokeInsts[index])
-      })
-    } else {
-      strokeInsts.forEach(add)
-    }
-
-    if (!ids.length) add(fallbackId)
-    return ids
+    return recipeModel.usedInstrumentIdsForRecipe(recipe, state.instrument && state.instrument.id)
   }
 
   function usedInstrumentLabelsForRecipe(recipe) {
@@ -1291,107 +1189,6 @@
       strokeInstruments: typeof draw.getStrokeInstruments === "function" ? draw.getStrokeInstruments() : [],
     }
     return usedInstrumentLabelsForRecipe(recipe)
-  }
-
-  // 2단계에서 적은 감상을 4단계 성찰 칸으로 옮긴다. 여러 배경·악기를 들어보며 적어도
-  // 실제로 고른 것 하나만 넘어간다. 학생이 4단계에서 그 칸을 손댄 뒤에는 덮어쓰지 않는다
-  // — 공들여 고친 글이 2단계로 돌아가 메모를 만졌다는 이유로 사라지면 안 된다.
-  function syncReflectionFromNotes() {
-    const carry = [
-      { key: "backgroundReason", note: state.backgroundNotes[state.atmosphere && state.atmosphere.id] },
-      { key: "melodyIntent", note: state.instrumentNotes[state.instrument && state.instrument.id] },
-    ]
-    carry.forEach(function (item) {
-      if (state.reflectionEdited[item.key]) return
-      const next = cleanText(item.note || "", 180)
-      if (state[item.key] === next) return
-      state[item.key] = next
-    })
-    syncReflectionInputs()
-  }
-
-  function syncReflectionInputs() {
-    if (el.composerInput && el.composerInput.value !== state.composerName) {
-      el.composerInput.value = state.composerName
-    }
-    // 1단계 칸과 4단계 칸은 같은 값을 보여 준다(그림 하나에 생각 하나).
-    ;[el.pictureThoughtInput, el.pictureThoughtCompletionInput].forEach(function (field) {
-      if (field && field.value !== state.pictureThought) field.value = state.pictureThought
-    })
-    if (el.bgReasonInput && el.bgReasonInput.value !== state.backgroundReason) {
-      el.bgReasonInput.value = state.backgroundReason
-    }
-    if (el.melodyIntentInput && el.melodyIntentInput.value !== state.melodyIntent) {
-      el.melodyIntentInput.value = state.melodyIntent
-    }
-    if (el.hashtagsInput) {
-      el.hashtagsInput.value = ""
-      renderHashtagChips()
-    }
-  }
-
-  // === § 15.5  설명 단어(해시태그 칩) ===
-  // state.hashtags는 "따뜻함, 감정적인 노래"처럼 쉼표로 구분된 문자열.
-  // 입력칸에 쉼표·엔터를 누르면 그 자리에서 #단어 칩이 된다.
-
-  const HASHTAG_MAX = 3
-  const HASHTAG_HELP_DEFAULT = "단어를 입력하고 엔터를 누르면 #태그로 분리됩니다. (최대 3개)"
-  const HASHTAG_HELP_FULL = "태그는 3개까지예요. 지우려면 태그를 눌러 주세요."
-
-  function hashtagList() {
-    return normalizeHashtags(state.hashtags)
-  }
-
-  function setHashtags(tags) {
-    state.hashtags = normalizeHashtags(tags).join(", ")
-    renderHashtagChips()
-    updateReadouts()
-  }
-
-  function renderHashtagChips() {
-    if (!el.hashtagChipBox || !el.hashtagsInput) return
-    el.hashtagChipBox.querySelectorAll(".hashtag-chip").forEach((chip) => chip.remove())
-    const tags = hashtagList()
-    tags.forEach((tag) => {
-      const chip = document.createElement("button")
-      chip.type = "button"
-      chip.className = "hashtag-chip"
-      chip.title = "누르면 지워요"
-      chip.setAttribute("aria-label", "#" + tag + " 지우기")
-      const text = document.createElement("span")
-      text.textContent = "#" + tag
-      const x = document.createElement("span")
-      x.className = "hashtag-chip-x"
-      x.setAttribute("aria-hidden", "true")
-      x.textContent = "×"
-      chip.appendChild(text)
-      chip.appendChild(x)
-      chip.addEventListener("click", () => {
-        setHashtags(hashtagList().filter((item) => item !== tag))
-        if (el.hashtagHelp) el.hashtagHelp.textContent = HASHTAG_HELP_DEFAULT
-        el.hashtagsInput.focus()
-      })
-      el.hashtagChipBox.insertBefore(chip, el.hashtagsInput)
-    })
-    el.hashtagsInput.placeholder = tags.length ? "" : "따뜻함, 감정적인 노래"
-    if (el.hashtagHelp && tags.length < HASHTAG_MAX) el.hashtagHelp.textContent = HASHTAG_HELP_DEFAULT
-  }
-
-  // 입력 중인 단어를 칩으로 확정한다. 저장·공유 직전에도 호출해 잃어버리지 않게.
-  function commitHashtagInput() {
-    if (!el.hashtagsInput) return
-    const raw = el.hashtagsInput.value
-    if (!raw.trim()) {
-      el.hashtagsInput.value = ""
-      return
-    }
-    const current = hashtagList()
-    if (current.length >= HASHTAG_MAX) {
-      if (el.hashtagHelp) el.hashtagHelp.textContent = HASHTAG_HELP_FULL
-      return
-    }
-    el.hashtagsInput.value = ""
-    setHashtags(current.join(",") + "," + raw)
   }
 
   // === § 16  그림 업로드 & 커버 프레임 ===
@@ -1817,10 +1614,7 @@
       state.bgOffset = 0
       state.bgEndOffset = 0
     }
-    state.pictureThought = recipe.pictureThought || ""
-    state.backgroundReason = recipe.backgroundReason || ""
-    state.melodyIntent = recipe.melodyIntent || ""
-    state.hashtags = Array.isArray(recipe.hashtags) ? keywordText(recipe.hashtags) : recipe.hashtags || ""
+    reflectionUI.restore(recipe)
     applyMoodTint()
     renderAtmospheres()
     renderInstrumentGroups()
@@ -2050,64 +1844,7 @@
     if (el.drawingSaveNewTakeBtn) el.drawingSaveNewTakeBtn.addEventListener("click", saveNewTake)
     bindShareControls()
 
-    el.titleInput.addEventListener("input", () => {
-      el.titleInput.classList.remove("field-invalid")
-      state.title = el.titleInput.value || "무제"
-    })
-    if (el.composerInput) {
-      el.composerInput.addEventListener("input", () => {
-        el.composerInput.classList.remove("field-invalid")
-        state.composerName = cleanText(el.composerInput.value, COMPOSER_NAME_MAX)
-      })
-    }
-    // 1단계 칸과 4단계 칸은 같은 생각 하나를 나눠 쓴다 — 어느 쪽에 적어도 반대쪽에 그대로 보인다.
-    ;[el.pictureThoughtInput, el.pictureThoughtCompletionInput].forEach(function (field) {
-      if (!field) return
-      field.addEventListener("input", () => {
-        state.pictureThought = field.value
-        const other = field === el.pictureThoughtInput ? el.pictureThoughtCompletionInput : el.pictureThoughtInput
-        if (other && other.value !== field.value) other.value = field.value
-      })
-    })
-    if (el.bgReasonInput) {
-      el.bgReasonInput.addEventListener("input", () => {
-        el.bgReasonInput.classList.remove("field-invalid")
-        state.backgroundReason = el.bgReasonInput.value
-        state.reflectionEdited.backgroundReason = true // 이후 2단계 메모가 덮지 않는다
-      })
-    }
-    if (el.melodyIntentInput) {
-      el.melodyIntentInput.addEventListener("input", () => {
-        el.melodyIntentInput.classList.remove("field-invalid")
-        state.melodyIntent = el.melodyIntentInput.value
-        state.reflectionEdited.melodyIntent = true
-      })
-    }
-    if (el.hashtagsInput) {
-      el.hashtagsInput.addEventListener("keydown", (event) => {
-        if (event.isComposing) return
-        if (event.key === "," || event.key === "Enter") {
-          event.preventDefault()
-          commitHashtagInput()
-        } else if (event.key === "Backspace" && !el.hashtagsInput.value) {
-          const tags = hashtagList()
-          if (tags.length) {
-            event.preventDefault()
-            setHashtags(tags.slice(0, -1))
-          }
-        }
-      })
-      el.hashtagsInput.addEventListener("input", () => {
-        el.hashtagsInput.classList.remove("field-invalid")
-        if (el.hashtagsInput.value.indexOf(",") !== -1) commitHashtagInput()
-      })
-      el.hashtagsInput.addEventListener("blur", commitHashtagInput)
-    }
-    if (el.hashtagChipBox && el.hashtagsInput) {
-      el.hashtagChipBox.addEventListener("click", (event) => {
-        if (event.target === el.hashtagChipBox) el.hashtagsInput.focus()
-      })
-    }
+    reflectionUI.bind()
     window.addEventListener("resize", () => {
       if (state.step !== DRAWING_STEP) return
       refreshTimeline(false)

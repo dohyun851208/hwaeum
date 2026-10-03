@@ -1,10 +1,7 @@
+const { loadScripts } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
-const fs = require("node:fs")
-const path = require("node:path")
 const test = require("node:test")
-const vm = require("node:vm")
 
-const projectDir = path.resolve(__dirname, "..")
 
 function loadDrawing() {
   const sandbox = {
@@ -30,8 +27,7 @@ function loadDrawing() {
     devicePixelRatio: 1,
   }
   sandbox.self = sandbox
-  const code = fs.readFileSync(path.join(projectDir, "js", "drawing.js"), "utf8")
-  vm.runInNewContext(code, sandbox, { filename: "drawing.js" })
+  loadScripts(sandbox, { from: "drawing-renderer.js", through: "drawing.js" })
   return sandbox.DrawingCanvas
 }
 

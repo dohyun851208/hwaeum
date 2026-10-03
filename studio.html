@@ -5,15 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 스튜디오 · 그림으로 만드는 음악</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260729-reflection-notes" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="stylesheet" href="./assets/fonts/hwaeum-sans.css" />
+    <link rel="stylesheet" href="./styles.css?v=20261003-keep-all" />
   </head>
   <body data-step="0">
     <div class="atelier">
       <!-- 상단 바 -->
       <header class="topbar">
         <div class="brand" aria-label="화음 스튜디오">
-          <img class="brand-mark" src="./assets/brand/hwaeum-studio-mark.webp" alt="" />
-          <h1>화음 스튜디오</h1>
+          <h1><span class="brand-word">화음</span> <span class="brand-sub">스튜디오</span></h1>
+          <img class="brand-seal" src="./assets/brand/hwaeum-seal.svg" alt="" />
         </div>
         <div class="topbar-right">
           <figure class="pic-chip" id="picChip" hidden>
@@ -46,17 +48,16 @@
                 <span class="dropframe-icon" aria-hidden="true">🖼</span>
                 <strong>그림 올리기</strong>
                 <span class="muted">클릭해서 이미지 선택 (jpg, png 등)</span>
+                <span class="dropframe-note">직접 그린 그림이나 허락받은 그림만 올려 주세요.</span>
               </div>
               <input id="picInput" type="file" accept="image/*" />
             </label>
           </div>
+          <p class="muted upload-status picture-status" id="picStatus" aria-live="polite"></p>
           <label class="picture-thought" for="pictureThoughtInput">
             <span>그림을 보고 떠오르는 생각</span>
             <textarea id="pictureThoughtInput" rows="2" maxlength="180" placeholder="이 그림을 보면 어떤 생각이 드나요? 색깔, 날씨, 기분… 무엇이든 좋아요."></textarea>
           </label>
-          <div class="screen-actions">
-            <span class="muted upload-status" id="picStatus">표지에는 직접 만든 그림이나 사용 허락을 받은 이미지만 올려 주세요.</span>
-          </div>
         </section>
 
         <!-- 2단계: 배경 음악 고르기 -->
@@ -336,6 +337,7 @@
                 <div class="channel-gate-card-head">
                   <p class="eyebrow">학생</p>
                   <h3 id="channelOpenTitle">화음 갤러리 들어가기</h3>
+                  <p class="channel-gate-lead">선생님이 알려 준 갤러리로 들어가요.</p>
                 </div>
                 <form class="channel-open-bar" id="channelOpenForm">
                   <span class="channel-open-hash" aria-hidden="true">#</span>
@@ -348,6 +350,7 @@
                 <div class="channel-gate-card-head">
                   <p class="eyebrow">선생님</p>
                   <h3 id="channelAdminTitle">화음 갤러리 생성하기</h3>
+                  <p class="channel-gate-lead">만든 갤러리의 번호와 코드를 학생들에게 알려 주세요.</p>
                 </div>
                 <div class="channel-admin-form channel-claim-form">
                   <input id="shareAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 공통 코드 (8624)" aria-label="관리자 공통 코드" />
@@ -359,7 +362,6 @@
                   <input id="shareChannelPassInput" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="갤러리 코드 (4~6자리)" aria-label="갤러리 코드" />
                   <button class="btn primary" type="button" id="claimChannelBtn">화음 갤러리 생성하기</button>
                   <button class="btn" type="button" id="openClaimedChannelBtn" hidden>방금 만든 화음 갤러리 들어가기 →</button>
-                  <p class="muted">관리자 공통 코드(8624)로 화음 갤러리 생성이 가능하며, 교사가 번호, 갤러리 이름, 갤러리 코드를 설정하여 화음 갤러리를 만듭니다.<br />학생은 교사가 알려 준 번호 + 갤러리 코드를 통해 들어갈 수 있습니다.</p>
                 </div>
               </section>
             </div>
@@ -372,7 +374,7 @@
       </main>
 
       <footer class="foot">
-        <span class="muted" id="audioModeNote" hidden>국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시)</span>
+        <span class="muted" id="audioModeNote" hidden>국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시) · 서양 연주곡(발췌·음량 조절): 플루트 Kristina Martincová (CC BY-SA 3.0), 바이올린 Howard Geisel·FreqMan (CC BY 4.0), 더블베이스 Răzvan Popescu·Radio România (CC BY-SA 4.0)</span>
       </footer>
     </div>
 
@@ -405,24 +407,30 @@
     </div>
 
     <script src="./js/music-core.js?v=20261002-natural"></script>
-    <script src="./js/manifest.js?v=20260728-rain-swap"></script>
+    <script src="./js/manifest.js?v=20261003-example-pieces"></script>
     <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
-    <script src="./js/sample-maps-western.js?v=20260624-reflect-limit"></script>
-    <script src="./js/sample-calibration.js?v=20261002-natural"></script>
-    <script src="./js/audio-plan.js?v=20261002-natural"></script>
+    <script src="./js/sample-maps-western.js?v=20261003-loudness-audit"></script>
+    <script src="./js/sample-calibration.js?v=20261003-loudness-audit"></script>
+    <script src="./js/audio-plan.js?v=20261002-preview-compact"></script>
     <script src="./js/audio-node-scope.js?v=20260714-node-scope"></script>
+    <script src="./js/audio-samples.js?v=20261003-refactor"></script>
     <script src="./js/audio-pad-graph.js?v=20260714-pad-graph"></script>
-    <script src="./js/audio-engine.js?v=20261002-natural"></script>
-    <script src="./js/drawing.js?v=20261002-natural"></script>
+    <script src="./js/audio-engine.js?v=20261003-refactor"></script>
+    <script src="./js/instrument-brush.js?v=20261003-instrument-outward"></script>
+    <script src="./js/drawing-renderer.js?v=20261003-refactor"></script>
+    <script src="./js/drawing.js?v=20261003-refactor"></script>
     <script src="./js/takes.js?v=20260702-newest-first"></script>
-    <script src="./js/share-store.js?v=20260729-admin-code"></script>
+    <script src="./js/share-local-store.js?v=20261003-refactor"></script>
+    <script src="./js/share-store.js?v=20261003-refactor"></script>
     <script src="./js/studio-utils.js?v=20261002-natural"></script>
+    <script src="./js/studio-reflection.js?v=20261003-refactor"></script>
+    <script src="./js/studio-recipe.js?v=20261003-refactor"></script>
     <script src="./js/studio-export.js?v=20260714-export-workflow"></script>
     <script src="./js/studio-setup-render.js?v=20260729-reflection-notes"></script>
     <script src="./js/studio-transport.js?v=20260803-timeline-retime"></script>
     <script src="./js/studio-sound-layers.js?v=20260818-sound-layers"></script>
     <script src="./js/studio-takes-ui.js?v=20260731-takes-ui-split"></script>
     <script src="./js/studio-share.js?v=20260731-share-split"></script>
-    <script src="./js/studio.js?v=20261002-natural" defer></script>
+    <script src="./js/studio.js?v=20261003-refactor" defer></script>
   </body>
 </html>

@@ -4,658 +4,650 @@
   if (!data || root.SD_DISABLE_SAMPLE_CALIBRATION) return
   const profiles = {
   "flute": {
-    "commonCents": 12.325,
+    "commonCents": 12.571,
     "sources": {
       "sound/선율-서양(필하모니아)/관/flute/flute_G4.mp3": {
-        "hz": 392.641565,
-        "residualCents": -9.474
+        "hz": 391.639428,
+        "residualCents": -14.144
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_A4.mp3": {
-        "hz": 442.222436,
-        "residualCents": -3.603
+        "hz": 439.343497,
+        "residualCents": -15.156
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_B4.mp3": {
-        "hz": 496.906473,
-        "residualCents": -1.76
+        "hz": 492.579489,
+        "residualCents": -17.147
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_C5.mp3": {
-        "hz": 524.324137,
-        "residualCents": -8.779
+        "hz": 531.775274,
+        "residualCents": 15.405
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_D5.mp3": {
-        "hz": 591.592521,
-        "residualCents": 0.195
+        "hz": 592.420881,
+        "residualCents": 2.372
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_E5.mp3": {
-        "hz": 663.880045,
-        "residualCents": -0.222
+        "hz": 664.059548,
+        "residualCents": 0.0
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_F5.mp3": {
-        "hz": 703.367553,
-        "residualCents": -0.195
+        "hz": 703.868341,
+        "residualCents": 0.792
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_G5.mp3": {
-        "hz": 791.973623,
-        "residualCents": 5.213
+        "hz": 791.898094,
+        "residualCents": 4.803
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_A5.mp3": {
-        "hz": 887.69738,
-        "residualCents": 2.752
+        "hz": 887.664585,
+        "residualCents": 2.442
       },
-      "sound/선율-서양(필하모니아)/관/flute/flute_C6.mp3": {
-        "hz": 1059.053596,
-        "residualCents": 8.315
+      "sound/선율-서양(필하모니아)/관/flute/flute_Cs6.mp3": {
+        "hz": 1117.608531,
+        "residualCents": 1.236
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_D6.mp3": {
-        "hz": 1180.534467,
-        "residualCents": -3.688
+        "hz": 1180.903341,
+        "residualCents": -3.392
       },
       "sound/선율-서양(필하모니아)/관/flute/flute_E6.mp3": {
-        "hz": 1332.173422,
-        "residualCents": 5.522
+        "hz": 1313.234005,
+        "residualCents": -19.513
       },
-      "sound/선율-서양(필하모니아)/관/flute/flute_F6.mp3": {
-        "hz": 1409.296516,
-        "residualCents": 2.954
-      },
-      "sound/선율-서양(필하모니아)/관/flute/flute_G6.mp3": {
-        "hz": 1605.830149,
-        "residualCents": 28.967
+      "sound/선율-서양(필하모니아)/관/flute/flute_Gs6.mp3": {
+        "hz": 1670.051321,
+        "residualCents": -3.391
       }
     }
   },
   "oboe": {
-    "commonCents": 6.377,
+    "commonCents": 8.319,
     "sources": {
       "sound/선율-서양(필하모니아)/관/oboe/oboe_G4.mp3": {
-        "hz": 393.411031,
-        "residualCents": -0.137
+        "hz": 393.883496,
+        "residualCents": 0.0
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_A4.mp3": {
-        "hz": 438.967491,
-        "residualCents": -10.445
+        "hz": 439.075109,
+        "residualCents": -11.961
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_B4.mp3": {
-        "hz": 493.191105,
-        "residualCents": -8.805
+        "hz": 490.764982,
+        "residualCents": -19.284
       },
-      "sound/선율-서양(필하모니아)/관/oboe/oboe_C5.mp3": {
-        "hz": 524.333302,
-        "residualCents": -2.801
+      "sound/선율-서양(필하모니아)/관/oboe/oboe_Cs5.mp3": {
+        "hz": 556.638009,
+        "residualCents": -1.235
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_D5.mp3": {
-        "hz": 591.776851,
-        "residualCents": 6.682
-      },
-      "sound/선율-서양(필하모니아)/관/oboe/oboe_E5.mp3": {
-        "hz": 663.675473,
-        "residualCents": 5.192
+        "hz": 591.991315,
+        "residualCents": 5.368
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_F5.mp3": {
-        "hz": 697.856868,
-        "residualCents": -7.864
+        "hz": 698.031418,
+        "residualCents": -9.372
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_G5.mp3": {
-        "hz": 789.643791,
-        "residualCents": 6.061
+        "hz": 789.868857,
+        "residualCents": 4.613
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_A5.mp3": {
-        "hz": 881.51819,
-        "residualCents": -3.393
-      },
-      "sound/선율-서양(필하모니아)/관/oboe/oboe_B5.mp3": {
-        "hz": 994.908591,
-        "residualCents": 6.095
+        "hz": 875.576571,
+        "residualCents": -17.043
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_C6.mp3": {
-        "hz": 1050.447371,
-        "residualCents": 0.137
+        "hz": 1045.607782,
+        "residualCents": -9.799
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_D6.mp3": {
-        "hz": 1182.684528,
-        "residualCents": 5.41
+        "hz": 1188.330024,
+        "residualCents": 11.714
+      },
+      "sound/선율-서양(필하모니아)/관/oboe/oboe_E6.mp3": {
+        "hz": 1339.331941,
+        "residualCents": 18.807
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_F6.mp3": {
-        "hz": 1399.962728,
-        "residualCents": -2.602
+        "hz": 1415.664335,
+        "residualCents": 14.766
       },
       "sound/선율-서양(필하모니아)/관/oboe/oboe_G6.mp3": {
-        "hz": 1601.546477,
-        "residualCents": 30.291
+        "hz": 1601.729068,
+        "residualCents": 28.547
       }
     }
   },
   "clarinet": {
-    "commonCents": 2.91,
+    "commonCents": 2.911,
     "sources": {
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_G3.mp3": {
-        "hz": 196.327472,
+        "hz": 196.327518,
         "residualCents": 0.0
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_A3.mp3": {
-        "hz": 219.500164,
-        "residualCents": -6.848
+        "hz": 219.49992,
+        "residualCents": -6.85
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_B3.mp3": {
-        "hz": 246.268973,
+        "hz": 246.26891,
         "residualCents": -7.633
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_C4.mp3": {
-        "hz": 260.375355,
+        "hz": 260.375344,
         "residualCents": -11.203
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_D4.mp3": {
-        "hz": 292.598026,
-        "residualCents": -9.21
+        "hz": 292.596801,
+        "residualCents": -9.218
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_E4.mp3": {
-        "hz": 327.938535,
+        "hz": 327.938687,
         "residualCents": -11.804
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_F4.mp3": {
-        "hz": 346.669423,
-        "residualCents": -15.642
+        "hz": 346.663887,
+        "residualCents": -15.67
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_G4.mp3": {
-        "hz": 390.685108,
+        "hz": 390.685127,
         "residualCents": -8.707
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_A4.mp3": {
-        "hz": 440.864254,
-        "residualCents": 0.487
+        "hz": 440.864552,
+        "residualCents": 0.488
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_B4.mp3": {
-        "hz": 495.244595,
-        "residualCents": 1.855
+        "hz": 495.244539,
+        "residualCents": 1.854
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_C5.mp3": {
-        "hz": 526.222501,
-        "residualCents": 6.893
+        "hz": 526.222276,
+        "residualCents": 6.892
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_D5.mp3": {
-        "hz": 590.902798,
-        "residualCents": 7.591
+        "hz": 590.902543,
+        "residualCents": 7.589
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_E5.mp3": {
-        "hz": 662.858834,
-        "residualCents": 6.528
+        "hz": 662.860037,
+        "residualCents": 6.53
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_F5.mp3": {
-        "hz": 703.28829,
-        "residualCents": 9.025
+        "hz": 703.28608,
+        "residualCents": 9.019
       },
       "sound/선율-서양(필하모니아)/관/clarinet/clarinet_G5.mp3": {
-        "hz": 788.643167,
-        "residualCents": 7.333
+        "hz": 788.645751,
+        "residualCents": 7.338
       }
     }
   },
   "frenchHorn": {
-    "commonCents": 10.659,
+    "commonCents": 10.637,
     "sources": {
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_G2.mp3": {
-        "hz": 99.834572,
-        "residualCents": 21.47
+        "hz": 98.867487,
+        "residualCents": 4.64
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_A2.mp3": {
-        "hz": 110.946145,
-        "residualCents": 4.168
+        "hz": 110.94418,
+        "residualCents": 4.16
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_B2.mp3": {
-        "hz": 124.071616,
-        "residualCents": -2.256
+        "hz": 124.07203,
+        "residualCents": -2.228
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_C3.mp3": {
-        "hz": 131.37873,
-        "residualCents": -3.185
+        "hz": 131.378653,
+        "residualCents": -3.164
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_D3.mp3": {
-        "hz": 146.529105,
-        "residualCents": -14.239
+        "hz": 146.528429,
+        "residualCents": -14.224
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_E3.mp3": {
-        "hz": 166.951913,
-        "residualCents": 11.656
+        "hz": 166.94932,
+        "residualCents": 11.651
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_F3.mp3": {
-        "hz": 176.232194,
-        "residualCents": 5.31
+        "hz": 176.232125,
+        "residualCents": 5.331
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_G3.mp3": {
-        "hz": 196.468306,
-        "residualCents": -6.508
+        "hz": 196.46857,
+        "residualCents": -6.483
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_A3.mp3": {
-        "hz": 221.329882,
-        "residualCents": -0.226
+        "hz": 221.322811,
+        "residualCents": -0.259
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_B3.mp3": {
-        "hz": 248.027063,
-        "residualCents": -3.066
+        "hz": 248.026355,
+        "residualCents": -3.049
       },
-      "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_C4.mp3": {
-        "hz": 263.28369,
-        "residualCents": 0.278
+      "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_Cs4.mp3": {
+        "hz": 279.603697,
+        "residualCents": 4.419
       },
-      "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_D4.mp3": {
-        "hz": 297.184617,
-        "residualCents": 9.968
+      "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_Ds4.mp3": {
+        "hz": 313.722445,
+        "residualCents": 3.745
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_E4.mp3": {
-        "hz": 331.663335,
-        "residualCents": 0.0
+        "hz": 331.663083,
+        "residualCents": 0.021
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_F4.mp3": {
-        "hz": 351.382191,
-        "residualCents": -0.014
+        "hz": 351.380545,
+        "residualCents": 0.0
       },
       "sound/선율-서양(필하모니아)/관/frenchHorn/frenchHorn_G4.mp3": {
-        "hz": 395.224049,
-        "residualCents": 3.541
+        "hz": 392.797194,
+        "residualCents": -7.1
       }
     }
   },
   "violin": {
-    "commonCents": 1.972,
+    "commonCents": 3.684,
     "sources": {
       "sound/선율-서양(필하모니아)/현/violin/violin_G3.mp3": {
-        "hz": 197.590781,
-        "residualCents": 12.042
+        "hz": 197.594829,
+        "residualCents": 10.366
       },
-      "sound/선율-서양(필하모니아)/현/violin/violin_A3.mp3": {
-        "hz": 220.535044,
-        "residualCents": 2.233
+      "sound/선율-서양(필하모니아)/현/violin/violin_As3.mp3": {
+        "hz": 235.348954,
+        "residualCents": 13.073
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_B3.mp3": {
-        "hz": 247.223147,
-        "residualCents": 0.0
+        "hz": 247.168351,
+        "residualCents": -2.096
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_C4.mp3": {
-        "hz": 263.881499,
-        "residualCents": 12.892
+        "hz": 263.390451,
+        "residualCents": 7.955
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_D4.mp3": {
-        "hz": 292.08275,
-        "residualCents": -11.324
+        "hz": 291.758806,
+        "residualCents": -14.957
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_E4.mp3": {
-        "hz": 329.118363,
-        "residualCents": -4.649
+        "hz": 329.159399,
+        "residualCents": -6.145
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_F4.mp3": {
-        "hz": 348.997433,
-        "residualCents": -3.117
+        "hz": 348.818542,
+        "residualCents": -5.716
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_G4.mp3": {
-        "hz": 392.184767,
-        "residualCents": -1.136
+        "hz": 392.096525,
+        "residualCents": -3.238
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_A4.mp3": {
-        "hz": 437.564727,
-        "residualCents": -11.581
+        "hz": 437.219196,
+        "residualCents": -14.66
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_B4.mp3": {
-        "hz": 493.272425,
-        "residualCents": -4.115
+        "hz": 495.153039,
+        "residualCents": 0.761
       },
-      "sound/선율-서양(필하모니아)/현/violin/violin_C5.mp3": {
-        "hz": 523.937014,
-        "residualCents": 0.295
+      "sound/선율-서양(필하모니아)/현/violin/violin_Cs5.mp3": {
+        "hz": 551.779963,
+        "residualCents": -11.777
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_D5.mp3": {
-        "hz": 589.443272,
-        "residualCents": 4.247
+        "hz": 589.680444,
+        "residualCents": 3.232
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_Ds5.mp3": {
-        "hz": 623.525786,
-        "residualCents": 1.562
+        "hz": 623.579596,
+        "residualCents": 0.0
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_F5.mp3": {
-        "hz": 698.71677,
-        "residualCents": -1.327
+        "hz": 700.027536,
+        "residualCents": 0.206
       },
       "sound/선율-서양(필하모니아)/현/violin/violin_G5.mp3": {
-        "hz": 786.479599,
-        "residualCents": 3.515
+        "hz": 786.323683,
+        "residualCents": 1.46
       }
     }
   },
   "viola": {
-    "commonCents": -2.805,
+    "commonCents": -3.269,
     "sources": {
       "sound/선율-서양(필하모니아)/현/viola/viola_G3.mp3": {
-        "reviewRequired": true,
-        "reviewReason": "비브라토 중심 판정 불확실: 기존 후보값 유지, 자동 재보정 보류",
         "hz": 199.002749,
-        "residualCents": 29.146
+        "residualCents": 29.146,
+        "reviewRequired": true,
+        "reviewReason": "비브라토 중심 판정 불확실: 기존 후보값 유지, 자동 재보정 보류"
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_A3.mp3": {
-        "hz": 219.495515,
-        "residualCents": -1.17
+        "hz": 219.447084,
+        "residualCents": -1.087
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_B3.mp3": {
-        "hz": 244.275666,
-        "residualCents": -15.987
+        "hz": 244.138115,
+        "residualCents": -16.498
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_C4.mp3": {
-        "hz": 259.47845,
-        "residualCents": -11.462
+        "hz": 259.236535,
+        "residualCents": -12.612
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_D4.mp3": {
-        "hz": 293.540719,
-        "residualCents": 2.073
+        "hz": 293.196126,
+        "residualCents": 0.504
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_E4.mp3": {
-        "hz": 328.947836,
-        "residualCents": -0.769
+        "hz": 328.909893,
+        "residualCents": -0.504
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_Fs4.mp3": {
-        "hz": 370.63488,
-        "residualCents": 5.799
+        "hz": 371.1289,
+        "residualCents": 8.569
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_G4.mp3": {
-        "hz": 393.890571,
-        "residualCents": 11.154
+        "hz": 393.978713,
+        "residualCents": 12.006
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_Gs4.mp3": {
-        "hz": 419.175145,
-        "residualCents": 18.864
+        "hz": 418.989672,
+        "residualCents": 18.563
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_As4.mp3": {
-        "hz": 465.616002,
-        "residualCents": 0.769
+        "hz": 465.93436,
+        "residualCents": 2.417
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_C5.mp3": {
-        "hz": 523.217984,
-        "residualCents": 2.695
+        "hz": 523.31427,
+        "residualCents": 3.478
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_E5.mp3": {
-        "hz": 657.601313,
-        "residualCents": -1.544
+        "hz": 656.649295,
+        "residualCents": -3.587
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_F5.mp3": {
-        "reviewRequired": true,
-        "reviewReason": "비브라토 중심 판정 불확실: 기존 후보값 유지, 자동 재보정 보류",
         "hz": 696.530687,
-        "residualCents": -1.975
+        "residualCents": -1.975,
+        "reviewRequired": true,
+        "reviewReason": "비브라토 중심 판정 불확실: 기존 후보값 유지, 자동 재보정 보류"
       },
       "sound/선율-서양(필하모니아)/현/viola/viola_G5.mp3": {
-        "hz": 781.741595,
-        "residualCents": -2.17
+        "hz": 780.870696,
+        "residualCents": -3.635
       }
     }
   },
   "cello": {
-    "commonCents": -5.736,
+    "commonCents": -5.45,
     "sources": {
-      "sound/선율-서양(필하모니아)/현/cello/cello_G2.mp3": {
-        "hz": 97.841441,
-        "residualCents": 2.953
+      "sound/선율-서양(필하모니아)/현/cello/cello_Fs2.mp3": {
+        "hz": 92.461522,
+        "residualCents": 4.755
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_A2.mp3": {
-        "hz": 109.550757,
-        "residualCents": -1.348
+        "hz": 109.551962,
+        "residualCents": -1.616
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_B2.mp3": {
-        "hz": 122.921758,
-        "residualCents": -1.979
+        "hz": 122.913325,
+        "residualCents": -2.385
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_C3.mp3": {
-        "hz": 130.39429,
-        "residualCents": 0.189
+        "hz": 130.410135,
+        "residualCents": 0.113
       },
-      "sound/선율-서양(필하모니아)/현/cello/cello_D3.mp3": {
-        "hz": 146.779844,
-        "residualCents": 5.117
+      "sound/선율-서양(필하모니아)/현/cello/cello_Cs3.mp3": {
+        "hz": 138.197606,
+        "residualCents": 0.525
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_E3.mp3": {
-        "hz": 163.589921,
-        "residualCents": -7.167
+        "hz": 163.594941,
+        "residualCents": -7.401
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_F3.mp3": {
-        "hz": 174.375839,
-        "residualCents": 3.372
+        "hz": 173.080937,
+        "residualCents": -9.818
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_G3.mp3": {
-        "hz": 195.983435,
-        "residualCents": 5.61
+        "hz": 195.930304,
+        "residualCents": 4.854
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_Gs3.mp3": {
-        "hz": 207.393212,
-        "residualCents": 3.575
+        "hz": 207.23887,
+        "residualCents": 1.999
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_B3.mp3": {
-        "hz": 244.299315,
-        "residualCents": -12.888
+        "hz": 244.141911,
+        "residualCents": -14.291
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_C4.mp3": {
-        "hz": 260.802997,
-        "residualCents": 0.285
+        "hz": 260.803311,
+        "residualCents": 0.0
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_D4.mp3": {
-        "hz": 292.642459,
-        "residualCents": -0.301
+        "hz": 293.025225,
+        "residualCents": 1.675
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_E4.mp3": {
-        "hz": 328.430849,
-        "residualCents": -0.56
+        "hz": 328.743862,
+        "residualCents": 0.802
       },
       "sound/선율-서양(필하모니아)/현/cello/cello_F4.mp3": {
-        "hz": 344.326805,
-        "residualCents": -18.734
+        "hz": 344.566758,
+        "residualCents": -17.814
       },
-      "sound/선율-서양(필하모니아)/현/cello/cello_G4.mp3": {
-        "hz": 390.6987,
-        "residualCents": 0.0
+      "sound/선율-서양(필하모니아)/현/cello/cello_Fs4.mp3": {
+        "hz": 368.375423,
+        "residualCents": -2.142
       }
     }
   },
   "doubleBass": {
-    "commonCents": 7.621,
+    "commonCents": 9.003,
     "sources": {
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_G1.mp3": {
-        "hz": 49.610442,
-        "residualCents": 13.834
+        "hz": 49.60344,
+        "residualCents": 12.208
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_A1.mp3": {
-        "hz": 55.451215,
-        "residualCents": 6.524
+        "hz": 55.450604,
+        "residualCents": 5.123
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_B1.mp3": {
-        "hz": 62.108472,
-        "residualCents": 2.809
+        "hz": 62.110448,
+        "residualCents": 1.483
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_C2.mp3": {
-        "hz": 65.221528,
-        "residualCents": -12.521
+        "hz": 65.222877,
+        "residualCents": -13.867
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_D2.mp3": {
-        "hz": 72.838773,
-        "residualCents": -21.291
+        "hz": 72.83681,
+        "residualCents": -22.719
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_E2.mp3": {
-        "hz": 82.862071,
-        "residualCents": 1.915
+        "hz": 82.844343,
+        "residualCents": 0.163
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_F2.mp3": {
-        "hz": 87.553052,
-        "residualCents": -2.75
+        "hz": 87.549785,
+        "residualCents": -4.196
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_G2.mp3": {
-        "hz": 98.431208,
-        "residualCents": 0.0
+        "hz": 98.510404,
+        "residualCents": 0.011
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_A2.mp3": {
-        "hz": 110.627076,
-        "residualCents": 2.22
+        "hz": 110.638924,
+        "residualCents": 1.024
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_B2.mp3": {
-        "hz": 123.466566,
-        "residualCents": -7.681
+        "hz": 123.743791,
+        "residualCents": -5.18
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_C3.mp3": {
-        "hz": 130.022558,
-        "residualCents": -18.111
+        "hz": 130.027166,
+        "residualCents": -19.431
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_D3.mp3": {
-        "hz": 147.924169,
-        "residualCents": 5.204
+        "hz": 147.912584,
+        "residualCents": 3.687
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_E3.mp3": {
-        "hz": 164.896456,
-        "residualCents": -6.753
+        "hz": 165.229659,
+        "residualCents": -4.64
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_F3.mp3": {
-        "hz": 173.827227,
-        "residualCents": -15.44
+        "hz": 173.802498,
+        "residualCents": -17.068
       },
       "sound/선율-서양(필하모니아)/현/doubleBass/doubleBass_G3.mp3": {
-        "hz": 196.991111,
-        "residualCents": 1.131
+        "hz": 197.019593,
+        "residualCents": 0.0
       }
     }
   },
   "sogeum": {
-    "commonCents": -6.536,
+    "commonCents": -6.535,
     "sources": {
       "sound/선율-국악(국립국악원)/관/sogeum/sogeum_B4.mp3": {
-        "hz": 491.268921,
-        "residualCents": -8.653
+        "hz": 491.265382,
+        "residualCents": -8.666
       },
       "sound/선율-국악(국립국악원)/관/sogeum/sogeum_D5.mp3": {
-        "hz": 587.73813,
-        "residualCents": 2.74
+        "hz": 587.740495,
+        "residualCents": 2.746
       },
       "sound/선율-국악(국립국악원)/관/sogeum/sogeum_E5.mp3": {
-        "hz": 650.535066,
-        "residualCents": 6.484
+        "hz": 650.536439,
+        "residualCents": 6.487
       },
       "sound/선율-국악(국립국악원)/관/sogeum/sogeum_Fs5.mp3": {
-        "hz": 736.461892,
-        "residualCents": 10.264
+        "hz": 736.469732,
+        "residualCents": 10.282
       },
       "sound/선율-국악(국립국악원)/관/sogeum/sogeum_B5.mp3": {
-        "hz": 978.942321,
+        "hz": 978.942587,
         "residualCents": 0.0
       },
       "sound/선율-국악(국립국악원)/관/sogeum/sogeum_D6.mp3": {
-        "hz": 1154.36052,
-        "residualCents": -9.642
+        "hz": 1154.379232,
+        "residualCents": -9.615
       },
       "sound/선율-국악(국립국악원)/관/sogeum/sogeum_E6.mp3": {
-        "hz": 1279.014675,
-        "residualCents": -0.116
+        "hz": 1279.009464,
+        "residualCents": -0.123
       }
     }
   },
   "daegeum": {
-    "commonCents": -6.47,
+    "commonCents": -6.465,
     "sources": {
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_As3.mp3": {
-        "hz": 237.906978,
-        "residualCents": -8.057
+        "hz": 237.892841,
+        "residualCents": -8.165
       },
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_Cs4.mp3": {
-        "hz": 271.159201,
-        "residualCents": -1.566
+        "hz": 271.158276,
+        "residualCents": -1.577
       },
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_D4.mp3": {
-        "hz": 293.588553,
-        "residualCents": -1.98
+        "hz": 293.598343,
+        "residualCents": -1.926
       },
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_E4.mp3": {
-        "hz": 323.046319,
-        "residualCents": -1.445
+        "hz": 323.056933,
+        "residualCents": -1.393
       },
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_G4.mp3": {
-        "hz": 401.77198,
-        "residualCents": 1.118
+        "hz": 401.77272,
+        "residualCents": 1.117
       },
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_A4.mp3": {
-        "hz": 437.094541,
+        "hz": 437.095656,
         "residualCents": 0.0
       },
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_Cs5.mp3": {
-        "hz": 543.668606,
-        "residualCents": 2.739
+        "hz": 543.672556,
+        "residualCents": 2.747
       },
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_D5.mp3": {
-        "hz": 583.022122,
-        "residualCents": 0.726
+        "hz": 583.02202,
+        "residualCents": 0.722
       },
       "sound/선율-국악(국립국악원)/관/daegeum/daegeum_E5.mp3": {
-        "hz": 646.029712,
-        "residualCents": 5.386
+        "hz": 645.988496,
+        "residualCents": 5.271
       }
     }
   },
   "danso": {
-    "commonCents": -4.17,
+    "commonCents": -4.129,
     "sources": {
       "sound/선율-국악(국립국악원)/관/단소.mp3@0.56": {
-        "hz": 417.035461,
-        "residualCents": 4.37
+        "hz": 417.053161,
+        "residualCents": 4.403
       },
       "sound/선율-국악(국립국악원)/관/단소.mp3@12.01": {
-        "hz": 555.073301,
-        "residualCents": -9.62
+        "hz": 555.066749,
+        "residualCents": -9.681
       },
       "sound/선율-국악(국립국악원)/관/단소.mp3@17.76": {
-        "hz": 622.789083,
-        "residualCents": -22.342
+        "hz": 622.785351,
+        "residualCents": -22.393
       },
       "sound/선율-국악(국립국악원)/관/단소.mp3@28.48": {
-        "hz": 827.931612,
-        "residualCents": 3.58
+        "hz": 827.95225,
+        "residualCents": 3.582
       },
       "sound/선율-국악(국립국악원)/관/단소.mp3@41.81": {
-        "hz": 1085.914248,
-        "residualCents": 21.172
+        "hz": 1085.913388,
+        "residualCents": 21.13
       },
       "sound/선율-국악(국립국악원)/관/단소.mp3@48.28": {
-        "hz": 1231.102571,
-        "residualCents": -3.58
+        "hz": 1231.12937,
+        "residualCents": -3.582
       }
     }
   },
   "haegeum": {
-    "commonCents": -2.118,
+    "commonCents": -2.121,
     "sources": {
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_Gs3.mp3": {
-        "hz": 207.560099,
-        "residualCents": 1.349
+        "hz": 207.562012,
+        "residualCents": 1.367
       },
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_C4.mp3": {
-        "hz": 261.11708,
-        "residualCents": -1.25
+        "hz": 261.114351,
+        "residualCents": -1.266
       },
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_Cs4.mp3": {
-        "hz": 276.180308,
-        "residualCents": -4.154
+        "hz": 276.181555,
+        "residualCents": -4.143
       },
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_Ds4.mp3": {
-        "hz": 308.545378,
+        "hz": 308.545014,
         "residualCents": -12.307
       },
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_G4.mp3": {
-        "hz": 392.277171,
-        "residualCents": 3.362
+        "hz": 392.277053,
+        "residualCents": 3.364
       },
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_Gs4.mp3": {
-        "hz": 414.796954,
+        "hz": 414.796322,
         "residualCents": 0.0
       },
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_C5.mp3": {
-        "hz": 525.06163,
-        "residualCents": 8.098
+        "hz": 525.065148,
+        "residualCents": 8.112
       },
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_Cs5.mp3": {
-        "hz": 556.392995,
-        "residualCents": 8.439
+        "hz": 556.391687,
+        "residualCents": 8.437
       },
       "sound/선율-국악(국립국악원)/현/haegeum/haegeum_F5.mp3": {
-        "hz": 697.595661,
-        "residualCents": -0.017
+        "hz": 697.575363,
+        "residualCents": -0.065
       }
     }
   },

@@ -1,0 +1,19 @@
+라이센스 — Pixabay Content License (https://pixabay.com/service/license-summary/)
+
+출처 표기 없이 무료로 쓸 수 있고 고쳐 써도 된다.
+단, 원본을 그대로 따로 팔거나 다른 음원 사이트에 다시 올리면 안 된다.
+
+아래 파일은 원본을 tools/build-nature-effects.py 로 잘라 다듬은 것이다(구간·음량은 그 도구의 EFFECTS 표).
+원본은 배포 트리 밖 `효과-자연음(픽사베이)-원본/`에 보관하고, 없으면 아래 주소에서 다시 받는다.
+(2026-10-03 그 폴더를 지웠다. 픽사베이는 자동 다운로드를 막으므로 브라우저로 받아 도구 표의 파일 이름으로 둔다.)
+
+흔들리는잎.mp3  ← "Rustling leaves" (freesound_community)
+                  https://pixabay.com/sound-effects/nature-rustling-leaves-6875/
+깊은숲.mp3      ← "Forest Wind with Birds and Crickets" (Eryliaa)
+                  https://pixabay.com/sound-effects/nature-forest-wind-with-birds-and-crickets-438060/
+큰빗방울.mp3    ← "Big rain drops (2)" (freesound_community)
+                  https://pixabay.com/sound-effects/nature-big-rain-drops-2-6824/
+먼천둥.mp3      ← "Distant Thunder" (Derrickmckinnon)
+                  https://pixabay.com/sound-effects/nature-distant-thunder-320067/
+우르릉.mp3      ← "Rolling Thunder" (loswin23)
+                  https://pixabay.com/sound-effects/film-special-effects-rolling-thunder-534181/

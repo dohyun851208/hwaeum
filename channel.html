@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>화음 갤러리</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
-    <link rel="stylesheet" href="./styles.css?v=20260729-admin-code" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="stylesheet" href="./assets/fonts/hwaeum-sans.css" />
+    <link rel="stylesheet" href="./styles.css?v=20261003-ink-gallery" />
   </head>
-  <body class="channel-body">
+  <body class="channel-body" data-gallery-state="loading">
     <div class="channel-shell">
       <header class="channel-topbar">
         <div class="channel-menu-wrap">
@@ -142,7 +144,8 @@
       </div>
     </div>
 
-    <script src="./js/share-store.js?v=20260729-admin-code" defer></script>
-    <script src="./js/channel.js?v=20260729-admin-code" defer></script>
+    <script src="./js/share-local-store.js?v=20261003-refactor" defer></script>
+    <script src="./js/share-store.js?v=20261003-refactor" defer></script>
+    <script src="./js/channel.js?v=20261003-refactor" defer></script>
   </body>
 </html>

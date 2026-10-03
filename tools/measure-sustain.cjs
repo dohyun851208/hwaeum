@@ -2,6 +2,7 @@
 // node tools/measure-sustain.cjs <output-directory> [--uncalibrated]
 // SAMPLE_RATE=44100 or 48000. PCM/report files are written only to that directory.
 // Browser decoding, rendering and UI checks remain separate from this VM audit.
+const { scriptFiles } = require("./runtime-scripts.cjs")
 const fs = require("node:fs")
 const path = require("node:path")
 const vm = require("node:vm")
@@ -16,7 +17,7 @@ const core = require(path.join(PROJECT, "js/music-core.js"))
 function loadEngine() {
   const sandbox = { MusicCore: core, SD_DISABLE_SAMPLE_CALIBRATION: process.argv.includes("--uncalibrated"), setTimeout, clearTimeout, console }
   sandbox.self = sandbox
-  for (const file of ["manifest.js", "sample-maps.js", "sample-maps-western.js", "sample-calibration.js", "audio-plan.js", "audio-node-scope.js", "audio-pad-graph.js", "audio-engine.js"]) {
+  for (const file of scriptFiles({ from: "manifest.js", through: "audio-engine.js" })) {
     vm.runInNewContext(fs.readFileSync(path.join(PROJECT, "js", file), "utf8"), sandbox, { filename: file })
   }
   return sandbox

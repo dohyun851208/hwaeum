@@ -3,7 +3,8 @@
  *
  * - 좌표는 0..1 정규화로 저장 → 해상도/그리는 속도와 무관, 레시피로 직렬화 가능.
  * - 가로 = 시간, 세로 = 음높이. 음높이 칸을 나누는 가로선 표시.
- * - 그린 원본 선 + music-core로 보정한 음(피아노롤)을 함께 렌더.
+ * - 원본 선은 끊김 없는 마법의 선율(빛무리·윤기·금빛 반짝임, 봉우리 음표)로 렌더한다.
+ *   음 보정 막대는 그리지 않는다(보정은 소리에만 적용).
  */
 ;(function (root) {
   "use strict"
@@ -11,143 +12,14 @@
   // === § 1  모듈 전역 · 상수 ===
 
   const Core = root.MusicCore
-  const TIMELINE_GRID_SECONDS = 2.5
-  const PITCH_LABEL_GUTTER_CSS_PX = 56
   const ERASER_PITCH_RADIUS = 0.035
   const ERASER_TIME_RADIUS_SECONDS = 0.5
 
-  // === § 2  피치 행 지오메트리 & 레이블 헬퍼 (순수) ===
+  if (!root.SDDrawingRenderer) throw new Error("drawing-renderer.js must load before drawing.js")
+  const renderer = root.SDDrawingRenderer({ core: Core, getPixelRatio: () => root.devicePixelRatio })
+  const { drawableScaleFor, visibleRowsForStyle } = renderer
 
-  function clamp(v, lo, hi) {
-    return Math.max(lo, Math.min(hi, v))
-  }
-
-  const NOTE_NAMES = ["도", "도#", "레", "레#", "미", "파", "파#", "솔", "솔#", "라", "라#", "시"]
-  const NOTE_COLORS = [
-    "#c96f66",
-    "#c77a59",
-    "#c9854b",
-    "#c29148",
-    "#b89d45",
-    "#789b69",
-    "#5d9680",
-    "#3f918d",
-    "#4b869f",
-    "#587bb0",
-    "#716fa8",
-    "#897da7",
-  ]
-  // 계이름만 반환(옥타브 숫자 없음). 악기마다 음역대가 달라 적힌 옥타브 숫자가
-  // 실제 들리는 소리와 어긋날 수 있어, 축 라벨에는 계이름만 표시한다.
-  function noteLetter(midi) {
-    return NOTE_NAMES[((midi % 12) + 12) % 12]
-  }
-
-  function soundingMidi(midi, asset) {
-    const tr = asset && Number.isFinite(asset.playbackTranspose) ? asset.playbackTranspose : 0
-    return midi + tr
-  }
-
-  function noteColorForMidi(midi, asset) {
-    if (midi == null) return "#6f7472"
-    return NOTE_COLORS[((soundingMidi(midi, asset) % 12) + 12) % 12] || NOTE_COLORS[0]
-  }
-
-  function hexToRgba(hex, alpha) {
-    const value = String(hex || "").replace("#", "")
-    if (value.length !== 6) return "rgba(31,38,38," + alpha + ")"
-    const n = parseInt(value, 16)
-    const r = (n >> 16) & 255
-    const g = (n >> 8) & 255
-    const b = n & 255
-    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")"
-  }
-
-  function noteColorRgba(midi, asset, alpha) {
-    return hexToRgba(noteColorForMidi(midi, asset), alpha)
-  }
-
-  // 저장 좌표 기준의 전체 음높이 축은 MusicCore의 축 계약을 그대로 쓴다.
-  function drawableScaleFor(style, asset) {
-    return Core.drawableScale(style, asset)
-  }
-
-  // 축 라벨에 쓸 계이름. 악기 transpose 를 반영하되 옥타브 숫자는 떼고 계이름만 보여준다.
-  // (악기마다 음역대가 달라 옥타브 숫자가 실제 소리와 어긋날 수 있어서. 높은 음=위, 낮은 음=아래는 그대로.)
-  function soundingLabel(midi, asset) {
-    return noteLetter(soundingMidi(midi, asset))
-  }
-
-  // 악기가 낼 수 있는 칸만 축에 보여준다 — 국악기는 10칸이 화면 전체를 채우고,
-  // 서양 악기는 15칸 전체가 보인다. (저장 좌표는 늘 전체 축 기준 → 악기를 오가도 음 유지)
-  function visibleRowsForStyle(style, asset) {
-    return Core.playableScale(style, asset)
-  }
-
-  function pitchRowsForStyle(style, asset) {
-    const rows = visibleRowsForStyle(style, asset)
-    return rows.map((midi, i) => {
-      const bounds = pitchRowBoundsRatio(i, rows.length)
-      return {
-        midi: midi,
-        label: soundingLabel(midi, asset),
-        top: pitchRowCenterRatio(i, rows.length) * 100,
-        rowTop: bounds.top * 100,
-        rowBottom: bounds.bottom * 100,
-        rowHeight: (bounds.bottom - bounds.top) * 100,
-        selected: true,
-        color: noteColorForMidi(midi, asset),
-        softColor: noteColorRgba(midi, asset, 0.12),
-      }
-    })
-  }
-
-  function pitchLabelsForStyle(style, asset) {
-    return pitchRowsForStyle(style, asset).filter((row) => row.midi != null)
-  }
-
-  function pitchRowCenterRatio(rowIndex, rowCount) {
-    const count = Math.max(1, rowCount)
-    const index = clamp(rowIndex, 0, count - 1)
-    return 1 - (index + 0.5) / count
-  }
-
-  function pitchRowCenterY(rowIndex, rowCount, height) {
-    return pitchRowCenterRatio(rowIndex, rowCount) * height
-  }
-
-  function pitchRowBoundsY(rowIndex, rowCount, height) {
-    const bounds = pitchRowBoundsRatio(rowIndex, rowCount)
-    return {
-      top: bounds.top * height,
-      bottom: bounds.bottom * height,
-    }
-  }
-
-  function pitchRowBoundsRatio(rowIndex, rowCount) {
-    const count = Math.max(1, rowCount)
-    const index = clamp(rowIndex, 0, count - 1)
-    return {
-      top: 1 - (index + 1) / count,
-      bottom: 1 - index / count,
-    }
-  }
-
-  function pitchRowBoundaryY(boundaryIndex, rowCount, height) {
-    const count = Math.max(1, rowCount)
-    const index = clamp(boundaryIndex, 0, count)
-    return height - (index / count) * height
-  }
-
-  function crispLinePosition(value, lineWidth, min, max) {
-    const width = Math.max(1, Math.round(lineWidth || 1))
-    const offset = width % 2 ? 0.5 : 0
-    const pos = Math.round(value) + offset
-    if (typeof min === "number" && typeof max === "number") {
-      return clamp(pos, min + offset, max - offset)
-    }
-    return pos
-  }
+  function clamp(value, min, max) { return Math.max(min, Math.min(max, value)) }
 
   // === § 3  DrawingCanvas 생성자 & 기본 API ===
 
@@ -203,16 +75,20 @@
     this._lastClientX = 0
     this._lastClientY = 0
     this._bind()
+    this._initBrushCursor()
     this.render()
   }
 
   DrawingCanvas.prototype._syncCursor = function () {
     if (this.eraseMode) this.canvas.style.cursor = "cell"
+    else if (this.canvas.classList && this.canvas.classList.contains("stamp-mode")) this.canvas.style.cursor = "copy"
+    else if (this.brushCursor && !this.brushCursor.hidden) this.canvas.style.cursor = "none"
     else this.canvas.style.cursor = "crosshair"
   }
 
   DrawingCanvas.prototype.setEraseMode = function (on) {
     this.eraseMode = !!on
+    if (this.eraseMode) this._hideBrushCursor()
     this._syncCursor()
   }
 
@@ -235,6 +111,141 @@
   // 다음에 그릴 획에 입힐 악기. 이미 그린 획은 바뀌지 않는다.
   DrawingCanvas.prototype.setActiveInstrument = function (id) {
     this.activeInstrument = id != null ? id : null
+    this._setBrushInstrument()
+  }
+
+  // 악기 그림(instrument-brush.js)을 SVG 노드로 만든다. 잘못된 마크업이면 그림 없이 둔다.
+  function brushIconNode(doc, id) {
+    const brush = root.InstrumentBrush
+    if (!brush || typeof root.DOMParser !== "function") return null
+    const parsed = new root.DOMParser().parseFromString(brush.icon(id), "image/svg+xml")
+    if (parsed.getElementsByTagName("parsererror").length) return null
+    return doc.importNode(parsed.documentElement, true)
+  }
+
+  // 선택 악기의 그림을 실제 포인터 옆에 연주 자세로 띄운다. 장식은 저장/내보내기 캔버스 밖에 둔다.
+  DrawingCanvas.prototype._setBrushInstrument = function () {
+    if (!this.brushCursor) return
+    const cursor = this.brushCursor
+    cursor.dataset.instrument = this.activeInstrument || ""
+    cursor.style.setProperty("--brush-color", this._colorFor(this.activeInstrument))
+    const pose = root.InstrumentBrush ? root.InstrumentBrush.poseStyle(this.activeInstrument) : {}
+    Object.keys(pose).forEach(function (name) { cursor.style.setProperty(name, pose[name]) })
+    const holder = cursor.querySelector(".instrument-brush-icon")
+    const icon = brushIconNode(this.canvas.ownerDocument, this.activeInstrument)
+    if (icon) holder.replaceChildren(icon)
+    else holder.replaceChildren()
+  }
+
+  // 붓끝이 있는 음 칸 — 뜯는 악기처럼 "새 음"에 맞춰 붓끝 효과를 피울 때 쓴다.
+  DrawingCanvas.prototype._brushNoteAt = function (e) {
+    const st = this.getState ? this.getState() : null
+    if (!st || st.mode === "rhythm" || !Core.quantizePitch) return null
+    return Core.quantizePitch(this._point(e).y, st.style, this._assetForInstrument(this.activeInstrument, st))
+  }
+
+  DrawingCanvas.prototype._hideBrushCursor = function () {
+    if (!this.brushCursor) return
+    this.brushCursor.hidden = true
+    this.brushCursor.classList.remove("is-painting")
+    this._syncCursor()
+  }
+
+  DrawingCanvas.prototype._initBrushCursor = function () {
+    const doc = this.canvas.ownerDocument
+    if (!doc || !doc.body) return // 순수 렌더 테스트·썸네일에는 DOM 장식이 필요 없다.
+    const self = this
+    const cursor = doc.createElement("div")
+    cursor.className = "instrument-brush-cursor"
+    cursor.hidden = true
+    cursor.setAttribute("aria-hidden", "true")
+    cursor.innerHTML = '<span class="instrument-brush-tip"></span><span class="instrument-brush-icon"></span>'
+    const sparks = doc.createElement("div")
+    sparks.className = "instrument-brush-sparks"
+    sparks.setAttribute("aria-hidden", "true")
+    doc.body.appendChild(sparks)
+    doc.body.appendChild(cursor)
+    this.brushCursor = cursor
+    this._setBrushInstrument()
+    const reduced = root.matchMedia ? root.matchMedia("(prefers-reduced-motion: reduce)") : null
+    if (reduced && reduced.addEventListener) {
+      reduced.addEventListener("change", function () { if (reduced.matches) sparks.replaceChildren() })
+    }
+    let lastSpark = 0
+    let lastX = null
+    let lastY = null
+    let lastNote = null
+    function move(e) {
+      if (self.eraseMode || self.canvas.classList.contains("stamp-mode") || e.pointerType === "touch") {
+        self._hideBrushCursor()
+        return
+      }
+      const rect = self.canvas.getBoundingClientRect()
+      const sc = self.scrollContainer && self.scrollContainer.getBoundingClientRect()
+      if (e.clientX < Math.max(rect.left, sc ? sc.left : 0) || e.clientX > Math.min(rect.right, sc ? sc.right : Infinity) ||
+          e.clientY < rect.top || e.clientY > rect.bottom) {
+        self._hideBrushCursor()
+        return
+      }
+      cursor.hidden = false
+      cursor.style.transform = "translate3d(" + e.clientX + "px," + e.clientY + "px,0)"
+      const painting = self.isDrawing && !!self.currentStroke
+      cursor.classList.toggle("is-painting", painting)
+      self._syncCursor()
+      if (!painting) {
+        lastNote = null
+        return
+      }
+      const brush = root.InstrumentBrush
+      if (!brush || (reduced && reduced.matches)) return
+      // 악기마다 소리 내는 방식(trait.family)과 소리 성격(trait.spark)에 맞는 붓끝 효과를 피운다.
+      const trait = brush.trait(self.activeInstrument)
+      const note = self._brushNoteAt(e)
+      const now = root.performance.now()
+      const motion = {
+        sinceLast: now - lastSpark,
+        moved: lastX == null ? Infinity : Math.hypot(e.clientX - lastX, e.clientY - lastY),
+        newNote: note !== lastNote,
+      }
+      lastNote = note
+      if (!brush.shouldSparkle(trait, motion)) return
+      lastSpark = now
+      lastX = e.clientX
+      lastY = e.clientY
+      // 효과 개수를 제한해 오래 그려도 DOM이 계속 늘어나지 않게 한다.
+      while (sparks.children.length >= 18) sparks.firstElementChild.remove()
+      const spark = brush.spark(trait, sparks.children.length)
+      const dot = doc.createElement("i")
+      dot.className = "instrument-brush-spark is-" + spark.kind
+      dot.style.left = e.clientX + "px"
+      dot.style.top = e.clientY + "px"
+      dot.style.setProperty("--spark-color", spark.accent ? trait.accent : self._colorFor(self.activeInstrument))
+      dot.style.setProperty("--spark-size", spark.size + "px")
+      dot.style.setProperty("--spark-x", spark.x + "px")
+      dot.style.setProperty("--spark-y", spark.y + "px")
+      dot.style.setProperty("--spark-rot", spark.rot + "deg")
+      dot.style.setProperty("--spark-life", spark.life + "ms")
+      dot.addEventListener("animationend", function () { dot.remove() }, { once: true })
+      sparks.appendChild(dot)
+    }
+    this.canvas.addEventListener("pointerenter", move)
+    this.canvas.addEventListener("pointermove", move)
+    this.canvas.addEventListener("pointerdown", move)
+    this.canvas.addEventListener("pointerup", function () {
+      cursor.classList.remove("is-painting")
+      lastNote = null
+    })
+    this.canvas.addEventListener("pointercancel", function () { self._hideBrushCursor(); sparks.replaceChildren() })
+    this.canvas.addEventListener("pointerleave", function () { self._hideBrushCursor() })
+    root.addEventListener("blur", function () { self._hideBrushCursor(); sparks.replaceChildren() })
+    doc.addEventListener("visibilitychange", function () { if (doc.hidden) { self._hideBrushCursor(); sparks.replaceChildren() } })
+    doc.addEventListener("scroll", function () { if (!self.isDrawing) self._hideBrushCursor() }, true)
+    // 도장 선택·단계 이동 중에 캔버스 위로 커서가 남지 않게 한다.
+    if (root.MutationObserver) {
+      const observer = new root.MutationObserver(function () { self._hideBrushCursor() })
+      observer.observe(this.canvas, { attributes: true, attributeFilter: ["class"] })
+      observer.observe(doc.body, { attributes: true, attributeFilter: ["data-step"] })
+    }
   }
 
   DrawingCanvas.prototype.getStrokeInstruments = function () {
@@ -896,299 +907,11 @@
     }
   }
 
-  DrawingCanvas.prototype._paletteCount = function () {
-    return Math.max(1, Math.ceil(this.getState().duration / 10))
-  }
-
-  DrawingCanvas.prototype.resizeToDisplay = function () {
-    const r = this.canvas.getBoundingClientRect()
-    if (!r.width || !r.height) return false
-    const deviceRatio = root.devicePixelRatio || 1
-    const maxBackingWidth = 12000
-    const ratio = Math.max(1, Math.min(2, deviceRatio, maxBackingWidth / r.width))
-    const nextW = Math.max(1, Math.round(r.width * ratio))
-    const nextH = Math.max(1, Math.round(r.height * ratio))
-    this.pixelRatio = ratio
-    if (this.canvas.width === nextW && this.canvas.height === nextH) return false
-    this.canvas.width = nextW
-    this.canvas.height = nextH
-    return true
-  }
-
-  DrawingCanvas.prototype.renderGrid = function () {
-    const ctx = this.ctx
-    const W = this.canvas.width
-    const H = this.canvas.height
-    const px = this.pixelRatio || 1
-    const labelGutter = this._pitchLabelGutter()
-    ctx.clearRect(0, 0, W, H)
-    // 화첩 종이 배경
-    ctx.fillStyle = "#fbf6ec"
-    ctx.fillRect(0, 0, W, H)
-    ctx.fillStyle = "#fbf6ec"
-    ctx.fillRect(0, 0, labelGutter, H)
-
-    // 음높이 칸: 악기를 바꿔도 같은 위치를 쓰고, 낼 수 없는 음은 비활성 행으로 표시한다.
-    const st = this.getState()
-    const rowInfo = pitchRowsForStyle(st.style, st.melodyAsset)
-    const rowCount = rowInfo.length
-    const gridLineWidth = Math.max(1, Math.round(px))
-    const duration = Math.max(1, Number(st.duration) || 30)
-    for (let i = 0; i < rowCount; i++) {
-      const bounds = pitchRowBoundsY(i, rowCount, H)
-      ctx.fillStyle = rowInfo[i].selected ? noteColorRgba(rowInfo[i].midi, st.melodyAsset, 0.035) : "rgba(31,38,38,0.035)"
-      ctx.fillRect(labelGutter, bounds.top, W - labelGutter, Math.max(1, bounds.bottom - bounds.top))
-    }
-    ctx.lineWidth = gridLineWidth
-    const drawVerticalLine = function (t) {
-      const x = labelGutter + ((W - labelGutter) * t) / duration
-      const crispX = crispLinePosition(x, gridLineWidth, 0, W)
-      ctx.strokeStyle = "rgba(32,41,42,0.09)"
-      ctx.beginPath()
-      ctx.moveTo(crispX, 0)
-      ctx.lineTo(crispX, H)
-      ctx.stroke()
-    }
-    let lastGridTime = 0
-    for (let t = 0; t <= duration + 0.0001; t += TIMELINE_GRID_SECONDS) {
-      lastGridTime = Math.min(t, duration)
-      drawVerticalLine(lastGridTime)
-    }
-    if (Math.abs(lastGridTime - duration) > 0.0001) drawVerticalLine(duration)
-
-    ctx.strokeStyle = "rgba(32,41,42,0.09)"
-    for (let i = 0; i <= rowCount; i++) {
-      const y = crispLinePosition(pitchRowBoundaryY(i, rowCount, H), gridLineWidth, 0, H)
-      ctx.beginPath()
-      ctx.moveTo(labelGutter, y)
-      ctx.lineTo(W, y)
-      ctx.stroke()
-    }
-  }
-
-  DrawingCanvas.prototype._pitchLabelGutter = function () {
-    const px = this.pixelRatio || 1
-    return PITCH_LABEL_GUTTER_CSS_PX * px
-  }
-
-  DrawingCanvas.prototype.pitchLabelGutterCssPx = function () {
-    return this._pitchLabelGutter() / (this.pixelRatio || 1)
-  }
-
-  DrawingCanvas.prototype._timelineLeft = function () {
-    return this._pitchLabelGutter()
-  }
-
-  DrawingCanvas.prototype._timelineWidth = function () {
-    return Math.max(1, this.canvas.width - this._timelineLeft())
-  }
-
-  DrawingCanvas.prototype._timeToX = function (ratio) {
-    // 구간 끝 뒤에 잠시 보관한 획은 캔버스 밖에 그려 브라우저 클리핑에 맡긴다.
-    return this._timelineLeft() + Math.max(0, Number(ratio) || 0) * this._timelineWidth()
-  }
-
-  DrawingCanvas.prototype.renderPitchLabels = function () {
-    const ctx = this.ctx
-    if (typeof ctx.fillText !== "function") return
-    const H = this.canvas.height
-    const px = this.pixelRatio || 1
-    const st = this.getState()
-    const rowInfo = pitchRowsForStyle(st.style, st.melodyAsset)
-    const rows = rowInfo.map((row) => row.midi)
-    const asset = st.melodyAsset
-    const labelGutter = this._pitchLabelGutter()
-    const fontSize = Math.max(10, Math.round(12 * px))
-    if (typeof ctx.save === "function") ctx.save()
-    ctx.fillStyle = "#fbf6ec"
-    ctx.fillRect(0, 0, labelGutter, H)
-    for (let i = 0; i < rowInfo.length; i++) {
-      const bounds = pitchRowBoundsY(i, rowInfo.length, H)
-      ctx.fillStyle = rowInfo[i].selected ? noteColorRgba(rowInfo[i].midi, asset, 0.08) : "rgba(31,38,38,0.035)"
-      ctx.fillRect(0, bounds.top, labelGutter, Math.max(1, bounds.bottom - bounds.top))
-    }
-    const gridLineWidth = Math.max(1, Math.round(px))
-    ctx.strokeStyle = "rgba(32,41,42,0.09)"
-    ctx.lineWidth = gridLineWidth
-    for (let i = 0; i <= rows.length; i++) {
-      const y = crispLinePosition(pitchRowBoundaryY(i, rows.length, H), gridLineWidth, 0, H)
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(labelGutter, y)
-      ctx.stroke()
-    }
-    ctx.font = "700 " + fontSize + "px sans-serif"
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    for (let i = 0; i < rows.length; i++) {
-      const y = pitchRowCenterY(i, rows.length, H)
-      ctx.fillStyle = rowInfo[i].selected ? noteColorForMidi(rows[i], asset) : "rgba(31,38,38,0.3)"
-      ctx.fillText(soundingLabel(rows[i], asset), labelGutter / 2, clamp(y, fontSize, H - fontSize))
-    }
-    if (typeof ctx.restore === "function") ctx.restore()
-  }
-
-  // 각 획을 따로 그린다 — 획끼리 자동으로 이어지지 않음(그린 대로)
-  DrawingCanvas.prototype.renderStroke = function () {
-    const ctx = this.ctx
-    const H = this.canvas.height
-    const px = this.pixelRatio || 1
-    const st = this.getState()
-    const view = this._viewContext(st)
-    ctx.lineCap = "round"
-    ctx.lineJoin = "round"
-    for (let si = 0; si < this.strokes.length; si++) {
-      const stroke = this.strokes[si]
-      const instrumentId = this.strokeInstruments[si]
-      // 지금 축에 없는 음을 쓰는 악기의 획은 숨긴다(지워지진 않음 — 서양 축으로 오면 다시 보인다)
-      if (!view.strokeVisible(instrumentId)) continue
-      const instrumentColor = this._colorFor(instrumentId)
-      if (stroke.length < 2) {
-        // 점 하나짜리 획은 작은 점으로 표시
-        if (stroke.length === 1) {
-          ctx.beginPath()
-          ctx.arc(this._timeToX(stroke[0].x), view.toDisplayY(stroke[0].y) * H, 10.24 * px, 0, Math.PI * 2)
-          ctx.fillStyle = instrumentColor
-          ctx.globalAlpha = 0.78
-          ctx.fill()
-        }
-        continue
-      }
-      ctx.lineWidth = 19.2 * px
-      ctx.globalAlpha = 0.18
-      ctx.strokeStyle = instrumentColor
-      ctx.beginPath()
-      ctx.moveTo(this._timeToX(stroke[0].x), view.toDisplayY(stroke[0].y) * H)
-      for (let i = 1; i < stroke.length; i++) ctx.lineTo(this._timeToX(stroke[i].x), view.toDisplayY(stroke[i].y) * H)
-      ctx.stroke()
-      ctx.lineWidth = 9.6 * px
-      ctx.globalAlpha = 0.72
-      for (let i = 1; i < stroke.length; i++) {
-        const prev = stroke[i - 1]
-        const next = stroke[i]
-        ctx.strokeStyle = instrumentColor
-        ctx.beginPath()
-        ctx.moveTo(this._timeToX(prev.x), view.toDisplayY(prev.y) * H)
-        ctx.lineTo(this._timeToX(next.x), view.toDisplayY(next.y) * H)
-        ctx.stroke()
-      }
-    }
-    ctx.globalAlpha = 1
-  }
-
-  // 음(midi) → 세로 위치. 음높이 칸과 같은 음 목록(scale)으로 줄을 맞춘다.
-  DrawingCanvas.prototype._pitchToY = function (midi, scale) {
-    let idx = scale.indexOf(midi)
-    if (idx < 0) {
-      // 목록에 없으면 가장 가까운 음의 칸으로
-      let best = 0
-      let bestD = Infinity
-      for (let i = 0; i < scale.length; i++) {
-        const d = Math.abs(scale[i] - midi)
-        if (d < bestD) {
-          bestD = d
-          best = i
-        }
-      }
-      idx = best
-    }
-    return pitchRowCenterY(idx, scale.length, this.canvas.height)
-  }
-
-  DrawingCanvas.prototype.renderNotes = function () {
-    const ctx = this.ctx
-    const st = this.getState()
-    const W = this.canvas.width
-    const H = this.canvas.height
-    const px = this.pixelRatio || 1
-    if (st.mode === "rhythm") {
-      // 리듬: 하단에 타격 막대
-      ctx.fillStyle = this.accent
-      for (const h of this.hits) {
-        const x = this._timeToX(h.time / st.duration)
-        const barH = (20 + (h.velocity || 0.7) * 60) * px
-        ctx.fillRect(x - 3 * px, H - barH, 6 * px, barH)
-      }
-      return
-    }
-    const rows = visibleRowsForStyle(st.style, st.melodyAsset)
-    const view = this._viewContext(st)
-    const rowH = H / Math.max(1, rows.length)
-    const timelineWidth = this._timelineWidth()
-    for (const n of this.notes) {
-      const instrumentId = this._instrumentForNote(n)
-      // 지금 축에서 숨긴 악기의 보정 음 막대도 함께 숨긴다(소리는 그대로)
-      if (!view.strokeVisible(instrumentId)) continue
-      const x = this._timeToX(n.time / st.duration)
-      const w = Math.max(6 * px, (n.duration / st.duration) * timelineWidth - 3 * px)
-      const y = this._pitchToY(n.midi, rows)
-      const color = this._colorFor(instrumentId)
-      const x1 = x + 2 * px
-      const x2 = x + w
-      ctx.strokeStyle = color
-      ctx.lineCap = "round"
-      ctx.lineJoin = "round"
-      ctx.globalAlpha = 0.2
-      ctx.lineWidth = Math.max(4 * px, rowH * 0.128)
-      ctx.beginPath()
-      ctx.moveTo(x1, y)
-      ctx.lineTo(x2, y)
-      ctx.stroke()
-      ctx.globalAlpha = 0.95
-      ctx.lineWidth = Math.max(1.6 * px, rowH * 0.06)
-      ctx.beginPath()
-      ctx.moveTo(x1, y)
-      ctx.lineTo(x2, y)
-      ctx.stroke()
-      ctx.globalAlpha = 1
-    }
-  }
-
-  DrawingCanvas.prototype.renderStrokeOnly = function () {
-    this.resizeToDisplay()
-    this.renderGrid()
-    this.renderStroke()
-    this.renderPitchLabels()
-  }
-
-  DrawingCanvas.prototype.render = function () {
-    this.resizeToDisplay()
-    this.renderGrid()
-    this.renderStroke()
-    this.renderNotes()
-    this.renderPitchLabels()
-  }
-
-  function roundRect(ctx, x, y, w, h, r) {
-    r = Math.min(r, h / 2, w / 2)
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.arcTo(x + w, y, x + w, y + h, r)
-    ctx.arcTo(x + w, y + h, x, y + h, r)
-    ctx.arcTo(x, y + h, x, y, r)
-    ctx.arcTo(x, y, x + w, y, r)
-    ctx.closePath()
-  }
-
-  // 썸네일/커버용: 임의 캔버스에 path를 accent로 렌더
-  DrawingCanvas.drawStroke = function (ctx, w, h, path, accent, bg) {
-    ctx.fillStyle = bg || "#fbf6ec"
-    ctx.fillRect(0, 0, w, h)
-    if (!path || path.length < 2) return
-    ctx.lineCap = "round"
-    ctx.lineJoin = "round"
-    ctx.lineWidth = Math.max(2, w / 60)
-    ctx.strokeStyle = accent || "#5f8f63"
-    ctx.beginPath()
-    ctx.moveTo(path[0].x * w, path[0].y * h)
-    for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x * w, path[i].y * h)
-    ctx.stroke()
-  }
-
-  DrawingCanvas.pitchLabelsForStyle = pitchLabelsForStyle
-  DrawingCanvas.pitchRowsForStyle = pitchRowsForStyle
-  DrawingCanvas.noteColorForMidi = noteColorForMidi
-  DrawingCanvas.noteColorRgba = noteColorRgba
+  // Rendering methods keep the public DrawingCanvas API used by exports and tests.
+  Object.assign(DrawingCanvas.prototype, renderer.methods)
+  ;["drawStroke", "pitchLabelsForStyle", "pitchRowsForStyle", "noteColorForMidi", "noteColorRgba"].forEach(function (name) {
+    DrawingCanvas[name] = renderer[name]
+  })
 
   root.DrawingCanvas = DrawingCanvas
 })(typeof self !== "undefined" ? self : this)

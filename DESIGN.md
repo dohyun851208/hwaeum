@@ -2,157 +2,133 @@
 
 ## 1. Atmosphere & Identity
 
-Hwaeum feels like a warm classroom gallery connected to the landing page: cream paper surfaces, quiet ink controls, gold selection moments, teal sound/focus accents, and subtle brush/music atmosphere behind the work area. The app should stay readable as a classroom tool while carrying the landing page's `畵 + 音` identity into the studio.
+Hwaeum is one world seen in three lights, all carrying the `畵 + 音` seal:
 
-The Hwaeum Gallery is the more premium viewing space: darker exhibition walls, gold rails and selection light, cream placards, and teal used only as a restrained sound/focus accent. Covers should feel framed and lit, not buried in decoration.
+- **Landing (`index.html`)** — night ink paper. A melody line is drawn over a hidden ink landscape; each note brings the ink up and the finished song colours the whole painting. Only the brand word `화음`, the seal and one button are visible.
+- **Studio (`studio.html`)** — the daytime workroom: warm hanji paper, ink text, one sheet of paper per step. The header (brand, seal, step line) sits on the same paper as the work, never in a dark band.
+- **Gallery (`channel.html`)** — the landing's night again, as an exhibition room: ink walls, works hung in cream-matted frames with a placard (title, composer, words) beneath, soft light from above. Empty rooms (entry, locked, no works) show the landing painting dimly at the bottom and greet the visitor in the centre, like the landing.
+
+Works are the protagonists. Decoration stays quiet, text stays short.
 
 ## 2. Color
 
 ### Palette
 
-| Role | Token | Studio | Dark | Usage |
-| --- | --- | --- | --- | --- |
-| Surface/page | `--paper` | `#fff7e4` | Not supported | App background start |
-| Surface/page alt | `--paper-2` | `#e8eee1` | Not supported | App background end |
-| Surface/canvas | `--canvas` | `#fffaf0` | Not supported | Panels, buttons, drawing canvas shell |
-| Text/primary | `--ink` | `#191b17` | Not supported | Headings, controls, strong labels |
-| Text/secondary | `--muted` | `#60695f` | Not supported | Help text, captions, inactive steps |
-| Border/default | `--line` | `rgba(73, 62, 35, 0.15)` | Not supported | Soft panel and control outlines |
-| Border/strong | `--line-strong` | `rgba(150, 113, 32, 0.34)` | Not supported | Emphasized outlines |
-| Accent/primary | `--accent` | `#158f8b` | Not supported | Sound/focus accent, mood tint fallback |
-| Accent/soft | `--accent-soft` | `rgba(21, 143, 139, 0.12)` | Not supported | Mood tint, selected background |
-| Accent/line | `--accent-line` | `rgba(21, 143, 139, 0.42)` | Not supported | Guide lines, focus and active outlines |
-| Brand/gold | `--brand-gold` | `#ffe08a` | Not supported | Primary actions and current step badges |
-| Brand/red | `--brand-red` | `#de6547` | Not supported | Playhead and rare emphasis |
+| Role | Landing | Studio token | Studio | Gallery token | Gallery | Usage |
+| --- | --- | --- | --- | --- | --- | --- |
+| Page | `#101d20` | `--paper` / `--paper-2` | `#f4f0e6` / `#ede7d9` + hanji grain | `--g-ink` / `--g-ink-deep` | `#101d20` / `#0a1416` + faint grain | Page background |
+| Sheet / panel | — | `--canvas` | `#fffdf9` | `--g-panel` | `#14272b` | Step sheet, viewer, menu, dialogs |
+| Soft surface | — | `--soft` | `#f7f3ea` | `--g-hover` | `rgba(243,238,224,.07)` | Memo strips, hover |
+| Text strong | `#f4ead2` | `--ink` | `#1f2522` | `--g-cream` | `#f3eee0` | Titles, values |
+| Text | — | `--ink-2` | `#3c433e` | `--g-text` | `rgba(243,238,224,.88)` | Labels, body |
+| Text muted | — | `--muted` | `#6b6f68` | `--g-muted` | `rgba(243,238,224,.62)` | Help text, captions |
+| Text faint | — | `--faint` | `#9a9c94` | `--g-faint` | `rgba(243,238,224,.42)` | Placeholders only |
+| Border | — | `--line` / `--line-strong` | `rgba(40,44,36,.1)` / `.2` | `--g-line` / `--g-line-strong` | `rgba(243,238,224,.1)` / `.2` | Hairlines, outlines |
+| Gold | `#e2c58d` | `--gold` | `#9a7535` | `--g-gold` | `#e2c58d` | Eyebrows, words (#tags), drop and focus marks |
+| Accent | — | `--accent` | `#158f8b` (runtime mood) | — | — | Focus rings, selection, sound activity |
+| Seal | `#b8432f` | `--seal` | `#b8432f` | — | `#b8432f` | The `畵音` seal only |
+| Frame mat | — | — | — | `--g-mat` | `#efe9dc` | Gallery frames |
+| Danger | — | — | `#c4483a` | `--g-danger` | `#eba899` | Invalid field, delete |
 
 ### Rules
 
-- Mood colors from `js/manifest.js` may replace the accent tokens at runtime.
-- New UI for drawing controls must use existing tokens. Do not introduce standalone hex colors.
-- Gold is for selection, current-step emphasis, and primary forward actions. Teal is for focus, preview, and sound-related activity.
-- Red is reserved for playhead/emphasis and danger states. It should not become a broad theme color.
-- White text is allowed only on `--ink`, `--accent`, or danger-filled controls.
-- Gallery pages may use dark exhibition surfaces, but captions, forms, and modal text must keep strong contrast through cream panels or cream text.
+- Primary actions are **ink-filled** in the studio and **cream-filled** in the gallery. There are no yellow fills.
+- Gold marks small things (eyebrows, words, drop and focus marks); it is never a large fill.
+- Teal (`--accent`) is for focus, selection and sound. `js/manifest.js` mood colours may replace it at runtime; instrument colours (`--instrument-color`) mark instrument cards and their line colour.
+- Seal red belongs to the `畵音` seal (`assets/brand/hwaeum-seal.svg`). It is not a theme colour.
+- Studio tokens live on `body:not(.channel-body)`, gallery tokens on `.channel-body`, so neither page leaks into the other.
 
 ## 3. Typography
 
-### Scale
-
-| Level | Size | Weight | Line Height | Tracking | Usage |
-| --- | --- | --- | --- | --- | --- |
-| Brand | `clamp(1.95rem, 2.65vw, 2.85rem)` | 400 | 1.0 | 0 | App name |
-| H2 | `clamp(1.55rem, 2vw, 2.1rem)` | 800 | 1.2 | 0 | Step and panel titles |
-| H3 | `1.1rem` to `1.3rem` | 800 | 1.3 | 0 | Section and card headings |
-| Body | `17px` | 400 | 1.5 | 0 | Default UI text |
-| Body/sm | `0.9rem` | 700 | 1.4 | 0 | Buttons, pills, supporting labels |
-| Caption | `0.72rem` to `0.78rem` | 700-800 | 1.3 | 0.04em to 0.16em | Readouts, guide labels, eyebrows |
-
 ### Font Stack
 
-- Primary: `Apple SD Gothic Neo`, `Malgun Gothic`, `Segoe UI`, `system-ui`, `sans-serif`
-- Display: `Jua`, `Apple SD Gothic Neo`, `Malgun Gothic`, `system-ui`, `sans-serif`
+- **Hwaeum Sans** — Pretendard v1.3.9 dynamic subset, weights 400/500/600/700 only (`assets/fonts/hwaeum-sans.css`, OFL). Used for everything except the brand word. Because only four weights are declared, older rules asking for 800–950 resolve to 700.
+- **Hwaeum Hand** — Yeon Sung subset (`assets/fonts/landing-title.ttf`, only `화`·`음`). Used only for the brand word `화음`.
+- Fallback: `Apple SD Gothic Neo`, `Malgun Gothic`, `system-ui`, `sans-serif`.
+
+### Scale
+
+| Level | Size | Weight | Usage |
+| --- | --- | --- | --- |
+| Brand | 30px (studio) | Hand 400 | `화음` beside the seal |
+| Title | 28px (studio) · 24px (gallery header, viewer) · 36px (gallery entry) | 700 | Step titles, gallery name, work title |
+| Section | 16–18px | 700 | `악기`, `효과음`, card group heads, dialog titles |
+| Body | 15–16px | 400–500 | Sentences, field text, placard title (16/600) |
+| Label | 14px | 600 | Field labels, card copy, buttons are 14–15/600 |
+| Help | 13–14px | 400 | Helper lines under fields |
+| Eyebrow / numbers | 12–13px | 600 | `1단계`, step numbers, time ticks, badges |
 
 ### Rules
 
-- User-facing copy is Korean and should be plain enough for students.
-- Keep dense tool labels short. Buttons should not wrap on desktop.
-- Display type is reserved for brand and title moments, not dense controls.
+- **14px floor** for anything a student reads. Only eyebrows, numbers and badges go to 12–13px.
+- Korean wraps at spaces only: `word-break: keep-all` globally, `overflow-wrap: break-word` for overlong words, `text-wrap: balance` on headings and `pretty` on paragraphs.
+- Copy is Korean and plain enough for younger students. Do not repeat the screen title in a sub-heading; hide repeats visually and keep them for screen readers.
 
 ## 4. Spacing & Layout
 
 ### Base Unit
 
-All spacing follows a 4px base.
-
-| Token | Value | Usage |
-| --- | --- | --- |
-| Compact | `8px` | Small gaps, inline labels |
-| Default | `12px` | Control padding, tight groups |
-| Standard | `16px` | Toolbar gaps, step spacing |
-| Panel | `20px` to `24px` | Panel padding |
-| Section | `32px` to `44px` | Screen and footer spacing |
+All spacing follows a 4px base: 8 (compact), 12 (control), 16 (group), 24–32 (section), 40–48 (sheet padding, gallery grid rows).
 
 ### Grid
 
-- Desktop-first classroom tool. Mobile-specific layouts are not added unless requested.
-- Main canvas is a wide horizontal timeline inside `.canvas-wrap`.
-- Repeated controls use grid or flex with stable button sizes to avoid shifting while drawing.
+- Desktop-first classroom tool. No mobile layouts unless requested.
+- Studio: header row `brand | step line | picture chip`, then one sheet per step.
+- Gallery wall: `repeat(auto-fill, minmax(200px, 1fr))`, 52px row and 32px column gaps; every frame is square and aligned on one line.
 
 ### Rules
 
-- New controls in the drawing panel belong in `.panel-tools`, `.bg-player`, or `.compose-control-strip`.
-- Drawing canvas overlays must use absolute positioning and `pointer-events: none` unless they are interactive.
+- **No panel inside a panel.** A step is one sheet; inside it, separate with space and hairlines, not boxes.
+- When two sibling elements must read as one card (a card button and its memo field), the border, radius, background and selected state belong to their shared wrapper only.
+- Studio palette tiles (instruments, effect stamps) are 88px squares starting on one left edge, grouped under a small caption (`서양`, `국악`).
 
 ## 5. Components
 
 ### Button
 
-- **Structure**: native `button` with `.btn`, `.round-btn`, or feature-specific button class.
-- **Variants**: default, primary, small, ghost, active.
-- **Spacing**: 8px to 16px internal rhythm.
-- **States**: hover raises or tints, active uses `--ink` or `--accent`, disabled lowers opacity.
-- **Accessibility**: keep `aria-label` for icon-only controls and `aria-pressed` for toggles.
-- **Motion**: 140ms to 160ms transform or background transitions only.
+- **Studio**: `.btn` outline (1px `--line-strong`, 10px radius, 44px), `.btn.primary` ink fill with cream text. The save button is secondary to the share button.
+- **Gallery**: `.channel-action-button` outline on ink, `.primary` cream fill with ink text, delete is a soft-red text link.
+- Icon-only controls keep `aria-label`; toggles keep `aria-pressed`.
 
-### Canvas Timeline
+### Field
 
-- **Structure**: `.canvas-wrap` contains `canvas`, effect layer, pitch labels, palette labels, and playhead.
-- **Variants**: normal drawing, erasing, playback, flow recording.
-- **Spacing**: overlay insets match the canvas guide area.
-- **States**: flow mode keeps the now-line visually fixed while scroll position changes.
-- **Accessibility**: canvas has a descriptive `aria-label`; external buttons expose mode state.
-- **Motion**: timeline movement uses scroll position and requestAnimationFrame, not layout animation.
+- One style for every input and textarea: 44px tall (textarea 88px), 10px radius, white (studio) or `rgba(243,238,224,.05)` (gallery) fill, 15px text, faint placeholder, accent (studio) or gold (gallery) focus.
+- Wrapped fields (`#` number, word chips) draw the box on the wrapper; the inner input is transparent.
 
-### Background Player
+### Step Line (studio)
 
-- **Structure**: play button, label, range input, time label, optional flow toggle.
-- **Variants**: available, disabled, playing, flow active, start/end range selection.
-- **Spacing**: compact horizontal row with non-wrapping labels.
-- **States**: active controls use accent fill or strong accent outline.
-- **Accessibility**: range has an `aria-label`; toggles use `aria-pressed`.
-- **Motion**: no decorative animation.
+- `①—②—③—④—⑤` on the paper: past steps teal, current step ink-filled with bold text, next steps grey outline.
 
-### Reflection Field
+### Gallery Frame & Placard
 
-- **Structure**: labeled textarea or input below the completion placard.
-- **Variants**: background reason, melody intent, hashtags.
-- **Spacing**: 6px internal label gap and 12px between fields.
-- **States**: focus uses the current `--accent`; default outline uses `--line-strong`.
-- **Accessibility**: label is bound with `for`; helper text is connected with `aria-describedby` when present.
-- **Motion**: only border/background color transition.
+- Cover image with a 10px `--g-mat` mat, 3px radius, deep shadow, soft light above (masked so it has no edges).
+- Placard below: title 16/600 cream, composer 14 muted, words 14 gold. Title and composer are separate elements; the combined name stays in `aria-label`.
+- Coverflow uses the same frame; only the centre card shows its caption.
+
+### Gallery Entry
+
+- `body[data-gallery-state]` is `entry`, `loading`, `locked`, `open` or `empty` (set in `updateHeader()`).
+- `entry` and `locked` move the title block and the number/code form to the centre of the screen and show the landing painting dimly; `empty` keeps the header and centres the empty message.
 
 ## 6. Motion & Interaction
 
-### Timing
-
 | Type | Duration | Easing | Usage |
 | --- | --- | --- | --- |
-| Micro | 140ms | ease | Button hover and active feedback |
-| Standard | 160ms | ease | Card, tab, and control state changes |
-| Mood | 600ms | ease | Background mood tint |
-| Timeline | requestAnimationFrame | linear | Playhead, background preview, flow recording |
+| Micro | 140ms | ease | Hover, focus, field borders |
+| Standard | 160–220ms | ease | Card lift (4px), tab and tile states |
+| Atmosphere | 600–700ms | ease | Mood tint, gallery landscape fade |
+| Timeline | requestAnimationFrame | linear | Playhead, landing intro, coverflow drag |
 
-### Rules
-
-- Animate only `transform`, `opacity`, `background`, or color tokens.
-- Time-based drawing must preserve stable normalized x coordinates.
-- Flow recording stops cleanly when the pointer is released, the timeline reaches the end, or the user leaves the drawing step.
+- Animate only `transform`, `opacity`, `background` and colour.
+- Respect `prefers-reduced-motion`: the landing starts composed, decorative pulses stop.
 
 ## 7. Depth & Surface
 
-### Strategy
+- Studio: a single soft shadow under each sheet; tiles and fields are flat with hairlines.
+- Gallery: frames carry the depth (mat + shadow + light); panels (viewer, menu, dialogs) are `--g-panel` with one large soft shadow.
+- Atmospheric images (landing painting) stay behind content and appear only where the room is empty.
 
-Mixed: warm cream work surfaces, soft gold borders, restrained shadows, and a subtle landing-page image atmosphere behind the studio. The drawing canvas remains bright and uncluttered.
+## 8. Where it lives
 
-| Level | Token | Usage |
-| --- | --- | --- |
-| Subtle | `--shadow-sm` | Topbar, small raised controls |
-| Default | `--shadow` | Panels and framed gallery elements |
-| Border | `--line`, `--line-strong` | Canvas, buttons, cards |
-
-### Rules
-
-- Do not nest visual cards inside other card-like panels unless the inner item is a repeated object.
-- Use tonal tint for selected states before adding new shadows.
-- Playhead and flow guides should sit above canvas content without covering controls.
-- Atmospheric images must stay behind the work surface and never compete with text or the drawing canvas.
+- `styles.css` ends with two override layers: `@renewal-2026-10` (studio) and `@gallery-renewal-2026-10` (gallery). They override the older rules above them; tests still pin some of those older rules, so remove them only together with their tests.
+- Decision records: `docs/decisions/2026-10-03-studio-hanji-type-fields.md`, `docs/decisions/2026-10-03-ink-gallery-renewal.md`.

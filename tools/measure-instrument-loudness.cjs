@@ -6,9 +6,10 @@ const ROOT = path.join(__dirname, "..")
 const MusicCore = require(path.join(ROOT, "js", "music-core.js"))
 const WESTERN_IDS = new Set(["flute", "oboe", "clarinet", "frenchHorn", "violin", "viola", "cello", "doubleBass"])
 // 재생 시 포락선 기반 자동 루프를 쓰는 악기 — 들리는 음량이 그 루프 구간에서 나오므로
-// 측정도 같은 구간을 잰다. js/audio-engine.js 의 SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS 와 맞출 것.
+// 측정도 같은 구간을 잰다. js/audio-samples.js 의 SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS 와 맞출 것.
 const AUTO_LOOP_IDS = new Set([...WESTERN_IDS, "sogeum", "daegeum", "danso", "haegeum"])
-const EXTENDED_NOTE_GAIN_IDS = new Set(["doubleBass"])
+// js/audio-engine.js 의 WIDE_NOTE_GAIN_LIMIT_IDS 와 맞출 것(더블베이스 + 국악 4악기, 2026-10-03).
+const EXTENDED_NOTE_GAIN_IDS = new Set(["doubleBass", "sogeum", "daegeum", "danso", "haegeum"])
 const PCM_SAMPLE_RATE = 44100
 const INSTRUMENT_IDS = [
   "flute",
@@ -102,19 +103,62 @@ function measureMeanDb(absPath, offset, duration) {
   return match ? Number(match[1]) : NaN
 }
 
+// 재생처럼 원래 채널 그대로 디코드한다(채널 배열을 돌려준다).
+// ffmpeg 의 float 모노 다운믹스(-ac 1)는 두 채널을 √½ 씩 더해서, 두 채널이 같은 스테레오 파일(단소)을
+// 실제 재생보다 3 dB 크게 쟀다 → 단소 게인이 3 dB 낮게 잡혔다(2026-10-03 실측).
 const pcmCache = new Map()
 function decodePcm(absPath) {
   if (pcmCache.has(absPath)) return pcmCache.get(absPath)
+  const probe = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=channels", "-of", "csv=p=0", absPath],
+    { encoding: "utf8" },
+  )
+  const channelCount = Math.max(1, parseInt(String(probe.stdout).trim(), 10) || 1)
   const result = spawnSync(
     "ffmpeg",
-    ["-hide_banner", "-loglevel", "error", "-i", absPath, "-f", "f32le", "-ac", "1", "-ar", String(PCM_SAMPLE_RATE), "-"],
-    { maxBuffer: 1 << 26 },
+    ["-hide_banner", "-loglevel", "error", "-i", absPath, "-f", "f32le", "-ar", String(PCM_SAMPLE_RATE), "-"],
+    { maxBuffer: 1 << 27 },
   )
   const buf = result.stdout
   if (!buf || !buf.length) return null
-  const pcm = new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 4))
-  pcmCache.set(absPath, pcm)
-  return pcm
+  const interleaved = new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 4))
+  const frameCount = Math.floor(interleaved.length / channelCount)
+  const channels = []
+  for (let ch = 0; ch < channelCount; ch++) {
+    const data = new Float32Array(frameCount)
+    for (let i = 0; i < frameCount; i++) data[i] = interleaved[i * channelCount + ch]
+    channels.push(data)
+  }
+  pcmCache.set(absPath, channels)
+  return channels
+}
+
+// js/audio-engine.js 의 configureSampleToneFilter 와 같은 국악 음색 필터(가야금 제외).
+// 공진이 있어 해금은 1.7 dB, 소금은 0.6 dB 커진다 — 재는 쪽도 같은 필터를 거쳐야 한다.
+// Web Audio 의 lowpass Q 는 dB 단위다: alpha = sin(w0) / (2 * 10^(Q/20)).
+const GUGAK_TONE_FILTER_IDS = new Set(["sogeum", "daegeum", "danso", "haegeum"])
+const GUGAK_TONE_FILTER = { frequency: 2300, qDb: 0.9 }
+function webAudioLowpass(pcm, sampleRate, frequency, qDb) {
+  const w0 = (2 * Math.PI * frequency) / sampleRate
+  const alpha = Math.sin(w0) / (2 * Math.pow(10, qDb / 20))
+  const cos = Math.cos(w0)
+  const a0 = 1 + alpha
+  const b0 = (1 - cos) / 2 / a0
+  const b1 = (1 - cos) / a0
+  const a1 = (-2 * cos) / a0
+  const a2 = (1 - alpha) / a0
+  const out = new Float32Array(pcm.length)
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0
+  for (let i = 0; i < pcm.length; i++) {
+    const y = b0 * pcm[i] + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2
+    x2 = x1
+    x1 = pcm[i]
+    y2 = y1
+    y1 = y
+    out[i] = y
+  }
+  return out
 }
 
 function pcmMeanDb(pcm, offset, duration) {
@@ -127,19 +171,25 @@ function pcmMeanDb(pcm, offset, duration) {
 }
 
 // 자동 루프 악기: 재생이 실제로 반복하는 안정 구간의 RMS를 잰다. 검출 실패 시 null(호출부 폴백).
-function autoLoopMeanDb(absPath, offset, duration) {
+// 엔진(autoSustainLoopHint)처럼 첫 채널로 구간을 찾고 모든 채널을 같은 구간으로 구운 뒤, 채널 평균 전력을 쓴다.
+function autoLoopMeanDb(absPath, offset, duration, toneFilter) {
   const pcm = decodePcm(absPath)
-  if (!pcm || !pcm.length) return null
+  if (!pcm || !pcm.length || !pcm[0].length) return null
   const first = Math.floor((offset || 0) * PCM_SAMPLE_RATE)
-  const last = duration > 0 ? Math.min(pcm.length, Math.ceil(((offset || 0) + duration) * PCM_SAMPLE_RATE)) : pcm.length
-  const source = pcm.subarray(first, last)
-  const region = MusicCore.findStableLoopRegion(source, PCM_SAMPLE_RATE, 0, source.length / PCM_SAMPLE_RATE, { targetLoopSec: 1.02, minLoopSec: 0.42, align: false })
+  const last = duration > 0 ? Math.min(pcm[0].length, Math.ceil(((offset || 0) + duration) * PCM_SAMPLE_RATE)) : pcm[0].length
+  const sources = pcm.map((channel) => channel.subarray(first, last))
+  const region = MusicCore.findStableLoopRegion(sources[0], PCM_SAMPLE_RATE, 0, sources[0].length / PCM_SAMPLE_RATE, { targetLoopSec: 1.02, minLoopSec: 0.42, align: false })
   if (!region) return null
-  const leveled = MusicCore.levelSustainSupport([source], PCM_SAMPLE_RATE, region)
+  const leveled = MusicCore.levelSustainSupport(sources, PCM_SAMPLE_RATE, region)
   const frames = MusicCore.sustainLoopFrames(leveled, PCM_SAMPLE_RATE, region)
   if (!frames) return null
-  const baked = MusicCore.crossfadeSustainLoop(leveled[0], frames)
-  return pcmMeanDb(baked, frames.start / PCM_SAMPLE_RATE, (frames.end - frames.start) / PCM_SAMPLE_RATE)
+  let power = 0
+  for (const channel of leveled) {
+    let baked = MusicCore.crossfadeSustainLoop(channel, frames)
+    if (toneFilter) baked = webAudioLowpass(baked, PCM_SAMPLE_RATE, toneFilter.frequency, toneFilter.qDb)
+    power += Math.pow(10, pcmMeanDb(baked, frames.start / PCM_SAMPLE_RATE, (frames.end - frames.start) / PCM_SAMPLE_RATE) / 10)
+  }
+  return 10 * Math.log10(power / leveled.length)
 }
 
 function nearestSample(asset, midi) {
@@ -189,7 +239,8 @@ function measureSegmentSource(id, asset, segment) {
   const range = id === "gayageum" ? pluckedAttackRange(segment) : segment && !segment.src && (segment.offset != null || segment.duration != null)
     ? stableSegmentRange(segment)
     : stableWholeFileRange(absPath)
-  const loopDb = AUTO_LOOP_IDS.has(id) ? autoLoopMeanDb(absPath, segment && !segment.src ? segment.offset : 0, segment && !segment.src ? segment.duration : 0) : null
+  const toneFilter = GUGAK_TONE_FILTER_IDS.has(id) ? GUGAK_TONE_FILTER : null
+  const loopDb = AUTO_LOOP_IDS.has(id) ? autoLoopMeanDb(absPath, segment && !segment.src ? segment.offset : 0, segment && !segment.src ? segment.duration : 0, toneFilter) : null
   return {
     sourceDb: loopDb != null ? loopDb : measureMeanDb(absPath, range.offset, range.duration),
     sourceFile: path.basename(rel),

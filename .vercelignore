@@ -32,3 +32,6 @@ README.txt
 *.flac
 sound/**/*.wav
 sound/**/*.flac
+
+# 화면에서는 WebP만 사용 — 로컬 원본 PNG는 배포하지 않는다.
+assets/hero/*.png

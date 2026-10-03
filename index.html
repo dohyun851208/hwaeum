@@ -3,565 +3,110 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>화음</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet" />
+    <meta name="theme-color" content="#101d20" />
+    <meta name="description" content="그림에 선율을 더하다. 내 그림 위에 선을 그어 나만의 30초 음악을 만드는 화음 스튜디오." />
+    <title>화음 — 그림에 선율을 더하다</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23101d20'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-size='43' fill='%23e2c58d'%3E畵%3C/text%3E%3C/svg%3E" />
+    <link rel="preload" as="font" href="assets/fonts/landing-title.ttf" type="font/ttf" crossorigin />
+    <link rel="preload" as="image" href="assets/hero/melody-landscape.webp" />
+    <link rel="preload" as="image" href="assets/hero/gold-notes.webp" />
     <style>
-      :root {
-        --ink: #121416;
-        --cream: #fff5dc;
-        --gold: #ffe7a6;
-        --gold-strong: #ffd56d;
-        --teal: #3fd6d0;
-        --red: #de6547;
-        --page-bg: #101418;
-        --sans: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
-        --display: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-        --hanja: "Malgun Gothic", "Microsoft JhengHei", "SimSun", serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      html,
-      body {
-        min-height: 100%;
-      }
-
-      body {
-        margin: 0;
-        overflow: hidden;
-        color: var(--cream);
-        background: var(--page-bg);
-        font-family: var(--sans);
-      }
-
-      a {
-        color: inherit;
-        font: inherit;
-      }
-
-      .landing {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        min-height: 680px;
-        overflow: hidden;
-        isolation: isolate;
-        background: var(--page-bg);
-      }
-
-      .final {
-        position: absolute;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        isolation: isolate;
-      }
-
-      .final::before {
-        content: "";
-        position: absolute;
-        inset: -4%;
-        z-index: -3;
-        background-image: url("assets/hero/intro-a-concept.webp");
-        background-size: cover;
-        background-position: center;
-        filter: blur(1.8px) saturate(1.08) contrast(1.02);
-        opacity: 0.94;
-        transform: scale(1.04);
-      }
-
-      .final::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: -2;
-        background:
-          radial-gradient(circle at 50% 46%, rgba(255, 229, 157, 0.35), transparent 25%),
-          linear-gradient(180deg, rgba(7, 10, 14, 0.34), rgba(7, 10, 14, 0.76));
-      }
-
-      .flow-stage {
-        position: absolute;
-        z-index: 1;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        pointer-events: none;
-        mix-blend-mode: screen;
-        animation: flowStageIn 700ms ease 6400ms forwards;
-      }
-
-      .flow-stage image {
-        filter:
-          saturate(1.08)
-          drop-shadow(0 0 12px rgba(255, 232, 160, 0.42))
-          drop-shadow(0 0 28px rgba(255, 198, 76, 0.22));
-      }
-
-      .flow-stage .flow-line {
-        fill: none;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        filter: blur(0.35px);
-      }
-
-      .flow-stage .paint-line.ink {
-        stroke: rgba(12, 10, 8, 0.025);
-        stroke-width: 5;
-      }
-
-      .flow-stage .paint-line.teal {
-        stroke: rgba(49, 139, 133, 0.025);
-        stroke-width: 12;
-      }
-
-      .flow-stage .paint-line.gold {
-        stroke: rgba(255, 211, 113, 0.045);
-        stroke-width: 1.5;
-      }
-
-      .flow-stage .sound-line.gold {
-        stroke: rgba(255, 218, 128, 0.06);
-        stroke-width: 2;
-      }
-
-      .flow-stage .sound-line.teal {
-        stroke: rgba(63, 214, 208, 0.025);
-        stroke-width: 10;
-      }
-
-      .flow-stage .sound-line.dark {
-        stroke: rgba(12, 10, 8, 0.02);
-        stroke-width: 3;
-      }
-
-      .flow-stage .paint-flow {
-        opacity: 1;
-      }
-
-      .flow-stage .sound-flow {
-        opacity: 1;
-      }
-
-      .flow-stage .paint-flow > use:not(.flow-line),
-      .flow-stage .sound-flow > use:not(.flow-line) {
-        opacity: 1;
-      }
-
-      .flow-stage .note {
-        fill: rgba(255, 238, 174, 0.98);
-        stroke: rgba(24, 18, 8, 0.36);
-        stroke-width: 1.8px;
-        paint-order: stroke fill;
-        font-family: "Segoe UI Symbol", "Arial Unicode MS", "Malgun Gothic", sans-serif;
-        font-size: 68px;
-        font-weight: 900;
-        text-anchor: middle;
-        dominant-baseline: middle;
-        filter:
-          drop-shadow(0 0 8px rgba(255, 240, 184, 0.78))
-          drop-shadow(0 0 20px rgba(255, 202, 78, 0.48));
-      }
-
-      .flow-stage .note.large {
-        font-size: 82px;
-      }
-
-      .flow-stage .note.small {
-        font-size: 56px;
-      }
-
-      .title-stack {
-        position: relative;
-        z-index: 3;
-        display: grid;
-        justify-items: center;
-        gap: 16px;
-        text-align: center;
-        opacity: 0;
-        transform: translateY(18px) scale(0.96);
-        animation: titleIn 940ms cubic-bezier(0.18, 0.86, 0.16, 1) 5420ms forwards;
-      }
-
-      .brand-title {
-        margin: 0;
-        color: var(--cream);
-        font-family: var(--display);
-        font-size: clamp(5.4rem, 7.3vw, 7.4rem);
+      @font-face {
+        font-family: "Hwaeum Hand";
+        src: url("assets/fonts/landing-title.ttf") format("truetype");
+        font-style: normal;
         font-weight: 400;
-        line-height: 0.92;
-        letter-spacing: 0;
-        text-shadow:
-          0 4px 0 rgba(0, 0, 0, 0.32),
-          0 28px 54px rgba(0, 0, 0, 0.5),
-          0 0 34px rgba(255, 217, 128, 0.34);
+        font-display: swap;
       }
-
-      .subtitle {
-        margin: 0;
-        color: var(--cream);
-        font-size: clamp(1.18rem, 1.55vw, 1.55rem);
-        font-weight: 900;
-        line-height: 1.32;
-        letter-spacing: 0;
-        text-shadow: 0 12px 28px rgba(0, 0, 0, 0.46);
+      :root {
+        color-scheme: dark;
+        --paper: #f3eee0;
+        --gold: #e2c58d;
+        --ink: #101d20;
+        --seal: #b8432f;
+        --sans: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+        --brush: "Hwaeum Hand", "Batang", cursive;
       }
-
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--ink); color: var(--paper); font-family: var(--sans); word-break: keep-all; }
+      a { color: inherit; text-decoration: none; }
+      button { font: inherit; }
+      a, button { -webkit-tap-highlight-color: transparent; }
+      a:focus-visible, button:focus-visible { outline: 2px solid var(--gold); outline-offset: 7px; }
+      .landing { position: relative; min-height: 640px; height: 100svh; overflow: hidden; isolation: isolate; background: var(--ink); }
+      .scene { position: absolute; inset: 0; z-index: -2; pointer-events: none; }
+      .scene > * { position: absolute; inset: 0; width: 100%; height: 100%; }
+      .painting { object-fit: cover; user-select: none; }
+      /* The landscape starts almost unseen; each note brings up its ink (수묵), and the finished song colours it all (담채). */
+      .painting-ink { filter: grayscale(1) brightness(.8); }
+      .has-intro .painting-ink { opacity: calc(var(--ink-in, 0) * .08); }
+      /* The finished painting is a touch more vivid; filtered only once shown, so loading skips that work. */
+      html:not(.has-intro) .painting-color, .is-lit .painting-color { filter: saturate(1.15) contrast(1.05); }
+      .has-intro .painting-color { opacity: 0; }
+      .is-lit .painting-color { opacity: 1; }
+      .is-lit .painting-ink, .is-lit .paint-layer { visibility: hidden; }
+      /* Failsafe: even if the intro is paused early or its script stops, the finished page appears. */
+      .has-intro:not(.is-live) .painting-color { animation: settle 1s 12s forwards; }
+      .has-intro .seal { animation: settle-seal .4s 12s forwards; }
+      @keyframes settle { to { opacity: 1; visibility: visible; translate: 0 0; filter: none; -webkit-mask-image: none; mask-image: none; } }
+      @keyframes settle-seal { to { opacity: .94; transform: rotate(-1.5deg); } }
+      .atmosphere { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, transparent 74%, rgba(8, 17, 20, .6)); }
+      .hero-copy { --title-size: clamp(100px, 8.3vw, 130px); position: absolute; top: 32%; left: 50%; width: min(640px, 55vw); transform: translate(-50%, -50%); text-align: center; }
+      .has-intro .hero-copy > :not(.seal) {
+        opacity: var(--intro-opacity, 0);
+        visibility: var(--intro-visibility, hidden);
+        translate: 0 var(--intro-lift, 10px);
+        animation: settle .6s 12s forwards;
+      }
+      .has-intro h1 {
+        filter: blur(var(--intro-blur, 5px));
+        mask-image: linear-gradient(105deg, #000 calc(var(--intro-wipe, 0%) - 26%), transparent var(--intro-wipe, 0%));
+      }
+      h1 { margin: 0 0 30px; font: 400 var(--title-size)/1.12 var(--brush); letter-spacing: .045em; color: #f4ead2; }
+      /* 畵音 seal: the name's two characters, stamped beside the title like an artist's seal. */
+      .seal {
+        position: absolute; left: 50%; top: 0; overflow: visible; pointer-events: none;
+        width: calc(var(--title-size) * .34); height: calc(var(--title-size) * .635);
+        margin: calc(var(--title-size) * .36) 0 0 calc(var(--title-size) * 1.1);
+        transform: rotate(-1.5deg);
+      }
+      .has-intro .seal { opacity: var(--seal-opacity, 0); transform: rotate(-1.5deg) scale(var(--seal-scale, 1.3)); }
       .enter-cta {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 208px;
-        margin-top: 2px;
-        padding: 14px 24px 15px;
-        border-radius: 8px;
-        background: var(--gold);
-        color: var(--ink);
-        font-size: clamp(1.02rem, 1.16vw, 1.16rem);
-        font-weight: 900;
-        line-height: 1;
-        letter-spacing: 0;
-        text-decoration: none;
-        box-shadow:
-          0 18px 38px rgba(0, 0, 0, 0.4),
-          0 0 36px rgba(255, 214, 116, 0.34);
-        pointer-events: auto;
-        transition: transform 220ms ease, background 220ms ease, box-shadow 220ms ease;
+        display: inline-flex; align-items: center; justify-content: center; gap: 24px; padding: 12px 30px 14px;
+        border: 1px solid rgba(229, 218, 186, .35); border-radius: 2px; background: rgba(16, 29, 32, .22); color: #f1e4c5;
+        font: 400 15px/1.5 var(--sans); letter-spacing: .07em;
+        transition: background .2s, border-color .2s, transform .2s;
       }
-
-      .enter-cta:hover {
-        background: #ffffff;
-        transform: translateY(-2px);
-        box-shadow:
-          0 20px 42px rgba(0, 0, 0, 0.46),
-          0 0 42px rgba(255, 233, 173, 0.42);
+      .enter-cta svg { width: 19px; height: 19px; transition: transform .2s; }
+      .enter-cta:hover { background: rgba(226, 197, 141, .09); border-color: rgba(229, 218, 186, .7); transform: translateY(-2px); }
+      .enter-cta:hover svg { transform: translateX(3px); }
+      .page-footer { position: absolute; right: 4.3%; bottom: 28px; }
+      .motion-controls { display: flex; gap: 10px; align-items: center; }
+      .motion-controls[hidden] { display: none; }
+      .motion-button { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 9px; background: none; border: 1px solid #c8c3a52e; border-radius: 50%; color: #c2c9bc; cursor: pointer; transition: color .2s, border-color .2s; }
+      .motion-button:hover, #sound-toggle[aria-pressed="true"] { color: var(--gold); border-color: #e2c58d66; }
+      .motion-button svg { width: 14px; height: 14px; flex: 0 0 auto; }
+      .motion-button .play-icon, #motion-toggle[aria-pressed="true"] .pause-icon { display: none; }
+      #motion-toggle[aria-pressed="true"] .play-icon { display: block; }
+      #sound-toggle .sound-on-icon, #sound-toggle[aria-pressed="true"] .sound-off-icon { display: none; }
+      #sound-toggle[aria-pressed="true"] .sound-on-icon { display: block; }
+      /* While the intro plays silently, the sound switch breathes softly so it can be found without words. */
+      #sound-toggle.is-hinting { color: #e8d4a6; border-color: #e2c58d70; animation: sound-hint 2.4s ease-in-out infinite; }
+      @keyframes sound-hint { 50% { box-shadow: 0 0 0 5px rgba(226, 197, 141, .1), 0 0 18px rgba(226, 197, 141, .28); } }
+      .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+      /* Desktop classroom screens, including short laptop windows. */
+      @media (max-height: 760px) {
+        .hero-copy { --title-size: 104px; }
+        .page-footer { bottom: 18px; }
       }
-
-      .enter-cta:focus-visible {
-        outline: 3px solid var(--teal);
-        outline-offset: 5px;
-      }
-
-      .meaning-intro {
-        position: absolute;
-        inset: 0;
-        z-index: 8;
-        overflow: hidden;
-        pointer-events: none;
-        isolation: isolate;
-        background: var(--page-bg);
-        animation: introOut 620ms ease 5100ms forwards;
-      }
-
-      .meaning-intro::before {
-        content: "";
-        position: absolute;
-        inset: -4%;
-        z-index: -1;
-        background:
-          radial-gradient(circle at 31% 50%, rgba(222, 101, 71, 0.18), transparent 19%),
-          radial-gradient(circle at 69% 51%, rgba(63, 214, 208, 0.16), transparent 20%),
-          radial-gradient(circle at 50% 50%, rgba(255, 213, 109, 0.2), transparent 24%);
-        filter: blur(12px);
-      }
-
-      .intro-section {
-        --intro-left-width: 28.5vw;
-        --intro-center-width: 43vw;
-        --intro-right-width: 28.5vw;
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        overflow: hidden;
-        opacity: 0;
-        background-image: url("assets/hero/intro-a-concept.webp");
-        background-size: 100vw 100%;
-        filter: saturate(1.08) contrast(1.04);
-      }
-
-      .intro-section::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(180deg, rgba(7, 10, 14, 0.06), rgba(7, 10, 14, 0.22));
-      }
-
-      .intro-section.paint {
-        left: 0;
-        width: var(--intro-left-width);
-        background-position: left center;
-        transform-origin: left center;
-        animation: sideSectionIn 1050ms cubic-bezier(0.18, 0.86, 0.16, 1) 80ms forwards;
-      }
-
-      .intro-section.harmony {
-        left: var(--intro-left-width);
-        width: var(--intro-center-width);
-        background-position: calc(0px - var(--intro-left-width)) center;
-        transform-origin: center;
-        animation: centerSectionIn 1150ms cubic-bezier(0.18, 0.86, 0.16, 1) 1680ms forwards;
-      }
-
-      .intro-section.sound {
-        right: 0;
-        width: var(--intro-right-width);
-        background-position: right center;
-        transform-origin: right center;
-        animation: sideSectionIn 1050ms cubic-bezier(0.18, 0.86, 0.16, 1) 80ms forwards;
-      }
-
-      .intro-symbol {
-        --start-x: 0vw;
-        --mid-x: 0vw;
-        --tilt: 0deg;
-        --symbol-shadow: 0 28px 70px rgba(0, 0, 0, 0.52);
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        z-index: 1;
-        display: grid;
-        justify-items: center;
-        align-content: center;
-        gap: 10px;
-        width: clamp(170px, 17vw, 250px);
-        min-height: clamp(150px, 15vw, 220px);
-        opacity: 0;
-        transform: translate(-50%, -50%) translateX(var(--start-x)) scale(0.68) rotate(var(--tilt));
-        text-align: center;
-        filter: drop-shadow(var(--symbol-shadow));
-        animation: sideSymbolGather 4600ms cubic-bezier(0.18, 0.86, 0.16, 1) both;
-      }
-
-      .intro-symbol.paint {
-        --start-x: -34vw;
-        --mid-x: -10vw;
-        --tilt: -5deg;
-        animation-delay: 150ms;
-      }
-
-      .intro-symbol.sound {
-        --start-x: 34vw;
-        --mid-x: 10vw;
-        --tilt: 5deg;
-        animation-delay: 210ms;
-      }
-
-      .intro-symbol.harmony {
-        width: clamp(250px, 25vw, 370px);
-        min-height: clamp(220px, 22vw, 330px);
-        transform: translate(-50%, -50%) scale(0.56);
-        animation: harmonySymbolGather 3700ms cubic-bezier(0.18, 0.86, 0.16, 1) 1320ms both;
-      }
-
-      .meaning-object {
-        position: absolute;
-        inset: -15%;
-        width: 130%;
-        height: 130%;
-        object-fit: contain;
-        opacity: 0.96;
-        transform-origin: 50% 50%;
-      }
-
-      .intro-symbol.harmony .meaning-object {
-        inset: -8%;
-        width: 116%;
-        height: 116%;
-        opacity: 1;
-        animation-duration: 6200ms;
-        animation-direction: reverse;
-      }
-
-      .meaning-glyph {
-        position: relative;
-        z-index: 1;
-        display: block;
-        color: var(--cream);
-        font-family: var(--hanja);
-        font-size: clamp(4.8rem, 8.2vw, 8.6rem);
-        font-weight: 900;
-        line-height: 0.9;
-        text-shadow:
-          0 3px 0 rgba(29, 21, 12, 0.48),
-          0 18px 34px rgba(0, 0, 0, 0.58),
-          0 0 24px rgba(255, 230, 156, 0.54);
-        transform: translateY(-3px);
-      }
-
-      .intro-symbol.harmony .meaning-glyph {
-        color: var(--gold-strong);
-        font-size: clamp(7.2rem, 12vw, 12.5rem);
-      }
-
-      .meaning-label {
-        position: relative;
-        z-index: 1;
-        min-width: 92px;
-        padding: 7px 13px 8px;
-        border: 1px solid rgba(255, 244, 214, 0.34);
-        border-radius: 999px;
-        background: rgba(10, 12, 14, 0.66);
-        color: #fff6e2;
-        font-size: clamp(0.9rem, 1.02vw, 1.04rem);
-        font-weight: 900;
-        line-height: 1;
-        letter-spacing: 0;
-        white-space: nowrap;
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-      }
-
-      @keyframes sideSectionIn {
-        0% {
-          opacity: 0;
-          transform: scaleX(0.42);
-          filter: blur(10px) saturate(1.08) contrast(1.04);
-        }
-        100% {
-          opacity: 1;
-          transform: scaleX(1);
-          filter: blur(0) saturate(1.08) contrast(1.04);
-        }
-      }
-
-      @keyframes centerSectionIn {
-        0% {
-          opacity: 0;
-          transform: scaleX(0.18);
-          filter: blur(12px) saturate(1.08) contrast(1.04);
-        }
-        34% {
-          opacity: 0.7;
-        }
-        100% {
-          opacity: 1;
-          transform: scaleX(1);
-          filter: blur(0) saturate(1.08) contrast(1.04);
-        }
-      }
-
-      @keyframes sideSymbolGather {
-        0% {
-          opacity: 0;
-          transform: translate(-50%, -50%) translateX(var(--start-x)) scale(0.62);
-          filter: blur(8px) drop-shadow(var(--symbol-shadow));
-        }
-        15% {
-          opacity: 1;
-          transform: translate(-50%, -50%) translateX(var(--start-x)) scale(0.96);
-          filter: blur(0) drop-shadow(var(--symbol-shadow));
-        }
-        46% {
-          opacity: 1;
-          transform: translate(-50%, -50%) translateX(var(--start-x)) scale(1.04);
-        }
-        68% {
-          opacity: 1;
-          transform: translate(-50%, -50%) translateX(var(--mid-x)) scale(0.92);
-        }
-        80% {
-          opacity: 0.86;
-          transform: translate(-50%, -50%) translateX(0) scale(0.56);
-          filter: blur(0) drop-shadow(0 20px 52px rgba(255, 218, 128, 0.18));
-        }
-        88% {
-          opacity: 0;
-          transform: translate(-50%, -50%) translateX(0) scale(0.36);
-          filter: blur(7px) drop-shadow(0 14px 34px rgba(255, 218, 128, 0.12));
-        }
-        100% {
-          opacity: 0;
-          transform: translate(-50%, -50%) translateX(0) scale(0.2);
-          filter: blur(9px) drop-shadow(0 14px 34px rgba(255, 218, 128, 0.1));
-        }
-      }
-
-      @keyframes harmonySymbolGather {
-        0%,
-        20% {
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.52);
-          filter: blur(10px) drop-shadow(0 18px 44px rgba(0, 0, 0, 0.32));
-        }
-        42% {
-          opacity: 1;
-          transform: translate(-50%, -50%) scale(1.06);
-          filter: blur(0) drop-shadow(0 34px 86px rgba(255, 212, 117, 0.42));
-        }
-        76% {
-          opacity: 1;
-          transform: translate(-50%, -50%) scale(1);
-          filter: blur(0) drop-shadow(0 34px 86px rgba(255, 212, 117, 0.38));
-        }
-        94% {
-          opacity: 0.96;
-          transform: translate(-50%, -50%) scale(0.68);
-          filter: blur(0) drop-shadow(0 22px 54px rgba(255, 212, 117, 0.18));
-        }
-        100% {
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.25);
-          filter: blur(9px) drop-shadow(0 14px 34px rgba(255, 212, 117, 0.12));
-        }
-      }
-
-      @keyframes flowStageIn {
-        to {
-          opacity: 1;
-        }
-      }
-
-      @keyframes introOut {
-        to {
-          opacity: 0;
-          visibility: hidden;
-        }
-      }
-
-      @keyframes titleIn {
-        to {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
-      }
-
-      @media (max-height: 780px) and (min-width: 769px) {
-        .landing {
-          min-height: 600px;
-        }
-
-        .brand-title {
-          font-size: clamp(4.7rem, 6.2vw, 6rem);
-        }
-
-        .subtitle {
-          font-size: 1.12rem;
-        }
-
-        .enter-cta {
-          min-width: 188px;
-          padding: 12px 22px 13px;
-        }
-      }
-
       @media (prefers-reduced-motion: reduce) {
-        .title-stack,
-        .flow-stage {
-          opacity: 1;
-          transform: none;
-          animation: none;
-        }
-
+        *, *::before, *::after { transition: none !important; }
+        #sound-toggle.is-hinting { animation: none; }
       }
     </style>
     <script>
       (() => {
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("has-intro");
         const params = new URLSearchParams(window.location.search);
         const channel = params.get("shareChannel") || params.get("channel");
         if (!channel) return;
@@ -574,349 +119,698 @@
   </head>
   <body>
     <main class="landing" aria-label="화음 메인">
-      <section class="final" aria-label="화음 첫 화면">
-        <svg class="flow-stage" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden="true">
+      <div class="scene" aria-hidden="true">
+        <img class="painting painting-ink" src="assets/hero/melody-landscape.webp" alt="" />
+        <img class="painting painting-color" src="assets/hero/melody-landscape.webp" alt="" />
+        <canvas class="paint-layer"></canvas>
+        <canvas class="melody-layer"></canvas>
+      </div>
+      <div class="atmosphere" aria-hidden="true"></div>
+      <section class="hero-copy" aria-labelledby="hero-title">
+        <h1 id="hero-title">화음</h1>
+        <svg class="seal" viewBox="0 0 60 112" aria-hidden="true" focusable="false">
           <defs>
-            <path
-              id="paintFlowPath"
-              d="M -90 540 C 82 570 250 568 362 492 C 480 412 486 242 628 126 C 742 44 884 62 948 128 C 1018 190 1030 300 1004 404"
-            />
-            <path
-              id="soundFlowPath"
-              d="M 1518 338 C 1424 338 1348 346 1284 382 C 1214 420 1160 482 1090 562 C 1018 644 914 696 794 704 C 668 726 548 666 486 560"
-            />
-            <g id="paintStreamSmall">
-              <image href="assets/hero/intro-a-stream-paint.webp" x="-48" y="-19" width="96" height="48" />
-            </g>
-            <g id="paintStreamMedium">
-              <image href="assets/hero/intro-a-stream-paint.webp" x="-63" y="-25" width="126" height="63" />
-            </g>
-            <g id="paintStreamLarge">
-              <image href="assets/hero/intro-a-stream-paint.webp" x="-78" y="-31" width="156" height="78" />
-            </g>
-            <g id="paintDropMark">
-              <image href="assets/hero/flow-palette-brush-particle.webp" x="-39" y="-38" width="78" height="76" />
-            </g>
-            <g id="soundStreamSmall">
-              <image href="assets/hero/intro-a-stream-music.webp" x="-50" y="-20" width="100" height="50" />
-            </g>
-            <g id="soundStreamMedium">
-              <image href="assets/hero/intro-a-stream-music.webp" x="-65" y="-26" width="130" height="65" />
-            </g>
-            <g id="soundStreamLarge">
-              <image href="assets/hero/intro-a-stream-music.webp" x="-80" y="-32" width="160" height="80" />
-            </g>
-            <g id="noteEighth">
-              <image href="assets/hero/flow-note-particle.webp" x="-37" y="-34" width="74" height="68" />
-            </g>
-            <g id="notePair">
-              <image href="assets/hero/flow-note-particle.webp" x="-48" y="-44" width="96" height="88" />
-            </g>
-            <g id="noteQuarter">
-              <image href="assets/hero/flow-note-particle.webp" x="-31" y="-28" width="62" height="57" />
-            </g>
+            <filter id="seal-ink" x="-10%" y="-10%" width="120%" height="120%">
+              <feTurbulence type="fractalNoise" baseFrequency=".55" numOctaves="2" seed="11" result="grain" />
+              <feDisplacementMap in="SourceGraphic" in2="grain" scale="1.4" xChannelSelector="R" yChannelSelector="G" result="rough" />
+              <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4" result="speck" />
+              <feColorMatrix in="speck" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -11 7.9" result="holes" />
+              <feComposite in="rough" in2="holes" operator="in" />
+            </filter>
+            <mask id="seal-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="60" height="112">
+              <rect width="60" height="112" fill="#fff" />
+              <path fill="#000" transform="translate(7 7) scale(.46)" d="M0 50H80.8L87.5 41.9Q87.5 41.9 89.6 43.4Q91.7 45 94.5 47.1Q97.4 49.3 99.7 51.3Q99.3 52.9 96.7 52.9H0.8ZM8.1 39.5H71.6L78.4 31.5Q78.4 31.5 80.4 33Q82.5 34.6 85.3 36.7Q88.1 38.8 90.4 40.8Q90 42.4 87.5 42.4H8.9ZM0.5 18.7H84.8L90.2 10.7Q90.2 10.7 91.9 12.2Q93.6 13.8 95.9 15.9Q98.2 18.1 100 20Q99.6 21.6 97.3 21.6H1.4ZM32.1 70.5H67V73.4H32.1ZM32.1 82H67V85H32.1ZM15 91.2H84V94.1H15ZM60.4 59.2H59.6L64.9 53.8L75.6 61.8Q75.2 62.2 74.5 62.7Q73.8 63.1 72.7 63.3V85.3Q72.7 85.7 71 86.6Q69.3 87.5 67 88.2Q64.7 88.9 62.6 88.9H60.4ZM26.7 59.2V54.3L39.2 59.2H66.5V62.2H38.7V85.8Q38.7 86.3 37.1 87.2Q35.6 88.1 33.2 88.8Q30.9 89.5 28.4 89.5H26.7ZM41.3 0 59.9 1.6Q59.8 2.6 59.1 3.3Q58.4 4 56.5 4.3V50.7H41.3ZM13.3 8.9H76.8V11.9H14.3ZM13.1 28.7H77.1V31.6H14.1ZM68.9 8.9H68.1L74.2 2.6L86.7 11.8Q86.3 12.2 85.7 12.6Q85 13 83.8 13.2V29.9Q83.8 30.4 81.8 31.1Q79.7 31.9 76.9 32.6Q74.1 33.3 71.6 33.3H68.9ZM43.9 59.2H55.1V82.9H43.9ZM9.1 54.3 25.5 55.8Q25.4 56.7 24.7 57.4Q24.1 58.1 22.1 58.4V96.7Q22.1 97.2 20.4 98Q18.8 98.7 16.4 99.3Q14 99.9 11.4 99.9H9.1ZM77.1 54.4 94.6 56Q94.5 57 93.8 57.8Q93 58.6 90.8 58.9V96.8Q90.8 97.3 89 98.1Q87.3 98.8 84.7 99.4Q82.1 100 79.5 100H77.1Z" />
+              <path fill="#000" transform="translate(7 59) scale(.46)" d="M23.9 70.9H73.6V73.9H23.9ZM23.9 88.7H73.6V91.6H23.9ZM18.3 53.7V47.5L34.5 53.7H75.8V56.7H33.6V95.1Q33.6 95.9 31.7 97Q29.7 98.2 26.7 99.1Q23.8 100 20.5 100H18.3ZM65.5 53.7H64.4L71.7 45.8L86.2 57Q85.6 57.6 84.6 58.3Q83.5 59 81.7 59.4V94.5Q81.7 95 79.5 96.2Q77.4 97.5 74.3 98.5Q71.2 99.5 68.3 99.5H65.5ZM41 0 60.3 1.5Q60.1 2.4 59.5 3.1Q58.9 3.8 56.9 4.1V15.8H41ZM4.7 13.8H73.6L81.3 3.8Q81.3 3.8 82.7 4.9Q84.1 6 86.3 7.8Q88.5 9.5 90.9 11.5Q93.3 13.4 95.2 15.1Q95.1 16 94.3 16.4Q93.4 16.8 92.3 16.8H5.5ZM0.8 39.3H76.7L84.7 28.9Q84.7 28.9 86.2 30Q87.6 31.2 89.9 33Q92.2 34.8 94.7 36.8Q97.1 38.8 99.2 40.6Q98.9 41.4 98.1 41.9Q97.3 42.3 96.1 42.3H1.7ZM23.6 17Q31.6 18.7 35.9 21.6Q40.3 24.4 41.7 27.6Q43.1 30.9 42.4 33.7Q41.6 36.5 39.4 38.1Q37.2 39.7 34.1 39.6Q31.1 39.4 28 36.7Q28 33.3 27.2 29.9Q26.4 26.5 25.3 23.3Q24.1 20.1 22.7 17.4ZM62.2 16.2 81.6 22.1Q81.3 23 80.3 23.6Q79.4 24.2 77.6 24.1Q74.9 26.5 71.3 29.7Q67.7 32.8 63.6 35.9Q59.6 39 55.7 41.5H54.7Q56.1 37.9 57.6 33.4Q59 28.9 60.2 24.3Q61.4 19.8 62.2 16.2Z" />
+            </mask>
           </defs>
-          <g class="paint-flow">
-            <use href="#paintFlowPath" class="flow-line paint-line teal" />
-            <use href="#paintFlowPath" class="flow-line paint-line ink" />
-            <use href="#paintFlowPath" class="flow-line paint-line gold" />
-            <use href="#paintStreamMedium" opacity="0.5">
-              <animateMotion dur="10.2s" begin="-9.63s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamSmall" opacity="0.42">
-              <animateMotion dur="10.2s" begin="-9.07s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamLarge" opacity="0.58">
-              <animateMotion dur="10.2s" begin="-8.5s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamSmall" opacity="0.46">
-              <animateMotion dur="10.2s" begin="-7.93s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamMedium" opacity="0.54">
-              <animateMotion dur="10.2s" begin="-7.37s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamSmall" opacity="0.4">
-              <animateMotion dur="10.2s" begin="-6.8s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamLarge" opacity="0.6">
-              <animateMotion dur="10.2s" begin="-6.23s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamMedium" opacity="0.52">
-              <animateMotion dur="10.2s" begin="-5.67s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamSmall" opacity="0.44">
-              <animateMotion dur="10.2s" begin="-5.1s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamMedium" opacity="0.56">
-              <animateMotion dur="10.2s" begin="-4.53s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamSmall" opacity="0.42">
-              <animateMotion dur="10.2s" begin="-3.97s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamLarge" opacity="0.58">
-              <animateMotion dur="10.2s" begin="-3.4s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamSmall" opacity="0.44">
-              <animateMotion dur="10.2s" begin="-2.83s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamMedium" opacity="0.54">
-              <animateMotion dur="10.2s" begin="-2.27s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamSmall" opacity="0.4">
-              <animateMotion dur="10.2s" begin="-1.7s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamLarge" opacity="0.57">
-              <animateMotion dur="10.2s" begin="-1.13s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamMedium" opacity="0.5">
-              <animateMotion dur="10.2s" begin="-0.57s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintStreamSmall" opacity="0.43">
-              <animateMotion dur="10.2s" begin="0s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintDropMark">
-              <animateMotion dur="9.8s" begin="-8.57s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintDropMark">
-              <animateMotion dur="9.8s" begin="-7.35s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintDropMark">
-              <animateMotion dur="9.8s" begin="-6.12s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintDropMark">
-              <animateMotion dur="9.8s" begin="-4.9s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintDropMark">
-              <animateMotion dur="9.8s" begin="-3.67s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintDropMark">
-              <animateMotion dur="9.8s" begin="-2.45s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintDropMark">
-              <animateMotion dur="9.8s" begin="-1.22s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#paintDropMark">
-              <animateMotion dur="9.8s" begin="0s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#paintFlowPath" />
-              </animateMotion>
-            </use>
-          </g>
-          <g class="sound-flow">
-            <use href="#soundFlowPath" class="flow-line sound-line teal" />
-            <use href="#soundFlowPath" class="flow-line sound-line gold" />
-            <use href="#soundFlowPath" class="flow-line sound-line dark" />
-            <use href="#soundStreamMedium" opacity="0.52">
-              <animateMotion dur="10.5s" begin="-9.92s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamSmall" opacity="0.44">
-              <animateMotion dur="10.5s" begin="-9.33s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamLarge" opacity="0.62">
-              <animateMotion dur="10.5s" begin="-8.75s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamSmall" opacity="0.46">
-              <animateMotion dur="10.5s" begin="-8.17s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamMedium" opacity="0.56">
-              <animateMotion dur="10.5s" begin="-7.58s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamSmall" opacity="0.42">
-              <animateMotion dur="10.5s" begin="-7s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamLarge" opacity="0.64">
-              <animateMotion dur="10.5s" begin="-6.42s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamMedium" opacity="0.54">
-              <animateMotion dur="10.5s" begin="-5.83s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamSmall" opacity="0.46">
-              <animateMotion dur="10.5s" begin="-5.25s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamMedium" opacity="0.58">
-              <animateMotion dur="10.5s" begin="-4.67s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamSmall" opacity="0.44">
-              <animateMotion dur="10.5s" begin="-4.08s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamLarge" opacity="0.62">
-              <animateMotion dur="10.5s" begin="-3.5s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamSmall" opacity="0.48">
-              <animateMotion dur="10.5s" begin="-2.92s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamMedium" opacity="0.54">
-              <animateMotion dur="10.5s" begin="-2.33s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamSmall" opacity="0.42">
-              <animateMotion dur="10.5s" begin="-1.75s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamLarge" opacity="0.6">
-              <animateMotion dur="10.5s" begin="-1.17s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamMedium" opacity="0.52">
-              <animateMotion dur="10.5s" begin="-0.58s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#soundStreamSmall" opacity="0.44">
-              <animateMotion dur="10.5s" begin="0s" repeatCount="indefinite" rotate="auto">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#noteEighth" opacity="0.82">
-              <animateMotion dur="8.4s" begin="-7.47s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#notePair" opacity="0.78">
-              <animateMotion dur="8.4s" begin="-6.53s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#noteQuarter" opacity="0.7">
-              <animateMotion dur="8.4s" begin="-5.6s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#noteEighth" opacity="0.8">
-              <animateMotion dur="8.4s" begin="-4.67s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#notePair" opacity="0.74">
-              <animateMotion dur="8.4s" begin="-3.73s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#noteQuarter" opacity="0.68">
-              <animateMotion dur="8.4s" begin="-2.8s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#noteEighth" opacity="0.82">
-              <animateMotion dur="8.4s" begin="-1.87s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#notePair" opacity="0.76">
-              <animateMotion dur="8.4s" begin="-0.93s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
-            <use href="#noteQuarter" opacity="0.68">
-              <animateMotion dur="8.4s" begin="0s" repeatCount="indefinite" rotate="0">
-                <mpath href="#soundFlowPath" />
-              </animateMotion>
-            </use>
+          <g filter="url(#seal-ink)">
+            <rect x="1.5" y="1.5" width="57" height="109" rx="3.5" fill="var(--seal)" mask="url(#seal-cut)" />
           </g>
         </svg>
-
-        <div class="title-stack">
-          <h1 class="brand-title">화음</h1>
-          <p class="subtitle">그림과 소리를 조화롭게<br />나만의 BGM 만들기</p>
-          <a class="enter-cta" href="studio.html">입장하기</a>
-        </div>
+        <a class="enter-cta" href="studio.html">내 그림에 선율 더하기
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 4 12 H 20 M 14 6 L 20 12 L 14 18" /></svg>
+        </a>
       </section>
-
-      <section class="meaning-intro" aria-hidden="true">
-        <div class="intro-section paint"></div>
-        <div class="intro-section harmony"></div>
-        <div class="intro-section sound"></div>
-        <div class="intro-symbol paint">
-          <span class="meaning-glyph">畵</span>
-          <span class="meaning-label">그림 화</span>
+      <footer class="page-footer">
+        <div class="motion-controls" hidden>
+          <button class="motion-button" id="sound-toggle" type="button" aria-pressed="false" title="소리 켜기">
+            <svg class="sound-off-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 2 6.2 H 4.6 L 8 3.2 V 12.8 L 4.6 9.8 H 2 Z" /><path d="M 10.8 6.3 L 14.2 9.7 M 14.2 6.3 L 10.8 9.7" /></svg>
+            <svg class="sound-on-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 2 6.2 H 4.6 L 8 3.2 V 12.8 L 4.6 9.8 H 2 Z" /><path d="M 10.6 5.6 Q 12 8 10.6 10.4 M 12.6 3.8 Q 15.2 8 12.6 12.2" /></svg>
+            <span class="sr-only">소리 켜기</span>
+          </button>
+          <button class="motion-button" id="motion-toggle" type="button" aria-pressed="false" title="움직임 멈추기">
+            <svg class="pause-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M 5 3 V 13 M 11 3 V 13" /></svg>
+            <svg class="play-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M 4 2 L 13 8 L 4 14 Z" /></svg>
+            <span class="sr-only">움직임 멈추기</span>
+          </button>
         </div>
-        <div class="intro-symbol harmony">
-          <span class="meaning-glyph">和</span>
-          <span class="meaning-label">조화로울 화</span>
-        </div>
-        <div class="intro-symbol sound">
-          <span class="meaning-glyph">音</span>
-          <span class="meaning-label">소리 음</span>
-        </div>
-      </section>
+      </footer>
     </main>
+
+    <script>
+      (() => {
+        "use strict";
+        const root = document.documentElement;
+        const landing = document.querySelector(".landing");
+        const canvas = document.querySelector(".melody-layer");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { root.classList.remove("has-intro"); return; }
+
+        // 선율 표: [계이름, 길이(8분음표 몇 개)]. 그림 위 선의 높낮이와 대금 소리가 모두 이 표를 따릅니다.
+        // 쓸 수 있는 계이름: 낮은솔 · 낮은라 · 도 · 레 · 미 · 솔 · 라 · 높은도 · 높은레 · 높은미
+        const MELODY = [
+          ["레", 2], ["솔", 1], ["라", 3], ["솔", 1], ["미", 1], ["도", 3],
+          ["레", 1], ["미", 1], ["솔", 2], ["미", 1], ["라", 4],
+        ];
+        const PITCH = { 낮은솔: 55, 낮은라: 57, 도: 60, 레: 62, 미: 64, 솔: 67, 라: 69, 높은도: 72, 높은레: 74, 높은미: 76 };
+        const AXIS = [55, 57, 60, 62, 64, 67, 69, 72, 74, 76];
+        // Studio daegeum takes: file, calibrated Hz (js/sample-calibration.js) and the measured per-note gain
+        // (NOTE_MELODY_OUTPUT_GAINS.daegeum in js/audio-engine.js), so the landing sounds like the studio.
+        const DAEGEUM = "sound/선율-국악(국립국악원)/관/daegeum/daegeum_";
+        const TAKES = {
+          55: ["As3", 237.893, 1.791], 57: ["As3", 237.893, 1.791], 60: ["Cs4", 271.158, 2.048], 62: ["D4", 293.598, 1.601],
+          64: ["E4", 323.057, .941], 67: ["G4", 401.773, .736], 69: ["A4", 437.096, .715], 72: ["Cs5", 543.673, .953],
+          74: ["D5", 583.022, .735], 76: ["E5", 645.988, 1.072],
+        };
+        // Note sprites inside gold-notes.webp, with the notehead centre as anchor.
+        const SPRITES = {
+          eighth: { x: 8, w: 87, hx: 27.6, hy: 104 },
+          quarter: { x: 103, w: 55, hx: 27.4, hy: 104.2 },
+          half: { x: 166, w: 59, hx: 29.8, hy: 103.2 },
+          sixteenth: { x: 233, w: 90, hx: 27.5, hy: 104.3 },
+          tilt: { x: 331, w: 101, hx: 30.3, hy: 102.7 },
+        };
+        // Geometry in melody-landscape.webp pixels (1536 x 1024): the line rides the dark band above the ridges.
+        const ART_W = 1536, ART_H = 1024;
+        const LINE = { x0: 228, x1: 1332, base: 660, gap: 24 };
+        const MOON = { x: 1366, y: 600 };
+        const DRAW_AT = 450, DRAW_MS = 4400, COPY_AT = 5050, SEAL_AT = 6450, STILL_AT = 8200;
+        const GLINT_FIRST = 3200, GLINT_EVERY = 12000;
+        const copyParts = Array.from(document.querySelectorAll(".hero-copy > h1, .enter-cta"));
+        const copyTiming = [[0, 2100], [900, 1600]];
+        const seal = document.querySelector(".seal");
+        const inkImage = document.querySelector(".painting-ink");
+        const colorImage = document.querySelector(".painting-color");
+        const paintCanvas = document.querySelector(".paint-layer");
+        const pctx = paintCanvas.getContext("2d");
+        const toggle = document.getElementById("motion-toggle");
+        const soundButton = document.getElementById("sound-toggle");
+        const preference = matchMedia("(prefers-reduced-motion: reduce)");
+        const clamp = v => Math.max(0, Math.min(1, v));
+        const ease = v => .5 - Math.cos(Math.PI * clamp(v)) / 2;
+        const easeOut = v => 1 - Math.pow(1 - clamp(v), 3);
+        const noise = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+        const seconds = DRAW_MS / 1000;
+
+        const total = MELODY.reduce((sum, [, len]) => sum + len, 0);
+        let beat = 0;
+        const notes = MELODY.map(([name, len]) => {
+          const midi = PITCH[name] || PITCH.미;
+          const span = (LINE.x1 - LINE.x0) * len / total;
+          const note = {
+            len, midi,
+            start: beat / total * seconds,
+            end: (beat + len) / total * seconds,
+            x: LINE.x0 + (LINE.x1 - LINE.x0) * beat / total + Math.min(22, span * .42),
+            y: LINE.base - (AXIS.indexOf(midi) - 2) * LINE.gap,
+          };
+          beat += len;
+          return note;
+        });
+
+        // A hand following the melody: x keeps time, y glides toward each pitch like a soft spring
+        // (short notes are sung through, long ones settle and waver like 농현), and quick leaps thin the line.
+        const stroke = (() => {
+          const points = [];
+          const dt = 1 / 500, omega = Math.PI * 2 * 2.3, zeta = .84;
+          let y = notes[0].y + 12, v = 0, i = 0, lastX = -Infinity;
+          for (let step = 0; ; step++) {
+            const t = Math.min(seconds, step * dt);
+            while (i < notes.length - 1 && t >= notes[i].end) i++;
+            const note = notes[i], next = notes[i + 1];
+            const target = next && t > note.end - .085 ? next.y : note.y;
+            v += (omega * omega * (target - y) - 2 * zeta * omega * v) * dt;
+            y += v * dt;
+            let wave = 0;
+            if (note.len >= 3) {
+              const held = t - (note.start + (note.end - note.start) * .35);
+              if (held > 0) wave = Math.sin(held * Math.PI * 2 * 4.6) * Math.min(1, held / .35) * (next ? 2 : 3.2);
+            }
+            const x = LINE.x0 + (LINE.x1 - LINE.x0) * t / seconds;
+            if (x - lastX >= 1.6 || t >= seconds) {
+              let w = 3.1 * (1.08 - .4 * Math.min(1, Math.abs(v) / 320)) * (1 - .1 * t / seconds);
+              w *= (.35 + .65 * ease(t / .09)) * (.2 + .8 * (1 - ease((t - seconds + .2) / .2)));
+              const drift = Math.sin(t * Math.PI * 2 / 1.3 + .4) * 1.4 + Math.sin(t * 15.7) * .22;
+              points.push({ t, x, y: y + wave + drift, w });
+              lastX = x;
+            }
+            if (t >= seconds) break;
+          }
+          points.forEach((p, k) => {
+            const a = points[Math.max(0, k - 1)], b = points[Math.min(points.length - 1, k + 1)];
+            const length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+            p.nx = -(b.y - a.y) / length;
+            p.ny = (b.x - a.x) / length;
+          });
+          return points;
+        })();
+        const dust = Array.from({ length: 42 }, (_, n) => ({
+          born: (n + noise(n) * .8) / 42 * seconds,
+          dx: (noise(n + 7) - .5) * 6, dy: (noise(n + 3) - .5) * 6,
+          vx: -10 - noise(n + 11) * 22, vy: -6 + noise(n + 5) * 26,
+          life: .9 + noise(n + 2) * .9, size: .6 + noise(n + 9) * 1.1,
+        }));
+        // Each note drops its colour where it is sung, a watercolour bloom running down into the hills.
+        // Long notes spread further; the first washes the plum branch and the last the moon.
+        const blooms = notes.map((note, n) => {
+          const edge = n === 0 ? -1 : n === notes.length - 1 ? 1 : 0;
+          return {
+            at: note.start + .05,
+            x: note.x + edge * 65,
+            y: lineYAt(note.x) + (edge < 0 ? 150 : edge > 0 ? 30 : 80),
+            r: 150 + 55 * note.len + (edge < 0 ? 170 : edge > 0 ? 210 : 0),
+            grow: 1.1 + .25 * note.len,
+          };
+        });
+        // Masks are 1/8 of the painting, smoothly enlarged; value noise lets the wet edge wander like paper fibre.
+        const MASK_W = 192, MASK_H = 128, CELL = ART_W / MASK_W;
+        const makeMask = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = MASK_W; canvas.height = MASK_H;
+          const context = canvas.getContext("2d");
+          return { canvas, context, image: context.createImageData(MASK_W, MASK_H) };
+        };
+        const inkMask = makeMask(), colorMask = makeMask();
+        const grain = new Float32Array(MASK_W * MASK_H), fromLine = new Float32Array(MASK_W * MASK_H);
+        (() => {
+          const lattice = (x, y, seed) => noise(x * 57 + y * 131 + seed * 17);
+          const smooth = (x, y, size, seed) => {
+            const gx = x / size, gy = y / size, ix = Math.floor(gx), iy = Math.floor(gy);
+            const sx = (gx - ix) * (gx - ix) * (3 - 2 * (gx - ix)), sy = (gy - iy) * (gy - iy) * (3 - 2 * (gy - iy));
+            const top = lattice(ix, iy, seed) + (lattice(ix + 1, iy, seed) - lattice(ix, iy, seed)) * sx;
+            const bottom = lattice(ix, iy + 1, seed) + (lattice(ix + 1, iy + 1, seed) - lattice(ix, iy + 1, seed)) * sx;
+            return top + (bottom - top) * sy;
+          };
+          for (let j = 0, q = 0; j < MASK_H; j++) for (let i = 0; i < MASK_W; i++, q++) {
+            grain[q] = smooth(i, j, 16, 1) * .55 + smooth(i, j, 6, 2) * .3 + smooth(i, j, 2.5, 3) * .15;
+            const x = (i + .5) * CELL, y = (j + .5) * CELL, along = Math.max(LINE.x0, Math.min(LINE.x1, x));
+            fromLine[q] = Math.hypot(x - along, y - lineYAt(along));
+          }
+        })();
+        // Two prepared copies of the painting: the ink wash the notes bring up, and the vivid finish.
+        const INK_FILTER = "grayscale(1) brightness(.8)", VIVID_FILTER = "saturate(1.15) contrast(1.05)";
+        const inkArt = document.createElement("canvas"), vividArt = document.createElement("canvas");
+        const layer = document.createElement("canvas"), lctx = layer.getContext("2d");
+        const artReady = { ink: false, vivid: false };
+        // One copy per call, so preparing them never blocks a frame for long; the ink is needed first.
+        function prepareArt() {
+          if (!colorImage.complete || !colorImage.naturalWidth) return;
+          const [art, filter, key] = !artReady.ink ? [inkArt, INK_FILTER, "ink"] : [vividArt, VIVID_FILTER, "vivid"];
+          if (artReady[key]) return;
+          art.width = ART_W; art.height = ART_H;
+          const c = art.getContext("2d");
+          const filtered = "filter" in c;
+          if (filtered) c.filter = filter;
+          c.drawImage(colorImage, 0, 0, ART_W, ART_H);
+          if (!filtered && key === "ink") {
+            const pixels = c.getImageData(0, 0, ART_W, ART_H), d = pixels.data;
+            for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = (d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722) * .8;
+            c.putImageData(pixels, 0, 0);
+          }
+          artReady[key] = true;
+          if (!artReady.vivid) setTimeout(prepareArt, 200);
+        }
+
+        const sheet = new Image();
+        sheet.src = "assets/hero/gold-notes.webp";
+        let introTime = preference.matches ? STILL_AT : 0;
+        let lineTime = introTime;
+        let paused = preference.matches;
+        let frame = 0, previous = null, lastPaint = -Infinity, ready = false, wasBusy = true, settled = false;
+        let scale = 1, offsetX = 0, offsetY = 0, ratio = 1, lit = false;
+        let gradient = null;
+
+        function countUntil(time) {
+          let low = 0, high = stroke.length;
+          while (low < high) { const mid = (low + high) >> 1; if (stroke[mid].t <= time) low = mid + 1; else high = mid; }
+          return low;
+        }
+        function tipAt(time, count) {
+          if (count <= 0 || count >= stroke.length) return null;
+          const a = stroke[count - 1], b = stroke[count], mix = (time - a.t) / (b.t - a.t || 1);
+          return { x: a.x + (b.x - a.x) * mix, y: a.y + (b.y - a.y) * mix, w: a.w + (b.w - a.w) * mix, nx: a.nx, ny: a.ny };
+        }
+        function outline(count, tip, half) {
+          ctx.beginPath();
+          for (let i = 0; i < count; i++) { const p = stroke[i]; ctx.lineTo(p.x + p.nx * p.w * half, p.y + p.ny * p.w * half); }
+          if (tip) { ctx.lineTo(tip.x + tip.nx * tip.w * half, tip.y + tip.ny * tip.w * half); ctx.lineTo(tip.x - tip.nx * tip.w * half, tip.y - tip.ny * tip.w * half); }
+          for (let i = count - 1; i >= 0; i--) { const p = stroke[i]; ctx.lineTo(p.x - p.nx * p.w * half, p.y - p.ny * p.w * half); }
+          ctx.closePath();
+        }
+        function centre(from, count, tip) {
+          ctx.beginPath();
+          for (let i = from; i < count; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
+          if (tip) ctx.lineTo(tip.x, tip.y);
+        }
+        function drawLine(te, k) {
+          const count = countUntil(te);
+          if (count < 2) return;
+          const drawing = te < seconds;
+          const tip = drawing ? tipAt(te, count) : null;
+          // Once the melody is finished its glow sinks, so the gold reads as paint on the picture, not light over it.
+          const rest = ease((te - seconds) / 1.5);
+          ctx.save();
+          // A soft dark bed keeps the gold readable where it crosses pale mist.
+          ctx.fillStyle = "rgba(4, 11, 13, " + (.42 - .2 * rest) + ")"; ctx.shadowColor = "rgba(4, 11, 13, .9)"; ctx.shadowBlur = 10 * k;
+          outline(count, tip, 1.1); ctx.fill();
+          ctx.fillStyle = gradient; ctx.shadowColor = "rgba(238, 196, 112, " + (.62 - .25 * rest) + ")"; ctx.shadowBlur = (13 - 7 * rest) * k;
+          outline(count, tip, .5); ctx.fill();
+          ctx.shadowColor = "transparent";
+          ctx.lineJoin = "round"; ctx.lineCap = "round";
+          ctx.beginPath();
+          for (let i = 0; i < count; i++) { const p = stroke[i]; ctx.lineTo(p.x - p.nx * p.w * .16, p.y - p.ny * p.w * .16); }
+          ctx.lineWidth = .7; ctx.strokeStyle = "rgba(255, 246, 220, .5)"; ctx.stroke();
+          if (drawing) {
+            // Fresh ink at the tip, the gold dust it sheds and the light of the moving tip.
+            const from = Math.max(0, countUntil(te - .32) - 1);
+            const a = stroke[from], b = tip || stroke[count - 1];
+            const wet = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+            wet.addColorStop(0, "rgba(255, 243, 210, 0)"); wet.addColorStop(1, "rgba(255, 243, 210, .85)");
+            centre(from, count, tip); ctx.lineWidth = 1.5; ctx.strokeStyle = wet; ctx.stroke();
+            ctx.globalCompositeOperation = "lighter";
+            const glow = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 20);
+            glow.addColorStop(0, "rgba(255, 244, 214, .8)"); glow.addColorStop(.25, "rgba(246, 210, 140, .28)"); glow.addColorStop(1, "rgba(246, 210, 140, 0)");
+            ctx.globalAlpha = ease(te / .2) * (1 - ease((te - seconds + .25) / .25));
+            ctx.fillStyle = glow; ctx.fillRect(b.x - 20, b.y - 20, 40, 40);
+          }
+          ctx.globalCompositeOperation = "lighter";
+          ctx.fillStyle = "#f4d99c";
+          dust.forEach(mote => {
+            const age = te - mote.born;
+            if (age < 0 || age > mote.life) return;
+            const at = stroke[Math.min(stroke.length - 1, countUntil(mote.born))];
+            ctx.globalAlpha = Math.pow(1 - age / mote.life, 1.5) * .7;
+            ctx.beginPath();
+            ctx.arc(at.x + mote.dx + mote.vx * age, at.y + mote.dy + mote.vy * age + 9 * age * age, mote.size, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.restore();
+        }
+        function spriteFor(len, n) {
+          if (len >= 4) return SPRITES.half;
+          if (len >= 2) return SPRITES.quarter;
+          if (len < 1) return SPRITES.sixteenth;
+          return n % 2 ? SPRITES.tilt : SPRITES.eighth;
+        }
+        function lineYAt(x) {
+          const count = countUntil((x - LINE.x0) / (LINE.x1 - LINE.x0) * seconds);
+          const a = stroke[Math.max(0, count - 1)], b = stroke[Math.min(stroke.length - 1, count)];
+          return a.y + (b.y - a.y) * clamp((x - a.x) / (b.x - a.x || 1));
+        }
+        // Each note lifts off the line where it is sung, glows while its colour runs into the painting,
+        // then settles into the paper like pressed gold leaf.
+        function drawNotes(te, glint, k) {
+          if (!sheet.complete || !sheet.naturalWidth) return;
+          notes.forEach((note, n) => {
+            const age = te - note.start - .04;
+            if (age <= 0) return;
+            const bloom = clamp(age / .7);
+            const rise = easeOut(bloom);
+            const sprite = spriteFor(note.len, n);
+            const light = glint === null ? 0 : Math.max(0, 1 - Math.abs(glint - note.start - .05) / .3);
+            const settle = ease((age - .9) / 1.6);
+            const size = 52 * (.8 + .2 * rise) * (1 - .08 * settle) * (1 + .08 * light);
+            const headY = lineYAt(note.x) - 6 - 26 * rise + 5 * settle;
+            ctx.save();
+            ctx.translate(note.x, headY);
+            ctx.rotate((noise(n * 3.7) - .5) * .2);
+            ctx.globalAlpha = ease(bloom * 1.4) * Math.max(1 - .45 * settle, light);
+            ctx.shadowColor = "rgba(240, 198, 112, " + (.5 + .35 * light) + ")";
+            ctx.shadowBlur = ((5 + 14 * (1 - bloom)) * (1 - .75 * settle) + 16 * light) * k;
+            ctx.drawImage(sheet, sprite.x, 8, sprite.w, 128, -sprite.hx / 128 * size, -sprite.hy / 128 * size, sprite.w / 128 * size, size);
+            if (note.len === 3) {
+              ctx.fillStyle = "#e9be62";
+              ctx.beginPath(); ctx.arc(size * .3, -size * .05, size * .045, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+          });
+        }
+        function drawMoon(glint) {
+          const rise = ease(((lineTime - DRAW_AT) / 1000 - seconds + .45) / 1.4);
+          const pulse = glint === null ? 0 : Math.max(0, 1 - Math.abs(glint - seconds + .3) / .7);
+          if (rise <= 0 && pulse <= 0) return;
+          ctx.save();
+          ctx.globalCompositeOperation = "screen";
+          const halo = ctx.createRadialGradient(MOON.x, MOON.y, 6, MOON.x, MOON.y, 120);
+          halo.addColorStop(0, "rgba(255, 233, 186, " + (.3 * rise + .18 * pulse) + ")");
+          halo.addColorStop(.3, "rgba(240, 205, 140, " + (.11 * rise + .08 * pulse) + ")");
+          halo.addColorStop(1, "rgba(240, 205, 140, 0)");
+          ctx.fillStyle = halo; ctx.fillRect(MOON.x - 120, MOON.y - 120, 240, 240);
+          ctx.restore();
+        }
+        // The light that drew the line comes back to play it: a bright head with a fading tail.
+        function drawGlint(glint, k) {
+          if (glint === null) return;
+          const fade = ease((glint + .3) / .35) * (1 - ease((glint - seconds) / .35));
+          const from = Math.max(0, countUntil(glint - .3) - 1), to = Math.min(stroke.length - 1, countUntil(glint));
+          if (fade <= 0 || to - from < 2) return;
+          const a = stroke[from], b = stroke[to];
+          const tail = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+          tail.addColorStop(0, "rgba(255, 238, 196, 0)"); tail.addColorStop(1, "rgba(255, 240, 205, .9)");
+          ctx.save();
+          ctx.globalAlpha = fade;
+          ctx.globalCompositeOperation = "lighter";
+          ctx.shadowColor = "rgba(255, 220, 150, .8)"; ctx.shadowBlur = 12 * k;
+          ctx.lineCap = "round"; ctx.lineWidth = 2.6; ctx.strokeStyle = tail;
+          centre(from, to + 1, null); ctx.stroke();
+          ctx.shadowColor = "transparent";
+          const glow = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 22);
+          glow.addColorStop(0, "rgba(255, 244, 214, .75)"); glow.addColorStop(.3, "rgba(246, 210, 140, .25)"); glow.addColorStop(1, "rgba(246, 210, 140, 0)");
+          ctx.fillStyle = glow; ctx.fillRect(b.x - 22, b.y - 22, 44, 44);
+          ctx.restore();
+        }
+        // After the line is finished, a light runs along it now and then, as if it were being played.
+        function glintNow() {
+          if (paused) return null;
+          const since = lineTime - DRAW_AT - DRAW_MS - GLINT_FIRST;
+          if (since < 0) return null;
+          const phase = since % GLINT_EVERY;
+          return phase < DRAW_MS + 900 ? phase / 1000 - .3 : null;
+        }
+        function fillMask(mask, alphaAt) {
+          const data = mask.image.data;
+          for (let j = 0, p = 3, q = 0; j < MASK_H; j++) {
+            const y = (j + .5) * CELL;
+            // The empty sky is the same paper throughout; only what is painted below it changes.
+            const sky = clamp((530 - y) / 90);
+            for (let i = 0; i < MASK_W; i++, p += 4, q++) data[p] = 255 * clamp(alphaAt((i + .5) * CELL, y, sky, q));
+          }
+          mask.context.putImageData(mask.image, 0, 0);
+        }
+        function paintMasks(te, carry) {
+          const wet = [];
+          blooms.forEach(bloom => {
+            const age = te - bloom.at;
+            if (age > 0) wet.push({ x: bloom.x, y: bloom.y, r: bloom.r * easeOut(age / bloom.grow) + Math.max(0, age - bloom.grow) * 40 });
+          });
+          // As the song closes the rest of the ink comes up, so nothing is left hidden.
+          const closing = ease((te - seconds + .5) / 1.1);
+          fillMask(inkMask, (x, y, sky, q) => {
+            const n = grain[q];
+            let a = (closing * 1.6 - n * .6) / .4;
+            for (let w = 0; w < wet.length && a < 1; w++) {
+              const v = (wet[w].r - Math.hypot(x - wet[w].x, y - wet[w].y) - (n - .5) * 160) / 80;
+              if (v > a) a = v;
+            }
+            return a * (1 - sky);
+          });
+          // The finished song: colour runs out from the melody line until it fills the whole picture.
+          const reach = 1450 * ease((te - seconds + .05) / 2.2);
+          fillMask(colorMask, (x, y, sky, q) => Math.max(carry, sky, (reach - fromLine[q] - (grain[q] - .5) * 180) / 90));
+        }
+        // Before the melody the landscape is barely there; each note brings up its ink, and when the song is
+        // finished the colour arrives, a little clearer than the painting alone.
+        function drawPaint(te, k) {
+          const carry = drawEpoch ? 1 - ease((lineTime - DRAW_AT + 250) / 650) : 0;
+          const done = te > seconds + 2.3;
+          if (done !== lit) { lit = done; landing.classList.toggle("is-lit", lit); }
+          pctx.setTransform(1, 0, 0, 1, 0, 0);
+          pctx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+          if (lit || !artReady.ink) return;
+          paintMasks(te, carry);
+          pctx.setTransform(k, 0, 0, k, ratio * offsetX, ratio * offsetY);
+          pctx.drawImage(inkArt, 0, 0);
+          pctx.globalCompositeOperation = "destination-in";
+          pctx.drawImage(inkMask.canvas, 0, 0, ART_W, ART_H);
+          pctx.globalCompositeOperation = "source-over";
+          if (!artReady.vivid) return;
+          lctx.setTransform(1, 0, 0, 1, 0, 0);
+          lctx.clearRect(0, 0, layer.width, layer.height);
+          lctx.setTransform(k, 0, 0, k, ratio * offsetX, ratio * offsetY);
+          lctx.drawImage(vividArt, 0, 0);
+          lctx.globalCompositeOperation = "destination-in";
+          lctx.drawImage(colorMask.canvas, 0, 0, ART_W, ART_H);
+          lctx.globalCompositeOperation = "source-over";
+          pctx.setTransform(1, 0, 0, 1, 0, 0);
+          pctx.drawImage(layer, 0, 0);
+        }
+        function renderIntro() {
+          copyParts.forEach((part, i) => {
+            const amount = ease((introTime - COPY_AT - copyTiming[i][0]) / copyTiming[i][1]);
+            part.style.setProperty("--intro-opacity", amount.toFixed(3));
+            part.style.setProperty("--intro-lift", ((1 - amount) * 6).toFixed(2) + "px");
+            part.style.setProperty("--intro-blur", ((1 - amount) * 5).toFixed(2) + "px");
+            part.style.setProperty("--intro-wipe", (amount * 132).toFixed(2) + "%");
+            part.style.setProperty("--intro-visibility", amount > 0 ? "visible" : "hidden");
+          });
+          const stamp = easeOut((introTime - SEAL_AT) / 260);
+          seal.style.setProperty("--seal-opacity", (stamp * .94).toFixed(3));
+          seal.style.setProperty("--seal-scale", (1.3 - .3 * stamp).toFixed(3));
+          inkImage.style.setProperty("--ink-in", ease(introTime / 1100).toFixed(3));
+        }
+        function render() {
+          // Once the title and seal have settled, only the canvas keeps changing.
+          if (!settled) { renderIntro(); updateHint(); settled = introTime > STILL_AT; }
+
+          const k = ratio * scale;
+          const te = (lineTime - DRAW_AT) / 1000;
+          const glint = glintNow();
+          drawPaint(te, k);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.setTransform(k, 0, 0, k, ratio * offsetX, ratio * offsetY);
+          drawMoon(glint);
+          drawLine(te, k);
+          drawGlint(glint, k);
+          drawNotes(te, glint, k);
+        }
+        function resize() {
+          const box = canvas.getBoundingClientRect();
+          ratio = Math.min(devicePixelRatio || 1, 1.5);
+          layer.width = paintCanvas.width = canvas.width = Math.round(box.width * ratio);
+          layer.height = paintCanvas.height = canvas.height = Math.round(box.height * ratio);
+          scale = Math.max(box.width / ART_W, box.height / ART_H);
+          offsetX = (box.width - ART_W * scale) / 2;
+          offsetY = (box.height - ART_H * scale) / 2;
+          gradient = ctx.createLinearGradient(LINE.x0, 0, LINE.x1, 0);
+          gradient.addColorStop(0, "#dcc590"); gradient.addColorStop(.5, "#e9c172"); gradient.addColorStop(1, "#f3d491");
+          render();
+        }
+
+        // Sound follows the drawing: whenever the line is drawn, the studio's daegeum plays the same score from
+        // wherever the line has reached. A page may start sound on its own only where the browser allows autoplay;
+        // elsewhere the first tap on the picture or on the sound switch brings it in.
+        let context = null, output = null, loading = null, audio = null, voices = [], soundUntil = 0, restTimer = 0;
+        let soundOn = false, userMuted = false, drawEpoch = 0, playedEpoch = -1;
+        function ensureContext() {
+          if (context) return context;
+          const Context = window.AudioContext || window.webkitAudioContext;
+          if (!Context) return null;
+          const sound = context = new Context();
+          const out = sound.createGain(), wet = sound.createGain(), room = sound.createConvolver(), limiter = sound.createDynamicsCompressor();
+          const length = Math.floor(sound.sampleRate * 2.6), impulse = sound.createBuffer(2, length, sound.sampleRate);
+          for (let c = 0; c < 2; c++) {
+            const data = impulse.getChannelData(c);
+            let soft = 0;
+            for (let i = 0; i < length; i++) { soft = soft * .55 + (Math.random() * 2 - 1) * .45; data[i] = soft * Math.pow(1 - i / length, 2.8); }
+          }
+          room.buffer = impulse;
+          out.gain.value = .9; wet.gain.value = .3;
+          // Same brick-wall peak guard as the studio master (js/audio-engine.js connectMasterToOutput).
+          limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = .003; limiter.release.value = .25;
+          output = out;
+          out.connect(limiter); out.connect(room); room.connect(wet); wet.connect(limiter); limiter.connect(sound.destination);
+          sound.addEventListener("statechange", allowAutoplay);
+          allowAutoplay();
+          return sound;
+        }
+        function loadTakes() {
+          if (loading) return loading;
+          const sound = ensureContext();
+          if (!sound) return Promise.reject(new Error("Web Audio unavailable"));
+          const files = Array.from(new Set(notes.map(note => TAKES[note.midi][0])));
+          const buffers = {};
+          loading = Promise.all(files.map(file => fetch(DAEGEUM + file + ".mp3")
+            .then(response => { if (!response.ok) throw new Error(response.status); return response.arrayBuffer(); })
+            .then(data => sound.decodeAudioData(data))
+            .then(buffer => { buffers[file] = buffer; })))
+            .then(() => (audio = { sound, out: output, buffers }));
+          loading.catch(() => { loading = null; });
+          return loading;
+        }
+        // A context that is already running before any tap means this browser lets the site autoplay.
+        function allowAutoplay() {
+          if (context.state !== "running" || soundOn || userMuted || paused) return;
+          soundOn = true; playedEpoch = -1; updateSound();
+        }
+        // position: where the drawing is (seconds into the melody), so late-loading sound joins in step.
+        function playMelody({ sound, out, buffers }, position) {
+          if (sound.state !== "running") sound.resume().catch(() => {});
+          const t0 = sound.currentTime - position;
+          notes.forEach((note, n) => {
+            if (note.end <= position + .05) return;
+            const [file, hz, trim] = TAKES[note.midi];
+            const last = n === notes.length - 1;
+            const start = Math.max(t0 + note.start, sound.currentTime + .02), end = t0 + note.end;
+            const hold = last ? end + .35 : end - .02, release = last ? 1 : .08;
+            const source = sound.createBufferSource(), gain = sound.createGain();
+            source.buffer = buffers[file];
+            source.playbackRate.value = 440 * Math.pow(2, (note.midi - 69) / 12) / hz;
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(1.6 * trim, start + (n ? .045 : .07));
+            gain.gain.setValueAtTime(1.6 * trim, hold);
+            gain.gain.linearRampToValueAtTime(0, hold + release);
+            if (note.len >= 3 && source.detune) {
+              // The same 농현 the drawn line shows on long notes.
+              const lfo = sound.createOscillator(), depth = sound.createGain(), from = start + (end - start) * .35;
+              lfo.frequency.value = 4.6;
+              depth.gain.setValueAtTime(0, from);
+              depth.gain.linearRampToValueAtTime(last ? 26 : 16, from + .35);
+              lfo.connect(depth); depth.connect(source.detune);
+              lfo.start(from); lfo.stop(hold + release + .05);
+            }
+            source.connect(gain); gain.connect(out);
+            // Like the studio pen, later notes skip the breath scoop and start where the take is in tune.
+            const needed = (hold + release - start) * source.playbackRate.value;
+            source.start(start, n ? Math.max(0, Math.min(.45, source.buffer.duration - .05 - needed)) : 0);
+            source.stop(hold + release + .05);
+            voices.push({ source, gain });
+          });
+          soundUntil = t0 + seconds + 1.5;
+          clearTimeout(restTimer);
+          restTimer = setTimeout(rest, (seconds - position + 2) * 1000);
+        }
+        // Let the audio device sleep between performances.
+        function rest() {
+          if (context && context.state === "running" && context.currentTime > soundUntil) context.suspend().catch(() => {});
+        }
+        function silence() {
+          const playing = voices;
+          voices = [];
+          if (!context) return;
+          const now = context.currentTime;
+          playing.forEach(({ source, gain }) => {
+            try {
+              if (gain.gain.cancelAndHoldAtTime) gain.gain.cancelAndHoldAtTime(now); else gain.gain.cancelScheduledValues(now);
+              gain.gain.setTargetAtTime(0, now, .05);
+              source.stop(now + .3);
+            } catch (error) { /* already stopped */ }
+          });
+        }
+        // Runs every frame: once sound is on, the drawing under way is played from where its line has reached.
+        function syncSound() {
+          if (!soundOn || !audio || paused || playedEpoch === drawEpoch) return;
+          playedEpoch = drawEpoch;
+          const position = (lineTime - DRAW_AT) / 1000;
+          if (position > seconds - .15) return;
+          silence();
+          playMelody(audio, position);
+        }
+        const drawingNow = () => lineTime < DRAW_AT + DRAW_MS + 100;
+        function redraw() {
+          lineTime = DRAW_AT - 250; drawEpoch++; wasBusy = true; lastPaint = -Infinity; schedule();
+        }
+        // With motion off the line stays put and only the melody plays.
+        function playStill() {
+          loadTakes().then(ready => { if (soundOn) { silence(); playMelody(ready, -.05); } }).catch(() => {});
+        }
+        function enableSound() {
+          soundOn = true; userMuted = false; playedEpoch = -1; updateSound();
+          const sound = ensureContext();
+          if (sound && sound.state !== "running") sound.resume().catch(() => {});
+          loadTakes().catch(() => { soundOn = false; updateSound(); });
+          // Joining a melody already under way would only let the ending be heard: start the painting over instead.
+          if (paused) playStill(); else if (!drawingNow() || lineTime > DRAW_AT + 600) redraw();
+        }
+        function disableSound() {
+          soundOn = false; userMuted = true; silence(); updateSound();
+        }
+        function updateHint() {
+          soundButton.classList.toggle("is-hinting", !soundOn && !userMuted && !paused && introTime < 20000);
+        }
+        function updateSound() {
+          const label = soundOn ? "소리 끄기" : "소리 켜기";
+          soundButton.setAttribute("aria-pressed", String(soundOn));
+          soundButton.querySelector("span").textContent = label;
+          soundButton.title = label;
+          updateHint();
+        }
+
+        function updateControl() {
+          const label = paused ? "움직임 켜기" : "움직임 멈추기";
+          toggle.setAttribute("aria-pressed", String(paused));
+          toggle.querySelector("span").textContent = label;
+          toggle.title = label;
+          updateHint();
+        }
+        function busy() {
+          return introTime < STILL_AT + 100 || lineTime < DRAW_AT + DRAW_MS + 2600 || glintNow() !== null;
+        }
+        function tick(now) {
+          frame = 0;
+          if (paused || document.hidden || !ready) { previous = null; return; }
+          if (previous !== null) {
+            const step = Math.min(100, Math.max(0, now - previous));
+            introTime += step; lineTime += step;
+          }
+          previous = now;
+          syncSound();
+          updateHint();
+          if (now - lastPaint >= 32) {
+            const active = busy();
+            if (active || wasBusy) render();
+            wasBusy = active;
+            lastPaint = now;
+          }
+          frame = requestAnimationFrame(tick);
+        }
+        function schedule() { if (!frame && !paused && !document.hidden && ready) frame = requestAnimationFrame(tick); }
+        function stopFrame() { cancelAnimationFrame(frame); frame = 0; previous = null; }
+        function hush() { stopFrame(); silence(); playedEpoch = -1; }
+        toggle.addEventListener("click", () => {
+          paused = !paused; updateControl();
+          if (paused) hush(); else { wasBusy = true; schedule(); }
+        });
+        soundButton.addEventListener("click", () => { if (soundOn) disableSound(); else enableSound(); });
+        // Tapping the picture plays it: the first tap brings in the sound, later taps draw the melody again.
+        landing.addEventListener("pointerdown", event => {
+          if (event.button !== 0 || event.target.closest("a, button")) return;
+          if (!soundOn && !userMuted) enableSound();
+          else if (paused) { if (soundOn) playStill(); }
+          else if (!drawingNow()) redraw();
+        });
+        document.addEventListener("visibilitychange", () => { if (document.hidden) hush(); else schedule(); });
+        preference.addEventListener("change", () => {
+          hush(); paused = preference.matches;
+          if (paused) introTime = lineTime = STILL_AT;
+          render(); updateControl(); schedule();
+        });
+        window.addEventListener("resize", resize);
+        window.addEventListener("pagehide", hush);
+        window.addEventListener("pageshow", schedule);
+        sheet.addEventListener("load", () => { if (paused) render(); });
+        colorImage.addEventListener("load", () => { if (!artReady.ink) { prepareArt(); render(); } });
+        updateControl(); updateSound(); resize();
+
+        let loadingTimer;
+        function start() {
+          if (ready) return;
+          ready = true;
+          root.classList.add("is-live");
+          prepareArt();
+          clearTimeout(loadingTimer);
+          document.querySelector(".motion-controls").hidden = false;
+          render(); schedule();
+          // Fetch the takes now; where autoplay is allowed the intro is heard from its first note.
+          loadTakes().catch(() => {});
+        }
+        if (colorImage.complete && colorImage.naturalWidth) start();
+        else {
+          colorImage.addEventListener("load", start, { once: true });
+          colorImage.addEventListener("error", start, { once: true });
+          loadingTimer = setTimeout(start, 1500);
+        }
+      })();
+    </script>
   </body>
 </html>

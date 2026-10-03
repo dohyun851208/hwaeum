@@ -18,6 +18,8 @@
   if (!AudioPlan) throw new Error("audio-plan.js must load before audio-engine.js")
   if (!AudioNodeScope) throw new Error("audio-node-scope.js must load before audio-engine.js")
   if (!AudioPadGraph) throw new Error("audio-pad-graph.js must load before audio-engine.js")
+  if (!root.SDAudioSamples) throw new Error("audio-samples.js must load before audio-engine.js")
+  const { continuousSustainPlan, applySustainPlanToSource } = root.SDAudioSamples({ core: Core, audioPlan: AudioPlan })
   const audioBufferDuration = AudioPlan.audioBufferDuration
   const backgroundRange = AudioPlan.backgroundRange
   const contiguousPhrases = AudioPlan.contiguousPhrases
@@ -37,46 +39,54 @@
   // Instrument gain is calibrated from the stable sustain region of the default
   // drawing pitch rows, with violin as the reference loudness.
   const INSTRUMENT_MELODY_OUTPUT_GAINS = {
-    flute: 1.32,
-    oboe: 1.29,
-    clarinet: 1.11,
-    frenchHorn: 1.25,
+    flute: 2.78,
+    oboe: 0.94,
+    clarinet: 1.16,
+    frenchHorn: 1.37,
     violin: 0.81,
-    viola: 1.3,
-    cello: 0.89,
-    doubleBass: 0.35,
-    sogeum: 0.62,
-    daegeum: 1.16,
-    danso: 0.2,
-    haegeum: 0.43,
-    gayageum: 0.45,
+    viola: 1.35,
+    cello: 0.90,
+    doubleBass: 0.36,
+    sogeum: 0.57,
+    daegeum: 1.18,
+    danso: 0.27,
+    haegeum: 0.37,
+    gayageum: 0.47,
   }
   const NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB = 3
-  // 더블베이스만 측정으로 승인된 ±12 dB 예외다. 자동 루프 적용 범위와 분리한다.
+  // 측정으로 승인된 ±12 dB 예외. 자동 루프 적용 범위와 분리한다.
+  // 더블베이스는 샘플 사이 녹음 강약 차, 국악 4악기는 국립국악원 음계 녹음이 음마다 한 번뿐이라
+  // 바꿀 녹음이 없고 음 사이 차이가 9~21 dB라서다(2026-10-03, 소금 낮은 음이 기준보다 10.9 dB 작았다).
   const AUTO_LOOP_NOTE_GAIN_LIMIT_DB = 12
+  const WIDE_NOTE_GAIN_LIMIT_IDS = { doubleBass: true, sogeum: true, daegeum: true, danso: true, haegeum: true }
   // Per-note gain is measured inside each instrument after the instrument-level
   // calibration above and clamped to +/-3 dB so the sample character survives.
   const NOTE_MELODY_OUTPUT_GAINS = {
-    flute: { 55: 1.413, 57: 1.413, 59: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 65: 1.413, 67: 1.413, 69: 1.413, 71: 1.413, 72: 1.413, 74: 1.413, 76: 1.413, 77: 1.225, 79: 0.708 },
-    oboe: { 55: 1.413, 57: 0.989, 59: 1.413, 60: 1.413, 62: 0.943, 64: 0.708, 65: 0.925, 67: 0.812, 69: 1.271, 71: 1.413, 72: 1.413, 74: 1.4, 76: 0.926, 77: 0.926, 79: 1.136 },
-    clarinet: { 55: 0.971, 57: 1.234, 59: 1.24, 60: 0.925, 62: 1.253, 64: 1.413, 65: 1.352, 67: 1.413, 69: 0.947, 71: 0.847, 72: 0.827, 74: 0.766, 76: 0.995, 77: 0.904, 79: 0.875 },
-    frenchHorn: { 55: 1.413, 57: 1.413, 59: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 65: 1.243, 67: 1.07, 69: 0.996, 71: 0.992, 72: 1.413, 74: 1.413, 76: 0.819, 77: 0.881, 79: 0.708 },
-    violin: { 55: 0.708, 57: 0.99, 59: 1.056, 60: 0.913, 62: 1.262, 64: 1.2, 65: 1.122, 67: 1.413, 69: 0.708, 71: 1.095, 72: 1.108, 74: 1.413, 76: 1.397, 77: 1.413, 79: 1.011 },
-    viola: { 55: 1.413, 57: 1.338, 59: 0.708, 60: 0.858, 62: 1.413, 64: 1.413, 65: 1.413, 67: 1.413, 69: 1.413, 71: 0.934, 72: 1.259, 74: 1.259, 76: 1.167, 77: 0.879, 79: 1.261 },
-    cello: { 55: 1.397, 57: 1.413, 59: 1.413, 60: 1.225, 62: 0.999, 64: 0.708, 65: 0.708, 67: 1.277, 69: 0.789, 71: 1.413, 72: 1.075, 74: 1.101, 76: 1.196, 77: 0.948, 79: 1.413 },
-    doubleBass: { 55: 1.009, 57: 1.003, 59: 0.837, 60: 0.603, 62: 1.057, 64: 1.824, 65: 1.331, 67: 0.763, 69: 0.904, 71: 3.981, 72: 1.643, 74: 0.811, 76: 3.981, 77: 1.633, 79: 1.04 },
-    sogeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 1.413, 67: 1.413, 69: 1.413, 72: 1.413, 74: 0.984, 76: 0.795 },
-    daegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.413, 64: 1.035, 67: 0.814, 69: 0.792, 72: 1.071, 74: 0.832, 76: 1.216 },
-    danso: { 55: 1.413, 57: 1.413, 60: 1.04, 62: 1.04, 64: 1.16, 67: 1.171, 69: 1.171, 72: 0.914, 74: 0.785, 76: 0.785 },
-    haegeum: { 55: 1.413, 57: 1.413, 60: 1.413, 62: 1.281, 64: 0.784, 67: 1.286, 69: 1.164, 72: 0.708, 74: 0.929, 76: 1.413 },
+    flute: { 55: 1.392, 57: 1.039, 59: 1.214, 60: 1.373, 62: 0.888, 64: 0.877, 65: 1.003, 67: 0.764, 69: 1.049, 71: 1.049, 72: 1.413, 74: 0.751, 76: 0.97, 77: 0.97, 79: 1.098 },
+    oboe: { 55: 1.287, 57: 1.358, 59: 0.963, 60: 0.862, 62: 1.297, 64: 0.708, 65: 0.708, 67: 1.125, 69: 0.761, 71: 1.169, 72: 1.169, 74: 1.145, 76: 1.275, 77: 1.208, 79: 1.413 },
+    clarinet: { 55: 0.97, 57: 1.23, 59: 1.244, 60: 0.926, 62: 1.252, 64: 1.413, 65: 1.356, 67: 1.413, 69: 0.945, 71: 0.849, 72: 0.828, 74: 0.766, 76: 0.995, 77: 0.9, 79: 0.875 },
+    frenchHorn: { 55: 1.16, 57: 1.413, 59: 1.391, 60: 1.413, 62: 1.413, 64: 1.299, 65: 1.129, 67: 0.974, 69: 0.905, 71: 0.902, 72: 1.413, 74: 1.146, 76: 0.744, 77: 0.802, 79: 0.708 },
+    violin: { 55: 0.721, 57: 0.708, 59: 1.098, 60: 0.955, 62: 1.335, 64: 1.263, 65: 1.182, 67: 1.413, 69: 0.708, 71: 1.219, 72: 1.311, 74: 1.413, 76: 1.413, 77: 1.413, 79: 1.064 },
+    viola: { 55: 1.413, 57: 1.337, 59: 0.708, 60: 0.848, 62: 1.413, 64: 1.413, 65: 1.413, 67: 1.413, 69: 1.405, 71: 0.94, 72: 1.26, 74: 1.26, 76: 1.169, 77: 0.885, 79: 1.251 },
+    cello: { 55: 0.788, 57: 1.413, 59: 1.413, 60: 1.295, 62: 1.083, 64: 0.708, 65: 0.708, 67: 1.344, 69: 0.831, 71: 1.413, 72: 1.132, 74: 1.173, 76: 1.271, 77: 0.997, 79: 1.049 },
+    doubleBass: { 55: 0.993, 57: 0.98, 59: 0.81, 60: 0.591, 62: 1.027, 64: 1.764, 65: 1.291, 67: 0.744, 69: 0.877, 71: 3.955, 72: 1.604, 74: 0.791, 76: 2.566, 77: 1.613, 79: 1.001 },
+    sogeum: { 55: 3.981, 57: 3.981, 60: 3.981, 62: 3.981, 64: 2.816, 67: 2.318, 69: 1.425, 72: 1.425, 74: 0.606, 76: 0.478 },
+    daegeum: { 55: 1.791, 57: 1.791, 60: 2.048, 62: 1.601, 64: 0.941, 67: 0.736, 69: 0.715, 72: 0.953, 74: 0.735, 76: 1.072 },
+    danso: { 55: 2.02, 57: 2.02, 60: 1.05, 62: 1.05, 64: 1.146, 67: 1.12, 69: 1.12, 72: 0.86, 74: 0.708, 76: 0.708 },
+    haegeum: { 55: 2.024, 57: 2.024, 60: 2.397, 62: 1.131, 64: 0.699, 67: 1.139, 69: 1.031, 72: 0.578, 74: 0.85, 76: 1.54 },
     gayageum: { 55: 1, 57: 1, 60: 1, 62: 1, 64: 1, 67: 1, 69: 1, 72: 1, 74: 1, 76: 1 },
   }
-  const LIVE_PREVIEW_MAX_GAIN = 0.95
-  // 음별 보정까지 곱한 뒤의 상한. 보정을 온전히 전달하려면 최대 2.109 가 필요하고
-  // (프렌치호른 · "그림소리 강조"), 천장 없이 실측한 출력 최대는 0.241 로 클리핑까지
-  // 12.3 dB 여유였다. 그래서 보정이 잘리지 않을 만큼만 올려 잡는다.
-  // (측정: tools/measure-instrument-loudness.cjs 기준 게인 · 샘플 피크 대조)
-  const LIVE_PREVIEW_NOTE_MAX_GAIN = 2.2
+  const LIVE_PREVIEW_MAX_GAIN = 3.2
+  // 실제 녹음 펜 소리의 기준 게인(악기 게인까지 곱한 값) 상한. 0.95 였을 때는 악기 게인이 큰 악기의
+  // 펜 소리가 재생보다 작아 악기끼리 크기가 어긋났다(플루트·비올라·호른·클라리넷 0.3~1.8 dB, 2026-10-03 실측).
+  // 가장 큰 기준 게인(플루트 · "그림소리 강조" 3.11)도 걸리지 않게 둔다. 플루트는 원음이 작아 게인이 크다.
+  // 음별 보정까지 곱한 뒤의 상한. 보정을 온전히 전달하려면 최대 4.40 이 필요하다(플루트 · "그림소리 강조").
+  // 게인이 큰 악기일수록 원음이 작아서 곱하면 상쇄된다. 실측 출력 피크(크롬 렌더, "그림소리 강조"):
+  // 2026-07-29 2.109 필요·최대 0.241 / 2026-10-03 4.40 필요·서양 악기 펜 소리 최대 -12.6 dBFS(비올라, 플루트 -15.9).
+  const LIVE_PREVIEW_NOTE_MAX_GAIN = 4.5
+  // 음원 없이 열었을 때의 합성음은 원음 보정과 무관한 최대 진폭 파형이라 예전 천장을 그대로 쓴다.
+  const SYNTH_LIVE_PREVIEW_MAX_GAIN = 0.95
+  const SYNTH_LIVE_PREVIEW_NOTE_MAX_GAIN = 2.2
   const MASTER_OUTPUT_GAIN = 0.56
   const NOTE_PREVIEW_GAIN_BOOST = 2
   const NOTE_PREVIEW_SYNTH_GAIN = 0.24 * NOTE_PREVIEW_GAIN_BOOST
@@ -134,13 +144,6 @@
     }
   }
 
-  function stopQuietly(node, when) {
-    if (!node) return
-    try {
-      node.stop(Math.max(0, finiteOr(when, 0)))
-    } catch (e) {}
-  }
-
   function warnScheduleFallback(label, error, detail) {
     try {
       console.warn(label, error, detail || {})
@@ -166,7 +169,7 @@
   }
 
   function noteMelodyOutputGainLimitDb(instrumentId) {
-    return instrumentId === "doubleBass"
+    return WIDE_NOTE_GAIN_LIMIT_IDS[instrumentId]
       ? AUTO_LOOP_NOTE_GAIN_LIMIT_DB
       : NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB
   }
@@ -201,10 +204,10 @@
     return base * (isWesternInstrument(inst) ? WESTERN_MELODY_OUTPUT_GAIN : 1) * instrumentMelodyOutputGain(inst)
   }
 
-  function livePreviewTargetGain(plan, noteEnvPeak) {
+  function livePreviewTargetGain(plan, noteEnvPeak, maxGain) {
     const boost = isGugakInstrument(plan && plan.instrument) ? GUGAK_DRAWING_GAIN_BOOST : 1
     const outputGain = melodyOutputGain(plan, plan && plan.instrument) * noteEnvPeak * MASTER_OUTPUT_GAIN * boost
-    return clamp(outputGain, 0.12, LIVE_PREVIEW_MAX_GAIN * boost)
+    return clamp(outputGain, 0.12, (maxGain || LIVE_PREVIEW_MAX_GAIN) * boost)
   }
 
   // 음별 보정은 측정으로 정한 "악기 안의 상대 보정"이라 기준 게인과 같은 천장으로 다시
@@ -212,10 +215,10 @@
   // 통째로 1.0 이 돼, 여리게 녹음된 음이 펜 소리에서 묻힌다. 전체 재생에는 이 천장이 없어서
   // 펜 소리와 재생이 서로 달라지기까지 했다.
   // (비올라는 원본을 piano 로 골라 와 기준 게인이 가장 높다 → 15칸 중 11칸이 보정을 잃었다.)
-  function livePreviewNoteTargetGain(plan, noteEnvPeak, uiMidi) {
+  function livePreviewNoteTargetGain(plan, noteEnvPeak, uiMidi, maxGain, noteMaxGain) {
     const boost = isGugakInstrument(plan && plan.instrument) ? GUGAK_DRAWING_GAIN_BOOST : 1
-    const gain = livePreviewTargetGain(plan, noteEnvPeak) * noteMelodyOutputGainForUiMidi(plan && plan.instrument, uiMidi)
-    return clamp(gain, 0.12, LIVE_PREVIEW_NOTE_MAX_GAIN * boost)
+    const gain = livePreviewTargetGain(plan, noteEnvPeak, maxGain) * noteMelodyOutputGainForUiMidi(plan && plan.instrument, uiMidi)
+    return clamp(gain, 0.12, (noteMaxGain || LIVE_PREVIEW_NOTE_MAX_GAIN) * boost)
   }
 
   function melodyPlaybackEnvPeak(plan, noteEnvPeak) {
@@ -264,9 +267,6 @@
   function isGayageumPlan(plan) {
     return !!(plan && plan.instrument && plan.instrument.id === "gayageum")
   }
-  function shouldSustainSample(plan) {
-    return !isGayageumPlan(plan)
-  }
   function noteGlideSeconds(plan) {
     return isHaegeumPlan(plan) ? HAEGEUM_NOTE_GLIDE_SECONDS : NOTE_GLIDE_SECONDS
   }
@@ -292,237 +292,6 @@
     source.connect(filter)
     filter.connect(env)
     return filter
-  }
-  // === § 4  Sustain Loop 시스템 ===
-
-  function sampleSustainLoopRegion(offset, duration, loopHint) {
-    const dur = Number(duration) || 0
-    if (dur <= 0.25) return null
-    const minLoop = Math.min(0.22, dur * 0.35)
-    if (loopHint && loopHint.start != null && loopHint.end != null) {
-      // 절대 초 힌트(포락선에서 검출한 안정 구간) — 세그먼트 경계 안쪽으로만 다듬는다.
-      const relStart = clamp(loopHint.start - offset, 0.02, Math.max(0.02, dur - minLoop - 0.06))
-      const relEnd = clamp(loopHint.end - offset, relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
-      if (relEnd > relStart + 0.06) return { start: offset + relStart, end: offset + relEnd }
-    }
-    if (loopHint && loopHint.startRatio != null && loopHint.endRatio != null) {
-      const relStart = clamp(dur * loopHint.startRatio, Math.min(0.18, Math.max(0, dur - minLoop)), Math.max(0, dur - minLoop - 0.06))
-      const relEnd = clamp(dur * loopHint.endRatio, relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
-      if (relEnd > relStart + 0.06) return { start: offset + relStart, end: offset + relEnd }
-    }
-    const relStart = clamp(dur * 0.28, Math.min(0.18, Math.max(0, dur - minLoop)), Math.max(0, dur - minLoop - 0.06))
-    const relEnd = clamp(Math.max(relStart + minLoop, dur * 0.78), relStart + 0.08, Math.max(relStart + 0.08, dur - 0.06))
-    if (relEnd <= relStart + 0.06) return null
-    return { start: offset + relStart, end: offset + relEnd }
-  }
-  function nearestZeroCrossingTime(buffer, targetTime, minTime, maxTime) {
-    if (!buffer || typeof buffer.getChannelData !== "function" || !buffer.sampleRate) return targetTime
-    let channel = null
-    try {
-      channel = buffer.getChannelData(0)
-    } catch (e) {
-      return targetTime
-    }
-    if (!channel || !channel.length) return targetTime
-    const sr = buffer.sampleRate
-    const target = clamp(Math.round(targetTime * sr), 1, channel.length - 2)
-    const lo = clamp(Math.floor(minTime * sr), 1, channel.length - 2)
-    const hi = clamp(Math.ceil(maxTime * sr), lo, channel.length - 2)
-    let best = target
-    let bestScore = Infinity
-    for (let i = lo; i <= hi; i++) {
-      const a = channel[i - 1]
-      const b = channel[i]
-      if ((a <= 0 && b >= 0) || (a >= 0 && b <= 0)) {
-        const distance = Math.abs(i - target) / sr
-        const amplitude = Math.abs(a) + Math.abs(b)
-        const score = distance + amplitude * 0.002
-        if (score < bestScore) {
-          bestScore = score
-          best = i
-        }
-      }
-    }
-    return bestScore < Infinity ? best / sr : targetTime
-  }
-  function refineSustainLoopRegion(region, offset, duration, buffer, loopHint) {
-    if (!region || !buffer) return region
-    // 포락선에서 검출한 절대 초 힌트는 파형 정렬(상호상관)까지 끝난 값 — 제로크로싱 재스냅이 정렬을 깨뜨린다.
-    if (loopHint && loopHint.start != null && loopHint.end != null) return region
-    const dur = Number(duration) || 0
-    const windowSec = Math.min(0.08, dur * 0.08)
-    const absoluteEnd = offset + dur
-    const start = nearestZeroCrossingTime(
-      buffer,
-      region.start,
-      Math.max(offset, region.start - windowSec),
-      Math.min(region.start + windowSec, absoluteEnd - 0.12),
-    )
-    const end = nearestZeroCrossingTime(
-      buffer,
-      region.end,
-      Math.max(start + 0.08, region.end - windowSec),
-      Math.min(region.end + windowSec, absoluteEnd - 0.02),
-    )
-    if (end <= start + 0.06) return region
-    return { start: start, end: end }
-  }
-  function applySustainLoop(source, offset, duration, loopHint) {
-    const region = refineSustainLoopRegion(sampleSustainLoopRegion(offset || 0, duration, loopHint), offset || 0, duration, source && source.buffer, loopHint)
-    if (!region) return false
-    source.loop = true
-    source.loopStart = region.start
-    source.loopEnd = region.end
-    return true
-  }
-  function createCrossfadedSustainBuffer(ctx, buffer, offset, duration, loopHint) {
-    if (!ctx || typeof ctx.createBuffer !== "function") return null
-    if (!buffer || typeof buffer.getChannelData !== "function" || !buffer.sampleRate || !buffer.numberOfChannels) return null
-    const total = audioBufferDuration(buffer)
-    if (!(total > 0)) return null
-    const safeOffset = clamp(Number(offset) || 0, 0, Math.max(0, total - 0.01))
-    const safeDuration = Math.min(Math.max(0, Number(duration) || 0), Math.max(0, total - safeOffset))
-    if (!(safeDuration > 0.08)) return null
-    const region = loopHint && loopHint.start != null ? loopHint : sampleSustainLoopRegion(safeOffset, safeDuration, loopHint)
-    if (!region) return null
-    const sampleRate = buffer.sampleRate
-    const sourceLength = buffer.length || Math.round(total * sampleRate)
-    const startFrame = clamp(Math.floor(safeOffset * sampleRate), 0, Math.max(0, sourceLength - 1))
-    const endFrame = clamp(Math.ceil((safeOffset + safeDuration) * sampleRate), startFrame + 1, sourceLength)
-    const outLength = endFrame - startFrame
-    const channels = []
-    for (let ch = 0; ch < buffer.numberOfChannels; ch++) channels.push(buffer.getChannelData(ch).subarray(startFrame, endFrame))
-    const support = {
-      start: region.start - startFrame / sampleRate, end: region.end - startFrame / sampleRate,
-    }
-    const leveled = Core.levelSustainSupport(channels, sampleRate, support)
-    const frames = Core.sustainLoopFrames(leveled, sampleRate, support)
-    if (!frames) return null
-    const out = ctx.createBuffer(buffer.numberOfChannels, outLength, sampleRate)
-    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-      const data = out.getChannelData(ch)
-      data.set(Core.crossfadeSustainLoop(leveled[ch], frames))
-    }
-    return {
-      buffer: out,
-      offset: 0,
-      duration: outLength / sampleRate,
-      loopStart: frames.start / sampleRate,
-      loopEnd: frames.end / sampleRate,
-    }
-  }
-  function preparePlaybackSustain(ctx, source, offset, duration, loopHint) {
-    const total = audioBufferDuration(source && source.buffer)
-    const safeOffset = total > 0 ? clamp(Number(offset) || 0, 0, Math.max(0, total - 0.01)) : 0
-    const fallbackDuration = total > 0 ? Math.max(0, total - safeOffset) : 0
-    const requestedDuration = Number(duration)
-    const safeDuration = isFinite(requestedDuration) && requestedDuration > 0
-      ? Math.min(requestedDuration, fallbackDuration)
-      : fallbackDuration
-    const baked = createCrossfadedSustainBuffer(ctx, source && source.buffer, safeOffset, safeDuration, loopHint)
-    if (baked) {
-      source.buffer = baked.buffer
-      source.loop = true
-      source.loopStart = baked.loopStart
-      source.loopEnd = baked.loopEnd
-      return baked
-    }
-    if (safeDuration > 0.01 && applySustainLoop(source, safeOffset, safeDuration, loopHint)) {
-      return { buffer: source.buffer, offset: safeOffset, duration: safeDuration, loopStart: source.loopStart, loopEnd: source.loopEnd }
-    }
-    return { buffer: source.buffer, offset: safeOffset, duration: safeDuration }
-  }
-  // 라이브 미리듣기와 재생이 "지속음(loop)"을 똑같이 처리하도록, 버퍼만 받아 loop 계획을 계산한다.
-  // ⚠ AudioBufferSourceNode.buffer 는 "한 번만" 설정 가능 — 두 번 설정하면 브라우저가 InvalidStateError 를
-  //   던져 드로잉 미리듣기/선율이 통째로 무음이 된다. 그래서 이 함수는 실제 source 를 만지지 않고(순수),
-  //   호출부가 반환된 buffer 를 source.buffer 에 "딱 한 번" 설정한다.
-  // 기준: 샘플이 충분히 길면(원본 >0.45s, 사용 구간 >0.45s) 무조건 안정 구간을 루프 → 드로잉 중과 재생이
-  //   같은 연속감. 루프는 preparePlaybackSustain(크로스페이드로 구운 버퍼)로 통일 → 이음매 잡음 제거.
-  function sustainLoopHint(plan, segment) {
-    const instrumentId = plan && plan.instrument && plan.instrument.id
-    if (instrumentId === "violin" && segment && segment.midi === 55) {
-      return { startRatio: 0.28, endRatio: 0.58 }
-    }
-    return null
-  }
-  // 관악·찰현 악기는 안정 구간과 페이드 재료를 함께 검출한다.
-  // 음별 게인 한도는 이 목록과 독립적이다 (2026-10-02 ADR).
-  const SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS = {
-    violin: true, viola: true, cello: true, doubleBass: true, flute: true, oboe: true,
-    clarinet: true, frenchHorn: true, sogeum: true, daegeum: true, danso: true, haegeum: true,
-  }
-  function autoSustainLoopHint(buffer, offset, usableSourceDur, plan) {
-    const instrumentId = plan && plan.instrument && plan.instrument.id
-    if (!instrumentId || !SUSTAIN_AUTO_LOOP_INSTRUMENT_IDS[instrumentId]) return null
-    if (!Core || typeof Core.findStableLoopRegion !== "function") return null
-    if (!buffer || typeof buffer.getChannelData !== "function" || !buffer.sampleRate) return null
-    let channel = null
-    try {
-      channel = buffer.getChannelData(0)
-    } catch (e) {
-      return null
-    }
-    if (!channel || !channel.length) return null
-    return Core.findStableLoopRegion(channel, buffer.sampleRate, offset, usableSourceDur, {
-      targetLoopSec: 1.02, minLoopSec: 0.42, align: false,
-    })
-  }
-
-  const samplePlanCache = new WeakMap()
-  function pluckedSamplePlan(ctx, buffer, offset, duration, asset, segment) {
-    if (!buffer.getChannelData || !ctx.createBuffer || !buffer.sampleRate) return { buffer, offset, duration, loop: false }
-    const next = (asset.sampleMap || []).filter((s) => s.offset > offset + 0.1).sort((a, b) => a.offset - b.offset)[0]
-    const boundary = Math.min(buffer.duration, offset + 6, next ? next.offset - 0.05 : buffer.duration)
-    const end = Core.pluckedSampleEnd(buffer.getChannelData(0), buffer.sampleRate, offset, duration, boundary)
-    const first = Math.round(offset * buffer.sampleRate)
-    const length = Math.max(1, Math.floor(end * buffer.sampleRate) - first)
-    const out = ctx.createBuffer(buffer.numberOfChannels, length, buffer.sampleRate)
-    const fade = Math.min(length, Math.round(0.06 * buffer.sampleRate))
-    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-      const data = out.getChannelData(ch)
-      data.set(buffer.getChannelData(ch).subarray(first, first + length))
-      for (let i = 0; i < fade; i++) data[length - fade + i] *= (1 + Math.cos(Math.PI * i / Math.max(1, fade - 1))) / 2
-    }
-    return { buffer: out, offset: 0, duration: length / buffer.sampleRate, loop: false }
-  }
-
-  function continuousSustainPlan(ctx, buffer, offset, usableSourceDur, plan, segment) {
-    let cache = samplePlanCache.get(buffer)
-    if (!cache) { cache = new Map(); samplePlanCache.set(buffer, cache) }
-    const key = [plan.instrument.id, offset, usableSourceDur].join("|")
-    if (cache.has(key)) return cache.get(key)
-    if (isGayageumPlan(plan)) {
-      const pluck = pluckedSamplePlan(ctx, buffer, offset, usableSourceDur, plan.melodyAsset, segment)
-      cache.set(key, pluck)
-      return pluck
-    }
-    const bufferDuration = audioBufferDuration(buffer)
-    if (!shouldSustainSample(plan) || !(bufferDuration > 0.45 && usableSourceDur > 0.45)) {
-      return { buffer: buffer, offset: offset, duration: usableSourceDur, loop: false }
-    }
-    // preparePlaybackSustain 의 baking/clamp/loop 로직을 그대로 재사용하되, 실제 source 가 아니라
-    // 가짜 probe 에 적용해 결과만 읽는다(실제 source.buffer 이중 설정 방지).
-    const probe = { buffer: buffer }
-    const loopHint = autoSustainLoopHint(buffer, offset, usableSourceDur, plan) || sustainLoopHint(plan, segment)
-    const sustain = preparePlaybackSustain(ctx, probe, offset, usableSourceDur, loopHint)
-    const result = {
-      buffer: probe.buffer,
-      offset: sustain.offset,
-      duration: sustain.duration,
-      loop: !!probe.loop,
-      loopStart: probe.loopStart,
-      loopEnd: probe.loopEnd,
-    }
-    cache.set(key, result)
-    return result
-  }
-  // 계산된 loop 계획을 source 에 적용한다(buffer 는 호출부가 한 번만 설정하므로 여기선 loop 파라미터만).
-  function applySustainPlanToSource(source, plan) {
-    if (plan && plan.loop) {
-      source.loop = true
-      source.loopStart = plan.loopStart
-      source.loopEnd = plan.loopEnd
-    }
   }
   // 마스터 → (있으면) 브릭월 리미터 → 출력. 배경·선율을 ×2 로 키운 뒤 피크만 잡아
   // 클리핑(지직거림)을 막는다. 컴프레서가 없는 환경(테스트 목 등)은 그대로 직결.
@@ -597,10 +366,6 @@
     }
     applyPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack)
   }
-  function applySampleMelodyEnv(env, peak, phraseStart, phraseDuration, maxAttack, plan) {
-    applyPhraseEnv(env, peak, phraseStart, phraseDuration, maxAttack)
-  }
-
   // === § 9  AudioEngine 클래스 & Prototype 메서드 ===
 
   function AudioEngine() {
@@ -1572,8 +1337,8 @@
     const lfo = ctx.createOscillator()
     const lfoGain = ctx.createGain()
     const noteEnvPeak = 0.7 * 0.78
-    const baseTargetGain = livePreviewTargetGain(plan, noteEnvPeak)
-    const targetGain = livePreviewNoteTargetGain(plan, noteEnvPeak, uiMidi)
+    const baseTargetGain = livePreviewTargetGain(plan, noteEnvPeak, SYNTH_LIVE_PREVIEW_MAX_GAIN)
+    const targetGain = livePreviewNoteTargetGain(plan, noteEnvPeak, uiMidi, SYNTH_LIVE_PREVIEW_MAX_GAIN, SYNTH_LIVE_PREVIEW_NOTE_MAX_GAIN)
     const noteGainValue = baseTargetGain > 0 ? targetGain / baseTargetGain : 1
     const voice = synthVoiceFor(plan.instrument)
 
@@ -1761,7 +1526,7 @@
         }, AudioPlan.DRAWING_PITCH_SETTLE_SECONDS * 1000)
       } else {
         if (live.noteGain) {
-          const gain = livePreviewNoteTargetGain(plan, live.noteEnvPeak || 0.7 * 0.78, uiMidi) / (live.baseTargetGain || 1)
+          const gain = livePreviewNoteTargetGain(plan, live.noteEnvPeak || 0.7 * 0.78, uiMidi, SYNTH_LIVE_PREVIEW_MAX_GAIN, SYNTH_LIVE_PREVIEW_NOTE_MAX_GAIN) / (live.baseTargetGain || 1)
           live.noteGain.gain.setTargetAtTime(gain, now, liveNoteGlideSeconds(plan))
         }
         live.osc.frequency.cancelScheduledValues(now)

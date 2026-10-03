@@ -262,6 +262,33 @@
     return settled
   }
 
+  // 레시피의 좌표 정밀도만 줄인다. 음 경계와 체류 판정이 바뀌는 예외는 원래 값을 쓴다.
+  function compactStrokePoints(points, options) {
+    const { duration, style, instrument, melodyAsset, core } = options
+    const round5 = value => Math.round(value * 100000) / 100000
+    const rounded = (points || []).map(function (point) {
+      const y = round5(point.y)
+      return {
+        x: round5(point.x),
+        y: core.quantizePitch(y, style, melodyAsset) === core.quantizePitch(point.y, style, melodyAsset) ? y : point.y,
+      }
+    })
+    function voices(stroke) {
+      return strokeSegmentsForPlan({ strokes: [stroke] }, duration, style, instrument, melodyAsset, null, core)
+        .map(segment => sampleVoiceRuns(segment.events, segment.end, DRAWING_PITCH_SETTLE_SECONDS))
+    }
+    const before = voices(points), after = voices(rounded)
+    const tolerance = Math.max(0.05, Number(duration) || 30) * 0.000005 + 1e-9
+    const same = before.length === after.length && before.every(function (runs, index) {
+      return runs.length === after[index].length && runs.every(function (run, i) {
+        const next = after[index][i]
+        return run.midi === next.midi && Math.abs(run.time - next.time) <= tolerance && Math.abs(run.end - next.end) <= tolerance
+      })
+    })
+    // 70ms 경계뿐 아니라 가까운 점 합치기·무음 구간의 분리도 실제 재생 계획으로 확인한다.
+    return same ? rounded : rounded.map((point, i) => ({ x: points[i].x, y: point.y }))
+  }
+
   // Web Audio setTargetAtTime의 지수 곡선과 그 적분. 원음이 바뀌거나 중간부터
   // 재생해도 해금의 같은 미끄러짐과 버퍼 경과 위치를 복원한다.
   function pitchMotionValue(motion, time) {
@@ -544,6 +571,7 @@
     sampleBufferFor: sampleBufferFor,
     sampleMapFor: sampleMapFor,
     sampleVoiceRuns: sampleVoiceRuns,
+    compactStrokePoints: compactStrokePoints,
     DRAWING_PITCH_SETTLE_SECONDS: DRAWING_PITCH_SETTLE_SECONDS,
     samplePitchMotion: samplePitchMotion,
     pitchMotionValue: pitchMotionValue,

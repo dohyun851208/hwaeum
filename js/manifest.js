@@ -64,23 +64,30 @@
     gayageum: { label: "가야금", group: "국악", src: "sound/선율-국악(국립국악원)/현/가야금.mp3", baseMidi: 60, lowMidi: 48, highMidi: 72, playableMidi: GUGAK_PALETTE_MIDI, minRate: 0.55, maxRate: 1.72, waveform: "triangle", sampleMode: "phrase" },
   }
 
-  // 자연 효과음 (sound/효과-자연음(유자레코즈)) + 도장 효과음 (sound/효과음-도장)
+  // 자연 효과음 (sound/효과-자연음(유자레코즈), 그 소리가 없던 것은 sound/효과-자연음(픽사베이)) + 도장 효과음 (sound/효과음-도장)
+  // 라벨 이름의 파일(산들바람.mp3 등)은 tools/build-nature-effects.py 가 원본을 다듬어 만든다 —
+  // 미리듣기가 앞 1.2초만 들려주므로 이름에 맞는 순간을 맨 앞에 두고, 이름에 맞는 음량(LUFS)으로 맞췄다.
   const effects = {
-    wind1: { label: "산들바람", src: "sound/효과-자연음(유자레코즈)/바람1.mp3", image: "./assets/effects/wind-breeze.webp" },
-    wind2: { label: "거센바람", src: "sound/효과-자연음(유자레코즈)/바람2.mp3", image: "./assets/effects/wind-gust.webp" },
-    wind3: { label: "회오리바람", src: "sound/효과-자연음(유자레코즈)/바람3.mp3", image: "./assets/effects/wind-whirl.webp" },
+    // 바람1↔바람2 도 원본 이름과 실제 소리가 반대였다(바람1이 15 dB 크고 낮게 울부짖는다).
+    wind1: { label: "산들바람", src: "sound/효과-자연음(유자레코즈)/산들바람.mp3", image: "./assets/effects/wind-breeze.webp" },
+    wind2: { label: "거센바람", src: "sound/효과-자연음(유자레코즈)/거센바람.mp3", image: "./assets/effects/wind-gust.webp" },
+    wind3: { label: "회오리바람", src: "sound/효과-자연음(유자레코즈)/회오리바람.mp3", image: "./assets/effects/wind-whirl.webp" },
     // 비1↔비2 는 원본 파일 이름과 실제 소리가 반대였다(비1이 비2보다 14 dB 크고 굵다).
     // 학생이 고른 이름대로 들리도록 음원을 맞바꿨다 — 라벨·그림은 그대로 둔다.
     rain1: { label: "가랑비", src: "sound/효과-자연음(유자레코즈)/비2.mp3", image: "./assets/effects/rain-drizzle.webp" },
     rain2: { label: "소나기", src: "sound/효과-자연음(유자레코즈)/비1.mp3", image: "./assets/effects/rain-shower.webp" },
-    rain3: { label: "큰 빗방울", src: "sound/효과-자연음(유자레코즈)/비3.mp3", image: "./assets/effects/rain-drops.webp" },
-    forest1: { label: "새소리 숲", src: "sound/효과-자연음(유자레코즈)/숲1.mp3", image: "./assets/effects/forest-birds.webp" },
-    forest2: { label: "흔들리는 잎", src: "sound/효과-자연음(유자레코즈)/숲2.mp3", image: "./assets/effects/forest-leaves.webp" },
-    forest3: { label: "깊은 숲", src: "sound/효과-자연음(유자레코즈)/숲3.mp3", image: "./assets/effects/forest-deep.webp" },
-    thunder1: { label: "먼 천둥", src: "sound/효과-자연음(유자레코즈)/천둥1.mp3", image: "./assets/effects/thunder-distant.webp" },
-    thunder2: { label: "번개", src: "sound/효과-자연음(유자레코즈)/천둥2.mp3", image: "./assets/effects/thunder-lightning.webp" },
-    thunder3: { label: "폭풍우", src: "sound/효과-자연음(유자레코즈)/천둥3.mp3", image: "./assets/effects/thunder-storm.webp" },
-    thunder4: { label: "우르릉", src: "sound/효과-자연음(유자레코즈)/천둥4.mp3", image: "./assets/effects/thunder-rumble.webp" },
+    // 비3 은 고른 빗소리라 굵은 물방울이 따로 들리지 않았다 → 똑똑 떨어지는 픽사베이 녹음으로 바꿨다.
+    rain3: { label: "큰 빗방울", src: "sound/효과-자연음(픽사베이)/큰빗방울.mp3", image: "./assets/effects/rain-drops.webp" },
+    // 새소리 숲(forest1)은 뺐다 — 동물 도장의 새·뻐꾸기와 구별되지 않았다.
+    // 숲2 는 새 울음 두 번 뒤 11초가 거의 무음(잎 소리 없음), 숲3 은 가까운 새들의 지저귐이라 픽사베이 녹음으로 바꿨다.
+    forest2: { label: "흔들리는 잎", src: "sound/효과-자연음(픽사베이)/흔들리는잎.mp3", image: "./assets/effects/forest-leaves.webp" },
+    forest3: { label: "깊은 숲", src: "sound/효과-자연음(픽사베이)/깊은숲.mp3", image: "./assets/effects/forest-deep.webp" },
+    // 천둥1 은 번개만큼 커서 '먼' 느낌이 약했다 → 높은 소리가 없는 먼 천둥 녹음을 작게(-25 LUFS) 넣었다.
+    thunder1: { label: "먼 천둥", src: "sound/효과-자연음(픽사베이)/먼천둥.mp3", image: "./assets/effects/thunder-distant.webp" },
+    thunder2: { label: "번개", src: "sound/효과-자연음(유자레코즈)/번개.mp3", image: "./assets/effects/thunder-lightning.webp" },
+    thunder3: { label: "폭풍우", src: "sound/효과-자연음(유자레코즈)/폭풍우.mp3", image: "./assets/effects/thunder-storm.webp" },
+    // 천둥4 는 '쿵' 한 번 뒤 2.6초에 끝나 굴러가는 느낌이 짧았다 → 길게 굴러가는 픽사베이 녹음으로 바꿨다.
+    thunder4: { label: "우르릉", src: "sound/효과-자연음(픽사베이)/우르릉.mp3", image: "./assets/effects/thunder-rumble.webp" },
     animalCricket: { label: "귀뚜라미", group: "동물", src: "sound/효과음-도장/동물/귀뚜라미.mp3", image: "./assets/effects/stamps/animal-cricket.webp" },
     animalCuckoo: { label: "뻐꾸기", group: "동물", src: "sound/효과음-도장/동물/뻐꾸기.mp3", image: "./assets/effects/stamps/animal-cuckoo.webp" },
     animalBird: { label: "새", group: "동물", src: "sound/효과음-도장/동물/새.mp3", image: "./assets/effects/stamps/animal-bird.webp" },
@@ -127,7 +134,10 @@
       detail: "가볍고 투명한 소리",
       waveform: "sine",
       image: "./assets/instruments/flute.webp",
-      example: "sound/감상-연주곡(서양악기)/플루트.mp3",
+      // 플루트·바이올린·더블베이스 연주곡은 출처 표시가 필요한 CC 녹음 — 2단계 아래 출처 줄(studio.js AUDIO_MODE_CREDIT)과
+      // sound/감상-연주곡(서양악기)/라이센스.txt. 예전 파일은 작고(-34·-29·-25 LUFS) 10 kHz 위가 비어 먹먹했다.
+      example: "sound/감상-연주곡(서양악기)/플루트-슈타미츠.mp3",
+      exampleLabel: "슈타미츠 카프리치오",
     },
     {
       id: "oboe",
@@ -167,7 +177,8 @@
       detail: "선명하고 화려한 소리",
       waveform: "sawtooth",
       image: "./assets/instruments/violin.webp",
-      example: "sound/감상-연주곡(서양악기)/바이올린.mp3",
+      example: "sound/감상-연주곡(서양악기)/바이올린-보케리니.mp3",
+      exampleLabel: "보케리니 미뉴에트",
     },
     {
       id: "viola",
@@ -197,7 +208,8 @@
       detail: "낮고 묵직한 소리",
       waveform: "triangle",
       image: "./assets/instruments/double-bass.webp",
-      example: "sound/감상-연주곡(서양악기)/더블베이스.mp3",
+      example: "sound/감상-연주곡(서양악기)/더블베이스-보테시니.mp3",
+      exampleLabel: "보테시니 '몽유병의 여인'",
     },
     {
       id: "sogeum",
@@ -229,8 +241,9 @@
       detail: "고요한 소리",
       waveform: "sine",
       image: "./assets/instruments/danso.jpg",
-      example: "sound/감상-연주곡(국립국악원)/단소-문덕곡 도드리(가사).mp3",
-      exampleLabel: "문덕곡 도드리(가사)",
+      // 단소 독주 대표곡의 첫 장단. 예전 '문덕곡 도드리'는 소금·대금보다 24 dB 작게 녹음돼 있었다(tools/build-instrument-examples.py).
+      example: "sound/감상-연주곡(국립국악원)/단소-청성곡.mp3",
+      exampleLabel: "청성곡",
     },
     {
       id: "haegeum",

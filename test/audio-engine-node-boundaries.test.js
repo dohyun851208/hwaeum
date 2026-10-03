@@ -1,3 +1,4 @@
+const { scriptFiles } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const path = require("node:path")
@@ -76,14 +77,7 @@ function loadEngine(padGraphOverride) {
   const sandbox = { MusicCore, console, clearTimeout, setTimeout }
   sandbox.self = sandbox
   vm.createContext(sandbox)
-  for (const file of [
-    "manifest.js",
-    "sample-maps.js",
-    "sample-maps-western.js", "sample-calibration.js",
-    "audio-plan.js",
-    "audio-node-scope.js",
-    "audio-pad-graph.js",
-  ]) {
+  for (const file of scriptFiles({ from: "manifest.js", through: "audio-pad-graph.js" })) {
     vm.runInContext(fs.readFileSync(path.join(projectDir, "js", file), "utf8"), sandbox, { filename: file })
   }
   if (padGraphOverride) sandbox.SDAudioPadGraph = padGraphOverride

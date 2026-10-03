@@ -56,6 +56,46 @@ function loadData() {
   return sandbox.SDStudioData
 }
 
+test("레시피 좌표는 다섯 자리로 줄여도 모든 음높이 경계의 양쪽 칸을 유지한다", () => {
+  const data = loadData()
+  for (const id of ["violin", "danso"]) {
+    const options = {duration:300,style:data.styles.find(s => s.id === (id === "danso" ? "gugak" : "bright")),
+      instrument:data.instruments.find(i => i.id === id),melodyAsset:data.melodies[id],core:MusicCore}
+    const pitch = p => MusicCore.quantizePitch(p.y, options.style, options.melodyAsset)
+    for (let row = 1; row < 15; row++) {
+      const points = [-1,1].map((sign,i) => ({x:.123456789+i*.1,y:1-row/15+sign*1e-7}))
+      const compact = AudioPlan.compactStrokePoints(points, options)
+      assert.deepEqual(compact.map(pitch), points.map(pitch))
+      assert.ok(compact.every((p,i) => Math.abs(p.x-points[i].x)*300 <= .0015+1e-9))
+    }
+  }
+})
+
+test("5분 레시피의 70ms 경계와 가까운 점 병합은 반올림으로 발음이 바뀌지 않는다", () => {
+  const data=loadData(), options={duration:300,style:data.styles.find(s=>s.id==="bright"),
+    instrument:data.instruments.find(i=>i.id==="violin"),melodyAsset:data.melodies.violin,core:MusicCore}
+  const voices = points => AudioPlan.strokeSegmentsForPlan({strokes:[points]},300,options.style,options.instrument,options.melodyAsset,null,MusicCore)
+    .map(s=>AudioPlan.sampleVoiceRuns(s.events,s.end,.07).map(r=>r.midi))
+  let avoidedChanges=0
+  for(const stay of [.0009,.0011,.069,.0699,.07,.0701,.071,.2]) for(const at of [10.0005,10.0015,10.003]) {
+    const points=[{x:0,y:.96},{x:at/300,y:.9},{x:(at+stay)/300,y:.96},{x:1,y:.96}]
+    const naive=points.map(p=>({x:Math.round(p.x*1e5)/1e5,y:p.y}))
+    if(JSON.stringify(voices(naive))!==JSON.stringify(voices(points)))avoidedChanges++
+    assert.deepEqual(voices(AudioPlan.compactStrokePoints(points,options)),voices(points))
+  }
+  assert.ok(avoidedChanges>0,"단순 5자리 반올림은 실제로 70ms 경계에서 발음을 바꾼다")
+})
+
+test("좌표 압축은 일반 획의 링크를 줄이고 레시피 코덱 왕복을 유지한다", () => {
+  const data=loadData(), options={duration:300,style:data.styles.find(s=>s.id==="bright"),
+    instrument:data.instruments.find(i=>i.id==="violin"),melodyAsset:data.melodies.violin,core:MusicCore}
+  const points=Array.from({length:150},(_,i)=>({x:i/149,y:.51+Math.sin(i*.07)*.025}))
+  const compact=AudioPlan.compactStrokePoints(points,options)
+  const recipe={duration:300,strokes:[compact]}
+  assert.ok(MusicCore.encodeRecipe(recipe).length < MusicCore.encodeRecipe({duration:300,strokes:[points]}).length*.75)
+  assert.deepEqual(MusicCore.decodeRecipe(MusicCore.encodeRecipe(recipe)),recipe)
+})
+
 test("audio-plan supports both CommonJS and the classic browser global", () => {
   assert.equal(typeof AudioPlan.resolvePlan, "function")
   assert.equal(typeof AudioPlan.nearestSampleSegment, "function")

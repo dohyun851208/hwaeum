@@ -50,6 +50,14 @@ function cleanPin(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 6)
 }
 
+function sendError(res, error, fallbackMessage) {
+  console.error(error)
+  const message = String(error && error.message).includes("BLOB_READ_WRITE_TOKEN")
+    ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
+    : (error && error.message) || fallbackMessage
+  send(res, 500, { error: message })
+}
+
 function hashPass(channel, pin) {
   return crypto.createHash("sha256").update(cleanChannel(channel) + ":" + cleanPin(pin)).digest("hex")
 }
@@ -187,5 +195,6 @@ module.exports = {
   sanitizeChannelMeta,
   sanitizeMeta,
   send,
+  sendError,
   sharedUrl,
 }

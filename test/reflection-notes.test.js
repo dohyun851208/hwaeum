@@ -17,9 +17,10 @@ test("1단계 그림 감상 칸이 있고 4단계 칸과 같은 생각을 나눠
   const labels = html.match(/그림을 보고 떠오르는 생각/g) || []
   assert.equal(labels.length, 2, "1단계와 4단계에 같은 라벨이 하나씩")
 
-  const studio = read("js", "studio.js")
-  assert.match(studio, /pictureThought: cleanText\(state\.pictureThought, 180\)/, "레시피에 저장")
-  assert.match(studio, /state\.pictureThought = recipe\.pictureThought \|\| ""/, "레시피에서 복원")
+  const recipe = read("js", "studio-recipe.js")
+  const reflection = read("js", "studio-reflection.js")
+  assert.match(recipe, /pictureThought: cleanText\(state\.pictureThought, 180\)/, "레시피에 저장")
+  assert.match(reflection, /state\.pictureThought = recipe\.pictureThought \|\| ""/, "레시피에서 복원")
 })
 
 test("2단계 배경 카드마다 감상 노트를 붙인다", () => {
@@ -33,7 +34,7 @@ test("2단계 배경 카드마다 감상 노트를 붙인다", () => {
 })
 
 test("고른 배경·악기 메모만 4단계로 옮기고 학생이 고친 칸은 덮지 않는다", () => {
-  const studio = read("js", "studio.js")
+  const studio = read("js", "studio-reflection.js")
   const start = studio.indexOf("function syncReflectionFromNotes()")
   assert.ok(start > -1, "syncReflectionFromNotes 가 있어야 함")
   const body = studio.slice(start, studio.indexOf("function syncReflectionInputs()"))

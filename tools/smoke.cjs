@@ -7,6 +7,7 @@
  * 실행: jsdom 설치 후  ->  npm i jsdom  ;  node tools/smoke.cjs
  * (오디오/캔버스는 스텁으로 대체하므로 소리는 나지 않는다.)
  */
+const { scriptPaths } = require("./runtime-scripts.cjs")
 const fs = require("fs")
 const path = require("path")
 const { JSDOM } = require("jsdom")
@@ -136,27 +137,7 @@ window.AudioContext = function () {
 }
 window.OfflineAudioContext = window.AudioContext
 
-const files = [
-  "js/music-core.js",
-  "js/manifest.js",
-  "js/sample-maps.js",
-  "js/sample-maps-western.js", "js/sample-calibration.js",
-  "js/audio-plan.js",
-  "js/audio-node-scope.js",
-  "js/audio-pad-graph.js",
-  "js/audio-engine.js",
-  "js/drawing.js",
-  "js/takes.js",
-  "js/share-store.js",
-  "js/studio-utils.js",
-  "js/studio-export.js",
-  "js/studio-setup-render.js",
-  "js/studio-transport.js",
-  "js/studio-sound-layers.js",
-  "js/studio-takes-ui.js",
-  "js/studio-share.js",
-  "js/studio.js",
-]
+const files = scriptPaths()
 for (const f of files) window.eval(read(f))
 window.document.dispatchEvent(new window.Event("DOMContentLoaded"))
 
@@ -230,6 +211,43 @@ const summaryKeys = [
 ]
 const missingSummaryKeys = summaryKeys.filter((key) => !(key in s))
 check("상태 요약 계약 유지", missingSummaryKeys.length === 0, missingSummaryKeys.join(","))
+
+// 펜의 시작/이동에는 전체 획을 읽지 않는다. 저장·전체 재생의 레시피는 그대로 유지한다.
+{
+  const full = SD.buildRecipe(), recipes = [], saved = []
+  for (const name of ["getStrokes", "getPath", "getStrokeInstruments"]) {
+    saved.push([SD.draw, name, SD.draw[name]])
+    SD.draw[name] = () => { throw new Error("펜 미리듣기가 전체 획을 읽음: " + name) }
+  }
+  for (const name of ["liveDrawingStart", "liveDrawingMove"]) {
+    saved.push([SD.engine, name, SD.engine[name]])
+    SD.engine[name] = recipe => { recipes.push(recipe); return Promise.resolve() }
+  }
+  try {
+    SD.draw.onPreviewStart({x:0,y:.9})
+    for (let i=0;i<20;i++) SD.draw.onPreview({x:.1,y:i%2?.9:.96})
+    check("펜 시작·이동은 획 전체 조회 없이 설정만 전달", recipes.length === 21)
+    check("펜 설정은 전체 재생의 선택 악기·음계·버전과 일치", recipes.every(r =>
+      ["instrument","style","version","mode","duration","atmosphere"].every(key => r[key] === full[key])))
+    check("펜 계획에는 기존 획 재생이 포함되지 않음", recipes.every(r => SD.engine.resolvePlan(r,[]).strokeSegments.length === 0))
+  } finally {
+    saved.forEach(([object,name,original]) => { object[name] = original })
+    SD.draw.onPreviewEnd()
+  }
+}
+// 악기 붓: 선택 악기의 그림이 커서에 들어가고, 악기를 바꾸면 그림도 바뀐다(레시피에는 영향 없음).
+{
+  const cursor = window.document.querySelector(".instrument-brush-cursor")
+  const before = SD.buildRecipe()
+  const original = SD.draw.activeInstrument
+  SD.draw.setActiveInstrument("gayageum")
+  const gayageumIcon = cursor && cursor.querySelector(".instrument-brush-icon svg")
+  check("붓 커서에 가야금 그림", !!gayageumIcon && !!gayageumIcon.querySelector("#ib-gayageum-wood") && cursor.dataset.instrument === "gayageum")
+  SD.draw.setActiveInstrument("haegeum")
+  check("악기를 바꾸면 붓 그림도 해금으로", !!cursor.querySelector("#ib-haegeum-face") && !cursor.querySelector("#ib-gayageum-wood"))
+  SD.draw.setActiveInstrument(original)
+  check("붓 그림은 레시피를 바꾸지 않음", JSON.stringify(SD.buildRecipe()) === JSON.stringify(before))
+}
 check("도달 불가능한 스튜디오 공유 UI 모듈 제거", typeof window.HwaeumStudioShareUI === "undefined")
 check("기본 길이 30초", s.duration === 30)
 check("기본 배경 없음", s.atmosphere === "none", s.atmosphere)
@@ -286,8 +304,9 @@ check("연주 형태 토글 제거", qc("[data-mode]") === 0, qc("[data-mode]"))
 check("믹스 선택 UI 제거", qc("#versionList") === 0 && !window.document.body.textContent.includes("믹스"), qc("#versionList"))
 check("단계 탭 5개", qc("[data-step-jump]") === 5)
 check(
-  "국악 음원 출처 표기",
-  window.document.getElementById("audioModeNote").textContent.trim() === "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시)",
+  "국악 음원·서양 연주곡 출처 표기",
+  window.document.getElementById("audioModeNote").textContent.trim() ===
+    "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시) · 서양 연주곡(발췌·음량 조절): 플루트 Kristina Martincová (CC BY-SA 3.0), 바이올린 Howard Geisel·FreqMan (CC BY 4.0), 더블베이스 Răzvan Popescu·Radio România (CC BY-SA 4.0)",
 )
 check("드로잉 참고 그림 영역 존재", qc("#drawingReferenceImg") === 1, qc("#drawingReferenceImg"))
 

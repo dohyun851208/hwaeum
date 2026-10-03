@@ -13,6 +13,7 @@ const {
   readJsonUrl,
   sanitizeChannelMeta,
   send,
+  sendError,
 } = require("./_utils.cjs")
 
 const MIN_PIN_LENGTH = 4
@@ -60,11 +61,6 @@ module.exports = async function handler(req, res) {
 
     send(res, 200, { channel: sanitizeChannelMeta(meta), claimed: !existing })
   } catch (error) {
-    console.error(error)
-    const message =
-      String(error && error.message).indexOf("BLOB_READ_WRITE_TOKEN") !== -1
-        ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
-        : (error && error.message) || "화음 갤러리를 만들지 못했어요."
-    send(res, 500, { error: message })
+    sendError(res, error, "화음 갤러리를 만들지 못했어요.")
   }
 }

@@ -1,5 +1,5 @@
 const { list } = require("@vercel/blob")
-const { cleanChannel, cleanPin, hashPass, listAll, loadChannelMeta, method, readJsonUrl, sanitizeChannelMeta, sanitizeMeta, send } = require("./_utils.cjs")
+const { cleanChannel, cleanPin, hashPass, listAll, loadChannelMeta, method, readJsonUrl, sanitizeChannelMeta, sanitizeMeta, send, sendError } = require("./_utils.cjs")
 
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["GET"])) return
@@ -38,13 +38,6 @@ module.exports = async function handler(req, res) {
     works.sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""))
     send(res, 200, { channel: sanitizeChannelMeta(channelMeta), locked: false, works })
   } catch (error) {
-    console.error(error)
-    const message =
-      String(error && error.message).indexOf("BLOB_READ_WRITE_TOKEN") !== -1
-        ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
-        : error && error.message
-          ? error.message
-          : "화음 갤러리를 불러오지 못했어요."
-    send(res, 500, { error: message })
+    sendError(res, error, "화음 갤러리를 불러오지 못했어요.")
   }
 }
