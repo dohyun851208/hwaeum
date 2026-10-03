@@ -52,6 +52,7 @@
 - `decisions/2026-10-03-melody-colors-ink-painting.md` — 수묵으로 시작해 음마다 수채 번짐으로 채색되며 완성되는 메인, 음표는 금박처럼 가라앉음, 늦은 첫 클릭은 처음부터 연주
 - `decisions/2026-10-03-landing-copy-into-button.md` — 메인 문구를 화음 + [내 그림에 선율 더하기] 버튼 두 요소로 축소
 - `decisions/2026-10-03-two-stage-ink-reveal.md` — 어둠에서 음마다 먹 풍경이 드러나고 노래가 끝나면 선에서부터 채색되어 선명하게 완성
+- `decisions/2026-10-03-landing-quick-enter.md` — 메인 우측 하단의 움직임 멈추기를 빼고 같은 모양의 → 바로 시작하기 링크로(다시 오는 사람용, 보이는 문구는 그대로)
 - `decisions/2026-10-03-studio-ink-frame-renewal.md` — 스튜디오 내부를 먹 액자(머리띠·단계·낙관) + 한지 작업면으로, 판 안의 판·노란 채움·중복 소제목 정리(`styles.css` `@renewal-2026-10` 구간)
 - `decisions/2026-10-03-studio-hanji-type-fields.md` — 먹색 머리띠 대신 한지 위 한 줄 머리·단계 줄, Pretendard 한 가족 4굵기(`assets/fonts/hwaeum-sans.css`), 모든 적는 칸 같은 모양, 낱말 단위 줄바꿈(keep-all), 2단계 카드+메모 한 장, 읽는 글자 14px 바닥·3단계 팔레트 정리
 - `decisions/2026-10-03-ink-gallery-renewal.md` — 화음 갤러리를 메인의 먹빛 전시실로: 매트 액자+이름표, 입구·잠김은 가운데에서 맞이(`body[data-gallery-state]`), 크림 주 단추, Pretendard(`styles.css` `@gallery-renewal-2026-10` 구간)

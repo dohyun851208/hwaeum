@@ -4,7 +4,7 @@
 
 Hwaeum is one world seen in three lights, all carrying the `畵 + 音` seal:
 
-- **Landing (`index.html`)** — night ink paper. A melody line is drawn over a hidden ink landscape; each note brings the ink up and the finished song colours the whole painting. Only the brand word `화음`, the seal and one button are visible.
+- **Landing (`index.html`)** — night ink paper. A melody line is drawn over a hidden ink landscape; each note brings the ink up and the finished song colours the whole painting. Only the brand word `화음`, the seal and one button are visible; two quiet icons sit in the bottom-right corner (sound, and `→` straight into the studio for returning visitors).
 - **Studio (`studio.html`)** — the daytime workroom: warm hanji paper, ink text, one sheet of paper per step. The header (brand, seal, step line) sits on the same paper as the work, never in a dark band.
 - **Gallery (`channel.html`)** — the landing's night again, as an exhibition room: ink walls, works hung in cream-matted frames with a placard (title, composer, words) beneath, soft light from above. Empty rooms (entry, locked, no works) show the landing painting dimly at the bottom and greet the visitor in the centre, like the landing.
 
