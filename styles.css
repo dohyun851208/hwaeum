@@ -6100,8 +6100,10 @@ body[data-step="2"] .instrument-strip .compose-instrument-text strong {
 
 /* @renewal-2026-10 begin */
 /* ==========================================================================
-   2026-10 리뉴얼 — 한지 위의 작업실
-   · 머리: 한지 위에 먹 글씨 로고와 단계 줄을 한 줄로(어두운 띠 없음)
+   2026-10 리뉴얼 — 밤의 벽에 걸린 한지 작업판
+   · 벽: 메인·화음 갤러리와 같은 먹색 바탕. 로고·단계 줄은 그 위에 크림·금빛으로(따로 떨어진 띠 없음)
+   · 판: 단계마다 한 장의 밝은 한지 — 글이 많은 작업면은 밝아야 읽힌다. 갤러리 표지처럼 얇은 금선을 두른다
+   · 색 변수는 두 겹: body = 밤(벽·머리), .screen·.publish-modal = 한지(판 안)
    · 글꼴: 로고만 손글씨, 나머지는 한 가족(Hwaeum Sans = Pretendard 400·500·600·700)
    · 적는 칸: 모든 입력·메모 칸이 같은 높이·테두리·모서리·초점 표시
    스튜디오에만 적용한다 — 화음 갤러리(channel.html)는 body.channel-body라 제외된다.
@@ -6111,18 +6113,55 @@ body[data-step="2"] .instrument-strip .compose-instrument-text strong {
   src: url("./assets/fonts/landing-title.ttf") format("truetype");
   font-display: swap;
 }
+/* 벽(밤): 메인·갤러리 로비와 같은 먹색. 판 밖의 로고·단계 줄·출처 줄이 이 값을 쓴다 */
 body:not(.channel-body) {
+  --paper: #101d20;
+  --paper-2: #0a1416;
+  --canvas: #14272b;
+  --soft: #1a2f33;
+  --ink: #f3eee0;
+  --ink-2: #dcd8cc;
+  --muted: #a5a9a1;
+  --faint: #7c8580;
+  --line: rgba(243, 238, 224, 0.1);
+  --line-strong: rgba(243, 238, 224, 0.2);
+  --gold: #e2c58d;
+  --gold-line: rgba(226, 197, 141, 0.4);
+  --on-fill: #101d20;
+  --surface-glass: var(--canvas);
+  --surface-soft: var(--soft);
+  --sans: "Hwaeum Sans", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --serif: var(--sans);
+  --display: var(--sans);
+  --field-h: 44px;
+  --field-radius: 10px;
+  /* 먹빛 벽의 한지 결 — 갤러리 로비와 같은 옅은 섬유 */
+  --night-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .93 0 0 0 0 .88 .07 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background:
+    var(--night-grain),
+    radial-gradient(ellipse 60% 42% at 50% -8%, rgba(226, 197, 141, 0.07), transparent 70%),
+    linear-gradient(180deg, var(--paper), var(--paper-2));
+  color: var(--ink);
+  color-scheme: dark;
+  font-family: var(--sans);
+  font-size: 16px;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+}
+/* 판 안(한지): 단계 화면과 공유 창. 아래의 모든 작업면 규칙이 이 값을 쓴다 */
+body:not(.channel-body) :is(.screen, .publish-modal) {
   --paper: #f4f0e6;
   --paper-2: #ede7d9;
   --canvas: #fffdf9;
   --soft: #f7f3ea;
   --ink: #1f2522;
   --ink-2: #3c433e;
-  --muted: #6b6f68;
+  --muted: #61655e;
   --faint: #9a9c94;
   --line: rgba(40, 44, 36, 0.1);
   --line-strong: rgba(40, 44, 36, 0.2);
-  --gold: #9a7535;
+  /* 판 위 작은 금빛 글씨(1단계·갈래 이름·단어)가 한지에서 4.5:1 이상 읽히는 진한 금 */
+  --gold: #84652c;
   --gold-soft: #e2c58d;
   --seal: #b8432f;
   --brand-gold: #e2c58d;
@@ -6131,20 +6170,11 @@ body:not(.channel-body) {
   --surface-soft: var(--soft);
   --shadow-sm: 0 1px 2px rgba(40, 36, 24, 0.05), 0 4px 12px rgba(40, 36, 24, 0.04);
   --shadow: 0 1px 2px rgba(40, 36, 24, 0.05), 0 18px 44px rgba(40, 36, 24, 0.07);
-  --sans: "Hwaeum Sans", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-  --serif: var(--sans);
-  --display: var(--sans);
-  --field-h: 44px;
-  --field-radius: 10px;
   --field-border: rgba(40, 44, 36, 0.18);
   --field-bg: #ffffff;
   --hanji: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .28 0 0 0 0 .2 .14 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background: var(--hanji), linear-gradient(180deg, var(--paper), var(--paper-2));
   color: var(--ink);
-  font-family: var(--sans);
-  font-size: 16px;
-  letter-spacing: -0.005em;
-  -webkit-font-smoothing: antialiased;
+  color-scheme: light;
 }
 body:not(.channel-body)::before,
 body:not(.channel-body)::after {
@@ -6279,16 +6309,17 @@ body:not(.channel-body) .step:hover {
 body:not(.channel-body) .step:hover span {
   border-color: var(--ink-2);
 }
+/* 지난 단계는 메인의 금빛 선율처럼 금선으로 이어지고, 지금 단계는 크림으로 채운다 */
 body:not(.channel-body) .step:has(~ .step.active) {
   color: var(--ink-2);
 }
 body:not(.channel-body) .step:has(~ .step.active) span {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: var(--gold-line);
+  background: rgba(226, 197, 141, 0.1);
+  color: var(--gold);
 }
 body:not(.channel-body) .step:has(~ .step.active)::after {
-  background: var(--accent-line);
+  background: var(--gold-line);
 }
 body:not(.channel-body) .step.active {
   color: var(--ink);
@@ -6298,19 +6329,21 @@ body:not(.channel-body) .step.active {
 body:not(.channel-body) .step.active span {
   border-color: var(--ink);
   background: var(--ink);
-  color: #f6eedb;
+  color: var(--on-fill);
 }
 body:not(.channel-body) .step.active strong {
   font-weight: 700;
 }
 
-/* ---------- 종이 한 장: 화면 ---------- */
+/* ---------- 종이 한 장: 화면 ----------
+   밤의 벽에 걸린 한지 한 장. 위에서 비추는 등불처럼 위쪽이 조금 더 밝고,
+   테두리는 갤러리 표지와 같은 얇은 금선이다. */
 body:not(.channel-body) .screen {
   padding: clamp(26px, 2.6vw, 44px) clamp(22px, 2.8vw, 48px) clamp(26px, 2.4vw, 40px);
-  border: 1px solid var(--line);
+  border: 1px solid rgba(226, 197, 141, 0.34);
   border-radius: 16px;
-  background: var(--canvas);
-  box-shadow: var(--shadow);
+  background: linear-gradient(180deg, #fdfaf3, #f7f2e6 640px, #f5efe2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 30px 80px rgba(0, 0, 0, 0.42);
 }
 .screen-head {
   margin-bottom: 28px;
@@ -6961,8 +6994,26 @@ body:not(.channel-body) .channel-gate-lead {
 
 /* 오류 안내는 도움말 색(회색) 규칙보다 앞서 붉게 — 그림·배경 음원 올리기, 공유 상태 공통 */
 body:not(.channel-body) .upload-status.error {
-  color: #c4483a;
+  color: #b23c2f;
   font-weight: 600;
+}
+
+/* 작은 갈래 이름(분위기·소리풍경…, 관악기·현악기…)과 작품 단어는 「1단계」와 같은 금빛 작은 글씨.
+   무드 색(회색일 때 2.9:1)을 따르던 옛 규칙보다 한지 위에서 또렷하다. */
+body:not(.channel-body) :is(.atmosphere-group-label, .instrument-family-head, .placard-tags) {
+  color: var(--gold);
+}
+/* 흐리던 글자: 계이름(노란 「미」는 2.6:1)은 제 색에 먹을 20% 섞고, 무드 색 글자 단추는 먹 글씨로 */
+body:not(.channel-body) .pitch-label.selected {
+  color: var(--pitch-color, var(--ink));
+  color: color-mix(in srgb, var(--pitch-color, #1f2522) 80%, #1f2522);
+}
+body:not(.channel-body) .sound-layer-preview:not(:hover, :focus-visible, .active) {
+  color: var(--ink-2);
+}
+/* 공유 창이 뜨면 갤러리 작품 보기처럼 방이 먹빛으로 어두워진다(창은 한지 그대로) */
+body:not(.channel-body) .publish-modal {
+  background: rgba(6, 13, 15, 0.72);
 }
 /* @renewal-2026-10 end */
 
