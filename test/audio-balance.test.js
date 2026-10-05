@@ -58,6 +58,23 @@ test("공간 강조(scene): 네 믹스 중 배경 비중이 가장 크다", () =
   assert.ok(sceneRatio === minRatio, `공간 강조가 가장 배경 지향적이지 않다 (scene ${sceneRatio.toFixed(2)}, min ${minRatio.toFixed(2)})`)
 })
 
+function engineConst(name) {
+  const match = ENGINE_SRC.match(new RegExp(`const ${name} = ([\\d.]+)`))
+  assert.ok(match, `audio-engine.js 에 ${name} 상수가 없다`)
+  return Number(match[1])
+}
+
+test("효과음 도장: 전체 재생 크기가 미리듣기와 같고 배경에 묻히지 않아야 한다", () => {
+  // 도장을 넣은 06-26 엔 효과음 0.15 · 배경 0.17 이었는데 배경·선율만 ×3 커져 효과음이 9.5 dB 묻혔다(2026-10-05).
+  // 배경·선율 게인을 키울 때 효과음도 함께 보라는 경보다.
+  const effect = engineConst("EFFECT_GAIN")
+  const playbackVsPreviewDb = 20 * Math.log10((effect * engineConst("MASTER_OUTPUT_GAIN")) / engineConst("EFFECT_PREVIEW_GAIN"))
+  assert.ok(Math.abs(playbackVsPreviewDb) <= 1, `재생 중 효과음이 미리듣기와 ${playbackVsPreviewDb.toFixed(1)} dB 다르다`)
+  const v = loadData().versions.find((x) => x.id === "balanced")
+  const effectVsBackgroundDb = 20 * Math.log10(effect / (v.padGain * engineConst("BACKGROUND_OUTPUT_GAIN")))
+  assert.ok(effectVsBackgroundDb >= -3, `효과음 게인이 균형 배경보다 ${(-effectVsBackgroundDb).toFixed(1)} dB 작다`)
+})
+
 test("선율 비중 순서: 선율 강조 > 균형 > 공간 강조", () => {
   const vs = loadData().versions
   const g = (id) => vs.find((x) => x.id === id).melodyGain

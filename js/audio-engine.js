@@ -32,7 +32,19 @@
   const sampleMapFor = AudioPlan.sampleMapFor
   const sampleSegmentBounds = AudioPlan.sampleSegmentBounds
   const segmentPlaybackRate = AudioPlan.segmentPlaybackRate
-  const EFFECT_GAIN = 0.15
+  // 효과음 도장의 전체 재생 게인. 0.15 는 도장을 넣은 2026-06-26 값 그대로였는데, 그 뒤 배경·선율만
+  // ×2(06-27)와 ×1.5(BACKGROUND/WESTERN_MELODY_OUTPUT_GAIN)로 커져 효과음이 배경보다 9.5 dB 더 작아졌다.
+  // 배경과 같은 ×3 으로 되돌린다(2026-10-05). 마스터 0.56 을 지나면 0.252 라서 미리듣기(0.24)와 같은 크기로 들린다.
+  // 도장끼리의 크기는 manifest 의 effects[].gain 이 새소리에 맞춘다(effectOutputGain).
+  const EFFECT_GAIN = 0.45
+  // 전체 재생에서 도장 소리를 끝에서만 줄이는 길이. 예전엔 찍은 순간부터 끝까지 직선으로 줄여
+  // 바람·비처럼 이어지는 소리가 평균 4.8 dB 작아졌다. 파일에는 이미 페이드아웃이 있다.
+  const EFFECT_END_FADE_SECONDS = 0.3
+  const EFFECT_MAX_OUTPUT_GAIN = 16
+  // 도장을 고를 때·찍을 때 앞 1.2초만 들려주는 미리듣기. 마스터를 거치지 않고 바로 나간다.
+  const EFFECT_PREVIEW_GAIN = 0.24
+  // 음원을 디코드하는 동안 바로 내는 짧은 합성음.
+  const EFFECT_FALLBACK_PREVIEW_GAIN = 0.135
   const SOUND_LAYER_OUTPUT_GAIN = 0.8
   const BACKGROUND_OUTPUT_GAIN = 1.5
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
@@ -171,6 +183,12 @@
 
   function backgroundOutputGain(plan) {
     return ((plan && plan.version && plan.version.padGain) || 0) * BACKGROUND_OUTPUT_GAIN
+  }
+
+  // 도장마다의 크기 맞춤(manifest effects[].gain, tools/measure-effect-loudness.cjs 가 추천).
+  function effectOutputGain(effect) {
+    const gain = Number(effect && effect.gain)
+    return gain > 0 && isFinite(gain) ? Math.min(gain, EFFECT_MAX_OUTPUT_GAIN) : 1
   }
 
   function instrumentMelodyOutputGain(instrument) {
@@ -696,8 +714,11 @@
           const g = ctx.createGain()
           const at = start + o
           const outDur = Math.min(buffer.duration, dur - o)
+          const level = EFFECT_GAIN * effectOutputGain(asset)
+          const fadeOut = Math.min(EFFECT_END_FADE_SECONDS, outDur * 0.25)
           src.buffer = buffer
-          g.gain.setValueAtTime(EFFECT_GAIN, at)
+          g.gain.setValueAtTime(level, at)
+          g.gain.setValueAtTime(level, at + outDur - fadeOut)
           g.gain.linearRampToValueAtTime(0, at + outDur)
           src.connect(g)
           g.connect(dest)
@@ -1765,13 +1786,13 @@
     src.stop(start + note.duration + 0.03)
   }
 
-  AudioEngine.prototype._playEffectBufferPreview = function (ctx, buffer, start) {
+  AudioEngine.prototype._playEffectBufferPreview = function (ctx, buffer, start, effect) {
     const src = ctx.createBufferSource()
     const env = ctx.createGain()
     const duration = Math.min(buffer.duration || 0.8, 1.2)
     src.buffer = buffer
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(EFFECT_GAIN * 1.6, start + 0.015)
+    env.gain.linearRampToValueAtTime(EFFECT_PREVIEW_GAIN * effectOutputGain(effect), start + 0.015)
     env.gain.setTargetAtTime(0.001, start + Math.max(0.05, duration * 0.72), 0.06)
     src.connect(env)
     env.connect(ctx.destination)
@@ -1799,7 +1820,7 @@
     osc.type = isThunder ? "triangle" : "sine"
     osc.frequency.setValueAtTime(fallbackFreq, start)
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(EFFECT_GAIN * 0.9, start + 0.01)
+    env.gain.linearRampToValueAtTime(EFFECT_FALLBACK_PREVIEW_GAIN, start + 0.01)
     env.gain.exponentialRampToValueAtTime(0.001, start + 0.24)
     if (filter) {
       filter.type = isThunder || /^animalWhale/.test(id) ? "lowpass" : "bandpass"
@@ -1826,14 +1847,14 @@
       const start = ctx.currentTime + 0.01
       const readyBuffer = effect.src ? self.decodedCache.get(effect.src) : null
       if (readyBuffer) {
-        self._playEffectBufferPreview(ctx, readyBuffer, start)
+        self._playEffectBufferPreview(ctx, readyBuffer, start, effect)
         return Promise.resolve(true)
       }
       self._previewEffectFallback(ctx, effect, start)
       const requestedAt = ctx.currentTime
       return self.loadAssetBuffer(ctx, effect).then(function (buffer) {
         if (previewGen === self.previewGen && buffer && ctx.currentTime - requestedAt < 0.7) {
-          self._playEffectBufferPreview(ctx, buffer, ctx.currentTime + 0.03)
+          self._playEffectBufferPreview(ctx, buffer, ctx.currentTime + 0.03, effect)
         }
         return !!buffer
       })

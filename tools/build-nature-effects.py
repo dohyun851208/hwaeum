@@ -5,9 +5,11 @@ build-nature-effects.py — 자연 효과음 도장 음원 다듬기 도구
 효과음 도장은 고를 때·찍을 때 **앞 1.2초만** 미리 들려주고(audio-engine.js `_playEffectBufferPreview`),
 전체 재생에서는 찍은 자리에서 **파일 0초부터** 튼다. 그래서 이름에 맞는 순간(천둥이 치는 순간,
 잎이 흔들리는 순간)이 파일 맨 앞에 와야 학생이 고른 이름대로 들린다.
-또 모든 효과음은 같은 gain(EFFECT_GAIN)으로 재생되므로 **파일 음량이 곧 앱 속 음량**이다.
+앱 속 크기는 js/manifest.js 의 effects[].gain 이 새소리에 맞춘다(EFFECT_GAIN × gain, 2026-10-05).
+그래서 여기 target_lufs 는 인코딩·리미터 여유를 위한 값이다 — 다시 만든 뒤에는
+node tools/measure-effect-loudness.cjs 로 재서 manifest gain 을 추천값으로 고친다.
 
-이 도구는 원본을 자르고(앞부분 정리) → 필터 → 페이드 → 이름에 맞는 음량(LUFS)으로 맞춘 뒤
+이 도구는 원본을 자르고(앞부분 정리) → 필터 → 페이드 → 목표 음량(LUFS)으로 맞춘 뒤
 라벨 이름의 MP3(모노 44.1kHz 128k)로 쓴다. 출처와 다듬은 방식은 아래 EFFECTS 표가 기록이다.
 
 실행:
@@ -30,6 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(HERE)
 YUJA_DIR = os.path.join(PROJECT_DIR, "sound", "효과-자연음(유자레코즈)")
 PIXABAY_DIR = os.path.join(PROJECT_DIR, "sound", "효과-자연음(픽사베이)")
+STAMP_ANIMAL_DIR = os.path.join(PROJECT_DIR, "sound", "효과음-도장", "동물")
 PIXABAY_RAW_BASE = os.environ.get("PIXABAY_RAW_BASE") or os.path.join(
     os.path.dirname(PROJECT_DIR), "효과-자연음(픽사베이)-원본"
 )
@@ -38,60 +41,79 @@ LIMIT_DB = -1.0
 TRUE_PEAK_LIMIT = 10 ** (LIMIT_DB / 20)
 OUTPUT_ARGS = ["-ac", "1", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "128k"]
 
-# 목표 음량은 이름의 뜻을 따른다: 산들바람 < 거센바람, 먼 천둥 < 우르릉 < 번개.
-# 기존 도장들(새 -14, 뻐꾸기 -17, 하프 -23, 소나기 -25 LUFS)과 같은 범위에 둔다.
+# 목표 음량은 처음에 이름의 뜻을 따라 정했다(산들바람 < 거센바람, 먼 천둥 < 우르릉 < 번개).
+# 지금 앱 속 크기는 manifest gain 이 정하므로, 이 값은 리미터가 머리를 깎지 않는 범위면 된다.
 EFFECTS = [
+    # 2026-10-05 사용자가 들어 보고 "바람이 전반적으로 작고, 번개가 작고, 폭풍우는 그냥 빗소리 같다"고 했다.
+    # 그때까지 쓰던 유자레코즈 바람1~3·천둥2·천둥3(저장소에 남겨 둠)은 소리가 낮은 대역(200 Hz 아래)이나
+    # 1 kHz 아래에 몰려 노트북·교실 스피커에서 작게 들렸다 → 노트북이 내는 대역에 소리가 있는 픽사베이 녹음으로 바꿨다.
+    # 고른 이유와 비교는 docs/decisions/2026-10-05-effect-stamp-loudness.md.
     {
         "label": "산들바람",
-        "src": (YUJA_DIR, "바람2.mp3"),  # 조용하고 고른 바람. 원래 거센바람 자리에 있었다.
-        "out": (YUJA_DIR, "산들바람.mp3"),
-        "start": 0.0,
-        "end": 7.8,
+        "src": (PIXABAY_RAW_BASE, "wind-blowing-sfx-10-423676.mp3"),  # 살랑 불었다 잦아드는 바람, 1~4 kHz 55%.
+        "out": (PIXABAY_DIR, "산들바람.mp3"),
+        "start": 7.1,
+        "end": 15.1,
+        "highpass": 40,
         "fade_in": 0.3,
         "fade_out": 0.8,
-        "target_lufs": -26,
+        "target_lufs": -16,
     },
     {
         "label": "거센바람",
-        "src": (YUJA_DIR, "바람1.mp3"),  # 15 dB 더 크고 낮게 울부짖는 바람. 원래 산들바람 자리에 있었다.
-        "out": (YUJA_DIR, "거센바람.mp3"),
-        "start": 0.0,
-        "end": 4.47,  # 4.47초에서 큰 소리 그대로 뚝 끊기는 원본 끝을 페이드로 닫는다.
-        "fade_in": 0.05,
-        "fade_out": 0.45,
-        "target_lufs": -19,
+        "src": (PIXABAY_RAW_BASE, "wind-blowing-457954.mp3"),  # 쏴아 하고 세게 이어지는 바람.
+        "out": (PIXABAY_DIR, "거센바람.mp3"),
+        "start": 19.6,
+        "end": 26.6,
+        "highpass": 40,
+        "fade_in": 0.15,
+        "fade_out": 0.8,
+        "target_lufs": -16,
     },
     {
         "label": "회오리바람",
-        "src": (YUJA_DIR, "바람3.mp3"),  # 휘이잉 우는 바람(1 kHz 휘파람 성분).
-        "out": (YUJA_DIR, "회오리바람.mp3"),
-        "start": 0.5,  # 앞 0.5초는 -36 dB에서 올라오는 구간이라 미리듣기에 거의 안 들린다.
-        "end": 9.2,
+        "src": (PIXABAY_RAW_BASE, "strong-howling-wind-132281.mp3"),  # 휘이잉 휘파람이 오르내리는 센 바람.
+        "out": (PIXABAY_DIR, "회오리바람.mp3"),
+        "start": 74.0,
+        "end": 81.9,
+        "highpass": 40,
         "fade_in": 0.15,
-        "fade_out": 0.6,
-        "target_lufs": -20,
+        "fade_out": 0.8,
+        "target_lufs": -16,
     },
     {
         "label": "폭풍우",
-        "src": (YUJA_DIR, "천둥3.mp3"),  # 빗소리 + 3.12초에 큰 천둥.
-        "out": (YUJA_DIR, "폭풍우.mp3"),
-        "start": 2.6,  # 빗소리 0.5초 뒤 바로 천둥이 치게 앞 2.6초를 덜어 낸다.
-        "end": 10.6,
-        "fade_in": 0.1,
+        "src": (PIXABAY_RAW_BASE, "thunderstorm-550057.mp3"),  # 굵은 비 + 0.3초·4.8초에 천둥.
+        "out": (PIXABAY_DIR, "폭풍우.mp3"),
+        "start": 40.9,
+        "end": 49.9,
+        "highpass": 25,
+        "fade_in": 0.05,
         "fade_out": 1.5,
-        "target_lufs": -18,
+        "target_lufs": -20,  # 천둥 머리가 리미터에 2.2 dB 안쪽으로만 눌리게.
     },
     {
         "label": "번개",
-        "src": (YUJA_DIR, "천둥2.mp3"),  # 높은 음역까지 번쩍 갈라지는 소리 + 우르릉 꼬리.
-        "out": (YUJA_DIR, "번개.mp3"),
-        "start": 0.08,  # 앞 80 ms 무음을 덜어 찍은 자리에서 바로 친다.
-        "end": 6.75,
+        "src": (PIXABAY_RAW_BASE, "lightning-strike-29683.mp3"),  # 쩍 갈라지는 소리 + 우르릉 두 번.
+        "out": (PIXABAY_DIR, "번개.mp3"),
+        "start": 1.8,
+        "end": 9.3,
+        "highpass": 25,
         "fade_in": 0.003,
-        "fade_out": 0.6,
-        "target_lufs": -18,  # 갈라지는 첫 소리가 리미터에 2 dB 안쪽으로만 눌리게.
+        "fade_out": 1.0,
+        "target_lufs": -19,  # 갈라지는 첫 소리가 리미터에 2.3 dB 안쪽으로만 눌리게.
     },
-    # 아래는 유자레코즈 음원에 그 소리가 없어 픽사베이에서 가져온 것(출처: 효과-자연음(픽사베이)/라이센스.txt).
+    {
+        "label": "흑동고래",
+        "src": (PIXABAY_RAW_BASE, "whale-45996.mp3"),  # 1~4 kHz까지 올라가는 울음(24%) — 배경음악에 덜 묻힌다.
+        "out": (STAMP_ANIMAL_DIR, "흑동고래.mp3"),  # 동물 도장 자리 그대로(출처는 픽사베이 라이센스.txt).
+        "start": 0.9,  # 0.95초부터 울음이 올라온다. 앞은 디지털 무음이라 키워도 잡음이 없다.
+        "end": 5.9,
+        "fade_in": 0.05,
+        "fade_out": 1.0,
+        "target_lufs": -16,
+    },
+    # 아래도 픽사베이 녹음(2026-10-02, 유자레코즈 음원에 그 소리가 없던 것. 출처: 효과-자연음(픽사베이)/라이센스.txt).
     {
         "label": "흔들리는 잎",
         "src": (PIXABAY_RAW_BASE, "rustling-leaves-6875.mp3"),  # 잎이 바스락 부딪히는 알갱이가 촘촘하다.

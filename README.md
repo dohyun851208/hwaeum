@@ -81,7 +81,7 @@ tools/runtime-scripts.cjs HTML의 실제 로드 순서를 읽는 공통 검증 �
 
 - **배경 음원**: `backgrounds.<id>`에 `label`과 `src`(예: `sound/배경-분위기/고요한(우주).mp3`)를 넣고, `atmospheres`에 같은 `id`로 항목을 추가하면 배경 카드와 1:1로 매칭됩니다. 카드 클릭 시 그 `src`가 미리듣기로 재생됩니다. (선생님이 화면에서 직접 올린 음원은 그 세션에만 유지됩니다.)
 - **선율 악기**: `melodies.<악기>`에 `src`와 기준음 `baseMidi`를 지정합니다(단일음 샘플은 피치 시프트, 긴 구절은 `sampleMode: "phrase"`).
-- **효과음**: `effects`에 추가하고 장면의 `effectIds`에 연결합니다. 자연 효과음(바람·비·숲·천둥)은 `tools/build-nature-effects.py`로 다듬어 넣습니다 — 도장 미리듣기가 앞 1.2초만 들려주므로 이름에 맞는 순간을 파일 맨 앞에 두고, 이름의 세기에 맞춰 음량(LUFS)을 정합니다.
+- **효과음**: `effects`에 추가하고 장면의 `effectIds`에 연결합니다. 자연 효과음(바람·비·숲·천둥)은 `tools/build-nature-effects.py`로 다듬어 넣습니다 — 도장 미리듣기가 앞 1.2초만 들려주므로 이름에 맞는 순간을 파일 맨 앞에 둡니다. 넣거나 바꾼 뒤에는 `node tools/measure-effect-loudness.cjs`로 재서 추천 `gain`을 그 도장에 적습니다(앱 속 크기를 새소리에 맞춤).
 
 ## 테스트
 

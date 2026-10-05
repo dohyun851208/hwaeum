@@ -1306,10 +1306,31 @@ test("schedule plays stamped natural effects only at stamped positions", () => {
 
   assert.equal(ctx.created.buffers.length, 1)
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [17, 0, 4])
-  assert.ok(
-    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "set" && event[1] === 0.15 && event[2] === 17)),
-    "효과음 도장 gain은 0.15여야 한다",
+  const level = 0.45 * wind.gain
+  const events = ctx.created.gains.map((gain) => gain.gain.events).find((list) => list.some((event) => event[2] === 17))
+  assert.ok(events, "효과음 도장 gain 노드가 있어야 한다")
+  // 찍은 순간부터 끝 0.3초 전까지는 같은 크기, 끝에서만 0으로 줄인다.
+  assert.equal(events.length, 3)
+  assert.deepEqual(events.map((event) => event[0]), ["set", "set", "linear"])
+  assert.ok(Math.abs(events[0][1] - level) < 1e-9 && events[0][2] === 17, "효과음 도장 gain은 0.45 × manifest gain이어야 한다")
+  assert.ok(Math.abs(events[1][1] - level) < 1e-9 && Math.abs(events[1][2] - 20.7) < 1e-9, "끝 0.3초 전까지 크기를 유지해야 한다")
+  assert.deepEqual([events[2][1], events[2][2]], [0, 21])
+})
+
+test("effect stamps shorter than the end fade fade over their last quarter", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "none", instrument: "violin", style: "bright", version: "balanced", mode: "melody", effectStamps: [{ id: "sfxBubblePop", x: 0, y: 0.5, time: 0 }] },
+    [],
   )
+
+  engine.schedule(ctx, makeNode(), plan, { pad: null, melody: null, effects: [{ asset: plan.effects[0], buffer: { duration: 0.8 } }] }, 0, noop)
+
+  const events = ctx.created.gains.map((gain) => gain.gain.events).find((list) => list.length === 3)
+  assert.ok(Math.abs(events[1][2] - 0.6) < 1e-9, "0.8초 소리는 마지막 0.2초만 줄인다")
+  assert.deepEqual([events[2][1], events[2][2]], [0, 0.8])
 })
 
 test("previewEffect plays the stamped sound immediately", async () => {
@@ -1328,6 +1349,21 @@ test("previewEffect plays the stamped sound immediately", async () => {
   assert.ok(
     ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && event[1] === 0.24)),
     "효과음 도장 미리듣기 gain은 0.24여야 한다",
+  )
+})
+
+test("previewEffect applies the stamp's loudness gain like full playback", async () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const ctx = makeAudioContext()
+  engine.ctx = ctx
+  engine.decodedCache.set("sound/effects/rain1.mp3", { duration: 2.5 })
+
+  await engine.previewEffect({ id: "rain1", src: "sound/effects/rain1.mp3", gain: 3 })
+
+  assert.ok(
+    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.72) < 1e-9)),
+    "미리듣기도 0.24 × manifest gain이어야 한다",
   )
 })
 
@@ -1368,7 +1404,7 @@ test("warmEffect starts decoding the selected stamp sound before stamping", asyn
   assert.equal(seenEffect.id, "wind1")
 })
 
-test("all natural effect categories play at gain 0.15", () => {
+test("every natural effect category plays at 0.45 x its manifest gain", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -1376,7 +1412,7 @@ test("all natural effect categories play at gain 0.15", () => {
   const plan = engine.resolvePlan(
     {
       duration: 30,
-      atmosphere: "calm",
+      atmosphere: "none",
       instrument: "violin",
       style: "bright",
       version: "balanced",
@@ -1404,10 +1440,15 @@ test("all natural effect categories play at gain 0.15", () => {
     noop,
   )
 
-  const effectGainEvents = ctx.created.gains.flatMap((gain) =>
-    gain.gain.events.filter((event) => event[0] === "set" && event[1] === 0.15),
-  )
-  assert.equal(effectGainEvents.length, 4)
+  const startLevels = ctx.created.gains
+    .map((gain) => gain.gain.events[0])
+    .filter((event) => event && event[0] === "set")
+    .map((event) => event[1])
+  assert.equal(startLevels.length, 4)
+  plan.effects.forEach((effect, index) => {
+    assert.ok(effect.gain > 0, effect.id + " 에 manifest gain 이 있어야 한다")
+    assert.ok(Math.abs(startLevels[index] - 0.45 * effect.gain) < 1e-9, effect.id + " 는 0.45 × gain 으로 시작해야 한다")
+  })
 })
 
 test("full playback background starts with the first beat and is cut at the recipe duration", () => {

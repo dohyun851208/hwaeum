@@ -106,7 +106,7 @@ npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (�
 ## 개발 규칙
 
 - **새 음원/악기/분위기** → `js/manifest.js` (README "음원 추가/교체" 절 참고)
-- **자연 효과음(바람·비·숲·천둥) 교체·다듬기** → `tools/build-nature-effects.py`의 `EFFECTS` 표(원본·구간·목표 LUFS)에 적고 실행한다. 도장 미리듣기는 **앞 1.2초만** 들려주므로 이름에 맞는 순간(천둥이 치는 순간 등)을 파일 맨 앞에 두고, 음량은 이름의 세기(산들바람 < 거센바람, 먼 천둥 < 번개)를 따른다. 물방울·번개처럼 순간 피크가 핵심인 소리는 리미터가 3 dB 넘게 깎지 않게 목표를 낮춘다. 픽사베이 원본은 배포 트리 밖에 두고 출처는 `sound/효과-자연음(픽사베이)/라이센스.txt`에 적는다.
+- **자연 효과음(바람·비·숲·천둥) 교체·다듬기** → `tools/build-nature-effects.py`의 `EFFECTS` 표(원본·구간·목표 LUFS)에 적고 실행한다. 도장 미리듣기는 **앞 1.2초만** 들려주므로 이름에 맞는 순간(천둥이 치는 순간 등)을 파일 맨 앞에 둔다. 물방울·번개처럼 순간 피크가 핵심인 소리는 리미터가 3 dB 넘게 깎지 않게 목표를 낮춘다. 픽사베이 원본은 배포 트리 밖에 두고 출처는 `sound/효과-자연음(픽사베이)/라이센스.txt`에 적는다. **앱 속 도장 크기는 새소리를 기준으로 이름의 세기만큼 더하고 뺀다**(`tools/measure-effect-loudness.cjs`의 `LEVEL_DB`: 번개 +6, 폭풍우·거센바람 +4, 회오리바람·흑동고래 +3, 가랑비·먼 천둥 −3 dB). 녹음을 고를 땐 노트북 대역(150 Hz 위)에 소리가 있는지 본다 — 저음뿐이거나 배경음악과 같은 대역에 몰린 녹음은 숫자가 같아도 작게 들렸다. 효과음 파일을 바꾸면 `node tools/measure-effect-loudness.cjs`로 재서 manifest `effects[].gain`을 추천값으로 고친다(`--check`로 확인). 엔진은 `EFFECT_GAIN × gain`으로 재생하고 끝 0.3초에서만 줄이며, 마스터를 지난 재생 크기가 미리듣기(`EFFECT_PREVIEW_GAIN × gain`)와 같게 둔다 — **배경·선율 게인을 키울 때 효과음도 함께 본다**(따로 두면 묻힌다, `docs/decisions/2026-10-05-effect-stamp-loudness.md`).
 - **2단계 악기 감상 연주곡(카드 ▶) 교체·다듬기** → `tools/build-instrument-examples.py`의 `EXAMPLES` 표(원본·구간·목표 LUFS)에 적고 실행한다. 연주곡은 엔진 음량 보정 없이 `Audio`로 그대로 나가므로 **파일 크기가 곧 앱 속 크기**다 — 같은 무리 카드 연주곡과 LUFS를 맞추고(모노 파일은 스테레오로 들으면 3 dB 크게 들림), 리미터로 깎지 않는다. 키우면 잡음까지 커지는 작은 녹음은 다른 녹음으로 바꾼다. 원본은 배포 트리 밖 `감상-연주곡-원본/`에 둔다. CC BY·CC BY-SA 녹음은 2단계 출처 줄(`studio.js` `AUDIO_MODE_CREDIT`·`#audioModeNote`)과 `sound/감상-연주곡(서양악기)/라이센스.txt`에 출처를 적는다(`docs/decisions/2026-10-03-instrument-example-pieces.md`).
 - **음악 규칙 변경**(음계·보정·리듬·시김새·루프 검출) → `js/music-core.js` + `test/`에 단위 테스트
 - **샘플 선택·재생 계획 변경** → `js/audio-plan.js`, **Web Audio 그래프·수명 변경** → `js/audio-engine.js`와 `js/audio-*.js` + 행동 테스트
@@ -123,6 +123,7 @@ npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (�
 - **설계를 바꾸는 결정** → `docs/decisions/`에 ADR 기록 (docs/CLAUDE.md 규칙)
 - **모바일 대응은 만들지 않는다.** 이 도구는 교실 데스크톱 사용 기준으로 설계한다. 사용자가 따로 요청하지 않는 한 모바일 전용 레이아웃·브레이크포인트·QA를 추가하지 않는다.
 - **에셋 최적화는 기본값이다.** `assets/`에 이미지를 추가하거나 교체할 때는 **반드시 WebP**로 변환한다(`ffmpeg -i input.png -c:v libwebp -quality 82 -lossless 0 output.webp`). PNG·BMP는 올리지 않는다. 악기 카드 이미지는 긴 변 800px 이하로 리사이즈한다(`-vf scale=800:-1`). 기존 WebP도 800KB 이상이면 품질을 낮춰 재압축한다.
+- **`js/*.js`를 고치면 그 파일을 부르는 HTML의 `?v=` 꼬리표를 올린다**(`studio.html`의 `manifest.js?v=20261005-effect-balance`처럼 날짜-주제). 주소가 그대로면 브라우저가 저장해 둔 옛 파일을 계속 써서, 고친 소리·화면이 사용자에게 보이지 않는다(2026-10-05 효과음 크기 수정 때 실제로 겪음).
 - **완료 주장 전** `npm test` 통과 확인. UI/오디오 변경은 서버로 띄워 실제 동작 확인.
 - 사용자(교사·학생) 대상 문구는 **한국어**, 저학년도 이해 가능한 쉬운 표현.
 - **한글 줄바꿈은 낱말 단위다.** `styles.css`가 전역으로 `word-break: keep-all`(+ 긴 낱말만 `overflow-wrap: break-word`), 제목 `text-wrap: balance`, 문단 `text-wrap: pretty`를 건다. 새 화면에서 `break-all`이나 글자 단위 줄바꿈을 쓰지 않는다("만듭니 / 다." 같은 끊김 방지).

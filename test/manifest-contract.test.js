@@ -111,3 +111,12 @@ test("post-processed sample maps remain sorted and usable by the audio planner",
     }
   }
 })
+
+test("every effect stamp carries a measured loudness gain, with the bird as the reference", () => {
+  const data = loadManifest()
+  // 값은 tools/measure-effect-loudness.cjs 가 새소리 크기에 맞춰 추천한다(2026-10-05).
+  assert.equal(data.effects.animalBird.gain, 1, "새소리가 크기 기준이다")
+  for (const [id, effect] of Object.entries(data.effects)) {
+    assert.ok(Number.isFinite(effect.gain) && effect.gain > 0 && effect.gain <= 16, id + " gain")
+  }
+})

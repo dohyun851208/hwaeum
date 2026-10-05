@@ -17,3 +17,19 @@
                   https://pixabay.com/sound-effects/nature-distant-thunder-320067/
 우르릉.mp3      ← "Rolling Thunder" (loswin23)
                   https://pixabay.com/sound-effects/film-special-effects-rolling-thunder-534181/
+
+2026-10-05 추가 — 노트북·교실 스피커에서 작게 들리던 유자레코즈 바람·번개·폭풍우와 동물 도장 흑동고래를 바꿨다.
+(원본 파일 이름은 tools/build-nature-effects.py 표의 이름. 원본은 위와 같이 배포 트리 밖에 둔다.)
+
+산들바람.mp3    ← "Wind Blowing SFX 10" (DRAGON-STUDIO)
+                  https://pixabay.com/sound-effects/nature-wind-blowing-sfx-10-423676/
+거센바람.mp3    ← "Wind Blowing" (SoundReality)
+                  https://pixabay.com/sound-effects/nature-wind-blowing-457954/
+회오리바람.mp3  ← "Strong Howling Wind" (Liecio)
+                  https://pixabay.com/sound-effects/film-special-effects-strong-howling-wind-132281/
+폭풍우.mp3      ← "Thunderstorm" (bijan6207)
+                  https://pixabay.com/sound-effects/film-special-effects-thunderstorm-550057/
+번개.mp3        ← "Lightning Strike" (freesound_community)
+                  https://pixabay.com/sound-effects/nature-lightning-strike-29683/
+../효과음-도장/동물/흑동고래.mp3  ← "Whale" (freesound_community)
+                  https://pixabay.com/sound-effects/nature-whale-45996/
