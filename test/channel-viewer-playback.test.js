@@ -188,3 +188,17 @@ test("saved takes and shared works describe every used instrument", () => {
   assert.match(functionBody(share, "publishSharedWork"), /const metadata = sharedMetadata\(recipe\)/)
   assert.match(functionBody(channel, "workViewerMeta"), /cleanText\(meta\.instrumentLabel,\s*72\)/)
 })
+
+test("shared gallery hides the middle of composer names", () => {
+  const channel = fs.readFileSync(path.join(projectDir, "js", "channel.js"), "utf8")
+  const maskComposerName = new Function("name", functionBody(channel, "maskComposerName"))
+
+  assert.equal(maskComposerName("김하음"), "김*음")
+  assert.equal(maskComposerName("남궁민수"), "남**수")
+  assert.equal(maskComposerName("김철"), "김*")
+  assert.equal(maskComposerName("3반 김하음"), "3반 김*음")
+  assert.equal(maskComposerName("12번 김하음"), "12번 김*음")
+  assert.equal(maskComposerName("Mina"), "M**a")
+  assert.equal(maskComposerName(""), "")
+  assert.match(functionBody(channel, "workComposer"), /maskComposerName\(cleanText\(meta\.composerName, 24\)\)/)
+})

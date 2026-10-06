@@ -386,9 +386,20 @@
     return cleanText((work && work.title) || meta.title || "무제", 80)
   }
 
+  // 갤러리는 여러 사람이 보므로 이름 가운데를 가린다: 김하음→김*음, 남궁민수→남**수, 김철→김*.
+  // "3반 김하음"처럼 반·번호가 붙어도 글자 묶음마다 가려서 숫자·반 표시는 그대로 둔다.
+  function maskComposerName(name) {
+    return String(name || "").replace(/\p{L}+/gu, (word) => {
+      const chars = Array.from(word)
+      if (chars.length < 2) return word
+      if (chars.length === 2) return chars[0] + "*"
+      return chars[0] + "*".repeat(chars.length - 2) + chars[chars.length - 1]
+    })
+  }
+
   function workComposer(work) {
     const meta = (work && work.metadata) || {}
-    return cleanText(meta.composerName, 24)
+    return maskComposerName(cleanText(meta.composerName, 24))
   }
 
   function workDisplayTitle(work) {
