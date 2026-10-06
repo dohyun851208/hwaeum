@@ -2205,3 +2205,30 @@ test("sample preparation returns a reusable buffer without mutating the original
   assert.equal(source.loopStart, sustain.loopStart)
   assert.equal(source.loopEnd, sustain.loopEnd)
 })
+
+test("a stamp still sounding at the seek point continues from where it was", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const plan = engine.resolvePlan(
+    { duration: 30, atmosphere: "none", instrument: "violin", style: "bright", version: "balanced", mode: "melody", effectStamps: [{ id: "wind1", x: 0.1, y: 0.5 }] },
+    [],
+  )
+  const buffers = (seconds) => ({ pad: null, melody: null, effects: [{ asset: plan.effects[0], buffer: { duration: seconds } }] })
+
+  // 3초에 찍은 8초짜리 바람을 6초부터 틀면, 바람의 3초 지점부터 남은 5초를 바로 낸다.
+  const ctx = makeAudioContext()
+  engine.schedule(ctx, makeNode(), engine.seekPlan(plan, 6), buffers(8), 1, noop)
+  assert.equal(ctx.created.buffers.length, 1)
+  assert.deepEqual(ctx.created.buffers[0].startCalls[0], [1, 3, 5])
+  const events = ctx.created.gains.map((gain) => gain.gain.events).find((list) => list.length === 4)
+  const level = 0.45 * plan.effects[0].gain
+  // 소리 중간에서 들어가므로 0에서 0.02초 만에 키운다('딱' 소리 방지).
+  assert.deepEqual([events[0][0], events[0][1], events[0][2]], ["set", 0, 1])
+  assert.ok(events[1][0] === "linear" && Math.abs(events[1][1] - level) < 1e-9 && Math.abs(events[1][2] - 1.02) < 1e-9)
+  assert.deepEqual([events[3][1], events[3][2]], [0, 6])
+
+  // 이미 끝난 소리(3초 + 8초 = 11초)는 12초부터 틀면 내지 않는다.
+  const later = makeAudioContext()
+  engine.schedule(later, makeNode(), engine.seekPlan(plan, 12), buffers(8), 1, noop)
+  assert.equal(later.created.buffers.length, 0)
+})

@@ -70,35 +70,36 @@
   // gain: 앱 속 크기를 새소리에 맞추는 배율. 이름이 센 소리는 더 크게, 약한 소리는 조금 작게(measure-effect-loudness.cjs LEVEL_DB).
   // 파일 크기가 −14~−38 LUFS로 제각각이라 같은 게인으로 틀면 빗소리가 묻혔다(2026-10-05).
   // 값은 node tools/measure-effect-loudness.cjs 가 추천한 그대로 쓴다 — 파일을 바꾸면 다시 잰다.
+  // duration: 파일 길이(초). 도장은 찍은 자리부터 이만큼 나고, 3단계 도화지에 그 길이의 띠로 보인다(같은 도구가 확인).
   const effects = {
     // 바람 셋·번개·폭풍우·흑동고래는 노트북 스피커에서 작게 들려 픽사베이 녹음으로 바꿨다(2026-10-05, 그 전엔 유자레코즈 바람1~3·천둥2·3).
-    wind1: { label: "산들바람", src: "sound/효과-자연음(픽사베이)/산들바람.mp3", gain: 1.29, image: "./assets/effects/wind-breeze.webp" },
-    wind2: { label: "거센바람", src: "sound/효과-자연음(픽사베이)/거센바람.mp3", gain: 2.04, image: "./assets/effects/wind-gust.webp" },
-    wind3: { label: "회오리바람", src: "sound/효과-자연음(픽사베이)/회오리바람.mp3", gain: 1.82, image: "./assets/effects/wind-whirl.webp" },
+    wind1: { label: "산들바람", src: "sound/효과-자연음(픽사베이)/산들바람.mp3", gain: 1.29, duration: 8, image: "./assets/effects/wind-breeze.webp" },
+    wind2: { label: "거센바람", src: "sound/효과-자연음(픽사베이)/거센바람.mp3", gain: 2.04, duration: 7, image: "./assets/effects/wind-gust.webp" },
+    wind3: { label: "회오리바람", src: "sound/효과-자연음(픽사베이)/회오리바람.mp3", gain: 1.82, duration: 7.9, image: "./assets/effects/wind-whirl.webp" },
     // 비1↔비2 는 원본 파일 이름과 실제 소리가 반대였다(비1이 비2보다 14 dB 크고 굵다).
     // 학생이 고른 이름대로 들리도록 음원을 맞바꿨다 — 라벨·그림은 그대로 둔다.
-    rain1: { label: "가랑비", src: "sound/효과-자연음(유자레코즈)/비2.mp3", gain: 11.35, image: "./assets/effects/rain-drizzle.webp" },
-    rain2: { label: "소나기", src: "sound/효과-자연음(유자레코즈)/비1.mp3", gain: 3.55, image: "./assets/effects/rain-shower.webp" },
+    rain1: { label: "가랑비", src: "sound/효과-자연음(유자레코즈)/비2.mp3", gain: 11.35, duration: 10.7, image: "./assets/effects/rain-drizzle.webp" },
+    rain2: { label: "소나기", src: "sound/효과-자연음(유자레코즈)/비1.mp3", gain: 3.55, duration: 3.9, image: "./assets/effects/rain-shower.webp" },
     // 비3 은 고른 빗소리라 굵은 물방울이 따로 들리지 않았다 → 똑똑 떨어지는 픽사베이 녹음으로 바꿨다.
-    rain3: { label: "큰 빗방울", src: "sound/효과-자연음(픽사베이)/큰빗방울.mp3", gain: 4.29, image: "./assets/effects/rain-drops.webp" },
+    rain3: { label: "큰 빗방울", src: "sound/효과-자연음(픽사베이)/큰빗방울.mp3", gain: 4.29, duration: 9.9, image: "./assets/effects/rain-drops.webp" },
     // 새소리 숲(forest1)은 뺐다 — 동물 도장의 새·뻐꾸기와 구별되지 않았다.
     // 숲2 는 새 울음 두 번 뒤 11초가 거의 무음(잎 소리 없음), 숲3 은 가까운 새들의 지저귐이라 픽사베이 녹음으로 바꿨다.
-    forest2: { label: "흔들리는 잎", src: "sound/효과-자연음(픽사베이)/흔들리는잎.mp3", gain: 3.27, image: "./assets/effects/forest-leaves.webp" },
-    forest3: { label: "깊은 숲", src: "sound/효과-자연음(픽사베이)/깊은숲.mp3", gain: 2.88, image: "./assets/effects/forest-deep.webp" },
+    forest2: { label: "흔들리는 잎", src: "sound/효과-자연음(픽사베이)/흔들리는잎.mp3", gain: 3.27, duration: 8, image: "./assets/effects/forest-leaves.webp" },
+    forest3: { label: "깊은 숲", src: "sound/효과-자연음(픽사베이)/깊은숲.mp3", gain: 2.88, duration: 7.2, image: "./assets/effects/forest-deep.webp" },
     // 천둥1 은 번개만큼 커서 '먼' 느낌이 약했다 → 높은 소리가 없는 먼 천둥 녹음으로 바꿨다(크기는 gain 으로 3 dB 작게).
-    thunder1: { label: "먼 천둥", src: "sound/효과-자연음(픽사베이)/먼천둥.mp3", gain: 2.57, image: "./assets/effects/thunder-distant.webp" },
-    thunder2: { label: "번개", src: "sound/효과-자연음(픽사베이)/번개.mp3", gain: 3.67, image: "./assets/effects/thunder-lightning.webp" },
-    thunder3: { label: "폭풍우", src: "sound/효과-자연음(픽사베이)/폭풍우.mp3", gain: 3.31, image: "./assets/effects/thunder-storm.webp" },
+    thunder1: { label: "먼 천둥", src: "sound/효과-자연음(픽사베이)/먼천둥.mp3", gain: 2.57, duration: 7.5, image: "./assets/effects/thunder-distant.webp" },
+    thunder2: { label: "번개", src: "sound/효과-자연음(픽사베이)/번개.mp3", gain: 3.67, duration: 7.5, image: "./assets/effects/thunder-lightning.webp" },
+    thunder3: { label: "폭풍우", src: "sound/효과-자연음(픽사베이)/폭풍우.mp3", gain: 3.31, duration: 9, image: "./assets/effects/thunder-storm.webp" },
     // 천둥4 는 '쿵' 한 번 뒤 2.6초에 끝나 굴러가는 느낌이 짧았다 → 길게 굴러가는 픽사베이 녹음으로 바꿨다.
-    thunder4: { label: "우르릉", src: "sound/효과-자연음(픽사베이)/우르릉.mp3", gain: 1.82, image: "./assets/effects/thunder-rumble.webp" },
-    animalCricket: { label: "귀뚜라미", group: "동물", src: "sound/효과음-도장/동물/귀뚜라미.mp3", gain: 3.02, image: "./assets/effects/stamps/animal-cricket.webp" },
-    animalCuckoo: { label: "뻐꾸기", group: "동물", src: "sound/효과음-도장/동물/뻐꾸기.mp3", gain: 1.43, image: "./assets/effects/stamps/animal-cuckoo.webp" },
-    animalBird: { label: "새", group: "동물", src: "sound/효과음-도장/동물/새.mp3", gain: 1, image: "./assets/effects/stamps/animal-bird.webp" },
-    animalWhale: { label: "흑동고래", group: "동물", src: "sound/효과음-도장/동물/흑동고래.mp3", gain: 1.84, image: "./assets/effects/stamps/animal-whale.webp" },
-    sfxBubblePop: { label: "방울pop", group: "효과", src: "sound/효과음-도장/효과/방울pop.mp3", gain: 1.32, image: "./assets/effects/stamps/sfx-bubble-pop.webp" },
-    sfxBell: { label: "벨", group: "효과", src: "sound/효과음-도장/효과/벨.mp3", gain: 1.26, image: "./assets/effects/stamps/sfx-bell.webp" },
-    sfxTambourine: { label: "탬버린", group: "효과", src: "sound/효과음-도장/효과/탬버린.mp3", gain: 3.16, image: "./assets/effects/stamps/sfx-tambourine.webp" },
-    sfxHarp: { label: "하프", group: "효과", src: "sound/효과음-도장/효과/하프.mp3", gain: 2.75, image: "./assets/effects/stamps/sfx-harp.webp" },
+    thunder4: { label: "우르릉", src: "sound/효과-자연음(픽사베이)/우르릉.mp3", gain: 1.82, duration: 9.5, image: "./assets/effects/thunder-rumble.webp" },
+    animalCricket: { label: "귀뚜라미", group: "동물", src: "sound/효과음-도장/동물/귀뚜라미.mp3", gain: 3.02, duration: 4.2, image: "./assets/effects/stamps/animal-cricket.webp" },
+    animalCuckoo: { label: "뻐꾸기", group: "동물", src: "sound/효과음-도장/동물/뻐꾸기.mp3", gain: 1.43, duration: 1.6, image: "./assets/effects/stamps/animal-cuckoo.webp" },
+    animalBird: { label: "새", group: "동물", src: "sound/효과음-도장/동물/새.mp3", gain: 1, duration: 1, image: "./assets/effects/stamps/animal-bird.webp" },
+    animalWhale: { label: "흑동고래", group: "동물", src: "sound/효과음-도장/동물/흑동고래.mp3", gain: 1.84, duration: 5, image: "./assets/effects/stamps/animal-whale.webp" },
+    sfxBubblePop: { label: "방울pop", group: "효과", src: "sound/효과음-도장/효과/방울pop.mp3", gain: 1.32, duration: 0.7, image: "./assets/effects/stamps/sfx-bubble-pop.webp" },
+    sfxBell: { label: "벨", group: "효과", src: "sound/효과음-도장/효과/벨.mp3", gain: 1.26, duration: 2, image: "./assets/effects/stamps/sfx-bell.webp" },
+    sfxTambourine: { label: "탬버린", group: "효과", src: "sound/효과음-도장/효과/탬버린.mp3", gain: 3.16, duration: 1.2, image: "./assets/effects/stamps/sfx-tambourine.webp" },
+    sfxHarp: { label: "하프", group: "효과", src: "sound/효과음-도장/효과/하프.mp3", gain: 2.75, duration: 2.6, image: "./assets/effects/stamps/sfx-harp.webp" },
   }
 
   // 배경 — 배경 음원과 1:1로 직접 매칭. id가 곧 backgroundId.

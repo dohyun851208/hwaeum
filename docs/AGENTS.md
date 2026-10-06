@@ -40,6 +40,7 @@
 - `decisions/2026-10-04-haegeum-resonance-cuts.md` — 해금의 울림통 콧소리 공명(1.4~1.8 kHz)을 두 곳에서 −14 dB 깎고 미끄러짐을 0.12→0.05초로: 무료 출처 셋이 모두 같은 음색이라 녹음 교체 대신 음색 처리, 재생·펜·음 미리듣기 같은 필터, 해금 게인 0.29→2.00
 - `decisions/2026-10-02-nature-effect-sound-match.md` — 자연 효과음을 이름에 맞게: 바람1↔2 맞바꿈, 이름의 순간을 맨 앞에, 없는 소리는 픽사베이 녹음(`build-nature-effects.py`)
 - `decisions/2026-10-05-effect-stamp-loudness.md` — 효과음 도장이 배경·선율보다 9.5 dB 묻힌 것(배경·선율만 ×3 커짐)을 `EFFECT_GAIN` 0.15→0.45로 되돌리고, 도장끼리 24 dB 차이는 manifest `gain`으로 새소리 기준에 맞춤(`measure-effect-loudness.cjs` `LEVEL_DB`: 번개 +6·폭풍우·거센바람 +4·회오리바람·흑동고래 +3·가랑비·먼 천둥 −3), 찍은 뒤 끝까지 줄이던 페이드는 끝 0.3초만, 작게 들리던 바람 셋·번개·폭풍우·흑동고래는 노트북 대역에 소리가 있는 픽사베이 녹음으로 교체
+- `decisions/2026-10-06-effect-stamp-length-band.md` — 도장은 시작점만 정하고 파일 길이만큼 나는 방식을 유지, 그 길이를 도화지에 옅은 띠로 보이고(manifest `duration`, 겹치면 진해짐) 재생 위치를 옮겨도 아직 울리는 도장을 이어서 냄(`seekPlan` `sourceOffset`)
 - `decisions/2026-10-03-instrument-example-pieces.md` — 2단계 악기 감상 연주곡을 같은 무리 카드와 같은 크기(LUFS)의 깨끗한 실제 녹음으로: 단소는 24 dB 작던 문덕곡 대신 국립국악원 청성곡, 먹먹하던 플루트·바이올린·더블베이스는 CC 실연 녹음(출처 줄·`라이센스.txt`)(`build-instrument-examples.py`)
 
 - `decisions/2026-10-03-brush-to-melody-landing.md` — 붓질에서 그림·음표로 이어지는 메인 연출, 즉시 진입과 움직임 제어

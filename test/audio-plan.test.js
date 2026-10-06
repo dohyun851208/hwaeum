@@ -192,7 +192,7 @@ test("seekPlan trims crossing notes and shifts timed plan entries", () => {
       },
     ],
     rhythmHits: [{ time: 6, velocity: 0.5 }],
-    effectStamps: [{ id: "wind1", time: 9 }],
+    effectStamps: [{ id: "wind1", time: 9 }, { id: "rain1", time: 2 }],
     soundLayers: [
       { id: "long", time: 2, sourceOffset: 10, duration: 6, gain: 0.6 },
       { id: "later", time: 9, sourceOffset: 3, duration: 1, gain: 0.4 },
@@ -212,7 +212,8 @@ test("seekPlan trims crossing notes and shifts timed plan entries", () => {
     { time: 1, midi: 62 },
   ])
   assert.deepEqual(plain(shifted.rhythmHits), [{ time: 1, velocity: 0.5 }])
-  assert.deepEqual(plain(shifted.effectStamps), [{ id: "wind1", time: 4 }])
+  // 탐색 지점 전에 찍힌 도장도 남겨, 지나간 3초만큼 건너뛰고 이어서 낸다(소리가 끝났는지는 엔진이 버퍼로 판단).
+  assert.deepEqual(plain(shifted.effectStamps), [{ id: "wind1", time: 4 }, { id: "rain1", time: 0, sourceOffset: 3 }])
   assert.deepEqual(plain(shifted.soundLayers), [
     { id: "long", time: 0, sourceOffset: 13, duration: 3, gain: 0.6 },
     { id: "later", time: 4, sourceOffset: 3, duration: 1, gain: 0.4 },

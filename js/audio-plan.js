@@ -517,6 +517,19 @@
           return Object.assign({}, item, { time: item.time - offset })
         })
     }
+    // 도장은 시작점만 정하고 파일을 끝까지 튼다. 탐색 지점 전에 찍힌 도장도 아직 울리고 있을 수 있어
+    // 지나간 만큼을 sourceOffset 으로 넘긴다. 소리가 이미 끝났는지는 버퍼 길이를 아는 엔진이 판단한다.
+    const shiftStamps = function (items) {
+      return (items || [])
+        .filter(function (item) {
+          return item && item.time < totalDuration
+        })
+        .map(function (item) {
+          const skipped = offset - item.time
+          if (skipped <= 0) return Object.assign({}, item, { time: item.time - offset })
+          return Object.assign({}, item, { time: 0, sourceOffset: (item.sourceOffset || 0) + skipped })
+        })
+    }
     const shiftSoundLayers = function (items) {
       return (items || [])
         .filter(function (item) {
@@ -548,7 +561,7 @@
       }).filter((segment) => segment.end + 6 > 0 && segment.start < remaining),
       sourceNotes: (plan.notes || []).map((note) => Object.assign({}, note, { time: note.time - offset })),
       rhythmHits: shiftTimed(plan.rhythmHits),
-      effectStamps: shiftTimed(plan.effectStamps),
+      effectStamps: shiftStamps(plan.effectStamps),
       soundLayers: shiftSoundLayers(plan.soundLayers),
     })
   }

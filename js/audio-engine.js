@@ -40,6 +40,9 @@
   // 전체 재생에서 도장 소리를 끝에서만 줄이는 길이. 예전엔 찍은 순간부터 끝까지 직선으로 줄여
   // 바람·비처럼 이어지는 소리가 평균 4.8 dB 작아졌다. 파일에는 이미 페이드아웃이 있다.
   const EFFECT_END_FADE_SECONDS = 0.3
+  // 중간부터 이어 낼 때 키우며 들어가는 길이, 그리고 이만큼도 안 남은 도장은 건너뛴다.
+  const EFFECT_RESUME_FADE_SECONDS = 0.02
+  const EFFECT_MIN_REMAINING_SECONDS = 0.05
   const EFFECT_MAX_OUTPUT_GAIN = 16
   // 도장을 고를 때·찍을 때 앞 1.2초만 들려주는 미리듣기. 마스터를 거치지 않고 바로 나간다.
   const EFFECT_PREVIEW_GAIN = 0.24
@@ -703,27 +706,37 @@
       const stamps = stampsByEffect.get(asset.id) || []
       const interval = clamp(buffer.duration * 0.85, 3.2, 10)
       const offsets = stamps.length
-        ? stamps.map((stamp) => stamp.time)
-        : /^thunder/.test(asset.id || "") || asset.label.indexOf("천둥") >= 0
-          ? [dur * (0.45 + index * 0.08)]
-          : Array.from({ length: Math.ceil(dur / interval) }, (_, k) => k * interval + index * 1.7)
+        ? stamps.map((stamp) => ({ time: stamp.time, sourceOffset: Math.max(0, Number(stamp.sourceOffset) || 0) }))
+        : (/^thunder/.test(asset.id || "") || asset.label.indexOf("천둥") >= 0
+            ? [dur * (0.45 + index * 0.08)]
+            : Array.from({ length: Math.ceil(dur / interval) }, (_, k) => k * interval + index * 1.7)
+          ).map((time) => ({ time: time, sourceOffset: 0 }))
       offsets
-        .filter((o) => o >= 0 && o < dur - 0.2)
+        .filter((o) => o.time >= 0 && o.time < dur - 0.2)
         .forEach((o) => {
+          // sourceOffset: 탐색 지점 전에 찍혀 아직 울리는 도장은 지나간 만큼 건너뛰고 남은 부분만 낸다.
+          const outDur = Math.min(buffer.duration - o.sourceOffset, dur - o.time)
+          if (!(outDur > EFFECT_MIN_REMAINING_SECONDS)) return
           const src = ctx.createBufferSource()
           const g = ctx.createGain()
-          const at = start + o
-          const outDur = Math.min(buffer.duration, dur - o)
+          const at = start + o.time
           const level = EFFECT_GAIN * effectOutputGain(asset)
           const fadeOut = Math.min(EFFECT_END_FADE_SECONDS, outDur * 0.25)
+          // 소리 중간에서 시작하면 파형이 0이 아닌 곳이라 '딱' 소리가 나니 아주 짧게 키우며 들어간다.
+          const fadeIn = o.sourceOffset > 0 ? Math.min(EFFECT_RESUME_FADE_SECONDS, outDur * 0.25) : 0
           src.buffer = buffer
-          g.gain.setValueAtTime(level, at)
+          if (fadeIn > 0) {
+            g.gain.setValueAtTime(0, at)
+            g.gain.linearRampToValueAtTime(level, at + fadeIn)
+          } else {
+            g.gain.setValueAtTime(level, at)
+          }
           g.gain.setValueAtTime(level, at + outDur - fadeOut)
           g.gain.linearRampToValueAtTime(0, at + outDur)
           src.connect(g)
           g.connect(dest)
           register(src)
-          src.start(at, 0, outDur)
+          src.start(at, o.sourceOffset, outDur)
         })
       usedReal = true
     })

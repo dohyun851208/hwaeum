@@ -932,11 +932,24 @@
     state.effectStamps.forEach((stamp) => {
       const effect = D.effects[stamp.id]
       if (!effect) return
+      const x = stamp.x || 0
+      const left = timelineCssX(x)
+      const top = Math.max(0.04, Math.min(0.96, stamp.y == null ? 0.5 : stamp.y)) * 100 + "%"
+      // 도장은 찍은 자리부터 소리 파일 길이만큼 난다 → 그 길이를 옅은 띠로 보여 준다(겹치면 진해진다).
+      const seconds = Number(effect.duration) || 0
+      if (seconds > 0) {
+        const span = document.createElement("span")
+        span.className = "effect-stamp-span"
+        span.style.left = Math.round(left) + "px"
+        span.style.width = Math.max(0, Math.round(timelineCssX(x + seconds / Math.max(1, state.duration || 30)) - left)) + "px"
+        span.style.top = top
+        el.effectStampLayer.appendChild(span)
+      }
       const mark = document.createElement("span")
       mark.className = "effect-stamp"
-      mark.style.left = Math.round(timelineCssX(stamp.x || 0)) + "px"
-      mark.style.top = Math.max(0.04, Math.min(0.96, stamp.y == null ? 0.5 : stamp.y)) * 100 + "%"
-      mark.title = effect.label
+      mark.style.left = Math.round(left) + "px"
+      mark.style.top = top
+      mark.title = seconds > 0 ? effect.label + " (" + Math.round(seconds * 10) / 10 + "초)" : effect.label
       if (effect.image) {
         const img = document.createElement("img")
         img.src = effect.image

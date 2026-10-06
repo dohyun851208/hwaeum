@@ -7,9 +7,11 @@
  *
  * 실행:
  *   node tools/measure-effect-loudness.cjs          표와 추천 gain
- *   node tools/measure-effect-loudness.cjs --check  manifest gain 이 추천값과 0.5 dB 넘게 다르면 실패
+ *   node tools/measure-effect-loudness.cjs --check  manifest gain 이 추천값과 0.5 dB 넘게 다르거나
+ *                                                   duration 이 파일 길이와 0.15초 넘게 다르면 실패
  *
  * 효과음 파일을 바꾸거나 build-nature-effects.py 로 다시 만든 뒤에 돌리고, 추천값으로 manifest 를 고친다.
+ * manifest 의 duration(파일 길이, 0.1초 단위)은 3단계 도화지의 도장 길이 띠에 쓰이므로 함께 고친다.
  * ffmpeg 필요. 도장 파일은 모두 모노다(스테레오 파일을 넣으면 같은 숫자라도 3 dB 작게 들리니 모노로 만든다).
  */
 const fs = require("fs")
@@ -35,6 +37,7 @@ const LEVEL_DB = {
 // 미리듣기는 마스터 리미터를 거치지 않고 바로 나가므로, 키운 뒤의 피크가 이 값을 넘지 않게 gain 을 묶는다.
 const PREVIEW_PEAK_LIMIT_DB = -1
 const CHECK_TOLERANCE_DB = 0.5
+const DURATION_TOLERANCE_SECONDS = 0.15
 
 function loadEffects() {
   const sandbox = {}
@@ -60,7 +63,10 @@ function measure(file) {
   const lufs = Number((summary.match(/I:\s+(-?[\d.]+) LUFS/) || [])[1])
   const peak = Number((result.stderr.match(/Peak level dB:\s+(-?[\d.]+)/) || [])[1])
   if (!isFinite(lufs) || !isFinite(peak)) throw new Error(`measure failed: ${file}\n${result.stderr.slice(-600)}`)
-  return { lufs, peak }
+  const probe = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file], { encoding: "utf8" })
+  const duration = Number(probe.stdout.trim())
+  if (!isFinite(duration)) throw new Error(`duration failed: ${file}`)
+  return { lufs, peak, duration }
 }
 
 function round2(value) {
@@ -77,9 +83,9 @@ function main() {
   const reference = measured[REFERENCE_ID].lufs
   let mismatches = 0
   console.log(`기준: ${effects[REFERENCE_ID].label} ${reference.toFixed(1)} LUFS`)
-  console.log("id               이름        크기    피크    목표  보정 dB  추천 gain  manifest")
+  console.log("id               이름        크기    피크    목표  보정 dB  추천 gain  manifest   길이(초)")
   Object.keys(effects).forEach((id) => {
-    const { lufs, peak } = measured[id]
+    const { lufs, peak, duration } = measured[id]
     const target = reference + (LEVEL_DB[id] || 0)
     const wantedDb = target - lufs
     const maxDb = PREVIEW_PEAK_LIMIT_DB - previewDb - peak
@@ -88,6 +94,9 @@ function main() {
     const current = effects[id].gain == null ? 1 : effects[id].gain
     const diffDb = 20 * Math.log10(current / gain)
     if (Math.abs(diffDb) > CHECK_TOLERANCE_DB) mismatches += 1
+    const seconds = Math.round(duration * 10) / 10
+    const durationOff = !(Math.abs((Number(effects[id].duration) || 0) - duration) <= DURATION_TOLERANCE_SECONDS)
+    if (durationOff) mismatches += 1
     console.log(
       [
         id.padEnd(15),
@@ -98,12 +107,13 @@ function main() {
         ((gainDb >= 0 ? "+" : "") + gainDb.toFixed(1)).padStart(7),
         String(gain).padStart(9),
         String(current).padStart(9),
+        (String(seconds) + (durationOff ? ` (manifest ${effects[id].duration})` : "")).padStart(8),
         gainDb < wantedDb ? `피크 때문에 ${(wantedDb - gainDb).toFixed(1)} dB 덜 키움` : "",
       ].join("  "),
     )
   })
   if (process.argv.includes("--check") && mismatches) {
-    console.error(`manifest gain 이 추천값과 ${CHECK_TOLERANCE_DB} dB 넘게 다른 도장: ${mismatches}개`)
+    console.error(`manifest gain·duration 이 측정값과 다른 도장: ${mismatches}개`)
     process.exitCode = 1
   }
 }
