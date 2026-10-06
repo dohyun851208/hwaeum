@@ -5743,7 +5743,8 @@ body:not(.channel-body)::after {
   .completion-gallery .actions-row,
   .completion-gallery .upload-status,
   .completion-gallery .publish-progress,
-  .completion-gallery .takes {
+  /* 두 칸일 때 내 작품은 오른쪽 칸 아래로 — 왼쪽에 두면 따라 내려오는(sticky) 표지가 목록을 덮는다 */
+  .completion-gallery > .completion-work-list {
     grid-column: 2;
   }
   .completion-gallery .completion-detail-panel > .placard,

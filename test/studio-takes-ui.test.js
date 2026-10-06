@@ -118,3 +118,12 @@ test("selecting a take restores its recipe and completion title", () => {
   assert.deepEqual(calls.loadRecipe, [recipe])
   assert.equal(el.exportStatus.textContent, "‘저장된 제목’ 정보를 불러왔어요.")
 })
+
+test("my works list never shares a column with the sticky completion cover", () => {
+  const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
+  const twoColumn = css.slice(css.indexOf("@media (min-width: 1081px) {"))
+
+  assert.match(css, /\.completion-preview-column \{[^}]*position: sticky;/)
+  assert.match(twoColumn, /\.completion-gallery \{\s*grid-template-columns: minmax\(360px, 520px\) minmax\(520px, 860px\);/)
+  assert.match(twoColumn, /\.completion-gallery > \.completion-work-list \{\s*grid-column: 2;/)
+})
