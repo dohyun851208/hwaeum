@@ -164,3 +164,20 @@ test("an open request succeeding after it was blocked closes its late connection
   req.onsuccess()
   assert.equal(closed, 1)
 })
+
+test("sharing the same work again replaces the earlier copy from this browser but never someone else's", async () => {
+  const h = harness()
+  await h.store.claimLocalChannel("107", "1234", "교실", h.owner, "8624")
+  const first = await h.publish()
+  const payload = { title: "봄", coverBlob: new Blob(["a"]), thumbBlob: new Blob(["a"]), musicBlob: new Blob(["a"]), recipe: {}, replaceWorkId: first.work.id }
+  const second = await h.store.publishLocalWork(payload, "107", h.owner, "1234")
+  assert.equal(second.replaced, true)
+  let listed = await h.store.listLocalWorks("107", "1234")
+  assert.deepEqual(listed.works.map((work) => work.id), [second.work.id])
+
+  const stranger = { id: "other-student", key: "other-key" }
+  const third = await h.store.publishLocalWork(Object.assign({}, payload, { replaceWorkId: second.work.id }), "107", stranger, "1234")
+  assert.equal(third.replaced, false, "다른 학생이 올린 작품은 지우지 않는다")
+  listed = await h.store.listLocalWorks("107", "1234")
+  assert.equal(listed.works.length, 2)
+})

@@ -64,17 +64,19 @@ test("새 감상 칸은 화음 갤러리 공유 필수 항목이 아니다", () 
   assert.equal((body.match(/missing\.push/g) || []).length, 5, "필수 항목은 5개 그대로")
 })
 
-test("4단계는 좌(표지·듣기) 중(설명) 우(내 작품) 세 칸이다", () => {
+test("4단계는 좌(표지·듣기)와 우(설명, 그 아래 내 작품) 두 칸이다", () => {
   const html = read("studio.html")
   const preview = html.indexOf("completion-preview-column")
   const detail = html.indexOf("completion-detail-panel")
   const works = html.indexOf("completion-work-list")
   assert.ok(preview > -1 && detail > -1 && works > -1)
   assert.ok(preview < detail, "표지·듣기 칸이 가장 왼쪽")
-  assert.ok(detail < works, "내 작품 목록이 가장 오른쪽")
+  assert.ok(detail < works, "내 작품 목록은 설명 아래")
 
   const css = read("styles.css")
-  assert.match(css, /grid-template-columns: minmax\(260px, 0\.78fr\) minmax\(460px, 1\.34fr\) minmax\(300px, 0\.88fr\)/)
+  // 세 칸은 1024 폭에서 '내 작품'이 화면 밖으로 넘쳤다 — 어느 폭에서나 두 칸, 내 작품은 오른쪽 칸 아래.
+  assert.match(css, /grid-template-columns: minmax\(240px, 0\.8fr\) minmax\(420px, 1\.4fr\)/)
+  assert.match(css, /\.completion-gallery > \.completion-work-list \{\s*grid-column: 2;/)
   // 표지 미리보기는 예전에 display:none 이라 아예 안 보였다.
   assert.doesNotMatch(css, /\.completion-current-preview \{\s*display: none;/)
 })

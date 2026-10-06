@@ -248,7 +248,9 @@
         return result
       } catch (e) {
         console.error(e)
-        el.exportStatus.textContent = "음악 저장 실패 — 크롬에서 다시 시도해 주세요."
+        // 한국어로 된 까닭(예: 끝까지 담지 못함)이 있으면 그대로 보여 준다.
+        const reason = e && /[가-힣]/.test(e.message || "") ? e.message : "크롬에서 다시 시도해 주세요."
+        el.exportStatus.textContent = "음악 저장 실패 — " + reason
       }
     }
 

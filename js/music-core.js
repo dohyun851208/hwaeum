@@ -314,6 +314,7 @@
     const stepSec = 1 / SAMPLE_RATE
     const samples = sampleDrawnTimeline(path, durationSec, stepSec)
     const raw = []
+    const hiddenRow = [] // 선 위인데 낼 수 없는 칸(국악기의 파·시)이라 비운 자리
     let prev = null
     for (let i = 0; i < samples.length; i++) {
       const sample = samples[i]
@@ -325,6 +326,7 @@
       let midi = quantizePitch(sample.y, style, asset)
       if (midi == null) {
         raw.push(null)
+        hiddenRow[i] = true
         prev = null
         continue
       }
@@ -334,6 +336,11 @@
       }
       prev = midi
       raw.push(midi)
+    }
+    // 선이 숨은 칸을 한 번 스치고 지나가면(라→도, 미→솔) 1/16초 쉼이 생겨 소리가 뚝 끊겼다.
+    // 앞뒤가 모두 음인 한 칸짜리 빈자리는 앞 음을 이어 메운다(숨은 칸에 머문 긴 구간은 그대로 쉼).
+    for (let i = 1; i < raw.length - 1; i++) {
+      if (hiddenRow[i] && raw[i - 1] != null && raw[i + 1] != null) raw[i] = raw[i - 1]
     }
     // 연속 동음 병합 → 길게 그린 음은 한 음으로 지속(레가토). 빈 칸(null)에서만 끊긴다.
     const notes = []

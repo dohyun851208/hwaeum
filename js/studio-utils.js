@@ -69,16 +69,17 @@
     return /^data:image\/[a-z0-9.+-]+;base64,/i.test(data) ? data : ""
   }
 
-  // Tags split on commas/newlines only, so a multi-word tag (with spaces) stays one tag.
+  // Tags split on commas/newlines and '#' (so "#봄 #여름" becomes two tags), but not on spaces,
+  // so a multi-word tag stays one tag. Hangul jamo (ㅋㅋㅋ) is kept like other letters.
   function normalizeHashtags(value) {
     const raw = Array.isArray(value) ? value.join(",") : String(value || "")
     const seen = {}
     return raw
-      .split(/[,\n]+/)
+      .split(/[,\n#]+/)
       .map((tag) =>
         tag
           .replace(/^[\s#]+/, "")
-          .replace(/[^\w\uAC00-\uD7A3\- ]/g, "")
+          .replace(/[^\w\u3131-\u318E\uAC00-\uD7A3\- ]/g, "")
           .replace(/\s+/g, " ")
           .trim()
           .slice(0, 24)
@@ -157,7 +158,8 @@
       .filter((stamp) => stamp && effectMap[stamp.id])
       .map((stamp) => ({
         id: stamp.id,
-        x: round3(Math.max(0, Math.min(1, stamp.x || 0))),
+        // 구간을 줄여 끝 너머(x>1)로 간 도장은 지우지 않고 그대로 둔다(다시 늘리면 같은 초에 나타난다).
+        x: round3(Math.max(0, Number(stamp.x) || 0)),
         y: round3(Math.max(0, Math.min(1, stamp.y == null ? 0.5 : stamp.y))),
       }))
   }

@@ -9,7 +9,7 @@
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="stylesheet" href="./assets/fonts/hwaeum-sans.css" />
-    <link rel="stylesheet" href="./styles.css?v=20261006-stamp-length" />
+    <link rel="stylesheet" href="./styles.css?v=20261007-audit-fixes" />
   </head>
   <body data-step="0">
     <div class="atelier">
@@ -92,6 +92,7 @@
                 <div class="group-tabs" id="instrumentGroups"></div>
               </div>
               <div class="card-grid" id="instrumentGrid"></div>
+              <p class="upload-status instrument-status" id="instrumentStatus" aria-live="polite"></p>
             </section>
           </div>
           <div class="screen-actions">
@@ -192,6 +193,7 @@
                     <div class="palette-labels" id="paletteLabels" aria-hidden="true"></div>
                     <div class="playhead" id="playhead" role="slider" aria-label="재생 시작 위치" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" tabindex="0" hidden></div>
                   </div>
+                  <p class="drawing-toast" id="drawingStatus" role="status" aria-live="polite"></p>
                 </div>
                 <div class="bg-player" id="bgPlayer" aria-label="배경음악 위치 맞추기">
                   <span class="bg-player-label">배경 구간 선택</span>
@@ -330,7 +332,7 @@
         <section class="screen share-screen" data-screen="4" aria-label="5단계 화음 갤러리에 공유하기">
           <div class="screen-head">
             <p class="eyebrow">5단계</p>
-            <h2>화음 갤러리에 공유합니다.</h2>
+            <h2>화음 갤러리에 들어갑니다.</h2>
             <p class="lead">번호와 갤러리 코드를 입력하면 같은 화음 갤러리에 모인 완성 작품을 함께 감상할 수 있습니다.</p>
           </div>
           <section class="panel share-board share-gate">
@@ -408,31 +410,31 @@
       </div>
     </div>
 
-    <script src="./js/music-core.js?v=20261002-natural"></script>
+    <script src="./js/music-core.js?v=20261007-audit-fixes"></script>
     <script src="./js/manifest.js?v=20261006-stamp-length"></script>
-    <script src="./js/sample-maps.js?v=20260624-reflect-limit"></script>
+    <script src="./js/sample-maps.js?v=20261007-audit-fixes"></script>
     <script src="./js/sample-maps-western.js?v=20261003-loudness-audit"></script>
     <script src="./js/sample-calibration.js?v=20261003-loudness-audit"></script>
-    <script src="./js/audio-plan.js?v=20261006-stamp-length"></script>
+    <script src="./js/audio-plan.js?v=20261007-audit-fixes"></script>
     <script src="./js/audio-node-scope.js?v=20260714-node-scope"></script>
     <script src="./js/audio-samples.js?v=20261003-refactor"></script>
     <script src="./js/audio-pad-graph.js?v=20260714-pad-graph"></script>
-    <script src="./js/audio-engine.js?v=20261006-stamp-length"></script>
+    <script src="./js/audio-engine.js?v=20261007-audit-fixes"></script>
     <script src="./js/instrument-brush.js?v=20261003-instrument-outward"></script>
     <script src="./js/drawing-renderer.js?v=20261003-refactor"></script>
-    <script src="./js/drawing.js?v=20261003-refactor"></script>
-    <script src="./js/takes.js?v=20260702-newest-first"></script>
-    <script src="./js/share-local-store.js?v=20261003-refactor"></script>
-    <script src="./js/share-store.js?v=20261003-refactor"></script>
-    <script src="./js/studio-utils.js?v=20261002-natural"></script>
-    <script src="./js/studio-reflection.js?v=20261003-refactor"></script>
+    <script src="./js/drawing.js?v=20261007-audit-fixes"></script>
+    <script src="./js/takes.js?v=20261007-audit-fixes"></script>
+    <script src="./js/share-local-store.js?v=20261007-audit-fixes"></script>
+    <script src="./js/share-store.js?v=20261007-audit-fixes"></script>
+    <script src="./js/studio-utils.js?v=20261007-audit-fixes"></script>
+    <script src="./js/studio-reflection.js?v=20261007-audit-fixes"></script>
     <script src="./js/studio-recipe.js?v=20261003-refactor"></script>
-    <script src="./js/studio-export.js?v=20260714-export-workflow"></script>
-    <script src="./js/studio-setup-render.js?v=20260729-reflection-notes"></script>
-    <script src="./js/studio-transport.js?v=20260803-timeline-retime"></script>
-    <script src="./js/studio-sound-layers.js?v=20260818-sound-layers"></script>
-    <script src="./js/studio-takes-ui.js?v=20260731-takes-ui-split"></script>
-    <script src="./js/studio-share.js?v=20260731-share-split"></script>
-    <script src="./js/studio.js?v=20261006-stamp-length" defer></script>
+    <script src="./js/studio-export.js?v=20261007-audit-fixes"></script>
+    <script src="./js/studio-setup-render.js?v=20261007-audit-fixes"></script>
+    <script src="./js/studio-transport.js?v=20261007-audit-fixes"></script>
+    <script src="./js/studio-sound-layers.js?v=20261007-audit-fixes"></script>
+    <script src="./js/studio-takes-ui.js?v=20261007-audit-fixes"></script>
+    <script src="./js/studio-share.js?v=20261007-audit-fixes"></script>
+    <script src="./js/studio.js?v=20261007-audit-fixes" defer></script>
   </body>
 </html>

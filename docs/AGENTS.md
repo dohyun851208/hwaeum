@@ -41,6 +41,7 @@
 - `decisions/2026-10-02-nature-effect-sound-match.md` — 자연 효과음을 이름에 맞게: 바람1↔2 맞바꿈, 이름의 순간을 맨 앞에, 없는 소리는 픽사베이 녹음(`build-nature-effects.py`)
 - `decisions/2026-10-05-effect-stamp-loudness.md` — 효과음 도장이 배경·선율보다 9.5 dB 묻힌 것(배경·선율만 ×3 커짐)을 `EFFECT_GAIN` 0.15→0.45로 되돌리고, 도장끼리 24 dB 차이는 manifest `gain`으로 새소리 기준에 맞춤(`measure-effect-loudness.cjs` `LEVEL_DB`: 번개 +6·폭풍우·거센바람 +4·회오리바람·흑동고래 +3·가랑비·먼 천둥 −3), 찍은 뒤 끝까지 줄이던 페이드는 끝 0.3초만, 작게 들리던 바람 셋·번개·폭풍우·흑동고래는 노트북 대역에 소리가 있는 픽사베이 녹음으로 교체
 - `decisions/2026-10-06-effect-stamp-length-band.md` — 도장은 시작점만 정하고 파일 길이만큼 나는 방식을 유지, 그 길이를 도화지에 옅은 띠로 보이고(manifest `duration`, 겹치면 진해짐) 재생 위치를 옮겨도 아직 울리는 도장을 이어서 냄(`seekPlan` `sourceOffset`)
+- `decisions/2026-10-07-hands-on-audit-fixes.md` — 직접 써 보며 찾은 버그 전수조사 뒤 결정: 초기화·작품 열기·떠나기 보호(지문 비교), 내 작품 그림 한 번만 저장·저장 실패 알림, 길이는 `changeDuration` 한 길로, 오디오 대신 이름·설정을 남겨 다시 잇기, 내보내기 녹음 별도 컨텍스트, 합성음 크기 보정(`SYNTH_MELODY_TRIM_DB`), 로컬 갤러리는 API 없을 때만·목록에서 그림 빼기·다시 공유는 바꾸기, 보안 1번은 개방형이라 그대로
 - `decisions/2026-10-03-instrument-example-pieces.md` — 2단계 악기 감상 연주곡을 같은 무리 카드와 같은 크기(LUFS)의 깨끗한 실제 녹음으로: 단소는 24 dB 작던 문덕곡 대신 국립국악원 청성곡, 먹먹하던 플루트·바이올린·더블베이스는 CC 실연 녹음(출처 줄·`라이센스.txt`)(`build-instrument-examples.py`)
 
 - `decisions/2026-10-03-brush-to-melody-landing.md` — 붓질에서 그림·음표로 이어지는 메인 연출, 즉시 진입과 움직임 제어

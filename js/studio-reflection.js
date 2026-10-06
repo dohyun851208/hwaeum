@@ -109,8 +109,13 @@
       if (el.hashtagHelp) el.hashtagHelp.textContent = HASHTAG_HELP_FULL
       return
     }
+    const incoming = normalizeHashtags(raw)
     el.hashtagsInput.value = ""
     setHashtags(current.join(",") + "," + raw)
+    // 말없이 사라지지 않게: 글자가 남지 않았거나 3개를 넘어 빠진 단어가 있으면 알려 준다.
+    if (!el.hashtagHelp) return
+    if (!incoming.length) el.hashtagHelp.textContent = "글자로 된 단어를 적어 주세요. (기호만으로는 태그가 되지 않아요)"
+    else if (current.length + incoming.length > HASHTAG_MAX) el.hashtagHelp.textContent = "태그는 3개까지라 뒤의 단어는 넣지 않았어요."
   }
 
   function bind() {

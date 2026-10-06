@@ -432,7 +432,8 @@
       voiceAssets[voice] = {
         instrument: voiceInstrument,
         melodyAsset: data.melodies[voiceInstrument.id] || null,
-        gugak: !!style.gugak || voiceInstrument.group === "국악" || !!version.ornament,
+        // 시김새는 그 획을 그린 악기를 따른다 — 지금 고른 악기가 국악기라고 서양 악기 줄에까지 붙이지 않는다.
+        gugak: voiceInstrument.group === "국악" || !!version.ornament,
       }
     })
     const duration = recipe.duration || 30
@@ -442,7 +443,8 @@
     })
     const effectStamps = (recipe.effectStamps || [])
       .filter(function (stamp) {
-        return stamp && data.effects[stamp.id]
+        // 구간 끝 너머에 숨은 도장(x>1)은 끝으로 끌어와 울리지 않는다.
+        return stamp && data.effects[stamp.id] && !(Number(stamp.x) > 1 + 1e-6)
       })
       .map(function (stamp) {
         const x = clamp(stamp.x == null ? 0 : stamp.x, 0, 1)

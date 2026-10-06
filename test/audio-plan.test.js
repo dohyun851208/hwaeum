@@ -247,3 +247,36 @@ test("uploaded sound layers keep source trimming separate from project placement
   assert.equal(layers[0].gain, 0.72)
   assert.equal(layers[0].asset.file, file)
 })
+
+test("resolvePlan leaves stamps hidden past the range end silent instead of pulling them to the end", () => {
+  const data = loadData()
+  const recipe = {
+    atmosphere: "calm",
+    instrument: "violin",
+    style: "bright",
+    version: "balanced",
+    duration: 10,
+    mode: "melody",
+    effectStamps: [{ id: "rain1", x: 0.5, y: 0.5 }, { id: "wind1", x: 1.6, y: 0.5 }],
+    strokes: [[{ x: 0, y: 0.5 }, { x: 0.25, y: 0.4 }]],
+  }
+  const plan = AudioPlan.resolvePlan(recipe, [], { core: MusicCore, data })
+  assert.deepEqual(plain(plan.effectStamps), [{ id: "rain1", x: 0.5, y: 0.5, time: 5 }])
+})
+
+test("sigimsae follows the instrument of each stroke, not the instrument picked last", () => {
+  const data = loadData()
+  const recipe = {
+    atmosphere: "calm",
+    instrument: "daegeum",
+    strokeInstruments: ["violin", "daegeum"],
+    style: "gugak",
+    version: "balanced",
+    duration: 10,
+    mode: "melody",
+    strokes: [[{ x: 0, y: 0.5 }, { x: 0.3, y: 0.4 }], [{ x: 0.5, y: 0.5 }, { x: 0.8, y: 0.4 }]],
+  }
+  const plan = AudioPlan.resolvePlan(recipe, [], { core: MusicCore, data })
+  assert.equal(plan.voiceAssets[0].gugak, false, "바이올린 줄에는 시김새를 붙이지 않는다")
+  assert.equal(plan.voiceAssets[1].gugak, true)
+})

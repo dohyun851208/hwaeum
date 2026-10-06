@@ -96,7 +96,8 @@ test("화음 갤러리 화면은 저장된 갤러리 이름을 주제목으로 �
   assert.match(source, /el\.input\.value = channel \|\| ""/)
   assert.doesNotMatch(source, /공유 음악 " \+ state\.works\.length/)
   assert.doesNotMatch(source, /개를 불러왔어요/)
-  assert.match(css, /\.channel-body\s*\{[\s\S]*min-width:\s*1040px/)
+  // 1024 폭(세로 스크롤 막대 포함) 교실 화면에서도 가로로 넘치지 않게 최소 폭을 960px로 둔다.
+  assert.match(css, /\.channel-body\s*\{[\s\S]*min-width:\s*960px/)
   assert.match(css, /\.channel-title-block h1\s*\{[\s\S]*color:\s*var\(--channel-accent\)/)
   assert.match(css, /\.channel-title-block h1\s*\{[\s\S]*font-size:\s*2\.1rem/)
   assert.match(css, /\.channel-title-block p:last-child:empty\s*\{[\s\S]*display:\s*none/)

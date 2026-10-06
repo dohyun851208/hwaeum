@@ -29,12 +29,14 @@
   const PICTURE_NAME_MAX = 80
   const RECIPE_PICTURE_MAX_EDGE = 960
   const RECIPE_PICTURE_JPEG_QUALITY = 0.82
+  const PICTURE_BACKDROP_COLOR = "#fffaf0"
   const SOUND_STEP = 1
   const DRAWING_STEP = 2
   const COMPLETE_STEP = 3
   const SHARE_STEP = 4
   const SHARE_AUDIO_BITS_PER_SECOND = 64000
   const DEFAULT_ATMOSPHERE_ID = "none"
+  const CUSTOM_BG_ID_PREFIX = "custom-"
   const DEFAULT_STYLE_ID = "bright" // 기본 음계 = C장조(서양 악기는 파(F)도 난다)
   const GUGAK_STYLE_ID = "gugak" // 국악기만 5음(펜타토닉)+시김새 — 파(F)·시(B) 없음
   const CUSTOM_BG_MAX_BYTES = 50 * 1024 * 1024
@@ -45,6 +47,7 @@
   const DEFAULT_INSTRUMENT_FAMILY = "그 밖의 악기"
   const STUDENT_MUSIC_GROUP = "내가 찾은 음악"
   const ATMOSPHERE_GROUP_ORDER = ["배경 없음", "분위기", "소리풍경", "리듬장단", STUDENT_MUSIC_GROUP]
+  const RESET_CONFIRM_MESSAGE = "그린 선율과 효과음 도장, 추가 소리를 모두 지울까요?\n지운 뒤에도 되돌리기(3)로 다시 살릴 수 있어요."
   const PEN_TOOL_STATUS = "펜을 선택했어요."
   const ERASER_TOOL_STATUS = "지우개를 선택했어요."
   const DRAW_MODE_PICTURE = "picture"
@@ -191,6 +194,7 @@
     picChip: $("picChip"),
     picThumb: $("picThumb"),
     picStatus: $("picStatus"),
+    dropframe: $("dropframe"),
     drawingWorkspace: $("drawingWorkspace"),
     drawingReference: $("drawingReference"),
     drawingReferenceToggle: $("drawingReferenceToggle"),
@@ -200,6 +204,8 @@
     bgUploadStatus: $("bgUploadStatus"),
     instrumentGroups: $("instrumentGroups"),
     instrumentGrid: $("instrumentGrid"),
+    instrumentStatus: $("instrumentStatus"),
+    drawingStatus: $("drawingStatus"),
     canvas: $("drawingCanvas"),
     effectStampLayer: $("effectStampLayer"),
     pitchLabels: $("pitchLabels"),
@@ -312,6 +318,44 @@
     if (studioTransport) return studioTransport.syncBgPlayerUI()
   }
 
+  // 그린 선율·도장·추가 소리가 몇 초까지 이어지는지(구간 끝 너머에 숨은 것까지).
+  function contentEndSeconds() {
+    const duration = Number(state.duration) || DEFAULT_DURATION_SECONDS
+    let end = 0
+    ;(draw ? draw.strokes : []).forEach((stroke) => {
+      ;(stroke || []).forEach((point) => {
+        end = Math.max(end, (Number(point.x) || 0) * duration)
+      })
+    })
+    ;(state.effectStamps || []).forEach((stamp) => {
+      end = Math.max(end, (Number(stamp.x) || 0) * duration)
+    })
+    ;(state.soundLayers || []).forEach((layer) => {
+      const length = Math.max(0, (Number(layer.trimEnd) || 0) - (Number(layer.trimStart) || 0))
+      end = Math.max(end, (Number(layer.startTime) || 0) + length)
+    })
+    return end
+  }
+
+  // 배경을 새로 고를 때 길이를 맞춘다(그린 것은 같은 초에 남는다). studio-transport.js가 실제로 바꾼다.
+  function startNewBackground() {
+    if (studioTransport) studioTransport.startNewBackground(contentEndSeconds())
+  }
+
+  // 도장도 선율처럼 같은 '초'에 남긴다 — 구간 길이를 바꿔도 선율과 어긋나지 않게(되돌리기 기록 속 도장도 함께).
+  function retimeEffectStamps(previous, next) {
+    if (!(previous > 0) || !(next > 0) || Math.abs(previous - next) < 1e-9) return
+    const factor = previous / next
+    const retime = (stamps) => {
+      ;(stamps || []).forEach((stamp) => {
+        stamp.x = Math.max(0, (Number(stamp.x) || 0) * factor)
+      })
+    }
+    retime(state.effectStamps)
+    appUndoStack.forEach((action) => retime(action && action.effectStamps))
+    renderEffectStamps()
+  }
+
   // === § 6  DrawingCanvas 생성 ===
 
   const draw = new window.DrawingCanvas(el.canvas, {
@@ -320,7 +364,7 @@
     melodyAssetForInstrument: (id) => D.melodies[id] || null,
     maxInstruments: 4,
     onInstrumentLimit: (max) => {
-      el.exportStatus.textContent = "악기는 한 곡에 최대 " + max + "개까지예요. 줄을 지우면 다른 악기를 더할 수 있어요."
+      say("악기는 한 곡에 최대 " + max + "개까지예요. 줄을 지우면 다른 악기를 더할 수 있어요.", { error: true })
     },
     getState: () => ({ duration: state.duration, style: state.style, mode: state.mode, melodyAsset: D.melodies[state.instrument.id] || null }),
     getFlowProgress: () => soundDrawingProgress(),
@@ -357,11 +401,11 @@
     },
     onFlowStart: () => {
       if (state.drawingInputMode !== DRAW_MODE_SOUND) return
-      el.exportStatus.textContent = "음악에 맞춰 그리기 중입니다. 손을 떼면 들은 타이밍대로 악보에 남아요."
+      say("음악에 맞춰 그리기 중입니다. 손을 떼면 들은 타이밍대로 악보에 남아요.")
     },
     onFlowEnd: () => {
       if (state.drawingInputMode !== DRAW_MODE_SOUND) return
-      el.exportStatus.textContent = "음악에 맞춰 그린 선율을 악보에 남겼어요."
+      say("음악에 맞춰 그린 선율을 악보에 남겼어요.")
     },
     accent: state.atmosphere.color,
   })
@@ -437,6 +481,39 @@
     return StudioUtils.hashtagText(value)
   }
 
+  // === § 7a  안내 문구 — 지금 보이는 단계의 안내 줄에 쓴다 ===
+  // 3단계는 따로 안내 줄이 없어 도화지 아래에 잠깐 떴다 사라지는 알림으로 보인다.
+
+  const DRAWING_TOAST_MS = 4500
+  let drawingToastTimer = null
+
+  function statusLineForStep(step) {
+    if (step === 0) return el.picStatus
+    if (step === SOUND_STEP) return el.instrumentStatus || el.bgUploadStatus
+    if (step === DRAWING_STEP) return el.drawingStatus
+    if (step === SHARE_STEP) return el.shareStatus
+    return el.exportStatus
+  }
+
+  function hideDrawingToast() {
+    if (drawingToastTimer) clearTimeout(drawingToastTimer)
+    drawingToastTimer = null
+    if (el.drawingStatus) el.drawingStatus.classList.remove("show")
+  }
+
+  function say(message, options) {
+    const text = String(message || "")
+    const line = statusLineForStep(state.step) || el.exportStatus
+    if (!line) return
+    line.textContent = text
+    line.classList.toggle("error", !!(options && options.error))
+    if (line !== el.drawingStatus) return
+    hideDrawingToast()
+    if (!text) return
+    line.classList.add("show")
+    drawingToastTimer = setTimeout(hideDrawingToast, (options && options.duration) || DRAWING_TOAST_MS)
+  }
+
   // === § 7b  내보내기 워크플로 (studio-export.js 초기화) ===
 
   const _studioExport = window.HwaeumStudioExport({
@@ -496,12 +573,19 @@
     buildRecipe,
     defaultAtmosphere,
     applyInstrumentTone,
-    getNextCustomBgId: () => "custom-" + ++customBgSeq,
+    // 페이지를 열 때마다 1부터 세면 예전 작품의 음악 번호와 겹친다 — 시각까지 넣어 겹치지 않게 한다.
+    getNextCustomBgId: () => CUSTOM_BG_ID_PREFIX + Date.now().toString(36) + "-" + (++customBgSeq).toString(36),
+    reloadBackground: () => {
+      if (studioTransport) studioTransport.setupBgPlayer(true)
+    },
     syncReflectionFromNotes,
+    say,
+    startNewBackground,
   })
   const {
     bgSrcFor,
     backgroundFor,
+    missingCustomBackground,
     stopBackgroundPreview,
     stopExamplePreview,
     renderAtmospheres,
@@ -537,6 +621,9 @@
     setStep,
     play: () => studioTransport.play(),
     pause: () => studioTransport.pause(),
+    say,
+    hasUnsavedWork,
+    markWorkSaved,
   })
   const { renderTakes, saveTake, saveNewTake, selectTake } = _studioTakesUI
 
@@ -568,6 +655,10 @@
     notesFor,
     canvasToBlob,
     renderDrawingSnapshotCanvas,
+    sharedWorkFor: (takeId, channel) => (typeof takes.sharedWorkId === "function" ? takes.sharedWorkId(takeId, channel) : ""),
+    rememberSharedWork: (takeId, channel, workId) => {
+      if (typeof takes.markShared === "function") takes.markShared(takeId, channel, workId)
+    },
   })
   const {
     bindShareControls,
@@ -615,9 +706,11 @@
     },
     getStateSummary: () =>
       window.SoundDrawing && window.SoundDrawing.getStateSummary ? window.SoundDrawing.getStateSummary() : null,
-    onDurationChange: () => {
+    onDurationChange: (previous, next) => {
+      retimeEffectStamps(previous, next)
       if (soundLayerUI) soundLayerUI.handleDurationChange()
     },
+    say,
   })
   const {
     pulseControl,
@@ -763,17 +856,58 @@
   }
 
   function buildRecipe() {
-    return recipeModel.buildRecipe(state, {
+    const recipe = recipeModel.buildRecipe(state, {
       strokes: draw.getStrokes(),
       strokeInstruments: draw.getStrokeInstruments(),
       path: draw.getPath(),
       soundLayers: soundLayerUI ? soundLayerUI.recipeLayers() : [],
       bgRangeEnabled: canSelectBgRange(),
     })
+    // '내가 찾은 음악'은 파일을 저장하지 않으므로 이름을 함께 남겨, 파일이 없을 때도 무엇을 다시 올릴지 알려 준다.
+    const atmosphere = state.atmosphere || {}
+    if (atmosphere.custom) recipe.atmosphereLabel = atmosphere.label
+    if (atmosphere.missing && atmosphere.savedRange) {
+      recipe.bgOffset = Math.max(0, Number(atmosphere.savedRange.bgOffset) || 0)
+      recipe.bgEndOffset = Math.max(0, Number(atmosphere.savedRange.bgEndOffset) || 0)
+    }
+    return recipe
   }
 
   function notesFor(recipe) {
     return recipeModel.notesFor(recipe)
+  }
+
+  // === § 9b  저장하지 않은 바뀜 알아보기 ===
+  // 마지막으로 저장하거나 불러온 때의 지문과 지금 지문을 견준다. 저절로 늘어나는 시도 횟수와
+  // 획에서 다시 만드는 path는 빼고, 그림은 원본 글자 대신 짧은 지문으로 견준다(뒤에서 압축돼도 같게).
+  let savedWorkSignature = ""
+
+  function pictureFingerprint(text) {
+    let hash = 2166136261
+    for (let i = 0; i < text.length; i += 7) {
+      hash ^= text.charCodeAt(i)
+      hash = Math.imul(hash, 16777619)
+    }
+    return (hash >>> 0).toString(36) + ":" + text.length
+  }
+
+  function workSignature() {
+    const recipe = buildRecipe()
+    delete recipe.actionCount
+    delete recipe.path
+    recipe.picture = state.pic ? pictureFingerprint(String(state.pic)) : ""
+    recipe.soundLayers = (recipe.soundLayers || []).map(function (layer) {
+      return [layer.id, layer.trimStart, layer.trimEnd, layer.startTime, layer.volume]
+    })
+    return JSON.stringify(recipe)
+  }
+
+  function markWorkSaved() {
+    savedWorkSignature = workSignature()
+  }
+
+  function hasUnsavedWork() {
+    return workSignature() !== savedWorkSignature
   }
 
   function warmSelectedInstrument() {
@@ -855,7 +989,7 @@
         removeBtn.textContent = "×"
         removeBtn.addEventListener("click", () => {
           draw.clearInstrument(id)
-          el.exportStatus.textContent = instLabel + " 줄을 모두 지웠어요. 되돌리기(Ctrl+Z)로 복구할 수 있어요."
+          say(instLabel + " 줄을 모두 지웠어요. 되돌리기(3 또는 Ctrl+Z)로 다시 살릴 수 있어요.")
         })
         chip.appendChild(removeBtn)
         el.orchestraLegend.appendChild(chip)
@@ -917,9 +1051,7 @@
         renderEffects()
         renderEffectStamps()
         updateReadouts()
-        el.exportStatus.textContent = state.effectStampId
-          ? effect.label + " 도장을 캔버스에 찍을 수 있습니다."
-          : "효과음 도장 선택을 해제했습니다."
+        say(state.effectStampId ? effect.label + " 도장을 캔버스에 찍을 수 있습니다." : "효과음 도장 선택을 해제했습니다.")
       })
       el.effectList.appendChild(b)
     })
@@ -933,6 +1065,7 @@
       const effect = D.effects[stamp.id]
       if (!effect) return
       const x = stamp.x || 0
+      if (x > 1 + 1e-6) return // 구간 끝 너머에 숨은 도장 — 구간을 다시 늘리면 보인다
       const left = timelineCssX(x)
       const top = Math.max(0.04, Math.min(0.96, stamp.y == null ? 0.5 : stamp.y)) * 100 + "%"
       // 도장은 찍은 자리부터 소리 파일 길이만큼 난다 → 그 길이를 옅은 띠로 보여 준다(겹치면 진해진다).
@@ -1001,7 +1134,7 @@
         console.warn("효과음 도장 미리듣기 실패", err)
       })
     }
-    el.exportStatus.textContent = effect.label + " 도장을 찍었습니다."
+    say(effect.label + " 도장을 찍었습니다.")
     return true
   }
 
@@ -1028,7 +1161,7 @@
     renderEffectStamps()
     updateReadouts()
     const effect = D.effects[removed.id]
-    el.exportStatus.textContent = (effect ? effect.label : "효과음") + " 도장을 지웠습니다."
+    say((effect ? effect.label : "효과음") + " 도장을 지웠습니다.")
     return true
   }
 
@@ -1042,6 +1175,8 @@
           try {
             el.canvas.setPointerCapture(e.pointerId)
           } catch (err) {}
+          // 지우개는 여기서 멈추지 않고 그대로 넘겨, 도장 위에서 시작한 같은 긋기로 선도 지운다.
+          if (draw.eraseMode) return
           e.preventDefault()
           e.stopImmediatePropagation()
           return
@@ -1239,6 +1374,9 @@
           canvas.width = Math.max(1, Math.round(srcW * scale))
           canvas.height = Math.max(1, Math.round(srcH * scale))
           const ctx = canvas.getContext("2d")
+          // JPEG에는 투명이 없어 그대로 두면 투명한 곳이 검게 저장된다 — 1단계 그림 칸과 같은 크림색을 먼저 칠한다.
+          ctx.fillStyle = PICTURE_BACKDROP_COLOR
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
           finish(canvas.toDataURL("image/jpeg", RECIPE_PICTURE_JPEG_QUALITY))
         } catch (e) {
@@ -1273,12 +1411,37 @@
     el.dropEmpty.style.display = "none"
     el.picThumb.src = normalized
     el.picChip.hidden = false
-    if (el.drawingReferenceImg) el.drawingReferenceImg.src = normalized
+    if (el.drawingReferenceImg) {
+      const ref = el.drawingReferenceImg
+      ref.onload = function () {
+        const ratio = (ref.naturalWidth || 1) / (ref.naturalHeight || 1)
+        ref.classList.toggle("fit-whole", ratio > 1.6 || ratio < 0.625)
+      }
+      ref.src = normalized
+    }
     el.frameImg.src = normalized
     el.frameImg.style.display = "block"
     el.frameCanvas.style.display = "none"
     el.picStatus.textContent = state.picName + " 적용됨"
     el.picStatus.classList.remove("error")
+  }
+
+  function clearPicture() {
+    state.pic = ""
+    state.recipePicture = ""
+    state.picName = ""
+    pictureCompressSeq += 1 // 늦게 끝난 압축이 지운 그림을 되살리지 않게
+    el.dropPreview.removeAttribute("src")
+    el.dropPreview.hidden = true
+    el.dropEmpty.style.display = ""
+    el.picChip.hidden = true
+    if (el.drawingReferenceImg) {
+      el.drawingReferenceImg.src = DEFAULT_COVER_SRC
+      el.drawingReferenceImg.classList.remove("fit-whole")
+    }
+    el.picStatus.textContent = ""
+    el.picStatus.classList.remove("error")
+    drawFrameFallback()
   }
 
   function drawFrameFallback() {
@@ -1321,7 +1484,7 @@
   function requireDrawn() {
     if (draw.getPath().length >= 1) return true
     el.statusText.textContent = "먼저 선을 그려주세요"
-    el.exportStatus.textContent = "먼저 캔버스에 점을 찍거나 선을 그려주세요."
+    say("먼저 캔버스에 점을 찍거나 선을 그려주세요.", { error: true })
     return false
   }
 
@@ -1340,7 +1503,7 @@
     }
     el.clearBtn.classList.toggle("active", on)
     el.clearBtn.setAttribute("aria-pressed", on ? "true" : "false")
-    if (on) el.exportStatus.textContent = ERASER_TOOL_STATUS
+    if (on) say(ERASER_TOOL_STATUS)
   }
 
   function syncDrawingInputModeUI() {
@@ -1386,7 +1549,7 @@
     if (announce) recordUserAction()
     clearEffectStampSelection()
     setEraser(false)
-    if (announce) el.exportStatus.textContent = PEN_TOOL_STATUS
+    if (announce) say(PEN_TOOL_STATUS)
   }
 
   function activateEraserTool(announce) {
@@ -1395,7 +1558,12 @@
     // 지우개로 바꿀 땐 재생은 멈추되 재생바는 제자리에 둔다(정지 버튼처럼 맨 앞으로 되돌리지 않음).
     freezePlayheadAtLivePosition()
     engine.stop()
-    if (announce) el.exportStatus.textContent = ERASER_TOOL_STATUS
+    if (announce) say(ERASER_TOOL_STATUS)
+  }
+
+  function isPressableTarget(target) {
+    if (!target || !target.closest) return false
+    return !!target.closest("button, a[href], [role='button'], .take")
   }
 
   function isTypingTarget(target) {
@@ -1406,9 +1574,19 @@
 
   function handleKeyboardShortcut(event) {
     if (!event || event.defaultPrevented || event.repeat) return
+    // Ctrl+Z(맥은 ⌘+Z)도 되돌리기다. 한글 입력 상태에서도 잡히게 글쇠 위치(KeyZ)로 본다.
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && (event.code === "KeyZ" || event.key === "z" || event.key === "Z")) {
+      if (state.step !== DRAWING_STEP || isTypingTarget(event.target)) return
+      event.preventDefault()
+      announceUndoLastAction()
+      return
+    }
     if (event.ctrlKey || event.metaKey || event.altKey) return
     if (isTypingTarget(event.target)) return
     if (event.key === " " || event.code === "Space" || event.key === "Spacebar") {
+      // 재생 단추가 있는 3·4단계에서만 작품을 듣는다. 단추·링크·카드에 초점이 있으면 그것을 누르는 키로 둔다.
+      if (state.step !== DRAWING_STEP && state.step !== COMPLETE_STEP) return
+      if (isPressableTarget(event.target)) return
       event.preventDefault()
       pulseControl(el.playBtn)
       toggleTransport()
@@ -1512,6 +1690,12 @@
   function undoLastAction() {
     while (appUndoStack.length) {
       const action = appUndoStack.pop()
+      if (action.type === "reset") {
+        undoReset(action)
+        syncUndoButton()
+        recordUserAction()
+        return "초기화"
+      }
       if (action.type === "effects") {
         restoreEffectStamps(action.effectStamps)
         syncUndoButton()
@@ -1550,8 +1734,13 @@
   function announceUndoLastAction() {
     const undone = undoLastAction()
     if (!undone) return
-    el.exportStatus.textContent =
-      undone === "효과음" ? "마지막 효과음 작업을 되돌렸어요." : "마지막 드로잉 작업을 되돌렸어요."
+    say(
+      undone === "초기화"
+        ? "초기화하기 전으로 되돌렸어요."
+        : undone === "효과음"
+          ? "마지막 효과음 작업을 되돌렸어요."
+          : "마지막 드로잉 작업을 되돌렸어요.",
+    )
   }
 
   function syncUndoButton() {
@@ -1559,26 +1748,63 @@
     el.undoBtn.disabled = !(appUndoStack.length || draw.canUndo())
   }
 
+  function hasComposeContent() {
+    return draw.strokes.length > 0 || (state.effectStamps || []).length > 0 || (state.soundLayers || []).length > 0
+  }
+
+  // 초기화는 키보드 4 한 번으로도 일어나므로, 지울 것이 있으면 먼저 묻고
+  // 지운 뒤에도 되돌리기(3·Ctrl+Z)로 바로 앞 상태를 다시 살릴 수 있게 한다.
   function resetCompose() {
+    const hadContent = hasComposeContent()
+    if (hadContent && typeof window.confirm === "function" && !window.confirm(RESET_CONFIRM_MESSAGE)) return
     recordUserAction({ update: false })
     engine.stop()
     draw.finishFlowStroke(false)
     setEraser(false)
-    draw.clear(false)
-    draw.clearUndoHistory()
+    const resetAction = {
+      type: "reset",
+      drawPushed: false,
+      effectStamps: effectStampSnapshot(),
+      effectIds: (state.effectIds || []).slice(),
+      soundLayers: soundLayerUI ? soundLayerUI.recipeLayers() : [],
+      activeTakeId: state.activeTakeId,
+    }
+    const depthBefore = drawUndoDepth()
+    suppressDrawUndoTracking = true
+    draw.clear(true) // 획이 있으면 그 상태를 되돌리기 기록에 남긴다(구간 길이가 바뀌어도 함께 맞춰진다)
+    suppressDrawUndoTracking = false
+    resetAction.drawPushed = drawUndoDepth() > depthBefore
+    syncTrackedDrawUndoDepth()
     draw.setActiveInstrument(state.instrument.id)
     state.effectIds = []
     state.effectStamps = []
     state.effectStampId = null
     if (soundLayerUI) soundLayerUI.clear({ silent: true })
-    clearAppUndoHistory()
+    // 처음부터 다시 그리는 작품이므로, 다음 저장은 앞 작품을 덮어쓰지 않고 새로 저장한다.
+    state.activeTakeId = null
+    if (hadContent) pushAppUndoAction(resetAction)
     renderEffects()
     renderEffectStamps()
     renderOrchestraLegend()
     setupBgPlayer(true)
     setSelectedPlayhead(0, false, false)
     el.statusText.textContent = "전체 듣기"
-    el.exportStatus.textContent = "드로잉, 효과음, 추가 소리를 초기화했습니다. 배경음악 구간은 그대로 유지됩니다."
+    say(hadContent ? "드로잉, 효과음, 추가 소리를 지웠어요. 되돌리기(3)로 다시 살릴 수 있어요." : "지울 드로잉이 없어요.")
+  }
+
+  function undoReset(action) {
+    if (action.drawPushed) {
+      suppressDrawUndoTracking = true
+      draw.undo()
+      suppressDrawUndoTracking = false
+      syncTrackedDrawUndoDepth()
+    }
+    state.effectIds = (action.effectIds || []).slice()
+    restoreEffectStamps(action.effectStamps)
+    if (soundLayerUI && action.soundLayers && action.soundLayers.length) soundLayerUI.restoreRecipe(action.soundLayers)
+    if (action.activeTakeId && takes.get(action.activeTakeId)) state.activeTakeId = action.activeTakeId
+    renderEffects()
+    renderOrchestraLegend()
   }
 
   // === § 23  관리자 상태 · 공유 진입 ===
@@ -1607,9 +1833,16 @@
     state.composerName = cleanText(recipe.composerName || recipe.composer || "", COMPOSER_NAME_MAX)
     const loadedPicture = normalizePictureData(recipe && recipe.picture)
     if (loadedPicture) setPicture(loadedPicture, recipe.pictureName || "불러온 그림")
+    else clearPicture() // 그림 없이 저장한 작품 — 앞 작품의 그림이 남아 그 작품에 붙지 않게
     state.duration = normalizeDuration(recipe.duration || DEFAULT_DURATION_SECONDS)
     state.actionCount = normalizeActionCount(recipe.actionCount)
-    state.atmosphere = D.atmospheres.find((a) => a.id === recipe.atmosphere) || defaultAtmosphere()
+    const isCustomBackground = typeof recipe.atmosphere === "string" && recipe.atmosphere.indexOf(CUSTOM_BG_ID_PREFIX) === 0
+    state.atmosphere =
+      D.atmospheres.find((a) => a.id === recipe.atmosphere && !a.missing) ||
+      (isCustomBackground
+        ? missingCustomBackground(recipe.atmosphere, recipe.atmosphereLabel, { bgOffset: recipe.bgOffset, bgEndOffset: recipe.bgEndOffset })
+        : null) ||
+      defaultAtmosphere()
     state.instrument = D.instruments.find((i) => i.id === recipe.instrument) || D.instruments[0]
     state.style = styleForInstrument(state.instrument) // 음계는 악기 그룹을 따른다(서양=C장조, 국악=5음)
     state.version = defaultVersion()
@@ -1619,7 +1852,7 @@
     const stampIds = state.effectStamps.map((stamp) => stamp.id)
     state.effectIds = (recipe.effectIds || []).filter((id) => !!D.effects[id] && stampIds.indexOf(id) === -1)
     state.effectStampId = null
-    if (soundLayerUI) soundLayerUI.restoreRecipe(recipe.soundLayers || [])
+    const missingSoundLayers = soundLayerUI ? soundLayerUI.restoreRecipe(recipe.soundLayers || []) : 0
     if (canSelectBgRange()) {
       state.bgOffset = Math.max(0, Number(recipe.bgOffset) || 0)
       state.bgEndOffset = Math.max(0, Number(recipe.bgEndOffset) || 0)
@@ -1648,10 +1881,18 @@
     setSelectedPlayhead(0, false, false)
     syncReflectionInputs()
     updateReadouts()
+    // 불러온 작품에서 이 컴퓨터에 없는 파일(오디오는 저장하지 않는다)을 알려 줄 문구를 돌려준다.
+    const notices = []
+    if (state.atmosphere.missing) {
+      notices.push("배경 음악 ‘" + state.atmosphere.label + "’ 파일은 이 컴퓨터에 없어요. 2단계에서 같은 파일을 다시 올리면 이어서 들을 수 있어요.")
+    }
+    if (missingSoundLayers) notices.push("추가 소리 " + missingSoundLayers + "개는 원본 파일을 다시 올려야 들을 수 있어요.")
+    return { notice: notices.join(" ") }
   }
 
   // 공유 모달·화음 갤러리·링크 생성은 studio-share.js가 맡는다.
   // 이 파일에는 앱 전체 상태를 되살리는 레시피 해시 복원만 남긴다.
+  // 불러왔으면 3단계에서 보여 줄 안내 문구를, 아니면 ""를 돌려준다.
   function restoreFromHash() {
     const h = location.hash || ""
     if (h.indexOf("#copy=") === 0) {
@@ -1661,8 +1902,7 @@
         state.sharedRecipeLoaded = true
         state.activeTakeId = null
         state.playingTakeId = null
-        el.exportStatus.textContent = "갤러리 작품을 스튜디오에서 열었어요. 바꿔도 원래 작품은 그대로예요."
-        return true
+        return "갤러리 작품을 스튜디오에서 열었어요. 바꿔도 원래 작품은 그대로예요."
       } catch (e) {
         console.warn("스튜디오 복사본 복원 실패", e)
       }
@@ -1674,13 +1914,12 @@
         state.sharedRecipeLoaded = true
         state.activeTakeId = null
         state.playingTakeId = null
-        el.exportStatus.textContent = "공유 링크에서 불러왔습니다. 드로잉을 이어서 볼 수 있어요."
-        return true
+        return "공유 링크에서 불러왔습니다. 드로잉을 이어서 볼 수 있어요."
       } catch (e) {
         console.warn("공유 링크 복원 실패", e)
       }
     }
-    return false
+    return ""
   }
 
   // === § 27  단계 이동 ===
@@ -1698,6 +1937,11 @@
       renderInstruments()
     }
     const nextStep = Math.max(0, Math.min(screens.length - 1, i))
+    hideDrawingToast() // 3단계 알림은 그 단계에서만 보인다
+    if (soundLayerUI) soundLayerUI.stopPreview()
+    if (nextStep !== DRAWING_STEP && typeof engine.stopLivePreview === "function") engine.stopLivePreview(true)
+    // 재생·정지 단추는 3·4단계에만 있다. 다른 단계로 가면 소리를 멈춘다(멈출 단추가 없는 화면에서 계속 나지 않게).
+    if (nextStep !== DRAWING_STEP && nextStep !== COMPLETE_STEP && (engine.isPlaying || engine.isPaused)) engine.stop()
     state.step = nextStep
     el.body.dataset.step = String(state.step)
     syncAudioModeNote()
@@ -1724,6 +1968,8 @@
       else syncTransportButtons(engine.isPlaying, engine.isPaused)
     }
     if (state.step === COMPLETE_STEP) {
+      // 2단계 감상 메모는 '최종으로 고른' 배경·악기의 것만 성찰 칸으로 옮긴다(4단계에서 고친 칸은 그대로).
+      syncReflectionFromNotes()
       drawFrameFallback()
       renderTakes()
       updateReadouts()
@@ -1743,18 +1989,63 @@
     if (wrap) wrap.addEventListener("scroll", syncCanvasScrollState, { passive: true })
 
     el.picInput.addEventListener("change", (e) => {
-      const f = e.target.files && e.target.files[0]
+      handlePictureFile(e.target.files && e.target.files[0])
+      el.picInput.value = "" // 같은 파일을 다시 골라도 다시 올라가게
+    })
+
+    // 그림 파일을 '그림 올리기' 칸에 끌어다 놓아도 올라가게 한다. 다른 곳에 떨어뜨리면 브라우저가 그 파일을
+    // 열어 페이지를 떠나(하던 작업이 사라졌다) — 창 전체에서 파일 놓기의 기본 동작을 막는다.
+    window.addEventListener("dragover", (e) => e.preventDefault())
+    window.addEventListener("drop", (e) => e.preventDefault())
+    if (el.dropframe) {
+      el.dropframe.addEventListener("dragover", (e) => {
+        e.preventDefault()
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"
+        el.dropframe.classList.add("dragging")
+      })
+      el.dropframe.addEventListener("dragleave", () => el.dropframe.classList.remove("dragging"))
+      el.dropframe.addEventListener("drop", (e) => {
+        e.preventDefault()
+        el.dropframe.classList.remove("dragging")
+        handlePictureFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0])
+      })
+    }
+
+    function pictureError(message) {
+      el.picStatus.textContent = message
+      el.picStatus.classList.add("error")
+    }
+
+    function handlePictureFile(f) {
       if (!f) return
+      // 아이폰 사진(HEIC)은 형식 이름이 비어 오기도 해 "이미지 파일만"이라는 엉뚱한 안내가 나왔다.
+      if (/\.(heic|heif)$/i.test(f.name || "") || /hei[cf]/i.test(f.type || "")) {
+        pictureError("아이폰 사진(HEIC)은 열 수 없어요. 사진을 JPG로 바꿔서 올려 주세요.")
+        return
+      }
       if (!f.type || f.type.indexOf("image/") !== 0) {
-        el.picStatus.textContent = "이미지 파일만 올릴 수 있어요."
-        el.picStatus.classList.add("error")
-        el.picInput.value = ""
+        pictureError("이미지 파일만 올릴 수 있어요.")
         return
       }
       const reader = new FileReader()
-      reader.onload = () => setPicture(String(reader.result), f.name)
+      reader.onload = () => {
+        // 이름만 그림인 파일·브라우저가 못 여는 형식(TIFF 등)은 "적용됨" 대신 열 수 없다고 알린다.
+        const probe = new Image()
+        probe.onload = () => applyPictureFile(String(reader.result), f.name)
+        probe.onerror = () => pictureError("이 파일은 그림으로 열 수 없어요. jpg·png 같은 그림 파일을 올려 주세요.")
+        probe.src = String(reader.result)
+      }
       reader.readAsDataURL(f)
-    })
+    }
+
+    function applyPictureFile(dataUrl, name) {
+      setPicture(dataUrl, name)
+      // 새 그림은 새 작품이다 — 다음 저장이 앞 작품을 덮어쓰지 않고 새로 저장되게 한다.
+      if (state.activeTakeId) {
+        state.activeTakeId = null
+        el.picStatus.textContent = state.picName + " 적용됨 · 저장하면 새 작품으로 저장돼요."
+      }
+    }
 
     el.bgUploadInput.addEventListener("change", (e) => {
       const f = e.target.files && e.target.files[0]
@@ -1879,6 +2170,7 @@
     button.appendChild(icon)
     button.addEventListener("click", function () {
       pulseControl(button)
+      if (!engine.isPlaying && !engine.isPaused) setSelectedPlayhead(0, false, false)
       toggleTransport()
     })
     el.frame.appendChild(button)
@@ -1906,9 +2198,22 @@
     prefillBrowsePass()
     updateReadouts()
     syncUndoButton()
-    const restoredRecipeLink = restoreFromHash()
-    setStep(restoredRecipeLink ? DRAWING_STEP : 0)
-    if (!restoredRecipeLink) restoreSharedChannelFromUrl()
+    const restoredRecipeMessage = restoreFromHash()
+    setStep(restoredRecipeMessage ? DRAWING_STEP : 0)
+    if (restoredRecipeMessage) say(restoredRecipeMessage)
+    else restoreSharedChannelFromUrl()
+    markWorkSaved() // 처음 연 상태(또는 링크로 불러온 작품)를 기준으로 삼는다
+    window.addEventListener("beforeunload", function (event) {
+      if (!hasUnsavedWork()) return
+      event.preventDefault()
+      event.returnValue = ""
+    })
+    // 다른 탭에서 작품을 저장·삭제하면 목록을 다시 읽는다.
+    window.addEventListener("storage", function (event) {
+      if (event.key && event.key.indexOf(takes.key) !== 0) return
+      takes.refresh()
+      renderTakes()
+    })
     warmSelectedInstrument() // 기본 악기 미리 준비 + 음원 로드 상태(실제/합성)를 하단에 표시
     engine.warmAmbience(buildRecipe()).catch(function () {}) // 기본 배경음 미리 로드(드로잉 진입 시 즉시)
   }

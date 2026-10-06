@@ -376,8 +376,10 @@
     this._pushUndo()
     this.drawingGestureHasUndo = true
     this.isDrawing = true
-    this.flowActive = true
+    // 진행 위치를 먼저 읽는다 — 읽는 동안 배경 재생이 시작되며 flowRecord가 불리면 점 하나짜리 획이
+    // 따로 생겨(0.16초 음) 겹쳤다. 획을 만든 뒤에야 '음악에 맞춰 그리는 중'으로 바꾼다.
     const flowProgress = clamp(this.getFlowProgress(), 0, 1)
+    this.flowActive = true
     this.flowY = clamp(p && p.y != null ? p.y : this.flowY, 0, 1)
     this.currentStroke = [{ x: flowProgress, y: this.flowY }]
     this.strokes.push(this.currentStroke)
@@ -566,6 +568,8 @@
 
   DrawingCanvas.prototype.undo = function () {
     if (!this.undoStack.length) return false
+    // 그리는 도중에 되돌리면 손을 떼도 finish()가 그냥 돌아가 펜 소리가 계속 울렸다 — 여기서 끝낸다.
+    if (this.isDrawing) this.onPreviewEnd()
     const snapshot = this.undoStack.pop()
     this.pendingUndoSnapshot = null
     this.isDrawing = false
@@ -709,6 +713,10 @@
   DrawingCanvas.prototype._bind = function () {
     const self = this
     this.canvas.addEventListener("pointerdown", function (e) {
+      // 오른쪽 단추(메뉴)로는 그리지 않는다.
+      if (e.pointerType === "mouse" && e.button !== 0) return
+      // 음 이름 칸 위에서 누르면 0초 자리에 숨은 점 음이 생겼다 — 칸 밖에서만 그린다.
+      if (self._isOverPitchLabels(e)) return
       const p = self._point(e)
       self._lastClientX = e.clientX
       self._lastClientY = e.clientY
@@ -769,6 +777,14 @@
     })
   }
 
+  DrawingCanvas.prototype._isOverPitchLabels = function (e) {
+    const sc = this.scrollContainer
+    const labels = sc && typeof sc.querySelector === "function" ? sc.querySelector(".pitch-labels") : null
+    if (!labels || typeof labels.getBoundingClientRect !== "function") return false
+    const r = labels.getBoundingClientRect()
+    return r.width > 0 && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+  }
+
   // 포인터 위치(p: 0..1)를 현재 모드대로 반영 — pointermove와 자동 스크롤 루프가 공유
   DrawingCanvas.prototype._applyPointer = function (p) {
     if (this.eraseMode) {
@@ -811,7 +827,7 @@
     if (maxScroll > 1 && clientX > rect.right - zone && sc.scrollLeft < maxScroll - 1) {
       dir = 1
       depth = clamp((clientX - (rect.right - zone)) / zone, 0, 1)
-    } else if (clientX < rect.left + zone && sc.scrollLeft > 0) {
+    } else if (this.eraseMode && clientX < rect.left + zone && sc.scrollLeft > 0) {
       dir = -1
       depth = clamp((rect.left + zone - clientX) / zone, 0, 1)
     }

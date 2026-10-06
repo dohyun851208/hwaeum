@@ -21,7 +21,7 @@
 | `instrument-brush.js` | **장식 전용** — 3단계 붓 커서의 악기별 SVG 그림·연주 자세(POSES)·연주 몸짓 클래스·붓끝 효과 성격(TRAITS) | 없음(drawing보다 먼저 로드) |
 | `drawing-renderer.js` | 피치 축·색·가이드/팔레트·마법의 선율 렌더. DrawingCanvas의 기존 메서드와 정적 API를 제공 | music-core, 픽셀 비율 주입 |
 | `drawing.js` | 캔버스 입력·좌표 저장·실행 취소·악기 커서·붓끝 효과 생성 | Canvas, music-core, drawing-renderer, instrument-brush |
-| `takes.js` | 시도(테이크) 저장·비교(localStorage)·썸네일 | localStorage |
+| `takes.js` | 시도(테이크) 저장·비교(localStorage)·썸네일. 그림은 따로 한 번만 저장(`pictureRef`), 저장 실패·24개 한도는 `lastError`로 알림, 갤러리별 공유 작품 번호(`shared`) | localStorage |
 | `studio.js` | **오케스트레이터** — 5단계 위저드 흐름·업로드·무드 틴팅·하위 워크플로 연결 | 위 전부, DOM |
 | `studio-recipe.js` | **순수 변환** — 상태/드로잉 스냅샷 직렬화·저장 작품의 음 생성·사용 악기 계산 | music-core, manifest, audio-plan, studio-utils 주입 |
 | `studio-reflection.js` | 감상 메모 인계·성찰 입력·태그 UI·저장 성찰 복원 | state, DOM, studio-utils, 콜백 주입 |
@@ -33,7 +33,7 @@
 | `studio-share.js` | 공유 필수 항목 검사·공유 모달·갤러리 입장/생성·작품 게시·레시피 링크 | share-store, studio.js에서 주입한 콜백 |
 | `studio-utils.js` | 공통 유틸(duration 정규화·메타 sanitize·색 변환 등) | studio.js 전반 |
 | `share-local-store.js` | 로컬 갤러리 IndexedDB·트랜잭션·객체 URL 수명 | 브라우저 환경·ID/정규화 함수 주입 |
-| `share-store.js` | 갤러리 서버 I/O(publish·list·delete·claim)·로컬 폴백·표지 생성 | share-local-store |
+| `share-store.js` | 갤러리 서버 I/O(publish·list·work·delete·claim)·로컬 폴백(공유 API가 없을 때만)·표지 생성 | share-local-store |
 | `channel.js` | 갤러리 목록·뷰어·관리 UI, 마지막 요청의 결과만 반영 | share-store, DOM |
 
 ## 의존 방향 (지킬 것)

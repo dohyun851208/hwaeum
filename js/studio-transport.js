@@ -15,6 +15,8 @@
   const draw = deps.draw
   const DRAW_MODE_SOUND = deps.DRAW_MODE_SOUND || "sound"
   const DRAWING_STEP = Number.isFinite(deps.DRAWING_STEP) ? deps.DRAWING_STEP : 2
+  // 안내 문구는 지금 보이는 단계의 안내 줄로 보낸다(studio.js의 say).
+  const say = typeof deps.say === "function" ? deps.say : (message) => { if (el && el.exportStatus) el.exportStatus.textContent = message }
   const MIN_DURATION_SECONDS = Number.isFinite(deps.MIN_DURATION_SECONDS) ? deps.MIN_DURATION_SECONDS : 1
   const DEFAULT_DURATION_SECONDS = Number.isFinite(deps.DEFAULT_DURATION_SECONDS) ? deps.DEFAULT_DURATION_SECONDS : 30
   const SEGMENT_SECONDS = Number.isFinite(deps.SEGMENT_SECONDS) ? deps.SEGMENT_SECONDS : 2.5
@@ -58,6 +60,7 @@
   let playheadStartedAt = 0
   let playheadElapsedMs = 0
   let selectedPlayheadProgress = 0
+  let playStartProgress = 0 // 지금 재생을 시작한 자리(끝까지 들으면 여기로 돌아온다)
   let silentFlowRAF = null
   let silentFlowStartedAt = 0
 
@@ -180,7 +183,7 @@
     rememberPlayheadProgress(progress)
     showSelectedPlayhead(follow)
     if (announce) {
-      el.exportStatus.textContent = Math.round(selectedPlayheadProgress * state.duration) + "초부터 재생하도록 위치를 옮겼어요."
+      say(Math.round(selectedPlayheadProgress * state.duration) + "초부터 재생하도록 위치를 옮겼어요.")
     }
   }
 
@@ -238,6 +241,8 @@
         (engine.isPlaying && !engine.isPaused) ||
         deps.bgSrcFor(state.atmosphere)
       ) {
+        // 손을 뗐으면 그 자리를 기억한다 — 다음 획이 0초부터 다시 그려져 앞 획과 겹치지 않게.
+        if (!draw.flowActive && state.drawingInputMode === DRAW_MODE_SOUND) rememberPlayheadProgress(silentFlowProgress())
         stopSilentFlowClock()
         return
       }
@@ -267,6 +272,9 @@
     playheadStartedAt = 0
     if (finished) {
       playheadElapsedMs = durationMs()
+      // 일시정지는 다음 시작점을 멈춘 곳으로 옮겨 둔다. 끝까지 들었으면 처음 고른 시작점으로 되돌린다
+      // (그러지 않으면 다음 ▶가 아무 표시 없이 중간부터 나왔다).
+      selectedPlayheadProgress = clampPlayheadProgress(playStartProgress)
       if (el.playhead) {
         if (state.step === DRAWING_STEP) {
           el.playhead.hidden = false
@@ -470,6 +478,12 @@
       if (isFinite(segment) && segment > 0) next = deps.normalizeDuration(segment)
     }
     if (next == null) next = deps.normalizeDuration(state.duration || DEFAULT_DURATION_SECONDS)
+    return changeDuration(next, resetScroll)
+  }
+
+  // 작품 길이를 바꾸는 단 하나의 길 — 그린 선율·도장·추가 소리·재생 위치는 같은 '초'에 남긴다.
+  function changeDuration(nextDuration, resetScroll) {
+    const next = deps.normalizeDuration(nextDuration)
     const previous = Number(state.duration) || DEFAULT_DURATION_SECONDS
     if (Math.abs(previous - next) < 0.001) return false
     const selectedPlayheadSeconds = selectedPlayheadProgress * previous
@@ -480,6 +494,18 @@
     rememberPlayheadProgress(selectedPlayheadSeconds / next)
     deps.refreshTimeline(!!resetScroll)
     return true
+  }
+
+  // 배경을 새로 고를 때: 새 배경은 처음(0초)부터, 길이는 이미 그린 것이 다 들어가도록(기본 30초 이상) 잡고
+  // 같은 초를 유지하며 바꾼다. 새 배경 파일의 실제 길이는 불러온 뒤 setupBgPlayer가 다시 맞춘다.
+  function startNewBackground(contentSeconds) {
+    const wanted = Math.max(DEFAULT_DURATION_SECONDS, Number(contentSeconds) || 0)
+    // 그린 것이 잘리지 않게 마디(2.5초) 단위로 올림한다.
+    const target = Math.ceil(wanted / SEGMENT_SECONDS - 1e-6) * SEGMENT_SECONDS
+    state.bgOffset = 0
+    state.bgEndOffset = deps.canSelectBgRange() ? target : 0
+    changeDuration(target, false)
+    setupBgPlayer(true)
   }
 
   function selectedBgEnd() {
@@ -698,8 +724,19 @@
 
   function commitBgStartInput() {
     const parsed = parseTimeInput(el.bgStartInput && el.bgStartInput.value)
-    if (parsed == null) syncBgPlayerUI()
-    else seekBg(parsed)
+    if (parsed == null) {
+      syncBgPlayerUI()
+      return
+    }
+    const total = bgDuration()
+    const maxStart = Math.max(0, total - bgMinGap(total))
+    // 곡 길이를 넘는 시작(0:400처럼 잘못 친 값)을 끝으로 끌어오면 작품이 2.5초가 되고 뒤 선율이 숨는다.
+    if (total && parsed > maxStart + 0.001) {
+      syncBgPlayerUI()
+      say("시작은 0:00부터 " + fmtInputTime(maxStart) + " 사이로 적어 주세요.", { error: true })
+      return
+    }
+    seekBg(parsed)
   }
 
   function commitBgEndInput() {
@@ -723,6 +760,7 @@
     deps.stopExamplePreview()
     pauseBgPlayer()
     deps.renderAtmospheres()
+    playStartProgress = selectedPlayheadProgress
     const recipe = deps.buildRecipe()
     engine.play(recipe, deps.notesFor(recipe), { startOffset: selectedPlaybackStartSec() }).catch(function (error) {
       state.playingTakeId = null
@@ -732,7 +770,7 @@
           ? [error.name, error.message].filter(Boolean).join(": ")
           : String(error)
       el.statusText.textContent = "재생 오류"
-      el.exportStatus.textContent = "재생 오류: " + message
+      say("재생 오류: " + message, { error: true })
       logger.error("전체곡 재생 실패", error, { recipe: recipe, state: deps.getStateSummary ? deps.getStateSummary() : null })
     })
   }
@@ -789,7 +827,7 @@
       wrap.scrollLeft = 0
       deps.syncCanvasScrollState()
     }
-    if (announce && el.exportStatus) el.exportStatus.textContent = "재생 위치를 처음으로 옮겼어요."
+    if (announce) say("재생 위치를 처음으로 옮겼어요.")
   }
 
   function stop() {
@@ -836,6 +874,8 @@
     selectedPlaybackStartSec,
     livePlayheadProgress,
     ensureTimelineDuration,
+    changeDuration,
+    startNewBackground,
     syncBgPlayerUI,
     setupBgPlayer,
     pauseBgPlayer,

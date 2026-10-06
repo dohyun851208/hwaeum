@@ -282,3 +282,22 @@ test("autocompleteMelody: 첫 음을 당겨도 끝나는 시각은 그대로다"
     assert.ok(note.time >= 0 && note.duration > 0, "음의 시각·길이가 유효하지 않다")
   }
 })
+
+test("autocompleteMelody: 국악 줄이 숨은 칸(시)을 한 번 스치고 지나가도 소리가 끊기지 않는다", () => {
+  const rows = core.drawableScale(GUGAK_FIXED_GRID, GUGAK_ASSET)
+  const la = rowCenterY(rows, 57)
+  const doNote = rowCenterY(rows, 60)
+  // 2초 곡, 1/16초 표본: t=15/32 표본만 정확히 시(59) 칸 한가운데에 떨어진다.
+  const path = [
+    { x: 0, y: la },
+    { x: 14 / 32, y: la },
+    { x: 16 / 32, y: doNote },
+    { x: 1, y: doNote },
+  ]
+  const notes = core.autocompleteMelody(path, { durationSec: 2, style: GUGAK_FIXED_GRID, melodyAsset: GUGAK_ASSET })
+  const laNote = notes.find((n) => n.midi === 57)
+  const doN = notes.find((n) => n.midi === 60)
+  assert.ok(laNote && doN, JSON.stringify(notes))
+  assert.ok(doN.time - (laNote.time + laNote.duration) < 0.01, "라와 도 사이에 쉼이 없어야 한다: " + JSON.stringify(notes))
+  assert.ok(!notes.some((n) => n.midi === 59), "숨은 칸의 음은 내지 않는다")
+})

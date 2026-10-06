@@ -220,7 +220,19 @@
     await withLocalStore("readwrite", function (store) {
       store.put(record)
     })
-    return { work: localPublicWork(record), localOnly: true }
+    // 같은 작품을 다시 공유했다 — 이 브라우저가 올린 예전 것이면 지운다(서버와 같은 규칙).
+    let replaced = false
+    const previousId = String(payload.replaceWorkId || "")
+    if (previousId && previousId !== record.id) {
+      const previous = await getLocalWork(channel, previousId)
+      if (previous && previous.ownerId === owner.id) {
+        await withLocalStore("readwrite", function (store) {
+          store.delete(previousId)
+        })
+        replaced = true
+      }
+    }
+    return { work: localPublicWork(record), localOnly: true, replaced: replaced }
   }
 
   async function getLocalWork(channel, workId) {

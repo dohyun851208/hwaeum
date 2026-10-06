@@ -25,14 +25,28 @@
   const normalizeHashtags = StudioUtils.normalizeHashtags
   const keywordText = StudioUtils.keywordText
 
+  // 필수 칸을 먼저 확인하고, 통과했을 때만 저장한다 — 저장한 작품을 다시 불러오면 빈 제목이 '무제'로
+  // 채워져 검사를 통과하고 되돌리기 기록도 지워지므로 지금 작업을 그대로 두고 확인한다.
   function publishCurrentTake() {
+    if (!checkShareReady()) return
     const saved = deps.saveTake()
     if (!saved) return
-    publishTake(saved)
+    // 번호와 갤러리 코드를 한 모달에서 같이 받는다.
+    openPublishModal()
   }
 
   function publishTake(t) {
-    deps.selectTake(t)
+    if (t && t.id !== state.activeTakeId) deps.selectTake(t)
+    if (!checkShareReady()) return
+    openPublishModal()
+  }
+
+  function shareError(message) {
+    el.exportStatus.textContent = message
+    el.exportStatus.classList.add("error")
+  }
+
+  function checkShareReady() {
     const missing = []
     if (!el.titleInput?.value.trim()) missing.push({ field: el.titleInput, label: "제목" })
     if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "작곡가" })
@@ -41,20 +55,22 @@
     if (!deps.hashtagList().length) missing.push({ field: el.hashtagsInput, label: "작품을 잘 나타내는 단어" })
     if (missing.length > 0) {
       missing.forEach(({ field }) => field.classList.add("field-invalid"))
-      el.exportStatus.textContent = "공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", ")
-      el.exportStatus.classList.add("error")
+      shareError("공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", "))
       missing[0].field.focus()
       missing[0].field.scrollIntoView({ behavior: "smooth", block: "center" })
-      return
+      return false
+    }
+    if (state.atmosphere && state.atmosphere.missing) {
+      // 파일 없이 공유하면 갤러리에는 배경 이름만 있고 음악에는 배경이 빠진다.
+      shareError("배경 음악 ‘" + state.atmosphere.label + "’ 파일이 이 컴퓨터에 없어요. 2단계에서 같은 파일을 다시 올린 뒤 공유해 주세요.")
+      return false
     }
     if (!ShareStore) {
-      el.exportStatus.textContent = "공유 모듈을 불러오지 못했어요."
-      el.exportStatus.classList.add("error")
-      return
+      shareError("공유 모듈을 불러오지 못했어요.")
+      return false
     }
     el.exportStatus.classList.remove("error")
-    // 번호와 갤러리 코드를 한 모달에서 같이 받는다.
-    openPublishModal()
+    return true
   }
 
   function setPublishModalError(text) {
@@ -71,12 +87,9 @@
     setPublishModalError("")
     el.publishModal.hidden = false
     el.body.classList.add("publish-modal-open")
-    const focusTarget = !channel
-      ? el.publishChannelInput
-      : !el.publishPassInput.value
-        ? el.publishPassInput
-        : el.publishModalSubmitBtn || el.publishPassInput
-    focusTarget.focus({ preventScroll: true })
+    // 미리 채운 번호라도 학생이 눈으로 확인하도록 번호 칸에 초점을 둔다(공용 PC에서 앞 반 번호로 바로 올라가지 않게).
+    el.publishChannelInput.focus({ preventScroll: true })
+    if (typeof el.publishChannelInput.select === "function") el.publishChannelInput.select()
   }
 
   function closePublishModal() {
@@ -86,7 +99,7 @@
     if (el.publishShareBtn) el.publishShareBtn.focus({ preventScroll: true })
   }
 
-  function submitPublishModal(event) {
+  async function submitPublishModal(event) {
     if (event) event.preventDefault()
     if (!ShareStore) return
     const channel = ShareStore.normalizeChannel(el.publishChannelInput ? el.publishChannelInput.value : "")
@@ -101,7 +114,30 @@
       if (el.publishPassInput) el.publishPassInput.focus()
       return
     }
-    if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pass)
+    // 음악 압축(약 30초)을 시작하기 전에 번호와 코드부터 확인한다 — 틀리면 30초를 기다린 뒤에야 알 수 있었다.
+    const submitButton = el.publishModalSubmitBtn
+    if (submitButton) submitButton.disabled = true
+    setPublishModalError("")
+    try {
+      if (ShareStore.listChannel) {
+        const check = await ShareStore.listChannel(channel, pass)
+        if (check && check.locked && check.passError) {
+          setPublishModalError("갤러리 코드가 맞지 않아요.")
+          if (el.publishPassInput) el.publishPassInput.focus()
+          return
+        }
+        if (check && !check.meta && !(check.works && check.works.length)) {
+          setPublishModalError("#" + channel + " 화음 갤러리를 찾지 못했어요. 번호를 확인해 주세요.")
+          if (el.publishChannelInput) el.publishChannelInput.focus()
+          return
+        }
+      }
+    } catch (error) {
+      setPublishModalError((error && error.message) || "화음 갤러리를 확인하지 못했어요.")
+      return
+    } finally {
+      if (submitButton) submitButton.disabled = false
+    }
     closePublishModal()
     publishSharedWork(channel, pass)
   }
@@ -395,6 +431,9 @@
     syncShareInputs(channel)
     const recipe = deps.buildRecipe()
     const metadata = sharedMetadata(recipe)
+    // 같은 작품을 이 갤러리에 다시 공유하면 예전 것을 바꾼다(새로 쌓이지 않게).
+    const takeId = state.activeTakeId
+    const replaceWorkId = takeId && typeof deps.sharedWorkFor === "function" ? deps.sharedWorkFor(takeId, channel) : ""
     const publishButton = el.publishShareBtn
     if (publishButton) publishButton.disabled = true
 
@@ -451,12 +490,15 @@
         thumbBlob: images.thumb,
         drawingBlob: drawing,
         musicBlob: music,
+        replaceWorkId: replaceWorkId,
       })
       const work = result.work
       setProgress(1.0)
-      el.exportStatus.textContent = result.localOnly
-        ? "#" + channel + " 갤러리에 이 브라우저용으로 저장했어요."
-        : "#" + channel + " 갤러리에 공유했어요."
+      if (ShareStore.rememberPass) ShareStore.rememberPass(channel, pass) // 성공한 코드만 기억한다
+      if (takeId && work && work.id && typeof deps.rememberSharedWork === "function") deps.rememberSharedWork(takeId, channel, work.id)
+      el.exportStatus.textContent =
+        (result.localOnly ? "#" + channel + " 갤러리에 이 브라우저용으로 저장했어요." : "#" + channel + " 갤러리에 공유했어요.") +
+        (result.replaced ? " 예전에 올린 같은 작품은 이 작품으로 바꿨어요." : "")
       state.sharedChannel = channel
       root.location.href = channelPageUrl(channel, work && work.id)
     } catch (e) {

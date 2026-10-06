@@ -124,7 +124,12 @@ test("channel viewer opens a studio copy instead of a drawing image", () => {
   assert.match(openViewerBody, /viewerCopy\.disabled = !canCopyActive\(\)/)
   assert.match(bindBody, /viewerDrawing[\s\S]*addEventListener\("click", openActiveStudioCopy\)/)
   assert.match(functionBody(channel, "openActiveStudioCopy"), /root\.open\("about:blank", "_blank"\)/)
-  assert.match(functionBody(channel, "openActiveStudioCopy"), /studioCopyUrl\(storeStudioCopy\(state\.activeWork\)\)/)
+  assert.match(functionBody(channel, "openActiveStudioCopy"), /studioCopyUrl\(storeStudioCopy\(await fullWorkForCopy\(state\.activeWork\)\)\)/)
+  // 목록에서 빠진 그림은 스튜디오로 가져갈 때 전체 정보를 다시 읽어 채운다.
+  assert.match(functionBody(channel, "fullWorkForCopy"), /ShareStore\.getWork\(/)
+  // 친구 이름·감상 메모는 복사본에 가져가지 않는다.
+  assert.match(functionBody(channel, "studioCopyRecipe"), /recipe\.composerName = ""/)
+  assert.match(functionBody(channel, "studioCopyRecipe"), /recipe\.pictureThought = ""/)
   assert.match(functionBody(channel, "storeStudioCopy"), /STUDIO_COPY_STORAGE_PREFIX \+ token/)
   assert.match(functionBody(channel, "studioCopyRecipe"), /recipe\.atmosphere = "none"/)
 })
@@ -199,6 +204,13 @@ test("shared gallery hides the middle of composer names", () => {
   assert.equal(maskComposerName("3반 김하음"), "3반 김*음")
   assert.equal(maskComposerName("12번 김하음"), "12번 김*음")
   assert.equal(maskComposerName("Mina"), "M**a")
+  // 감사에서 찾은 빈틈: 학년·반 표시는 그대로, 띄어 쓴 이름도 가린다.
+  assert.equal(maskComposerName("3학년 2반 김하음"), "3학년 2반 김*음")
+  assert.equal(maskComposerName("6학년3반김하음"), "6학년3반김*음")
+  assert.equal(maskComposerName("김 하 음"), "김 * 음")
+  assert.equal(maskComposerName("김 하음"), "김 *음")
+  assert.equal(maskComposerName("김하음(3반)"), "김*음(3반)")
+  assert.equal(maskComposerName("Mina Kim"), "M**a K*m")
   assert.equal(maskComposerName(""), "")
   assert.match(functionBody(channel, "workComposer"), /maskComposerName\(cleanText\(meta\.composerName, 24\)\)/)
 })

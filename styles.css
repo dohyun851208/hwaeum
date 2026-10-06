@@ -1379,7 +1379,7 @@ body.is-publishing #saveTakeBtn {
   --channel-accent-dark: #087878;
   --channel-gold: #c8ff3d;
   --channel-teal: #00a6a6;
-  min-width: 1040px;
+  min-width: 960px;
   height: 100vh;
   margin: 0;
   overflow: hidden;
@@ -2573,11 +2573,47 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: rgba(248, 250, 252, 0.78);
 }
 .canvas-col {
+  position: relative;
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+/* 3단계 안내 — 도화지 아래쪽에 잠깐 떴다 사라진다. 그리기를 막지 않게 포인터는 통과시킨다. */
+.drawing-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 8;
+  max-width: min(600px, calc(100% - 40px));
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: rgba(25, 27, 23, 0.9);
+  color: #fffaf0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  box-shadow: 0 10px 26px rgba(25, 27, 23, 0.22);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.drawing-toast:empty {
+  display: none;
+}
+.drawing-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.drawing-toast.error {
+  background: rgba(122, 32, 22, 0.94);
+}
+.instrument-status {
+  font-size: 0.9rem;
 }
 .drawing-workspace > .bg-player {
   grid-column: 2;
@@ -2616,6 +2652,11 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   object-fit: cover;
   object-position: center;
   transition: opacity 140ms ease, transform 180ms ease;
+}
+/* 가로·세로로 아주 긴 그림은 가운데만 잘리지 않게 전체를 보인다(studio.js가 비율을 보고 붙인다). */
+.drawing-reference img.fit-whole {
+  object-fit: contain;
+  background: #fffaf0;
 }
 .drawing-workspace.reference-collapsed .drawing-reference img {
   opacity: 0;
@@ -3437,7 +3478,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 .sound-layer-file span {
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
 .sound-layer-remove {
@@ -3448,7 +3489,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 850;
   cursor: pointer;
 }
@@ -3480,12 +3521,12 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 .sound-layer-control-head span:first-child {
   color: var(--ink);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 900;
 }
 .sound-layer-value {
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -3496,11 +3537,11 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 }
 .sound-layer-range-row {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   align-items: center;
   gap: 7px;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.875rem;
   font-weight: 850;
 }
 .sound-layer-range {
@@ -3522,7 +3563,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   background: var(--canvas);
   color: var(--accent);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 900;
   cursor: pointer;
 }
@@ -3739,10 +3780,13 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   --completion-panel-bg: rgba(255, 255, 255, 0.76);
   --completion-field-bg: rgba(255, 255, 255, 0.9);
   --completion-panel-border: var(--line);
-  /* 좌: 표지 + 듣기 · 중: 제목과 성찰 · 우: 내 작품 */
-  grid-template-columns: minmax(260px, 0.78fr) minmax(460px, 1.34fr) minmax(300px, 0.88fr);
+  /* 좌: 표지 + 듣기 · 우: 제목과 성찰, 그 아래 내 작품(1024 폭에서도 넘치지 않게 두 칸) */
+  grid-template-columns: minmax(240px, 0.8fr) minmax(420px, 1.4fr);
   align-items: start;
   gap: 18px;
+}
+.completion-gallery > .completion-work-list {
+  grid-column: 2;
 }
 .completion-preview-column,
 .completion-work-list,
@@ -4542,7 +4586,15 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
 .take-detail {
   display: block;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
+}
+.take-meta .take-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 .take-composer {
   margin-top: 3px;
@@ -4551,7 +4603,7 @@ body:not([data-gallery-view="flow"]) .channel-flow-controls {
   margin-top: 4px;
   overflow: hidden;
   color: var(--accent);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4790,11 +4842,17 @@ body:not(.channel-body)::after {
     0 18px 42px rgba(42, 35, 18, 0.12);
 }
 
-.dropframe:hover {
+.dropframe:hover,
+.dropframe.dragging {
   border-color: var(--brand-gold-strong);
   background:
     linear-gradient(180deg, rgba(255, 249, 231, 0.68), rgba(255, 249, 231, 0.9)),
     url("./assets/default-cover.webp") center / cover;
+}
+/* 그림 파일을 끌어 왔을 때 — 여기에 놓으면 된다는 표시 */
+.dropframe.dragging {
+  outline: 3px dashed var(--brand-gold-strong);
+  outline-offset: -10px;
 }
 
 .dropframe-empty {
@@ -6313,6 +6371,18 @@ body:not(.channel-body) .step strong {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+@media (max-width: 1100px) {
+  body:not(.channel-body) .steps,
+  body:not(.channel-body) .step {
+    gap: 6px;
+  }
+  body:not(.channel-body) .step strong {
+    font-size: 14px;
+  }
+  body:not(.channel-body) .step:not(:last-child)::after {
+    min-width: 8px;
+  }
+}
 body:not(.channel-body) .step:hover {
   color: var(--ink);
   background: none;
@@ -6561,7 +6631,7 @@ body:not(.channel-body) :is(.picture-thought > span, .placard-field-label, .refl
 body:not(.channel-body) :is(.completion-preview-hint, .channel-admin-form .muted, .upload-status, .screen-actions .muted),
 body:not(.channel-body) #hashtagHelp {
   color: var(--muted);
-  font: 400 13px/1.55 var(--sans);
+  font: 400 14px/1.55 var(--sans);
 }
 
 /* ---------- 1단계: 그림 ---------- */
@@ -6965,9 +7035,12 @@ body:not(.channel-body) .instrument-answer-btn {
 body:not(.channel-body) .instrument-family-head strong {
   font: 700 15px/1.3 var(--sans);
 }
-body:not(.channel-body) :is(.eyebrow, .instrument-family-head small, .palette-label span),
-body:not(.channel-body) #audioModeNote {
+body:not(.channel-body) :is(.eyebrow, .instrument-family-head small, .palette-label span) {
   font-size: 13px;
+}
+/* 2단계 출처 줄도 읽는 글자라 14px 바닥을 지킨다 */
+body:not(.channel-body) #audioModeNote {
+  font-size: 14px;
 }
 body:not(.channel-body) :is(.tool-shortcut-badge, .brand-sub) {
   font-size: 12px;

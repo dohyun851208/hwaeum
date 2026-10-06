@@ -292,8 +292,14 @@ test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () =>
   assert.ok(end > start)
   assert.doesNotMatch(resetCompose, /state\.bgOffset\s*=\s*0/)
   assert.doesNotMatch(resetCompose, /state\.bgEndOffset\s*=\s*0/)
-  assert.match(resetCompose, /draw\.clear\(false\)/)
+  assert.match(resetCompose, /draw\.clear\(true\)/)
   assert.match(resetCompose, /setupBgPlayer\(true\)/)
+  // 키보드 4 한 번에 작업이 사라지지 않게: 지울 것이 있으면 묻고, 되돌리기로 다시 살릴 수 있다.
+  assert.match(resetCompose, /window\.confirm\(RESET_CONFIRM_MESSAGE\)/)
+  assert.match(resetCompose, /type: "reset"/)
+  assert.match(resetCompose, /pushAppUndoAction\(resetAction\)/)
+  assert.doesNotMatch(resetCompose, /clearUndoHistory|clearAppUndoHistory/)
+  assert.match(resetCompose, /state\.activeTakeId = null/)
 })
 
 test("레시피 불러오기도 배경 구간 설정과 길이를 유지한다", () => {
@@ -325,7 +331,7 @@ test("레시피 링크 공유는 드로잉 단계에서 시작하고 완성 탭 
   assert.match(buildSharedRecipe, /hashtags: \[\]/)
   assert.match(buildSharedRecipe, /composerName: cleanText\(state\.composerName, COMPOSER_NAME_MAX\)/)
   assert.match(share, /Core\.encodeRecipe\(deps\.buildSharedRecipe\(\)\)/)
-  assert.match(source, /const restoredRecipeLink = restoreFromHash\(\)[\s\S]*setStep\(restoredRecipeLink \? DRAWING_STEP : 0\)/)
+  assert.match(source, /const restoredRecipeMessage = restoreFromHash\(\)[\s\S]*setStep\(restoredRecipeMessage \? DRAWING_STEP : 0\)/)
   assert.match(source, /state\.sharedRecipeLoaded = true/)
   assert.match(takesUi, /const items = state\.sharedRecipeLoaded \? \[\] : takes\.list\(\)/)
 })

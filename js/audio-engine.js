@@ -72,7 +72,27 @@
     haegeum: 2.00,
     gayageum: 0.47,
   }
+  // 음원을 못 받아 합성음으로 대신 낼 때의 악기별 크기 보정(dB). 합성 파형은 처음부터 꽉 찬 크기인데
+  // 작게 녹음된 음원에 맞춘 위 악기 게인을 그대로 곱해, 실제 음원보다 5~23 dB 크게 났다(2026-10-06,
+  // 이어폰을 낀 학생에게 갑자기 큰 소리). 같은 선율을 음원과 합성음으로 렌더해 RMS를 맞춘 값이다.
+  // 위 악기 게인을 바꾸면 tools/measure-synth-fallback.cjs로 다시 재서 고친다.
+  const SYNTH_MELODY_TRIM_DB = {
+    flute: -31.0,
+    oboe: -18.3,
+    clarinet: -24.8,
+    frenchHorn: -22.9,
+    violin: -17.2,
+    viola: -21.0,
+    cello: -19.4,
+    doubleBass: -11.4,
+    sogeum: -16.0,
+    daegeum: -21.6,
+    danso: -10.0,
+    haegeum: -24.2,
+    gayageum: -6.4,
+  }
   const NOTE_MELODY_OUTPUT_GAIN_LIMIT_DB = 3
+  const LOAD_RETRY_MS = 5000
   // 측정으로 승인된 ±12 dB 예외. 자동 루프 적용 범위와 분리한다.
   // 더블베이스는 샘플 사이 녹음 강약 차, 국악 4악기는 국립국악원 음계 녹음이 음마다 한 번뿐이라
   // 바꿀 녹음이 없고 음 사이 차이가 9~21 dB라서다(2026-10-03, 소금 낮은 음이 기준보다 10.9 dB 작았다).
@@ -227,6 +247,21 @@
           ? note.midi - playbackTranspose(instrument, asset)
           : null
     return noteMelodyOutputGainForUiMidi(instrument, uiMidi)
+  }
+
+  function synthMelodyTrim(instrument) {
+    const db = Number(SYNTH_MELODY_TRIM_DB[instrument && instrument.id])
+    return isFinite(db) ? Math.pow(10, db / 20) : 1
+  }
+
+  // 합성 선율은 이 보정 노드를 거쳐 선율 게인으로 간다(음원 경로는 그대로).
+  function synthMelodyOutput(ctx, dest, instrument, when) {
+    const trim = synthMelodyTrim(instrument)
+    if (trim === 1 || typeof ctx.createGain !== "function") return dest
+    const node = ctx.createGain()
+    node.gain.setValueAtTime(trim, when)
+    node.connect(dest)
+    return node
   }
 
   function melodyOutputGain(plan, instrument) {
@@ -426,6 +461,7 @@
     this.ctx = null
     this.bufferCache = new Map() // url -> Promise<AudioBuffer|null>
     this.decodedCache = new Map() // url -> AudioBuffer|null
+    this.loadFailedAt = new Map() // url -> 마지막으로 받기·풀기에 실패한 시각(잠시 뒤 다시 시도)
     this.transportScope = new AudioNodeScope("transport")
     this.previewScope = new AudioNodeScope("preview")
     this.previewGen = 0
@@ -494,9 +530,24 @@
   }
 
   // 디코드된 AudioBuffer는 컨텍스트 간 공유 가능(같은 sampleRate면 안전).
+  // 실패한 음원은 잠깐(LOAD_RETRY_MS)만 기억하고 그 뒤에는 다시 받아 본다. 한 번의 실패를 영구히 기억하면
+  // 와이파이가 돌아와도 새로고침 전까지 합성음만 났다. 잠깐 기억하는 까닭은 펜이 음을 옮길 때마다 다시 받지 않게.
+  function recentlyFailedToLoad(engine, key) {
+    const at = engine.loadFailedAt.get(key)
+    return at != null && Date.now() - at < LOAD_RETRY_MS
+  }
+
+  function rememberLoadFailure(engine, key) {
+    engine.bufferCache.delete(key)
+    engine.decodedCache.delete(key)
+    engine.loadFailedAt.set(key, Date.now())
+    return null
+  }
+
   AudioEngine.prototype.loadBuffer = function (ctx, url) {
     if (!url) return Promise.resolve(null)
     if (this.decodedCache.has(url)) return Promise.resolve(this.decodedCache.get(url))
+    if (recentlyFailedToLoad(this, url)) return Promise.resolve(null)
     const fetchFn = root.fetch || (typeof fetch !== "undefined" ? fetch : null)
     if (!fetchFn) return Promise.resolve(null)
     const self = this
@@ -509,20 +560,30 @@
         .then((ab) => ctx.decodeAudioData(ab))
         .then((buffer) => {
           self.decodedCache.set(url, buffer)
+          self.loadFailedAt.delete(url)
           return buffer
         })
-        .catch(() => {
-          self.decodedCache.set(url, null)
-          return null
-        })
+        .catch(() => rememberLoadFailure(self, url))
       this.bufferCache.set(url, p)
     }
     return this.bufferCache.get(url)
   }
 
+  // 지운 소리 파일을 풀어 둔 버퍼를 메모리에서 비운다(다시 쓰면 다시 받아 푼다).
+  // 추가 소리 미리듣기(<audio>)는 엔진을 거치지 않으므로, 완성곡 속 크기(추가 소리 게인 × 마스터)만큼 줄여 낸다.
+  AudioEngine.prototype.soundLayerPreviewScale = SOUND_LAYER_OUTPUT_GAIN * MASTER_OUTPUT_GAIN
+
+  AudioEngine.prototype.releaseAsset = function (src) {
+    if (!src) return
+    this.decodedCache.delete(src)
+    this.bufferCache.delete(src)
+    this.loadFailedAt.delete(src)
+  }
+
   AudioEngine.prototype.loadAssetBuffer = function (ctx, asset) {
     if (!asset || !asset.src) return Promise.resolve(null)
     if (this.decodedCache.has(asset.src)) return Promise.resolve(this.decodedCache.get(asset.src))
+    if (recentlyFailedToLoad(this, asset.src)) return Promise.resolve(null)
     if (!asset.file || typeof asset.file.arrayBuffer !== "function") {
       return this.loadBuffer(ctx, asset.src)
     }
@@ -533,12 +594,10 @@
         .then((ab) => ctx.decodeAudioData(ab.slice ? ab.slice(0) : ab))
         .then((buffer) => {
           self.decodedCache.set(asset.src, buffer)
+          self.loadFailedAt.delete(asset.src)
           return buffer
         })
-        .catch(() => {
-          self.decodedCache.set(asset.src, null)
-          return null
-        })
+        .catch(() => rememberLoadFailure(self, asset.src))
       this.bufferCache.set(asset.src, p)
     }
     return this.bufferCache.get(asset.src)
@@ -712,7 +771,7 @@
             : Array.from({ length: Math.ceil(dur / interval) }, (_, k) => k * interval + index * 1.7)
           ).map((time) => ({ time: time, sourceOffset: 0 }))
       offsets
-        .filter((o) => o.time >= 0 && o.time < dur - 0.2)
+        .filter((o) => o.time >= 0 && o.time < dur - (stamps.length ? EFFECT_MIN_REMAINING_SECONDS : 0.2))
         .forEach((o) => {
           // sourceOffset: 탐색 지점 전에 찍혀 아직 울리는 도장은 지나간 만큼 건너뛰고 남은 부분만 낸다.
           const outDur = Math.min(buffer.duration - o.sourceOffset, dur - o.time)
@@ -836,11 +895,11 @@
               strokeCount: voiceStrokes.length,
             })
             if (voiceNotes.length) {
-              self.scheduleSynthMelody(ctx, melodyGain, voicePlan, voiceNotes, start, register)
+              self.scheduleSynthMelody(ctx, synthMelodyOutput(ctx, melodyGain, inst, start), voicePlan, voiceNotes, start, register)
             }
           }
         } else if (voiceNotes.length) {
-          self.scheduleSynthMelody(ctx, melodyGain, voicePlan, voiceNotes, start, register)
+          self.scheduleSynthMelody(ctx, synthMelodyOutput(ctx, melodyGain, inst, start), voicePlan, voiceNotes, start, register)
         }
       })
     }
@@ -1094,7 +1153,8 @@
       applyMelodyEnv(env, melodyPlaybackEnvPeak(plan, first.velocity * 0.78), phraseStart, phraseDuration, attackSeconds, plan)
       osc.connect(filter)
       filter.connect(env)
-      connectMelodyEnv(ctx, env, dest, plan, notes, start, phraseStart, glideSeconds)
+      // 음별 보정은 음원마다 다른 녹음 세기를 맞추는 값이라 합성음에는 쓰지 않는다(쓰면 음높이마다 ±10 dB씩 흔들렸다).
+      env.connect(dest)
       register(osc)
       osc.start(phraseStart)
       osc.stop(phraseStop + 0.18)
@@ -1764,7 +1824,7 @@
     filter.frequency.setValueAtTime(voice.cutoff, start)
     filter.Q.setValueAtTime(voice.Q, start)
     env.gain.setValueAtTime(0, start)
-    env.gain.linearRampToValueAtTime(note.velocity * NOTE_PREVIEW_SYNTH_GAIN * previewOutputGain(plan) * noteMelodyOutputGain(plan, note), start + 0.012)
+    env.gain.linearRampToValueAtTime(note.velocity * NOTE_PREVIEW_SYNTH_GAIN * previewOutputGain(plan) * noteMelodyOutputGain(plan, note) * synthMelodyTrim(plan.instrument), start + 0.012)
     env.gain.exponentialRampToValueAtTime(0.001, start + note.duration)
     osc.connect(filter)
     filter.connect(env)
@@ -1850,8 +1910,15 @@
     osc.stop(start + 0.27)
   }
 
+  // 일시정지는 컨텍스트를 suspend 해 둔 것이라, 미리듣기·펜 소리를 내려고 컨텍스트를 깨우면 멈춰 둔 곡까지
+  // 다시 흘렀다(화면은 '일시정지'인데 노래가 나옴). 멈춘 곡을 먼저 끝낸다 — 재생 위치는 멈춘 곳에 남는다.
+  AudioEngine.prototype._endPausedPlayback = function () {
+    if (this.isPaused) this.stop()
+  }
+
   AudioEngine.prototype.previewEffect = function (effect) {
     if (!effect || !effect.src) return Promise.resolve(false)
+    this._endPausedPlayback()
     const ctx = this.ensureContext()
     const self = this
     const previewGen = this.previewGen
@@ -1877,6 +1944,7 @@
   }
 
   AudioEngine.prototype.previewNote = function (recipe, normY) {
+    this._endPausedPlayback()
     const ctx = this.ensureContext()
     const self = this
     const previewGen = this.previewGen
@@ -1985,18 +2053,42 @@
     return await offline.startRendering()
   }
 
+  // 내보내기 녹음은 재생과 다른 오디오 컨텍스트에서 한다. 같은 컨텍스트를 쓰면 녹음 중 ❚❚(컨텍스트 suspend)가
+  // 녹음까지 멈춰 잘린 파일이 "완료"로 저장되고, 일시정지 중 내보내기가 멈춰 둔 곡을 다시 흘린다.
+  function createRecordingContext(sampleRate) {
+    const AC = root.AudioContext || root.webkitAudioContext
+    if (!AC) return null
+    try {
+      return new AC({ sampleRate: sampleRate, latencyHint: "playback" })
+    } catch (e) {}
+    try {
+      return new AC()
+    } catch (e) {
+      return null
+    }
+  }
+
   AudioEngine.prototype.renderCompressedAudioBlob = async function (recipe, notes, options) {
     options = options || {}
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : null
     const mimeType = supportedCompressedAudioMime()
     if (!mimeType) throw new Error("Compressed WebM audio recording is not supported")
-    const ctx = this.ensureContext()
-    if (ctx.state === "suspended") await ctx.resume()
-    if (typeof ctx.createMediaStreamDestination !== "function") {
+    const live = this.ensureContext() // 음원 디코딩에만 쓴다 — 재생 상태(일시정지 등)는 건드리지 않는다
+    // 누른 직후(사용자 동작 안)에 만들어야 바로 소리를 낼 수 있으므로 오프라인 렌더보다 먼저 만든다.
+    const ctx = createRecordingContext(live.sampleRate)
+    if (!ctx || typeof ctx.createMediaStreamDestination !== "function") {
+      if (ctx && typeof ctx.close === "function") ctx.close().catch(function () {})
       throw new Error("Audio recording destination is not supported")
     }
-    if (onProgress) onProgress(0)
-    const rendered = await this.renderOffline(recipe, notes)
+    let rendered = null
+    try {
+      if (ctx.state === "suspended") await ctx.resume()
+      if (onProgress) onProgress(0)
+      rendered = await this.renderOffline(recipe, notes)
+    } catch (error) {
+      if (typeof ctx.close === "function") ctx.close().catch(function () {})
+      throw error
+    }
     if (onProgress) onProgress(0.2)
     const dest = ctx.createMediaStreamDestination()
     const source = ctx.createBufferSource()
@@ -2009,6 +2101,7 @@
     let stopTimer = 0
     let progressTimer = 0
     let stopped = false
+    let endedNaturally = false
     const stopRecorder = function () {
       if (stopped) return
       stopped = true
@@ -2024,10 +2117,14 @@
       }
     })
     try {
-      source.onended = stopRecorder
+      source.onended = function () {
+        endedNaturally = true
+        stopRecorder()
+      }
       recorder.start()
       source.start(ctx.currentTime + 0.05)
-      stopTimer = root.setTimeout(stopRecorder, Math.max(1000, (rendered.duration + 1) * 1000))
+      // 안전 타이머 — 녹음 컨텍스트가 멈추지 않는 한 곡 끝(onended)이 먼저 온다.
+      stopTimer = root.setTimeout(stopRecorder, Math.max(4000, (rendered.duration * 2 + 4) * 1000))
       if (onProgress && rendered.duration > 0) {
         const recStart = Date.now()
         const totalMs = rendered.duration * 1000
@@ -2047,8 +2144,11 @@
         dest.disconnect()
       } catch (e) {}
       dest.stream.getTracks().forEach((track) => track.stop())
+      if (typeof ctx.close === "function") ctx.close().catch(function () {})
     }
     if (onProgress) onProgress(0.9)
+    // 곡 끝까지 담지 못했으면 잘린 파일을 "완료"로 내주지 않는다.
+    if (!endedNaturally) throw new Error("음악을 끝까지 담지 못했어요. 다시 시도해 주세요.")
     if (!chunks.length) throw new Error("Compressed audio is empty")
     return new Blob(chunks, { type: mimeType })
   }

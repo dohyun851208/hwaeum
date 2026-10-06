@@ -185,6 +185,15 @@
       recipe.bgOffset = 0
       recipe.bgEndOffset = 0
     }
+    // 복사본은 친구 작품을 살펴보고 고쳐 보는 용도다. 친구 이름과 감상 메모·그림 파일 이름은 가져오지 않는다
+    // (갤러리에서는 이름을 가렸는데 스튜디오에서는 실명이 보였고, 그대로 공유하면 친구 이름으로 다시 올라갔다).
+    recipe.composerName = ""
+    recipe.pictureThought = ""
+    recipe.backgroundReason = ""
+    recipe.melodyIntent = ""
+    recipe.hashtags = []
+    recipe.pictureName = "갤러리 작품 그림"
+    delete recipe.pictureOmitted
     recipe.copySource = "channel"
     return recipe
   }
@@ -273,18 +282,19 @@
     list.forEach(function (work) {
       if (work && work.id) byId.set(work.id, work)
     })
-    const ordered = []
+    const known = new Set(order)
+    // 순서를 정해 둔 뒤에 새로 올라온 작품은 맨 앞에 둔다(맨 뒤에 붙으면 새 작품이 눈에 띄지 않았다).
+    const ordered = list.filter(function (work) {
+      return work && work.id && !known.has(work.id)
+    })
+    ordered.forEach(function (work) {
+      byId.delete(work.id)
+    })
     order.forEach(function (id) {
       const work = byId.get(id)
       if (!work) return
       ordered.push(work)
       byId.delete(id)
-    })
-    list.forEach(function (work) {
-      if (work && work.id && byId.has(work.id)) {
-        ordered.push(work)
-        byId.delete(work.id)
-      }
     })
     return ordered
   }
@@ -387,14 +397,40 @@
   }
 
   // 갤러리는 여러 사람이 보므로 이름 가운데를 가린다: 김하음→김*음, 남궁민수→남**수, 김철→김*.
-  // "3반 김하음"처럼 반·번호가 붙어도 글자 묶음마다 가려서 숫자·반 표시는 그대로 둔다.
+  // "3학년 2반 김하음", "6학년3반김하음"처럼 붙은 학년·반·번호 표시는 그대로 두고, 남은 이름 글자를
+  // 한 이름으로 보고 가린다 — "김 하 음"처럼 띄어 써도 그대로 드러나지 않게.
+  // 한글이 없는 이름(Mina Kim)은 낱말마다 가린다.
   function maskComposerName(name) {
-    return String(name || "").replace(/\p{L}+/gu, (word) => {
-      const chars = Array.from(word)
-      if (chars.length < 2) return word
-      if (chars.length === 2) return chars[0] + "*"
-      return chars[0] + "*".repeat(chars.length - 2) + chars[chars.length - 1]
+    const text = String(name || "")
+    const chars = Array.from(text)
+    const keep = new Set() // 학년·반·번호 표시 글자 자리
+    for (const mark of text.matchAll(/\d+\s*(?:학년|반|번|조|모둠|팀)/gu)) {
+      const start = Array.from(text.slice(0, mark.index)).length
+      Array.from(mark[0]).forEach((_, i) => keep.add(start + i))
+    }
+    const hide = (positions) => {
+      if (positions.length < 2) return
+      const hidden = positions.length === 2 ? [positions[1]] : positions.slice(1, -1)
+      hidden.forEach((index) => {
+        chars[index] = "*"
+      })
+    }
+    const isNameLetter = (ch, i) => !keep.has(i) && /\p{L}/u.test(ch)
+    if (/\p{Script=Hangul}/u.test(text)) {
+      hide(chars.map((ch, i) => (isNameLetter(ch, i) ? i : -1)).filter((i) => i >= 0))
+      return chars.join("")
+    }
+    let word = []
+    chars.forEach((ch, i) => {
+      if (isNameLetter(ch, i)) {
+        word.push(i)
+        return
+      }
+      hide(word)
+      word = []
     })
+    hide(word)
+    return chars.join("")
   }
 
   function workComposer(work) {
@@ -522,6 +558,7 @@
     const name = channelDisplayName()
     if (el.title) {
       el.title.textContent = name || "화음 갤러리"
+      el.title.title = name || "" // 잘린 긴 이름은 마우스를 올리면 전체가 보인다
       // 제목 텍스트를 새로 쓰면 관리자 배지 span이 지워지므로 다시 붙여 준다.
       if (el.adminFlag) el.title.appendChild(el.adminFlag)
     }
@@ -595,6 +632,9 @@
     const cover = document.createElement("span")
     cover.className = "channel-album-cover"
     const img = document.createElement("img")
+    img.addEventListener("error", function () {
+      if (img.getAttribute("src") !== DEFAULT_COVER_SRC) img.src = DEFAULT_COVER_SRC
+    })
     img.src = coverUrl(work, false)
     img.alt = workDisplayTitle(work) + " 표지"
     img.loading = "lazy"
@@ -888,6 +928,24 @@
     }
   }
 
+  // 만든 적 없는 번호(갤러리 정보도 작품도 없음)는 빈 갤러리가 아니라 번호를 확인하라고 알려 준다.
+  function syncEmptyMessage() {
+    if (!el.empty) return
+    const title = el.empty.querySelector("strong")
+    const detail = el.empty.querySelector("span")
+    const unknown = !state.channelMeta && !state.works.length
+    if (title) {
+      title.textContent = unknown
+        ? "#" + state.channel + " 화음 갤러리를 찾지 못했어요."
+        : "아직 이 화음 갤러리에 음악이 없습니다."
+    }
+    if (detail) {
+      detail.textContent = unknown
+        ? "번호가 맞는지 선생님께 확인해 주세요."
+        : "스튜디오에서 완성한 음악을 화음 갤러리에 공유하면 여기에 모입니다."
+    }
+  }
+
   function renderShelves() {
     el.shelves.innerHTML = ""
     // 카드를 새로 그리므로 옛 커버플로우 참조는 버린다.
@@ -899,7 +957,9 @@
     syncViewModeUI()
     const gated = state.locked && !!state.channel
     if (el.viewbar) el.viewbar.hidden = gated
-    el.empty.hidden = gated || state.loading || !!state.works.length || !state.channel
+    // 불러오기에 실패했을 때는 "음악이 없습니다"를 함께 띄우지 않는다(오류만 보인다).
+    el.empty.hidden = gated || state.loading || state.loadFailed || !!state.works.length || !state.channel
+    syncEmptyMessage()
     if (gated) return
     if (state.loading || !state.works.length) return
     if (state.viewMode === VIEW_MODE_FLOW) renderCoverFlow()
@@ -910,6 +970,8 @@
   async function loadChannel(channel, options) {
     const generation = ++channelLoadGeneration
     options = options || {}
+    // 열 작품(#work=)은 주소를 고치기 전에 기억한다 — 잠긴 갤러리에 코드를 넣은 뒤에도 그 작품이 열리게.
+    const focusId = options.focusWork || workIdFromHash()
     if (!ShareStore || !ShareStore.listChannel) {
       setStatus("공유 모듈을 불러오지 못했어요.", true)
       return
@@ -937,6 +999,7 @@
       state.pass = ShareStore.cleanPin ? ShareStore.cleanPin(options.pass) : String(options.pass || "").replace(/\D/g, "").slice(0, 6)
     }
     state.loading = true
+    state.loadFailed = false
     renderShelves()
     setStatus("", false)
     try {
@@ -945,7 +1008,7 @@
       state.channelMeta = result.meta || null
       state.locked = !!result.locked
       state.works = state.locked ? [] : applyStoredWorkOrder(Array.isArray(result.works) ? result.works : [], normalized)
-      const focusIndex = options.focusWork ? state.works.findIndex((item) => item && item.id === options.focusWork) : -1
+      const focusIndex = focusId ? state.works.findIndex((item) => item && item.id === focusId) : -1
       state.flowIndex = focusIndex >= 0 ? focusIndex : clampFlowIndex(state.flowIndex)
       state.loading = false
       renderShelves()
@@ -957,14 +1020,15 @@
         if (state.pass && ShareStore.rememberPass) ShareStore.rememberPass(normalized, state.pass)
         setStatus("", false)
       }
-      if (options.updateUrl !== false) history.replaceState(null, "", channelUrl(normalized, options.focusWork || ""))
-      if (!state.locked) focusWork(options.focusWork || workIdFromHash())
+      if (options.updateUrl !== false) history.replaceState(null, "", channelUrl(normalized, focusId))
+      if (!state.locked) focusWork(focusId)
     } catch (error) {
       if (generation !== channelLoadGeneration) return
       console.error(error)
       state.works = []
       state.flowIndex = 0
       state.loading = false
+      state.loadFailed = true
       renderShelves()
       setStatus(error.message || "화음 갤러리를 불러오지 못했어요.", true)
     }
@@ -1188,6 +1252,9 @@
     const meta = work.metadata || {}
     const url = musicUrl(work)
     state.activeWork = work
+    el.viewerCover.onerror = function () {
+      if (el.viewerCover.getAttribute("src") !== DEFAULT_COVER_SRC) el.viewerCover.src = DEFAULT_COVER_SRC
+    }
     el.viewerCover.src = coverUrl(work, true)
     el.viewerCover.alt = workTitle(work) + " 표지"
     if (el.viewerBackdrop) el.viewerBackdrop.src = coverUrl(work, true)
@@ -1204,12 +1271,14 @@
     if (el.viewerCopy) el.viewerCopy.disabled = !canCopyActive()
     el.viewer.hidden = false
     el.body.classList.add("channel-viewer-open")
+    const info = el.viewer.querySelector ? el.viewer.querySelector(".channel-viewer-info") : null
+    if (info) info.scrollTop = 0
     updateViewerPlayState()
     if (options.updateHash !== false) history.replaceState(null, "", channelUrl(work.channel || state.channel, work.id))
     el.viewerClose.focus({ preventScroll: true })
   }
 
-  function closeViewer() {
+  function closeViewer(options) {
     if (el.viewer.hidden) return
     el.viewerAudio.pause()
     el.viewerAudio.removeAttribute("src")
@@ -1217,7 +1286,7 @@
     el.viewer.hidden = true
     el.body.classList.remove("channel-viewer-open")
     state.activeWork = null
-    history.replaceState(null, "", channelUrl(state.channel, ""))
+    if (!(options && options.keepUrl)) history.replaceState(null, "", channelUrl(state.channel, ""))
     updateViewerPlayState()
   }
 
@@ -1241,12 +1310,21 @@
     done()
   }
 
-  function openActiveStudioCopy() {
+  // 목록에는 그림이 빠져 있으므로(갤러리를 가볍게 열려고) 스튜디오로 가져갈 때 그 작품의 전체 정보를 읽는다.
+  async function fullWorkForCopy(work) {
+    if (!work || !work.recipe || !work.recipe.pictureOmitted || !ShareStore || !ShareStore.getWork) return work
+    const full = await ShareStore.getWork(work.channel || state.channel, work.id, state.pass)
+    return full && full.recipe ? full : work
+  }
+
+  async function openActiveStudioCopy() {
     if (!state.activeWork) return
+    // 새 탭은 누른 순간에 열어야 팝업 차단에 걸리지 않는다 — 주소는 정보를 다 읽은 뒤에 넣는다.
     const win = typeof root.open === "function" ? root.open("about:blank", "_blank") : null
     try {
       if (!canOpenStudioCopy(state.activeWork)) throw new Error("스튜디오에서 볼 수 있는 드로잉 정보가 없어요.")
-      const url = studioCopyUrl(storeStudioCopy(state.activeWork))
+      setStatus("스튜디오로 가져갈 작품 정보를 읽는 중이에요.", false)
+      const url = studioCopyUrl(storeStudioCopy(await fullWorkForCopy(state.activeWork)))
       if (win) {
         win.location.href = url
       } else if (typeof root.open === "function") {
@@ -1458,6 +1536,7 @@
     })
     window.addEventListener("popstate", function () {
       state.openedFromHash = false
+      closeViewer({ keepUrl: true })
       loadChannel(channelFromUrl(), { updateUrl: false, focusWork: workIdFromHash() })
     })
   }

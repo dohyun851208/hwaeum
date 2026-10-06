@@ -60,8 +60,10 @@ test("studio utils snapped lengths leave no stub bar and no colliding label", ()
 
 test("studio utils sanitize share metadata without losing Korean tags", () => {
   assert.equal(utils.cleanText("  봄\t  음악\n", 20), "봄 음악")
-  // 태그는 쉼표로만 나뉜다 — "감정적인 노래"처럼 띄어쓰기가 든 말도 태그 1개.
+  // 태그는 쉼표·#으로 나뉜다 — "감정적인 노래"처럼 띄어쓰기가 든 말도 태그 1개.
   assert.deepEqual(utils.normalizeHashtags("#봄, BGM!, 감정적인 노래, 넷째"), ["봄", "BGM", "감정적인 노래"])
+  assert.deepEqual(utils.normalizeHashtags("#봄 #여름 #가을"), ["봄", "여름", "가을"])
+  assert.deepEqual(utils.normalizeHashtags("ㅋㅋㅋ, 신나는 노래"), ["ㅋㅋㅋ", "신나는 노래"])
   assert.deepEqual(utils.normalizeHashtags("봄, 봄, 여름"), ["봄", "여름"])
   assert.deepEqual(utils.normalizeHashtags(["봄", "BGM", "긴장-장면"]), ["봄", "BGM", "긴장-장면"])
   assert.equal(utils.hashtagText(["봄", "BGM", "감정적인 노래"]), "#봄 #BGM #감정적인 노래")

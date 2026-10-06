@@ -1,5 +1,8 @@
 const { list } = require("@vercel/blob")
-const { cleanChannel, cleanPin, hashPass, listAll, loadChannelMeta, method, readJsonUrl, sanitizeChannelMeta, sanitizeMeta, send, sendError } = require("./_utils.cjs")
+const { cleanChannel, cleanPin, hashPass, listAll, listedMeta, loadChannelMeta, method, readJsonUrl, sanitizeChannelMeta, send, sendError } = require("./_utils.cjs")
+
+// 작품 정보는 여러 개를 함께 읽는다(하나씩 읽으면 작품이 많은 갤러리가 느리게 열렸다).
+const READ_CONCURRENCY = 8
 
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["GET"])) return
@@ -27,13 +30,21 @@ module.exports = async function handler(req, res) {
     const blobs = await listAll(list, { prefix, limit: 1000 })
     const metas = blobs.filter((blob) => /\/meta\.json$/.test(blob.pathname || ""))
     const works = []
-    for (const blob of metas) {
-      try {
-        const meta = await readJsonUrl(blob.url)
-        if (meta && meta.channel === channel) works.push(sanitizeMeta(meta))
-      } catch (error) {
-        console.warn("skip broken shared work", blob.pathname, error && error.message)
-      }
+    for (let start = 0; start < metas.length; start += READ_CONCURRENCY) {
+      const batch = await Promise.all(
+        metas.slice(start, start + READ_CONCURRENCY).map(async (blob) => {
+          try {
+            const meta = await readJsonUrl(blob.url)
+            return meta && meta.channel === channel ? listedMeta(meta) : null
+          } catch (error) {
+            console.warn("skip broken shared work", blob.pathname, error && error.message)
+            return null
+          }
+        }),
+      )
+      batch.forEach((meta) => {
+        if (meta) works.push(meta)
+      })
     }
     works.sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""))
     send(res, 200, { channel: sanitizeChannelMeta(channelMeta), locked: false, works })

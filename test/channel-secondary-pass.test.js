@@ -111,8 +111,11 @@ test("publish flow asks channel + code together in one modal", () => {
   // 예전 2단계 prompt 흐름은 사라졌다 — 번호와 코드를 모달에서 동시에 받는다.
   assert.doesNotMatch(publishTakeBody, /prompt\(/)
   assert.match(publishTakeBody, /openPublishModal\(\)/)
-  assert.match(submitBody, /ShareStore\.rememberPass\(channel, pass\)/)
+  // 압축 전에 번호·코드를 먼저 확인하고, 코드는 공유에 성공한 뒤에만 기억한다.
+  assert.match(submitBody, /ShareStore\.listChannel\(channel, pass\)/)
+  assert.doesNotMatch(submitBody, /rememberPass/)
   assert.match(submitBody, /publishSharedWork\(channel, pass\)/)
+  assert.match(functionBody(share, "publishSharedWork"), /ShareStore\.rememberPass\(channel, pass\)/)
 })
 
 test("share + channel pages carry the gallery code UI", () => {
@@ -120,7 +123,8 @@ test("share + channel pages carry the gallery code UI", () => {
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
   const styles = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
 
-  assert.match(studio, /화음 갤러리에 공유합니다\./)
+  // 5단계에서는 작품을 올리지 않는다(공유는 4단계) — 제목이 "공유합니다"면 헷갈렸다.
+  assert.match(studio, /화음 갤러리에 들어갑니다\./)
   assert.match(studio, /번호와 갤러리 코드를 입력하면 같은 화음 갤러리에 모인 완성 작품을 함께 감상할 수 있습니다\./)
   assert.doesNotMatch(studio, new RegExp("화음 갤러리를 열면 선생님이 알려 준 " + "2" + "차 " + "코드"))
   assert.doesNotMatch(studio, new RegExp("화음 갤러리 " + "열기"))

@@ -47,12 +47,28 @@ function createElement(tagName) {
     addEventListener(type, listener) {
       this.listeners[type] = listener
     },
+    querySelector() {
+      return null
+    },
   }
   node.classList = {
     add(...names) {
       const current = node.className.split(/\s+/).filter(Boolean)
       for (const name of names) if (!current.includes(name)) current.push(name)
       node.className = current.join(" ")
+    },
+    remove(...names) {
+      node.className = node.className.split(/\s+/).filter((name) => name && !names.includes(name)).join(" ")
+    },
+    toggle(name, force) {
+      const has = node.className.split(/\s+/).includes(name)
+      const want = force === undefined ? !has : !!force
+      if (want) node.classList.add(name)
+      else node.classList.remove(name)
+      return want
+    },
+    contains(name) {
+      return node.className.split(/\s+/).includes(name)
     },
   }
   Object.defineProperty(node, "textContent", {
@@ -71,7 +87,8 @@ function descendants(node) {
   return [node].concat(node.children.flatMap(descendants))
 }
 
-function createSetupHarness() {
+function createSetupHarness(options) {
+  options = options || {}
   const source = fs.readFileSync(path.join(projectDir, "js", "studio-setup-render.js"), "utf8")
   const sandbox = {
     window: {},
@@ -92,12 +109,14 @@ function createSetupHarness() {
     examplePreviewId: null,
     instrumentNotes: {},
     instrumentAnswerShown: {},
+    backgroundNotes: {},
   }
   const el = {
     composeInstrumentList: createElement("div"),
     instrumentGroups: createElement("div"),
     instrumentGrid: createElement("div"),
     exportStatus: createElement("p"),
+    ...(options.el || {}),
   }
   const calls = {
     actions: [],
@@ -126,10 +145,11 @@ function createSetupHarness() {
       return Promise.resolve()
     },
   }
+  const D = { instruments: [western, gugak], atmospheres: [], backgrounds: {}, versions: [] }
   const api = sandbox.window.HwaeumStudioSetupRender({
     state,
     el,
-    D: { instruments: [western, gugak], atmospheres: [], backgrounds: {}, versions: [] },
+    D,
     engine,
     draw,
     bgPreview: {},
@@ -177,9 +197,10 @@ function createSetupHarness() {
     getNextCustomBgId() {
       return "custom-1"
     },
+    ...(options.deps || {}),
   })
 
-  return { api, calls, el, gugak, state }
+  return { api, calls, el, gugak, state, D }
 }
 
 test("setup renderer owns compose rendering without a callback back into studio", () => {
@@ -202,6 +223,7 @@ test("compose instrument click records the action and changes the instrument wit
     "addCustomBackground",
     "backgroundFor",
     "bgSrcFor",
+    "missingCustomBackground",
     "renderAtmospheres",
     "renderComposeInstruments",
     "renderInstrumentGroups",
@@ -235,4 +257,34 @@ test("compose instrument click records the action and changes the instrument wit
   assert.equal(calls.warm, 1)
   assert.equal(calls.preview.length, 0) // 3단계 악기 버튼은 소리를 내지 않는다
   assert.match(el.exportStatus.textContent, /소금.*연주됩니다/)
+})
+
+test("a saved work's own music shows as a reconnect card and re-uploading the same file brings back its range", async () => {
+  const reloads = []
+  const { api, el, state, D } = createSetupHarness({
+    el: { bgUploadStatus: createElement("p"), atmosphereGrid: createElement("div"), bgUploadInput: createElement("input") },
+    deps: { reloadBackground: () => reloads.push(true), startNewBackground() {} },
+  })
+  state.atmosphere = { id: "none" }
+  const placeholder = api.missingCustomBackground("custom-old-1", "봄노래", { bgOffset: 5, bgEndOffset: 25 })
+  assert.equal(placeholder.missing, true)
+  assert.equal(api.bgSrcFor(placeholder), null, "파일이 없으니 들을 수 없다")
+  assert.equal(api.missingCustomBackground("custom-old-1", "봄노래", { bgOffset: 2.5, bgEndOffset: 20 }), placeholder)
+  assert.deepEqual(placeholder.savedRange, { bgOffset: 2.5, bgEndOffset: 20 })
+
+  state.atmosphere = placeholder
+  await api.addCustomBackground(new File(["x"], "봄노래.mp3", { type: "audio/mpeg" }))
+  assert.equal(placeholder.missing, false)
+  assert.ok(D.backgrounds["custom-old-1"] && D.backgrounds["custom-old-1"].src)
+  assert.equal(D.atmospheres.length, 1, "새 카드를 더하지 않고 같은 자리에 이어 붙인다")
+  assert.equal(state.bgOffset, 2.5)
+  assert.equal(state.bgEndOffset, 20)
+  assert.equal(reloads.length, 1)
+  assert.match(el.bgUploadStatus.textContent, /다시 이어 붙였어요/)
+})
+
+test("a newly uploaded song never takes the id of an older work's song", () => {
+  const studio = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  assert.match(studio, /getNextCustomBgId: \(\) => CUSTOM_BG_ID_PREFIX \+ Date\.now\(\)\.toString\(36\)/)
+  assert.doesNotMatch(studio, /"custom-" \+ \+\+customBgSeq/)
 })

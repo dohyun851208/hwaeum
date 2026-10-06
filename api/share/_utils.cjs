@@ -98,6 +98,19 @@ function sanitizeMeta(meta) {
   return clone
 }
 
+// 갤러리 목록용 — 작품마다 레시피 속 그림(data URL, 70~110 KB)을 빼고 보낸다. 다 실으면 작품 40~60개쯤에서
+// Vercel 응답 한도(4.5 MB)에 닿아 갤러리가 열리지 않는다. 카드·크게 보기는 표지 파일을 쓰고,
+// 스튜디오로 가져갈 때만 /api/share/work 로 전체 레시피를 다시 읽는다.
+function listedMeta(meta) {
+  const clone = sanitizeMeta(meta)
+  if (!clone || !clone.recipe || typeof clone.recipe !== "object") return clone
+  if (typeof clone.recipe.picture === "string" && clone.recipe.picture) {
+    clone.recipe.picture = ""
+    clone.recipe.pictureOmitted = true
+  }
+  return clone
+}
+
 function parseJsonBody(req) {
   if (req.body && typeof req.body === "object") return Promise.resolve(req.body)
   if (typeof req.body === "string") {
@@ -192,6 +205,7 @@ module.exports = {
   parseJsonBody,
   readJsonUrl,
   safeWorkId,
+  listedMeta,
   sanitizeChannelMeta,
   sanitizeMeta,
   send,

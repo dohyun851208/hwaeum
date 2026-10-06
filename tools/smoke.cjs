@@ -122,6 +122,30 @@ window.alert = (message) => {
   lastAlert = String(message)
   alertCalls += 1
 }
+// jsdom은 그림 파일을 실제로 읽지 못한다 — 읽은 것처럼 바로 onload를 알려 준다.
+window.Image = class SmokeImage {
+  constructor() {
+    this.onload = null
+    this.onerror = null
+    this.naturalWidth = 640
+    this.naturalHeight = 480
+    this.complete = false
+  }
+  set src(value) {
+    this._src = value
+    this.complete = true
+    if (typeof this.onload === "function") this.onload()
+  }
+  get src() {
+    return this._src
+  }
+}
+// jsdom에는 확인 창이 없다 — 학생이 "예"를 누른 것으로 보고 흐름을 이어 간다(물은 횟수는 센다).
+let confirmCalls = 0
+window.confirm = () => {
+  confirmCalls += 1
+  return true
+}
 const smokeImageData = "data:image/png;base64,c21va2U="
 window.FileReader = function () {
   this.result = smokeImageData
@@ -385,7 +409,8 @@ check(
   qc("#atmosphereGrid .mood-card") === window.SDStudioData.atmospheres.length,
   qc("#atmosphereGrid .mood-card") + "/" + window.SDStudioData.atmospheres.length,
 )
-check("업로드한 배경 선택됨(내음원)", SD.getStateSummary().atmosphere === "custom-1", SD.getStateSummary().atmosphere)
+const uploadedBgId = SD.getStateSummary().atmosphere
+check("업로드한 배경 선택됨(내음원)", /^custom-/.test(uploadedBgId), uploadedBgId)
 
 SD.draw.setPath([
   { x: 0, y: 0.6 },
@@ -452,7 +477,7 @@ check(
     qc("#bgEndInput"),
 )
 check("레시피에 bgOffset 포함(기본 0)", SD.buildRecipe().bgOffset === 0, SD.buildRecipe().bgOffset)
-check("레시피에 bgEndOffset 포함(기본 0)", SD.buildRecipe().bgEndOffset === 0, SD.buildRecipe().bgEndOffset)
+check("레시피에 bgEndOffset 포함(새 배경은 0~30초)", SD.buildRecipe().bgEndOffset === 30, SD.buildRecipe().bgEndOffset)
 check("업로드 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
 check("드로잉 방식 토글 존재", qc("#drawModePictureBtn") === 1 && qc("#drawModeSoundBtn") === 1)
 window.document.getElementById("drawModeSoundBtn").click()
@@ -663,16 +688,16 @@ check("공유 링크 레시피는 시간순 경로를 포함", copiedRecipe.path
 SD.setStep(2)
 window.document.getElementById("clearBtn").click()
 check("지우개 버튼으로 지우개 모드 진입", SD.draw.eraseMode === true, SD.draw.eraseMode)
-check("지우개 버튼 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("exportStatus").textContent)
+check("지우개 버튼 안내 문구 표시", window.document.getElementById("drawingStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("drawingStatus").textContent)
 window.document.getElementById("penBtn").click()
 check("펜 버튼으로 그리기 모드 복귀", SD.draw.eraseMode === false, SD.draw.eraseMode)
-check("펜 버튼 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "펜을 선택했어요.", window.document.getElementById("exportStatus").textContent)
+check("펜 버튼 안내 문구 표시", window.document.getElementById("drawingStatus").textContent === "펜을 선택했어요.", window.document.getElementById("drawingStatus").textContent)
 window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "2", bubbles: true }))
 check("키보드 2로 지우개 모드 진입", SD.draw.eraseMode === true, SD.draw.eraseMode)
-check("키보드 2 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("exportStatus").textContent)
+check("키보드 2 안내 문구 표시", window.document.getElementById("drawingStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("drawingStatus").textContent)
 window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "1", bubbles: true }))
 check("키보드 1로 펜 모드 복귀", SD.draw.eraseMode === false, SD.draw.eraseMode)
-check("키보드 1 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "펜을 선택했어요.", window.document.getElementById("exportStatus").textContent)
+check("키보드 1 안내 문구 표시", window.document.getElementById("drawingStatus").textContent === "펜을 선택했어요.", window.document.getElementById("drawingStatus").textContent)
 const originalPlayForSpace = SD.engine.play
 let spacePlayCalls = 0
 SD.engine.play = () => {
@@ -774,7 +799,7 @@ check("기본 배경은 구간 선택 슬라이더 표시", window.document.quer
 
 SD.loadRecipe({
   duration: 45,
-  atmosphere: "custom-1",
+  atmosphere: uploadedBgId,
   instrument: "daegeum",
   style: "gugak",
   version: "ornament",

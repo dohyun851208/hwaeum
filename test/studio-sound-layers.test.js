@@ -157,3 +157,42 @@ test("saved takes restore only sound files that are still registered in the curr
   assert.equal(h.state.soundLayers.length, 0)
   assert.match(h.el.soundLayerStatus.textContent, /원본 파일을 다시 올려야/)
 })
+
+test("a saved sound whose file is gone keeps its settings and re-uploading the same file brings them back", async () => {
+  const h = harness()
+  h.api.restoreRecipe([{ id: "layer-old", name: "빗소리.mp3", sourceDuration: 40, trimStart: 4, trimEnd: 14, startTime: 6, volume: 0.4 }])
+  assert.equal(h.state.soundLayers.length, 0)
+  const kept = h.api.recipeLayers()
+  assert.equal(kept.length, 1, "다시 저장해도 설정이 남는다")
+  assert.equal(kept[0].missing, true)
+  assert.equal(kept[0].src, undefined)
+  assert.equal(kept[0].startTime, 6)
+  assert.equal(h.el.soundLayerCount.textContent, "1/3개")
+
+  h.api.addFiles([soundFile("빗소리.mp3", 40)])
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(h.state.soundLayers.length, 1)
+  const layer = h.state.soundLayers[0]
+  assert.equal(layer.trimStart, 4)
+  assert.equal(layer.trimEnd, 14)
+  assert.equal(layer.startTime, 6)
+  assert.equal(layer.volume, 0.4)
+  assert.equal(h.api.recipeLayers().filter((item) => item.missing).length, 0)
+  assert.match(h.el.soundLayerStatus.textContent, /다시 이어 붙였어요/)
+})
+
+test("a sound file longer than ten minutes is refused", async () => {
+  const h = harness()
+  h.api.addFiles([soundFile("한 시간 녹음.mp3", 3600)])
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(h.state.soundLayers.length, 0)
+  assert.match(h.el.soundLayerStatus.textContent, /10분보다 짧은/)
+})
+
+test("a fourth file is refused with a message that is not hidden by the first file's progress", async () => {
+  const h = harness()
+  h.api.addFiles([soundFile("하나.mp3", 5), soundFile("둘.mp3", 5), soundFile("셋.mp3", 5), soundFile("넷.mp3", 5)])
+  assert.match(h.el.soundLayerStatus.textContent, /최대 3개까지.*앞의 3개만/)
+})
