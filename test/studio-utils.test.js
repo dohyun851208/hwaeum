@@ -134,3 +134,23 @@ test("studio html loads studio-utils before studio", () => {
   assert.ok(takesUiAt < studioAt)
   assert.ok(shareAt < studioAt)
 })
+
+test("효과음 도장은 학생이 줄인 길이를 0.1초 단위로 저장하고, 줄이지 않은 도장에는 길이를 두지 않는다", () => {
+  assert.deepEqual(
+    utils.simplifyEffectStamps(
+      [
+        { id: "wind1", x: 0.1, y: 0.5, duration: 1.234 },
+        { id: "wind1", x: 0.2, y: 0.5, duration: 0 },
+        { id: "wind1", x: 0.3, y: 0.5, duration: "abc" },
+        { id: "wind1", x: 0.4, y: 0.5 },
+      ],
+      { wind1: {} }
+    ),
+    [
+      { id: "wind1", x: 0.1, y: 0.5, duration: 1.2 },
+      { id: "wind1", x: 0.2, y: 0.5 },
+      { id: "wind1", x: 0.3, y: 0.5 },
+      { id: "wind1", x: 0.4, y: 0.5 },
+    ]
+  )
+})

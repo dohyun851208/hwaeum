@@ -35,14 +35,15 @@
   // 효과음 도장의 전체 재생 게인. 0.15 는 도장을 넣은 2026-06-26 값 그대로였는데, 그 뒤 배경·선율만
   // ×2(06-27)와 ×1.5(BACKGROUND/WESTERN_MELODY_OUTPUT_GAIN)로 커져 효과음이 배경보다 9.5 dB 더 작아졌다.
   // 배경과 같은 ×3 으로 되돌린다(2026-10-05). 2026-10-12 사용자가 들어 보고 미리듣기·대체 합성음과 함께
-  // 20%, 10%, 다시 10% 줄였다(0.45 × 0.8 × 0.9 × 0.9). 마스터 0.56 을 지나면 0.163 이라서 미리듣기(0.15552)와 같은 크기로 들린다.
+  // 20%, 10%, 10%, 다시 10% 줄였다(0.45 × 0.8 × 0.9³). 마스터 0.56 을 지나면 0.147 이라서 미리듣기(0.139968)와 같은 크기로 들린다.
   // 도장끼리의 크기는 manifest 의 effects[].gain 이 새소리에 맞춘다(effectOutputGain).
-  const EFFECT_GAIN = 0.2916
+  const EFFECT_GAIN = 0.26244
   // 전체 재생에서 도장 소리를 끝에서만 줄이는 길이. 예전엔 찍은 순간부터 끝까지 직선으로 줄여
   // 바람·비처럼 이어지는 소리가 평균 4.8 dB 작아졌다. 파일에는 이미 페이드아웃이 있다.
   const EFFECT_END_FADE_SECONDS = 0.3
   // 도장 하나가 나는 최대 길이와, 그보다 긴 소리를 마지막에 서서히 줄이는 길이. 바람·비·천둥 녹음이 7~10초라
   // 끝 0.3초에서만 줄이자 30초 작품의 3분의 1을 덮어 길게 들렸다(2026-10-12 사용자 청취). 짧은 소리는 그대로다.
+  // 학생은 3단계에서 띠 끝을 끌어 도장마다 더 짧게 줄일 수 있다(stamp.duration).
   const EFFECT_MAX_SECONDS = 4
   const EFFECT_LIMIT_FADE_SECONDS = 1
   // 중간부터 이어 낼 때 키우며 들어가는 길이, 그리고 이만큼도 안 남은 도장은 건너뛴다.
@@ -50,9 +51,9 @@
   const EFFECT_MIN_REMAINING_SECONDS = 0.05
   const EFFECT_MAX_OUTPUT_GAIN = 16
   // 도장을 고를 때·찍을 때 앞 1.2초만 들려주는 미리듣기. 마스터를 거치지 않고 바로 나간다.
-  const EFFECT_PREVIEW_GAIN = 0.15552
+  const EFFECT_PREVIEW_GAIN = 0.139968
   // 음원을 디코드하는 동안 바로 내는 짧은 합성음.
-  const EFFECT_FALLBACK_PREVIEW_GAIN = 0.08748
+  const EFFECT_FALLBACK_PREVIEW_GAIN = 0.078732
   const SOUND_LAYER_OUTPUT_GAIN = 0.8
   // 배경음악 출력 배율. 1.5 에서 2026-10-12 사용자 요청으로 10% 줄였다(배경 구간·미리듣기 플레이어도 같은 비율).
   const BACKGROUND_OUTPUT_GAIN = 1.35
@@ -769,20 +770,26 @@
       const asset = item.asset
       if (!buffer) return
       const stamps = stampsByEffect.get(asset.id) || []
-      // 긴 소리는 앞 EFFECT_MAX_SECONDS 만 내고 마지막 EFFECT_LIMIT_FADE_SECONDS 동안 줄인다.
-      const limited = buffer.duration > EFFECT_MAX_SECONDS
-      const playable = limited ? EFFECT_MAX_SECONDS : buffer.duration
-      const limitFadeStart = playable - EFFECT_LIMIT_FADE_SECONDS
-      const interval = clamp(playable * 0.85, 3.2, 10)
+      const interval = clamp(Math.min(buffer.duration, EFFECT_MAX_SECONDS) * 0.85, 3.2, 10)
       const offsets = stamps.length
-        ? stamps.map((stamp) => ({ time: stamp.time, sourceOffset: Math.max(0, Number(stamp.sourceOffset) || 0) }))
+        ? stamps.map((stamp) => ({
+            time: stamp.time,
+            sourceOffset: Math.max(0, Number(stamp.sourceOffset) || 0),
+            duration: Number(stamp.duration) > 0 ? Number(stamp.duration) : Infinity,
+          }))
         : (/^thunder/.test(asset.id || "") || asset.label.indexOf("천둥") >= 0
             ? [dur * (0.45 + index * 0.08)]
             : Array.from({ length: Math.ceil(dur / interval) }, (_, k) => k * interval + index * 1.7)
-          ).map((time) => ({ time: time, sourceOffset: 0 }))
+          ).map((time) => ({ time: time, sourceOffset: 0, duration: Infinity }))
       offsets
         .filter((o) => o.time >= 0 && o.time < dur - (stamps.length ? EFFECT_MIN_REMAINING_SECONDS : 0.2))
         .forEach((o) => {
+          // 긴 소리는 앞 EFFECT_MAX_SECONDS 만, 학생이 띠를 줄였으면 그 길이만 내고 끝에서 서서히 줄인다
+          // (줄이는 길이는 낼 길이의 4분의 1, 최대 EFFECT_LIMIT_FADE_SECONDS).
+          const playable = Math.min(buffer.duration, EFFECT_MAX_SECONDS, o.duration)
+          const limited = playable < buffer.duration
+          const limitFade = Math.min(EFFECT_LIMIT_FADE_SECONDS, playable * 0.25)
+          const limitFadeStart = playable - limitFade
           // sourceOffset: 탐색 지점 전에 찍혀 아직 울리는 도장은 지나간 만큼 건너뛰고 남은 부분만 낸다.
           const outDur = Math.min(playable - o.sourceOffset, dur - o.time)
           if (!(outDur > EFFECT_MIN_REMAINING_SECONDS)) return
@@ -796,7 +803,7 @@
           // 줄어드는 중간에서 이어 내면 그 지점의 크기에서 시작한다.
           const peak =
             limited && o.sourceOffset + fadeIn > limitFadeStart
-              ? (level * Math.max(0, playable - o.sourceOffset - fadeIn)) / EFFECT_LIMIT_FADE_SECONDS
+              ? (level * Math.max(0, playable - o.sourceOffset - fadeIn)) / limitFade
               : level
           const tailStart = Math.max(fadeIn, Math.min(limited ? limitFadeStart - o.sourceOffset : outDur, outDur - fadeOut))
           src.buffer = buffer

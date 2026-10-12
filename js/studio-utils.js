@@ -156,12 +156,18 @@
     const effectMap = effects || {}
     return (stamps || [])
       .filter((stamp) => stamp && effectMap[stamp.id])
-      .map((stamp) => ({
-        id: stamp.id,
-        // 구간을 줄여 끝 너머(x>1)로 간 도장은 지우지 않고 그대로 둔다(다시 늘리면 같은 초에 나타난다).
-        x: round3(Math.max(0, Number(stamp.x) || 0)),
-        y: round3(Math.max(0, Math.min(1, stamp.y == null ? 0.5 : stamp.y))),
-      }))
+      .map((stamp) => {
+        const out = {
+          id: stamp.id,
+          // 구간을 줄여 끝 너머(x>1)로 간 도장은 지우지 않고 그대로 둔다(다시 늘리면 같은 초에 나타난다).
+          x: round3(Math.max(0, Number(stamp.x) || 0)),
+          y: round3(Math.max(0, Math.min(1, stamp.y == null ? 0.5 : stamp.y))),
+        }
+        // 학생이 길이 띠 끝을 끌어 줄인 길이(초, 0.1초 단위). 줄이지 않은 도장에는 없다.
+        const duration = Number(stamp.duration)
+        if (duration > 0) out.duration = Math.max(0.1, Math.round(duration * 10) / 10)
+        return out
+      })
   }
 
   return {

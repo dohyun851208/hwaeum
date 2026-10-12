@@ -1,6 +1,6 @@
 # 효과음 도장은 최대 4초, 더 긴 소리는 마지막 1초에 서서히 줄인다
 
-확인일: 2026-10-12 · 선행: [효과음 도장 크기](2026-10-05-effect-stamp-loudness.md), [도장 길이 띠](2026-10-06-effect-stamp-length-band.md)
+확인일: 2026-10-12 · 선행: [효과음 도장 크기](2026-10-05-effect-stamp-loudness.md), [도장 길이 띠](2026-10-06-effect-stamp-length-band.md) · 후속: [끌어서 줄이기](2026-10-12-effect-stamp-drag-length.md)
 
 ## 결론
 

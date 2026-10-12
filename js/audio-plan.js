@@ -451,7 +451,10 @@
         const y = clamp(stamp.y == null ? 0.5 : stamp.y, 0, 1)
         const time = stamp.time == null ? x * duration : clamp(stamp.time, 0, duration)
         if (effectIds.indexOf(stamp.id) === -1) effectIds.push(stamp.id)
-        return { id: stamp.id, x: x, y: y, time: time }
+        const out = { id: stamp.id, x: x, y: y, time: time }
+        // 학생이 줄인 길이(초). 엔진이 파일 길이·최대 길이와 함께 더 짧은 쪽을 쓴다.
+        if (Number(stamp.duration) > 0) out.duration = Number(stamp.duration)
+        return out
       })
     const effects = effectIds.map((id) => Object.assign({ id: id }, data.effects[id]))
     const gugak = !!style.gugak || instrument.group === "국악" || !!version.ornament

@@ -1306,13 +1306,13 @@ test("schedule plays stamped natural effects only at stamped positions", () => {
 
   assert.equal(ctx.created.buffers.length, 1)
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [17, 0, 4])
-  const level = 0.2916 * wind.gain
+  const level = 0.26244 * wind.gain
   const events = ctx.created.gains.map((gain) => gain.gain.events).find((list) => list.some((event) => event[2] === 17))
   assert.ok(events, "효과음 도장 gain 노드가 있어야 한다")
   // 찍은 순간부터 끝 0.3초 전까지는 같은 크기, 끝에서만 0으로 줄인다.
   assert.equal(events.length, 3)
   assert.deepEqual(events.map((event) => event[0]), ["set", "set", "linear"])
-  assert.ok(Math.abs(events[0][1] - level) < 1e-9 && events[0][2] === 17, "효과음 도장 gain은 0.2916 × manifest gain이어야 한다")
+  assert.ok(Math.abs(events[0][1] - level) < 1e-9 && events[0][2] === 17, "효과음 도장 gain은 0.26244 × manifest gain이어야 한다")
   assert.ok(Math.abs(events[1][1] - level) < 1e-9 && Math.abs(events[1][2] - 20.7) < 1e-9, "끝 0.3초 전까지 크기를 유지해야 한다")
   assert.deepEqual([events[2][1], events[2][2]], [0, 21])
 })
@@ -1347,8 +1347,8 @@ test("previewEffect plays the stamped sound immediately", async () => {
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [0.01, 0, 1.2])
   assert.deepEqual(ctx.created.buffers[0].stopCalls[0], [1.25])
   assert.ok(
-    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.15552) < 1e-9)),
-    "효과음 도장 미리듣기 gain은 0.15552여야 한다",
+    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.139968) < 1e-9)),
+    "효과음 도장 미리듣기 gain은 0.139968여야 한다",
   )
 })
 
@@ -1362,8 +1362,8 @@ test("previewEffect applies the stamp's loudness gain like full playback", async
   await engine.previewEffect({ id: "rain1", src: "sound/effects/rain1.mp3", gain: 3 })
 
   assert.ok(
-    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.46656) < 1e-9)),
-    "미리듣기도 0.15552 × manifest gain이어야 한다",
+    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.419904) < 1e-9)),
+    "미리듣기도 0.139968 × manifest gain이어야 한다",
   )
 })
 
@@ -1404,7 +1404,7 @@ test("warmEffect starts decoding the selected stamp sound before stamping", asyn
   assert.equal(seenEffect.id, "wind1")
 })
 
-test("every natural effect category plays at 0.2916 x its manifest gain", () => {
+test("every natural effect category plays at 0.26244 x its manifest gain", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -1447,7 +1447,7 @@ test("every natural effect category plays at 0.2916 x its manifest gain", () => 
   assert.equal(startLevels.length, 4)
   plan.effects.forEach((effect, index) => {
     assert.ok(effect.gain > 0, effect.id + " 에 manifest gain 이 있어야 한다")
-    assert.ok(Math.abs(startLevels[index] - 0.2916 * effect.gain) < 1e-9, effect.id + " 는 0.2916 × gain 으로 시작해야 한다")
+    assert.ok(Math.abs(startLevels[index] - 0.26244 * effect.gain) < 1e-9, effect.id + " 는 0.26244 × gain 으로 시작해야 한다")
   })
 })
 
@@ -2221,7 +2221,7 @@ test("a stamp still sounding at the seek point continues from where it was", () 
   assert.equal(ctx.created.buffers.length, 1)
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [1, 2, 2])
   const events = ctx.created.gains.map((gain) => gain.gain.events).find((list) => list.length === 4)
-  const level = 0.2916 * plan.effects[0].gain
+  const level = 0.26244 * plan.effects[0].gain
   // 소리 중간에서 들어가므로 0에서 0.02초 만에 키운다('딱' 소리 방지).
   assert.deepEqual([events[0][0], events[0][1], events[0][2]], ["set", 0, 1])
   assert.ok(events[1][0] === "linear" && Math.abs(events[1][1] - level) < 1e-9 && Math.abs(events[1][2] - 1.02) < 1e-9)
@@ -2243,7 +2243,7 @@ test("long stamp sounds stop at 4 seconds with a 1 second fade", () => {
     { duration: 30, atmosphere: "none", instrument: "violin", style: "bright", version: "balanced", mode: "melody", effectStamps: [{ id: "wind1", x: 0.1, y: 0.5 }] },
     [],
   )
-  const level = 0.2916 * plan.effects[0].gain
+  const level = 0.26244 * plan.effects[0].gain
   const ctx = makeAudioContext()
   engine.schedule(ctx, makeNode(), plan, { pad: null, melody: null, effects: [{ asset: plan.effects[0], buffer: { duration: 8 } }] }, 2, noop)
 
@@ -2255,6 +2255,29 @@ test("long stamp sounds stop at 4 seconds with a 1 second fade", () => {
   assert.deepEqual(events[2], ["linear", 0, 9])
 })
 
+test("a stamp shortened by dragging its band plays only that long and fades over its last quarter", () => {
+  const sandbox = loadEngine()
+  const engine = new sandbox.AudioEngine()
+  const plan = engine.resolvePlan(
+    {
+      duration: 30, atmosphere: "none", instrument: "violin", style: "bright", version: "balanced", mode: "melody",
+      effectStamps: [{ id: "wind1", x: 0.1, y: 0.5, duration: 2 }, { id: "wind1", x: 0.5, y: 0.5, duration: 6 }],
+    },
+    [],
+  )
+  const level = 0.26244 * plan.effects[0].gain
+  const ctx = makeAudioContext()
+  engine.schedule(ctx, makeNode(), plan, { pad: null, melody: null, effects: [{ asset: plan.effects[0], buffer: { duration: 8 } }] }, 0, noop)
+
+  // 3초에 찍어 2초로 줄인 바람: 2초만 내고 마지막 0.5초(2초의 4분의 1)에 줄인다.
+  assert.deepEqual(ctx.created.buffers[0].startCalls[0], [3, 0, 2])
+  const short = ctx.created.gains.map((gain) => gain.gain.events).find((list) => list[0][2] === 3)
+  assert.ok(Math.abs(short[1][1] - level) < 1e-9 && Math.abs(short[1][2] - 4.5) < 1e-9)
+  assert.deepEqual(short[2], ["linear", 0, 5])
+  // 6초를 적어도 최대 길이(4초)를 넘지 않는다.
+  assert.deepEqual(ctx.created.buffers[1].startCalls[0], [15, 0, 4])
+})
+
 test("resuming a long stamp inside its final fade starts from the faded level", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
@@ -2262,7 +2285,7 @@ test("resuming a long stamp inside its final fade starts from the faded level", 
     { duration: 30, atmosphere: "none", instrument: "violin", style: "bright", version: "balanced", mode: "melody", effectStamps: [{ id: "wind1", x: 0.1, y: 0.5 }] },
     [],
   )
-  const level = 0.2916 * plan.effects[0].gain
+  const level = 0.26244 * plan.effects[0].gain
   const ctx = makeAudioContext()
   // 3초에 찍은 바람을 6.5초부터 틀면 바람의 3.5초 지점 — 마지막 1초의 줄어드는 중간이다.
   engine.schedule(ctx, makeNode(), engine.seekPlan(plan, 6.5), { pad: null, melody: null, effects: [{ asset: plan.effects[0], buffer: { duration: 8 } }] }, 1, noop)

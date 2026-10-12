@@ -280,3 +280,18 @@ test("sigimsae follows the instrument of each stroke, not the instrument picked 
   assert.equal(plan.voiceAssets[0].gugak, false, "바이올린 줄에는 시김새를 붙이지 않는다")
   assert.equal(plan.voiceAssets[1].gugak, true)
 })
+
+test("resolvePlan and seekPlan keep a stamp's shortened length", () => {
+  const data = loadData()
+  const recipe = {
+    atmosphere: "none", instrument: "violin", style: "bright", version: "balanced", duration: 20, mode: "melody",
+    effectStamps: [{ id: "wind1", x: 0.25, y: 0.5, duration: 1.5 }, { id: "rain1", x: 0.5, y: 0.5 }],
+  }
+  const plan = AudioPlan.resolvePlan(recipe, [], { core: MusicCore, data })
+  assert.deepEqual(plain(plan.effectStamps), [
+    { id: "wind1", x: 0.25, y: 0.5, time: 5, duration: 1.5 },
+    { id: "rain1", x: 0.5, y: 0.5, time: 10 },
+  ])
+  // 6초부터 틀면 5초에 찍은 1.5초짜리 바람은 1초 지점부터 — 길이는 그대로 들고 간다(끝났는지는 엔진이 판단).
+  assert.deepEqual(plain(AudioPlan.seekPlan(plan, 6).effectStamps)[0], { id: "wind1", x: 0.25, y: 0.5, time: 0, sourceOffset: 1, duration: 1.5 })
+})

@@ -15,6 +15,8 @@
 
   const engine = new window.AudioEngine()
   const EFFECT_MAX_SECONDS = window.AudioEngine.EFFECT_MAX_SECONDS
+  // 띠 끝을 끌어 줄일 수 있는 가장 짧은 도장 길이(초).
+  const EFFECT_STAMP_MIN_SECONDS = 0.5
   const takes = new window.TakesStore("sda.takes")
   const SEGMENT_SECONDS = 2.5
   const TIMELINE_PIXELS_PER_SECOND = 96
@@ -1070,21 +1072,13 @@
       if (x > 1 + 1e-6) return // 구간 끝 너머에 숨은 도장 — 구간을 다시 늘리면 보인다
       const left = timelineCssX(x)
       const top = Math.max(0.04, Math.min(0.96, stamp.y == null ? 0.5 : stamp.y)) * 100 + "%"
-      // 도장은 찍은 자리부터 소리 파일 길이만큼(최대 EFFECT_MAX_SECONDS) 난다 → 그 길이를 옅은 띠로 보여 준다(겹치면 진해진다).
-      const seconds = Math.min(Number(effect.duration) || 0, EFFECT_MAX_SECONDS)
-      if (seconds > 0) {
-        const span = document.createElement("span")
-        span.className = "effect-stamp-span"
-        span.style.left = Math.round(left) + "px"
-        span.style.width = Math.max(0, Math.round(timelineCssX(x + seconds / Math.max(1, state.duration || 30)) - left)) + "px"
-        span.style.top = top
-        el.effectStampLayer.appendChild(span)
-      }
+      // 도장은 찍은 자리부터 소리 길이만큼 난다 → 그 길이를 옅은 띠로 보여 준다(겹치면 진해진다).
+      const seconds = effectStampSeconds(stamp, effect)
       const mark = document.createElement("span")
       mark.className = "effect-stamp"
       mark.style.left = Math.round(left) + "px"
       mark.style.top = top
-      mark.title = seconds > 0 ? effect.label + " (" + Math.round(seconds * 10) / 10 + "초)" : effect.label
+      mark.title = seconds > 0 ? effect.label + " (" + secondsLabel(seconds) + ")" : effect.label
       if (effect.image) {
         const img = document.createElement("img")
         img.src = effect.image
@@ -1093,8 +1087,90 @@
       } else {
         mark.textContent = effect.label
       }
-      el.effectStampLayer.appendChild(mark)
+      if (seconds > 0) {
+        const span = document.createElement("span")
+        span.className = "effect-stamp-span"
+        span.style.left = Math.round(left) + "px"
+        span.style.width = effectSpanWidth(x, seconds) + "px"
+        span.style.top = top
+        el.effectStampLayer.appendChild(span)
+        // 띠 끝 손잡이: 마우스를 대면 ↔ 커서로 바뀌고, 끌면 이 도장의 소리 길이를 바꾼다.
+        const handle = document.createElement("span")
+        handle.className = "effect-stamp-handle"
+        handle.style.left = Math.round(left) + effectSpanWidth(x, seconds) + "px"
+        handle.style.top = top
+        handle.title = "끝을 끌어 소리 길이 바꾸기"
+        handle.addEventListener("pointerdown", (e) => startEffectStampResize(e, stamp, { span, handle, mark }))
+        el.effectStampLayer.appendChild(mark)
+        el.effectStampLayer.appendChild(handle)
+      } else {
+        el.effectStampLayer.appendChild(mark)
+      }
     })
+  }
+
+  // 도장 하나가 실제로 나는 길이(초): 학생이 줄인 길이 · 파일 길이 · 엔진 최대 길이 중 가장 짧은 것.
+  function effectStampSeconds(stamp, effect) {
+    const full = Math.min(Number(effect && effect.duration) || 0, EFFECT_MAX_SECONDS)
+    const chosen = Number(stamp && stamp.duration)
+    return chosen > 0 ? Math.min(chosen, full) : full
+  }
+
+  function effectSpanWidth(x, seconds) {
+    const left = timelineCssX(x)
+    return Math.max(0, Math.round(timelineCssX(x + seconds / Math.max(1, state.duration || 30)) - left))
+  }
+
+  function startEffectStampResize(e, stamp, nodes) {
+    const effect = D.effects[stamp.id]
+    if (!effect || e.button > 0) return
+    // 도화지로 넘어가 선이 그어지거나 도장이 찍히지 않게 막는다.
+    e.preventDefault()
+    e.stopPropagation()
+    const full = effectStampSeconds({}, effect)
+    const min = Math.min(EFFECT_STAMP_MIN_SECONDS, full)
+    const before = effectStampSeconds(stamp, effect)
+    const x = stamp.x || 0
+    const left = Math.round(timelineCssX(x))
+    let seconds = before
+    let undoPushed = false
+    if (nodes.handle.setPointerCapture) nodes.handle.setPointerCapture(e.pointerId)
+    nodes.handle.classList.add("is-resizing")
+    nodes.handle.dataset.label = secondsLabel(seconds)
+    document.body.classList.add("effect-stamp-resizing")
+
+    const move = (ev) => {
+      const raw = (timelineProgressFromClientX(ev.clientX) - x) * Math.max(1, state.duration || 30)
+      const next = Math.round(Math.max(min, Math.min(full, raw)) * 10) / 10
+      if (next === seconds) return
+      if (!undoPushed) {
+        pushEffectStampUndo()
+        undoPushed = true
+      }
+      seconds = next
+      // 끝까지 늘리면 길이를 따로 두지 않는다(파일 길이·최대 길이를 그대로 따른다).
+      if (seconds >= full - 0.05) delete stamp.duration
+      else stamp.duration = seconds
+      const width = effectSpanWidth(x, seconds)
+      nodes.span.style.width = width + "px"
+      nodes.handle.style.left = left + width + "px"
+      nodes.handle.dataset.label = secondsLabel(seconds)
+      nodes.mark.title = effect.label + " (" + secondsLabel(seconds) + ")"
+    }
+    const end = () => {
+      nodes.handle.removeEventListener("pointermove", move)
+      nodes.handle.removeEventListener("pointerup", end)
+      nodes.handle.removeEventListener("pointercancel", end)
+      nodes.handle.classList.remove("is-resizing")
+      document.body.classList.remove("effect-stamp-resizing")
+      if (seconds === before) return
+      renderEffectStamps()
+      updateReadouts()
+      say(effect.label + " 도장 소리를 " + secondsLabel(seconds) + "로 " + (seconds < before ? "줄였습니다." : "늘렸습니다."))
+    }
+    nodes.handle.addEventListener("pointermove", move)
+    nodes.handle.addEventListener("pointerup", end)
+    nodes.handle.addEventListener("pointercancel", end)
   }
 
   function canvasPointFromEvent(e) {
@@ -2247,7 +2323,7 @@
         sharedChannel: state.sharedChannel,
         sharedWorks: state.sharedWorks.length,
         effectIds: state.effectIds.slice(),
-        effectStamps: state.effectStamps.map((stamp) => ({ id: stamp.id, x: stamp.x, y: stamp.y })),
+        effectStamps: simplifyEffectStamps(state.effectStamps),
         effectStampId: state.effectStampId,
         soundLayers: state.soundLayers.map((layer) => ({
           id: layer.id,

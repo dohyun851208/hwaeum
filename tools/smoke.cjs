@@ -640,6 +640,24 @@ window.document.getElementById("undoBtn").click()
 check("되돌리기로 효과음 도장 추가 취소", SD.buildRecipe().effectStamps.length === 0, SD.buildRecipe().effectStamps.length)
 canvas.dispatchEvent(makeCanvasPointerEvent(0.25))
 check("되돌리기 뒤 효과음 도장 다시 추가", SD.buildRecipe().effectStamps.length === 1, SD.buildRecipe().effectStamps.length)
+// 띠 끝 손잡이를 끌어 도장 소리 길이를 줄이고, 되돌리기로 원래 길이로 돌린다.
+const stampHandle = window.document.querySelector("#effectStampLayer .effect-stamp-handle")
+check("효과음 도장 띠 끝 손잡이 표시", !!stampHandle, qc("#effectStampLayer .effect-stamp-handle"))
+const handlePointer = (type, progress) => {
+  const event = new window.Event(type, { bubbles: true, cancelable: true })
+  Object.defineProperty(event, "clientX", { value: timelineClientX(progress) })
+  Object.defineProperty(event, "pointerId", { value: 1 })
+  return event
+}
+const stampEnd = 0.25 + 1.5 / SD.buildRecipe().duration
+stampHandle.dispatchEvent(handlePointer("pointerdown", 0.25 + 4 / SD.buildRecipe().duration))
+stampHandle.dispatchEvent(handlePointer("pointermove", stampEnd))
+stampHandle.dispatchEvent(handlePointer("pointerup", stampEnd))
+check("손잡이를 끌어 효과음 도장 길이 줄이기", SD.buildRecipe().effectStamps[0].duration === 1.5, SD.buildRecipe().effectStamps[0].duration)
+const stampTitle = window.document.querySelector("#effectStampLayer .effect-stamp").title
+check("줄인 도장 길이를 이름표에 표시", stampTitle.endsWith("(1.5초)"), stampTitle)
+window.document.getElementById("undoBtn").click()
+check("되돌리기로 효과음 도장 길이 복원", SD.buildRecipe().effectStamps.length === 1 && SD.buildRecipe().effectStamps[0].duration === undefined, JSON.stringify(SD.buildRecipe().effectStamps))
 firstEffect.click()
 check("효과음 버튼 재클릭 시 도장 선택 해제", SD.getStateSummary().effectStampId === null, SD.getStateSummary().effectStampId)
 window.document.getElementById("clearBtn").click()
