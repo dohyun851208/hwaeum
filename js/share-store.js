@@ -8,15 +8,15 @@
   const OWNER_STORAGE_KEY = "hwaeum.shareOwner"
   const CHANNEL_STORAGE_KEY = "hwaeum.shareChannel"
   const API_BASE = "/api/share"
-  const LOCAL_DB_NAME = "hwaeum.shareChannel"
-  const LOCAL_DB_VERSION = 2
-  const LOCAL_STORE_NAME = "works"
-  const LOCAL_CHANNEL_STORE_NAME = "channels"
   const MIN_PIN_LENGTH = 4
-  // 로컬(서버 없는) 폴백에서만 쓰는 관리자 공통 코드 검문. 배포 환경은 서버(_utils.cjs)가 진짜 검문소.
-  const LOCAL_ADMIN_PIN = "8624"
   const MAX_UPLOAD_TOTAL_BYTES = 3.5 * 1024 * 1024
-  const objectUrlCache = new Map()
+
+  if (!root.HwaeumLocalShareStore) throw new Error("share-local-store.js must load before share-store.js")
+  const localStore = root.HwaeumLocalShareStore({ root, randomId, normalizeChannel, forgetChannel })
+  const { claimLocalChannel, publishLocalWork, copyLocalWork, listLocalWorks, deleteLocalWork, deleteLocalChannel } = localStore
+  if (root.addEventListener) root.addEventListener("pagehide", function (event) {
+    if (!event.persisted) localStore.dispose()
+  })
 
   function storage() {
     try {
@@ -24,74 +24,6 @@
     } catch (e) {
       return null
     }
-  }
-
-  function indexedDb() {
-    try {
-      return root.indexedDB || null
-    } catch (e) {
-      return null
-    }
-  }
-
-  function openLocalDb() {
-    const idb = indexedDb()
-    if (!idb) return Promise.reject(new Error("이 브라우저에서는 로컬 화음 갤러리 저장을 사용할 수 없어요."))
-    return new Promise(function (resolve, reject) {
-      const req = idb.open(LOCAL_DB_NAME, LOCAL_DB_VERSION)
-      req.onupgradeneeded = function () {
-        const db = req.result
-        if (!db.objectStoreNames.contains(LOCAL_STORE_NAME)) db.createObjectStore(LOCAL_STORE_NAME, { keyPath: "id" })
-        if (!db.objectStoreNames.contains(LOCAL_CHANNEL_STORE_NAME)) db.createObjectStore(LOCAL_CHANNEL_STORE_NAME, { keyPath: "channel" })
-      }
-      req.onsuccess = function () {
-        resolve(req.result)
-      }
-      req.onerror = function () {
-        reject(req.error || new Error("로컬 화음 갤러리 저장소를 열지 못했어요."))
-      }
-      req.onblocked = function () {
-        reject(new Error("다른 탭에서 화음 갤러리 저장소를 사용 중입니다. 잠시 뒤 다시 시도해 주세요."))
-      }
-    })
-  }
-
-  function withLocalStore(mode, action, storeName) {
-    const name = storeName || LOCAL_STORE_NAME
-    return openLocalDb().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        let result
-        let settled = false
-        const finish = function (fn, value) {
-          if (settled) return
-          settled = true
-          try {
-            db.close()
-          } catch (e) {}
-          fn(value)
-        }
-        let tx
-        try {
-          tx = db.transaction(name, mode)
-          const store = tx.objectStore(name)
-          action(store, function (value) {
-            result = value
-          })
-        } catch (e) {
-          finish(reject, e)
-          return
-        }
-        tx.oncomplete = function () {
-          finish(resolve, result)
-        }
-        tx.onerror = function () {
-          finish(reject, tx.error || new Error("로컬 화음 갤러리 저장에 실패했어요."))
-        }
-        tx.onabort = function () {
-          finish(reject, tx.error || new Error("로컬 화음 갤러리 저장을 취소했어요."))
-        }
-      })
-    })
   }
 
   function randomId(prefix) {
@@ -142,14 +74,16 @@
   }
 
   // 입력한 갤러리 코드를 이 브라우저에 기억한다(갤러리별). 새로고침·재방문 때 다시 안 묻게.
+  // 컴퓨터실 공용 PC에서는 다음 반 학생에게 앞 반의 코드가 채워졌으므로, 하루 수업 시간(8시간)이 지나면 잊는다.
   const PASS_STORAGE_PREFIX = "hwaeum.channelPass."
+  const PASS_REMEMBER_MS = 8 * 60 * 60 * 1000
   function rememberPass(channel, pin) {
     const normalized = normalizeChannel(channel)
     const digits = cleanPin(pin)
     try {
       const s = storage()
       if (!s || !normalized) return digits
-      if (digits) s.setItem(PASS_STORAGE_PREFIX + normalized, digits)
+      if (digits) s.setItem(PASS_STORAGE_PREFIX + normalized, JSON.stringify({ pin: digits, at: Date.now() }))
       else s.removeItem(PASS_STORAGE_PREFIX + normalized)
     } catch (e) {}
     return digits
@@ -159,14 +93,14 @@
     const normalized = normalizeChannel(channel)
     try {
       const s = storage()
-      return s && normalized ? cleanPin(s.getItem(PASS_STORAGE_PREFIX + normalized)) : ""
+      if (!s || !normalized) return ""
+      const saved = JSON.parse(s.getItem(PASS_STORAGE_PREFIX + normalized) || "null")
+      // 시각이 없는 옛 기록과 오래된 기록은 쓰지 않는다.
+      if (!saved || typeof saved !== "object" || !(Date.now() - Number(saved.at) < PASS_REMEMBER_MS)) return ""
+      return cleanPin(saved.pin)
     } catch (e) {
       return ""
     }
-  }
-
-  function publicLocalChannel(record) {
-    return { channel: record.channel, displayName: record.displayName || "", hasPass: !!record.pass }
   }
 
   function rememberChannel(channel) {
@@ -227,13 +161,6 @@
     ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh)
   }
 
-  function fitCanvasLine(ctx, text, maxWidth) {
-    let out = String(text || "")
-    if (ctx.measureText(out).width <= maxWidth) return out
-    while (out.length > 1 && ctx.measureText(out + "...").width > maxWidth) out = out.slice(0, -1)
-    return out + "..."
-  }
-
   function drawFallback(ctx, size, accent) {
     ctx.fillStyle = "#1f2a2a"
     ctx.fillRect(0, 0, size, size)
@@ -259,6 +186,9 @@
     canvas.height = size
     const ctx = canvas.getContext("2d")
     const img = await loadImage(options.pictureSrc || options.defaultCoverSrc)
+    // 투명한 그림은 스튜디오 그림 칸처럼 크림색 위에 놓는다(그대로 두면 어두운 갤러리 벽에서 검게 보였다).
+    ctx.fillStyle = "#fffaf0"
+    ctx.fillRect(0, 0, size, size)
     if (img) drawCoverFit(ctx, img, size)
     else drawFallback(ctx, size, options.accent)
     return canvas
@@ -308,264 +238,31 @@
     }
   }
 
-  function objectUrlFor(workId, kind, blob) {
-    if (!blob || !root.URL || !root.URL.createObjectURL) return ""
-    const key = workId + ":" + kind + ":" + (blob.size || 0) + ":" + (blob.type || "")
-    if (!objectUrlCache.has(key)) objectUrlCache.set(key, root.URL.createObjectURL(blob))
-    return objectUrlCache.get(key)
-  }
-
-  function localShareUrl(workId, channel) {
-    try {
-      const url = new URL("./channel.html", root.location && root.location.href ? root.location.href : "/")
-      url.search = "?channel=" + encodeURIComponent(channel)
-      url.hash = "work=" + encodeURIComponent(workId)
-      return url.href
-    } catch (e) {
-      return ""
-    }
-  }
-
-  function localPublicWork(record) {
-    record = record || {}
-    const files = record.files || {}
-    const cover = files.cover || null
-    const thumb = files.thumb || null
-    const drawing = files.drawing || null
-    const music = files.music || null
-    const coverBytes = cover ? cover.size || 0 : 0
-    const thumbBytes = thumb ? thumb.size || 0 : 0
-    const drawingBytes = drawing ? drawing.size || 0 : 0
-    const musicBytes = music ? music.size || 0 : 0
-    return {
-      id: record.id,
-      channel: record.channel,
-      title: record.title || "무제",
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-      ownerId: record.ownerId,
-      metadata: record.metadata || {},
-      recipe: record.recipe || {},
-      files: {
-        coverUrl: objectUrlFor(record.id, "cover", cover),
-        thumbUrl: objectUrlFor(record.id, "thumb", thumb),
-        drawingUrl: objectUrlFor(record.id, "drawing", drawing),
-        musicUrl: objectUrlFor(record.id, "music", music),
-        musicType: music ? music.type || "audio/webm" : "",
-        coverBytes: coverBytes,
-        thumbBytes: thumbBytes,
-        drawingBytes: drawingBytes,
-        musicBytes: musicBytes,
-        totalBytes: coverBytes + thumbBytes + drawingBytes + musicBytes,
-      },
-      shareUrl: localShareUrl(record.id, record.channel),
-      localOnly: true,
-      schemaVersion: 1,
-    }
-  }
-
-  async function getLocalChannel(channel) {
-    return (
-      (await withLocalStore(
-        "readonly",
-        function (store, setResult) {
-          const req = store.get(channel)
-          req.onsuccess = function () {
-            setResult(req.result || null)
-          }
-        },
-        LOCAL_CHANNEL_STORE_NAME,
-      )) || null
-    )
-  }
-
-  async function claimLocalChannel(channel, pin, displayName, owner, adminPin) {
-    if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) {
-      throw new Error("화음 갤러리를 만들려면 관리자 공통 코드가 필요해요.")
-    }
-    const existing = await getLocalChannel(channel)
-    // 갤러리 코드가 정확히 맞으면 다른 브라우저 프로필이라도 같은 선생님으로 본다.
-    if (existing && existing.ownerId && existing.ownerId !== owner.id && existing.pass !== pin) {
-      throw new Error("이미 다른 선생님이 사용 중인 화음 갤러리예요. 다른 번호를 써 주세요.")
-    }
-    const now = new Date().toISOString()
-    const record = {
-      channel: channel,
-      displayName: displayName || (existing && existing.displayName) || "",
-      ownerId: (existing && existing.ownerId) || owner.id,
-      pass: pin,
-      createdAt: (existing && existing.createdAt) || now,
-      updatedAt: now,
-    }
-    await withLocalStore(
-      "readwrite",
-      function (store) {
-        store.put(record)
-      },
-      LOCAL_CHANNEL_STORE_NAME,
-    )
-    return { channel: publicLocalChannel(record), claimed: !existing, localOnly: true }
-  }
-
-  async function publishLocalWork(payload, channel, owner, pin) {
-    const channelRecord = await getLocalChannel(channel)
-    if (!channelRecord) throw new Error("아직 만들어지지 않은 화음 갤러리예요. 관리자가 먼저 화음 갤러리를 만들어 주세요.")
-    if (channelRecord.pass && pin !== channelRecord.pass) throw new Error("갤러리 코드가 맞지 않아요.")
-    const now = new Date().toISOString()
-    const record = {
-      id: randomId("local_"),
-      channel: channel,
-      title: payload.title || "무제",
-      createdAt: now,
-      updatedAt: now,
-      ownerId: owner.id,
-      metadata: payload.metadata || {},
-      recipe: payload.recipe || {},
-      files: {
-        cover: payload.coverBlob,
-        thumb: payload.thumbBlob,
-        drawing: payload.drawingBlob || null,
-        music: payload.musicBlob,
-      },
-    }
-    await withLocalStore("readwrite", function (store) {
-      store.put(record)
-    })
-    return { work: localPublicWork(record), localOnly: true }
-  }
-
-  async function getLocalWork(channel, workId) {
-    return (
-      (await withLocalStore("readonly", function (store, setResult) {
-        const req = store.get(workId)
-        req.onsuccess = function () {
-          const record = req.result
-          setResult(record && record.channel === channel ? record : null)
-        }
-      })) || null
-    )
-  }
-
-  async function copyLocalWork(work, targetChannel, targetPass, sourcePass, owner) {
-    const sourceChannel = normalizeChannel(work && work.channel)
-    const workId = work && work.id
-    if (!sourceChannel || !workId) throw new Error("복사할 작품을 찾지 못했어요.")
-    if (!targetChannel) throw new Error("복사할 갤러리 번호를 적어 주세요.")
-    if (sourceChannel === targetChannel) throw new Error("다른 갤러리 번호를 적어 주세요.")
-
-    const sourceChannelRecord = await getLocalChannel(sourceChannel)
-    if (sourceChannelRecord && sourceChannelRecord.pass && sourcePass !== sourceChannelRecord.pass) {
-      throw new Error("원래 갤러리 코드를 다시 확인해 주세요.")
-    }
-    const targetChannelRecord = await getLocalChannel(targetChannel)
-    if (!targetChannelRecord) throw new Error("아직 만들어지지 않은 화음 갤러리예요. 관리자가 먼저 화음 갤러리를 만들어 주세요.")
-    if (targetChannelRecord.pass && targetPass !== targetChannelRecord.pass) throw new Error("갤러리 코드가 맞지 않아요.")
-
-    const source = await getLocalWork(sourceChannel, workId)
-    if (!source) throw new Error("복사할 작품을 찾지 못했어요.")
-    const now = new Date().toISOString()
-    const record = {
-      id: randomId("local_"),
-      channel: targetChannel,
-      title: source.title || "무제",
-      createdAt: now,
-      updatedAt: now,
-      ownerId: owner.id,
-      metadata: JSON.parse(JSON.stringify(source.metadata || {})),
-      recipe: JSON.parse(JSON.stringify(source.recipe || {})),
-      files: {
-        cover: source.files && source.files.cover,
-        thumb: source.files && source.files.thumb,
-        drawing: source.files && source.files.drawing ? source.files.drawing : null,
-        music: source.files && source.files.music,
-      },
-    }
-    await withLocalStore("readwrite", function (store) {
-      store.put(record)
-    })
-    return { work: localPublicWork(record), localOnly: true }
-  }
-
-  async function listLocalWorks(channel, pin) {
-    const channelRecord = await getLocalChannel(channel)
-    const meta = channelRecord ? publicLocalChannel(channelRecord) : null
-    if (channelRecord && channelRecord.pass && pin !== channelRecord.pass) {
-      return { channel: channel, meta: meta, locked: true, passError: !!pin, works: [], localOnly: true }
-    }
-    const records =
-      (await withLocalStore("readonly", function (store, setResult) {
-        const req = store.getAll()
-        req.onsuccess = function () {
-          setResult(req.result || [])
-        }
-      })) || []
-    const works = records
-      .filter(function (record) {
-        return record && record.channel === channel
-      })
-      .sort(function (a, b) {
-        return Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")
-      })
-      .map(localPublicWork)
-    return { channel: channel, meta: meta, locked: false, passError: false, works: works, localOnly: true }
-  }
-
-  async function deleteLocalWork(work, adminPin) {
-    const outcome =
-      (await withLocalStore("readwrite", function (store, setResult) {
-        const req = store.get(work.id)
-        req.onsuccess = function () {
-          const record = req.result
-          if (!record || record.channel !== work.channel) {
-            setResult({ found: false, allowed: false })
-            return
-          }
-          const allowed = String(adminPin || "").trim() === LOCAL_ADMIN_PIN
-          if (allowed) store.delete(record.id)
-          setResult({ found: true, allowed: allowed })
-        }
-      })) || { found: false, allowed: false }
-    if (!outcome.found) throw new Error("이미 삭제되었거나 없는 작품입니다.")
-    if (!outcome.allowed) throw new Error("이 작품을 삭제하려면 관리자 공통 코드가 필요해요.")
-    return { ok: true, deleted: work.id, localOnly: true }
-  }
-
-  async function deleteLocalChannel(channel, adminPin) {
-    const channelRecord = await getLocalChannel(channel)
-    if (!channelRecord) throw new Error("삭제할 화음 갤러리를 찾지 못했어요.")
-    if (String(adminPin || "").trim() !== LOCAL_ADMIN_PIN) throw new Error("화음 갤러리를 삭제하려면 관리자 공통 코드가 필요해요.")
-    const deletedWorks =
-      (await withLocalStore("readwrite", function (store, setResult) {
-        const req = store.getAll()
-        req.onsuccess = function () {
-          let count = 0
-          const records = req.result || []
-          records.forEach(function (record) {
-            if (record && record.channel === channel) {
-              store.delete(record.id)
-              count += 1
-            }
-          })
-          setResult(count)
-        }
-      })) || 0
-    await withLocalStore(
-      "readwrite",
-      function (store) {
-        store.delete(channel)
-      },
-      LOCAL_CHANNEL_STORE_NAME,
-    )
-    forgetChannel(channel)
-    return { ok: true, deleted: channel, deletedWorks: deletedWorks, localOnly: true }
-  }
-
+  // 이 브라우저용(로컬) 갤러리는 공유 API가 아예 없는 곳에서만 쓴다 — 정적 서버("웹으로 열기.bat")나 파일로 연 경우.
+  // 운영에서 연결이 끊기거나 서버 오류가 났을 때 로컬로 빠지면 빈 갤러리나 "만들었어요(이 브라우저에만 저장됨)"처럼
+  // 엉뚱한 결과가 보였다. 진짜 API는 늘 JSON으로 답하므로, JSON이 아닌 404·405·501만 'API 없음'으로 본다.
   function shouldUseLocalShare(error) {
-    if (!indexedDb()) return false
-    const status = error && Number(error.status)
-    const message = String((error && error.message) || "")
-    if (status === 404 || status === 405 || status === 501 || status === 0) return true
-    return /공유 API를 찾지 못|Failed to fetch|NetworkError|Load failed|fetch/.test(message)
+    if (!localStore.available()) return false
+    if (error && error.apiMissing) return true
+    return !!(root.location && root.location.protocol === "file:")
+  }
+
+  const NETWORK_ERROR_MESSAGE = "공유 서버에 연결하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤 다시 해 주세요."
+
+  // fetch 자체가 실패(연결 끊김)하면 영어 오류 대신 알아들을 수 있는 말로 바꾼다.
+  async function requestApi(url, init) {
+    try {
+      return await fetch(url, init)
+    } catch (error) {
+      if (root.location && root.location.protocol === "file:") {
+        const missing = new Error("공유 API를 찾지 못했어요.")
+        missing.apiMissing = true
+        throw missing
+      }
+      const failed = new Error(NETWORK_ERROR_MESSAGE)
+      failed.network = true
+      throw failed
+    }
   }
 
   async function parseResponse(response) {
@@ -577,19 +274,21 @@
       data = null
     }
     if (response.ok) return data || {}
+    const apiMissing = !data && (response.status === 404 || response.status === 405 || response.status === 501)
     const message =
       data && data.error
         ? data.error
-        : response.status === 404
+        : apiMissing
           ? "공유 API를 찾지 못했어요. Vercel 배포 환경에서 확인해 주세요."
-          : "공유 서버 요청에 실패했어요."
+          : "공유 서버가 잠시 답하지 못했어요. 잠시 뒤 다시 해 주세요."
     const error = new Error(message)
     error.status = response.status
+    error.apiMissing = apiMissing
     throw error
   }
 
   async function postJson(path, body) {
-    const response = await fetch(API_BASE + path, {
+    const response = await requestApi(API_BASE + path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -641,6 +340,7 @@
       title: payload.title || "무제",
       recipe: payload.recipe,
       metadata: payload.metadata || {},
+      replaceWorkId: payload.replaceWorkId || "",
       files: {
         cover: await encodeBlob(cover),
         thumb: await encodeBlob(thumb),
@@ -690,7 +390,7 @@
     const pin = cleanPin(pass)
     try {
       const url = API_BASE + "/channel?channel=" + encodeURIComponent(normalized) + (pin ? "&pass=" + encodeURIComponent(pin) : "")
-      const response = await fetch(url)
+      const response = await requestApi(url)
       const data = await parseResponse(response)
       return {
         channel: normalized,
@@ -702,6 +402,24 @@
     } catch (error) {
       if (!shouldUseLocalShare(error)) throw error
       return listLocalWorks(normalized, pin)
+    }
+  }
+
+  // 작품 하나의 전체 정보(그림이 든 레시피까지). 갤러리 목록은 그림을 빼고 오므로 스튜디오로 가져갈 때 쓴다.
+  async function getWork(channel, workId, pass) {
+    const normalized = normalizeChannel(channel)
+    const id = String(workId || "")
+    if (!normalized || !id) throw new Error("작품을 찾지 못했어요.")
+    const pin = cleanPin(pass)
+    try {
+      const url =
+        API_BASE + "/work?channel=" + encodeURIComponent(normalized) + "&id=" + encodeURIComponent(id) + (pin ? "&pass=" + encodeURIComponent(pin) : "")
+      const data = await parseResponse(await requestApi(url))
+      return data.work || null
+    } catch (error) {
+      if (!shouldUseLocalShare(error)) throw error
+      const local = await listLocalWorks(normalized, pin)
+      return (local.works || []).find((work) => work && work.id === id) || null
     }
   }
 
@@ -759,6 +477,7 @@
     publishWork: publishWork,
     copyWork: copyWork,
     listChannel: listChannel,
+    getWork: getWork,
     deleteWork: deleteWork,
     deleteChannel: deleteChannel,
     formatBytes: formatBytes,

@@ -1,5 +1,8 @@
 const { list } = require("@vercel/blob")
-const { cleanChannel, cleanPin, hashPass, listAll, loadChannelMeta, method, readJsonUrl, sanitizeChannelMeta, sanitizeMeta, send } = require("./_utils.cjs")
+const { cleanChannel, cleanPin, hashPass, listAll, listedMeta, loadChannelMeta, method, readJsonUrl, sanitizeChannelMeta, send, sendError } = require("./_utils.cjs")
+
+// 작품 정보는 여러 개를 함께 읽는다(하나씩 읽으면 작품이 많은 갤러리가 느리게 열렸다).
+const READ_CONCURRENCY = 8
 
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["GET"])) return
@@ -27,24 +30,25 @@ module.exports = async function handler(req, res) {
     const blobs = await listAll(list, { prefix, limit: 1000 })
     const metas = blobs.filter((blob) => /\/meta\.json$/.test(blob.pathname || ""))
     const works = []
-    for (const blob of metas) {
-      try {
-        const meta = await readJsonUrl(blob.url)
-        if (meta && meta.channel === channel) works.push(sanitizeMeta(meta))
-      } catch (error) {
-        console.warn("skip broken shared work", blob.pathname, error && error.message)
-      }
+    for (let start = 0; start < metas.length; start += READ_CONCURRENCY) {
+      const batch = await Promise.all(
+        metas.slice(start, start + READ_CONCURRENCY).map(async (blob) => {
+          try {
+            const meta = await readJsonUrl(blob.url)
+            return meta && meta.channel === channel ? listedMeta(meta) : null
+          } catch (error) {
+            console.warn("skip broken shared work", blob.pathname, error && error.message)
+            return null
+          }
+        }),
+      )
+      batch.forEach((meta) => {
+        if (meta) works.push(meta)
+      })
     }
     works.sort((a, b) => Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""))
     send(res, 200, { channel: sanitizeChannelMeta(channelMeta), locked: false, works })
   } catch (error) {
-    console.error(error)
-    const message =
-      String(error && error.message).indexOf("BLOB_READ_WRITE_TOKEN") !== -1
-        ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
-        : error && error.message
-          ? error.message
-          : "화음 갤러리를 불러오지 못했어요."
-    send(res, 500, { error: message })
+    sendError(res, error, "화음 갤러리를 불러오지 못했어요.")
   }
 }

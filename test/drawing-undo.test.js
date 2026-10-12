@@ -1,14 +1,12 @@
+const { loadScripts } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
-const fs = require("node:fs")
-const path = require("node:path")
 const test = require("node:test")
-const vm = require("node:vm")
 
-const projectDir = path.resolve(__dirname, "..")
 
 function loadDrawing() {
   const sandbox = {
     MusicCore: {
+      quantizePitch(y) { const scale = this.drawableScale(); return scale[Math.max(0, Math.min(scale.length-1, Math.floor((1-y)*scale.length)))] },
       buildScale() {
         return [60, 62, 64, 65, 67, 69, 71, 72]
       },
@@ -29,8 +27,7 @@ function loadDrawing() {
     devicePixelRatio: 1,
   }
   sandbox.self = sandbox
-  const code = fs.readFileSync(path.join(projectDir, "js", "drawing.js"), "utf8")
-  vm.runInNewContext(code, sandbox, { filename: "drawing.js" })
+  loadScripts(sandbox, { from: "drawing-renderer.js", through: "drawing.js" })
   return sandbox.DrawingCanvas
 }
 

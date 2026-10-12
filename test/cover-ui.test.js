@@ -50,7 +50,10 @@ test("shared gallery cover images leave title text to the gallery UI", () => {
   assert.match(functionBody(share, "publishSharedWork"), /composerName: metadata\.composerName/)
   assert.match(functionBody(channel, "coverUrl"), /recipePictureUrl\(work\)/)
   assert.match(functionBody(channel, "workDisplayTitle"), /title \+ " \(" \+ composer \+ "\)"/)
-  assert.match(functionBody(channel, "createAlbumCard"), /title\.textContent = workDisplayTitle\(work\)/)
+  // 갤러리 이름표는 제목과 작곡가를 두 줄로 따로 적는다(합친 이름은 소리 내어 읽는 aria-label에 남는다).
+  assert.match(functionBody(channel, "createAlbumCard"), /title\.textContent = workTitle\(work\)/)
+  assert.match(functionBody(channel, "createAlbumCard"), /className = "channel-album-composer"[\s\S]*textContent = composer/)
+  assert.match(functionBody(channel, "createAlbumCard"), /aria-label", options\.ariaLabel \|\| workDisplayTitle\(work\)/)
   assert.match(functionBody(channel, "openViewer"), /viewerTitle\.textContent = workTitle\(work\)/)
   assert.doesNotMatch(functionBody(channel, "openViewer"), /viewerTitle\.textContent = workDisplayTitle\(work\)/)
 })

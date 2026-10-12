@@ -60,8 +60,10 @@ test("studio utils snapped lengths leave no stub bar and no colliding label", ()
 
 test("studio utils sanitize share metadata without losing Korean tags", () => {
   assert.equal(utils.cleanText("  봄\t  음악\n", 20), "봄 음악")
-  // 태그는 쉼표로만 나뉜다 — "감정적인 노래"처럼 띄어쓰기가 든 말도 태그 1개.
+  // 태그는 쉼표·#으로 나뉜다 — "감정적인 노래"처럼 띄어쓰기가 든 말도 태그 1개.
   assert.deepEqual(utils.normalizeHashtags("#봄, BGM!, 감정적인 노래, 넷째"), ["봄", "BGM", "감정적인 노래"])
+  assert.deepEqual(utils.normalizeHashtags("#봄 #여름 #가을"), ["봄", "여름", "가을"])
+  assert.deepEqual(utils.normalizeHashtags("ㅋㅋㅋ, 신나는 노래"), ["ㅋㅋㅋ", "신나는 노래"])
   assert.deepEqual(utils.normalizeHashtags("봄, 봄, 여름"), ["봄", "여름"])
   assert.deepEqual(utils.normalizeHashtags(["봄", "BGM", "긴장-장면"]), ["봄", "BGM", "긴장-장면"])
   assert.equal(utils.hashtagText(["봄", "BGM", "감정적인 노래"]), "#봄 #BGM #감정적인 노래")
@@ -99,6 +101,18 @@ test("studio utils simplify drawings and stamps for recipes", () => {
       { id: "harp", x: 0, y: 0.5 },
     ]
   )
+})
+
+test("선율 저장은 70점보다 많은 짧은 복귀와 의도한 음 전환의 시간을 보존한다", () => {
+  const plan = require("../js/audio-plan.js")
+  const pitchAt = p => p.y < .5 ? 57 : 55
+  const points = Array.from({length:1200}, (_,i) => ({x:i/3000, y:Math.floor(i/3)%2 ? .4999 : .5001}))
+  points.push({x:.45,y:.4999},{x:.5,y:.4999})
+  const simplified = utils.simplifyPoints(points, 70, pitchAt)
+  const runs = source => plan.sampleVoiceRuns(source.map(p => ({time:p.x*30,midi:pitchAt(p)})),15,.07)
+  assert.deepEqual(runs(simplified), runs(points), "짧은 복귀가 탈락하거나 반올림으로 체류가 늘어나면 안 된다")
+  assert.equal(runs(simplified).length, 2)
+  assert.ok(simplified.length > 70, "음 경계는 시각용 점 수 목표보다 우선한다")
 })
 
 test("studio utils color conversion keeps current rgba format", () => {

@@ -192,10 +192,12 @@ function createHarness(options) {
     flowActive: false,
     records: [],
     finishes: [],
+    retimes: [],
     flowRecord(progress) { this.records.push(progress) },
     finishFlowStroke(commit) { this.finishes.push(commit); this.flowActive = false },
+    retimeDuration(previous, next) { this.retimes.push([previous, next]) },
   }
-  const counters = { refreshTimeline: 0, updateReadouts: 0, renderAtmospheres: 0, renderTakes: 0, syncCanvasScrollState: 0 }
+  const counters = { refreshTimeline: 0, updateReadouts: 0, renderAtmospheres: 0, renderTakes: 0, syncCanvasScrollState: 0, durationChanges: [], stopSoundLayerPreview: 0 }
   const recipe = { duration: state.duration, path: [] }
   const transport = createStudioTransport({
     root: { setTimeout, clearTimeout },
@@ -221,7 +223,9 @@ function createHarness(options) {
     buildRecipe: () => recipe,
     notesFor: () => [],
     renderTakes() { counters.renderTakes += 1 },
+    stopSoundLayerPreview() { counters.stopSoundLayerPreview += 1 },
     getStateSummary: () => ({ duration: state.duration }),
+    onDurationChange(previous, next) { counters.durationChanges.push([previous, next]) },
     console: { warn() {}, error() {} },
   })
   return { transport, clock, audio, engine, state, draw, el, counters, recipe, wrap }
@@ -247,6 +251,7 @@ test("main playback accepts an empty melody and starts from the selected playhea
   assert.deepEqual(h.engine.calls.play[0].notes, [])
   assert.equal(h.engine.calls.play[0].recipe, h.recipe)
   approx(h.engine.calls.play[0].options.startOffset, 15)
+  assert.equal(h.counters.stopSoundLayerPreview, 1)
 })
 
 test("transport toggles play, pause, and resume while keeping button state in sync", () => {
@@ -482,4 +487,89 @@ test("background range metadata updates the shared drawing duration", () => {
   assert.equal(h.state.duration, 10)
   assert.ok(h.counters.refreshTimeline >= 1)
   assert.equal(h.el.bgTime.textContent, "0:05 ~ 0:15 / 1:00")
+})
+
+test("background range resizing keeps drawing and playhead at their original seconds", () => {
+  const h = createHarness({ duration: 30, bgOffset: 0, bgEndOffset: 30, audioDuration: 60 })
+  h.transport.setSelectedPlayhead(10 / 30, false, false)
+
+  h.transport.seekBgEnd(40)
+  assert.equal(h.state.duration, 40)
+  assert.deepEqual(h.draw.retimes.at(-1), [30, 40])
+  assert.deepEqual(h.counters.durationChanges.at(-1), [30, 40])
+  approx(h.transport.selectedPlaybackStartSec(), 10)
+
+  h.transport.seekBgEnd(20)
+  assert.equal(h.state.duration, 20)
+  assert.deepEqual(h.draw.retimes.at(-1), [40, 20])
+  assert.deepEqual(h.counters.durationChanges.at(-1), [40, 20])
+  approx(h.transport.selectedPlaybackStartSec(), 10)
+})
+
+test("choosing a new background keeps drawn seconds and makes room for everything drawn", () => {
+  const { transport, state, draw, counters } = createHarness({ duration: 20, bgOffset: 5, bgEndOffset: 25, audioDuration: 120 })
+
+  transport.startNewBackground(23)
+  assert.equal(state.bgOffset, 0)
+  assert.equal(state.duration, 30)
+  assert.deepEqual(draw.retimes, [[20, 30]])
+  assert.deepEqual(counters.durationChanges, [[20, 30]])
+  assert.equal(state.bgEndOffset, 30)
+
+  transport.startNewBackground(41.2)
+  assert.equal(state.duration, 42.5, "30초보다 길게 그렸으면 그만큼 마디 단위로 늘린다")
+  assert.deepEqual(draw.retimes[draw.retimes.length - 1], [30, 42.5])
+})
+
+test("a shorter new background narrows the range but keeps the drawn seconds", () => {
+  const { transport, state, draw } = createHarness({ duration: 30, bgOffset: 0, bgEndOffset: 30, audioDuration: 12 })
+
+  transport.startNewBackground(8)
+  assert.equal(state.bgOffset, 0)
+  assert.equal(state.bgEndOffset, 10)
+  assert.equal(state.duration, 10)
+  assert.deepEqual(draw.retimes[draw.retimes.length - 1], [30, 10])
+})
+
+test("clicking the background that is already chosen only replays it", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio-setup-render.js"), "utf8")
+  const click = source.slice(source.indexOf('b.addEventListener("click", () => {'), source.indexOf("if (a.custom) {"))
+  assert.match(click, /if \(state\.atmosphere && state\.atmosphere\.id === a\.id\) \{[\s\S]*?toggleBackgroundPreview\(a\)[\s\S]*?return/)
+  assert.match(click, /startNewBackground\(\)/)
+  assert.doesNotMatch(source, /state\.duration = DEFAULT_DURATION_SECONDS/)
+})
+
+test("after listening to the end, the next play starts where the student chose, not where they once paused", async () => {
+  const { transport, engine, clock } = createHarness({ duration: 30 })
+  transport.setSelectedPlayhead(0.2, false, false)
+  transport.play()
+  await Promise.resolve()
+  assert.equal(engine.calls.play[0].options.startOffset, 6)
+  clock.step(3000)
+  transport.pause()
+  engine.resume()
+  engine.end()
+  transport.play()
+  await Promise.resolve()
+  assert.equal(engine.calls.play[1].options.startOffset, 6, "끝까지 들은 뒤에는 처음 고른 6초부터")
+})
+
+test("drawing to music without a background continues from where the last stroke ended", () => {
+  const { transport, draw, clock } = createHarness({ duration: 30, noBackground: true, soundMode: true })
+  draw.flowActive = true
+  transport.soundDrawingProgress()
+  clock.step(16)
+  clock.step(3000)
+  draw.flowActive = false
+  clock.step(16)
+  assert.ok(transport.selectedPlaybackStartSec() > 2.5, "다음 획은 손을 뗀 자리(약 3초)에서 이어진다: " + transport.selectedPlaybackStartSec())
+})
+
+test("a background start typed past the end of the song is refused instead of shrinking the piece", () => {
+  const { transport, state, el } = createHarness({ duration: 30, bgOffset: 0, bgEndOffset: 30, audioDuration: 40 })
+  el.bgStartInput.value = "6:40"
+  transport.commitBgStartInput()
+  assert.equal(state.bgOffset, 0)
+  assert.equal(state.duration, 30)
+  assert.match(el.exportStatus.textContent, /사이로 적어 주세요/)
 })

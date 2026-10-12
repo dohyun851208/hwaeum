@@ -14,7 +14,7 @@ curate-western-samples.py — 필하모니아 서양 선율 음원 멀티샘플 
       viola            = piano       + arco-normal
       cello            = forte       + arco-normal
       doubleBass       = mezzo-forte + arco-normal
-      cello 는 기존 규칙 그대로 유지한다.
+      cello 는 기존 규칙 그대로 유지한다. 단, TAKE_OVERRIDES 에 고정한 음은 예외.
   - violin / viola / doubleBass 는 샘플의 28~78% 루프 구간을 실측해
       길이·발음·루프 안정성·루프 끝 음량이 충분한 후보를 고른다.
       원래 세기에 좋은 후보가 없으면 다른 세기의 arco-normal 을 허용한다.
@@ -126,13 +126,149 @@ HEAD_TRIMS = {
 # cents describes the source pitch relative to the target midi entry.
 SAMPLE_OVERRIDES = {
     ("flute", 83): {"srcMidi": 81, "srcToken": "A5", "cents": -200},
-    ("oboe", 88): {"srcMidi": 89, "srcToken": "F6", "cents": 100},
+    # ("oboe", 88) 는 2026-10-03 에 같은 음의 긴 테이크를 TAKE_OVERRIDES 로 고정해 더 빌리지 않는다.
     ("violin", 76): {"srcMidi": 75, "srcToken": "Ds5", "cents": -100},
     ("viola", 65): {"srcMidi": 66, "srcToken": "Fs4", "cents": 100},
     ("viola", 69): {"srcMidi": 68, "srcToken": "Gs4", "cents": -100},
     ("viola", 71): {"srcMidi": 70, "srcToken": "As4", "cents": -100},
     ("viola", 74): {"srcMidi": 72, "srcToken": "C5", "cents": -200},
     ("cello", 57): {"srcMidi": 56, "srcToken": "Gs3", "cents": -100},
+    # 2026-10-02 지속음 재검토: 같은 음의 어떤 테이크도 고르게 이어지지 않아 반음 옆의 고른 녹음을 빌린다
+    # (빌린 녹음의 음량은 기존 칸과 ±4dB 안, 강약 감소·짧은 반복·반복 안 출렁임을 실측 비교).
+    ("cello", 50): {"srcMidi": 49, "srcToken": "Cs3", "cents": -100},
+    ("violin", 57): {"srcMidi": 58, "srcToken": "As3", "cents": 100},
+    ("violin", 72): {"srcMidi": 73, "srcToken": "Cs5", "cents": 100},
+    ("oboe", 76): {"srcMidi": 77, "srcToken": "F5", "cents": 100},
+    ("oboe", 83): {"srcMidi": 84, "srcToken": "C6", "cents": 100},
+    # 2026-10-03: 같은 음 녹음은 크게 분 것일수록 출렁여서, 고르고 큰 반음 위 도#(forte)를 빌린다.
+    ("oboe", 72): {"srcMidi": 73, "srcToken": "Cs5", "cents": 100},
+    # 2026-10-03 음량 전수 점검: 같은 음에 크기가 맞으면서 고른 녹음이 없어 반음 옆을 빌린다.
+    ("flute", 91): {"srcMidi": 92, "srcToken": "Gs6", "cents": 100},
+    ("flute", 89): {"srcMidi": 88, "srcToken": "E6", "cents": -100},
+    ("flute", 84): {"srcMidi": 85, "srcToken": "Cs6", "cents": 100},
+    ("frenchHorn", 62): {"srcMidi": 63, "srcToken": "Ds4", "cents": 100},
+    ("frenchHorn", 60): {"srcMidi": 61, "srcToken": "Cs4", "cents": 100},
+    ("cello", 67): {"srcMidi": 66, "srcToken": "Fs4", "cents": -100},
+    # 첼로 맨 아래 솔: 같은 음 fortissimo 는 고르지만 다른 칸보다 9dB 커서 악기 평균을 끌어올렸다.
+    ("cello", 43): {"srcMidi": 42, "srcToken": "Fs2", "cents": -100},
+}
+
+# 프로필 규칙이 고른 테이크가 지속음으로 쓸 수 없을 때, 같은 음의 다른 테이크(원본 파일 이름)를 고정한다.
+# 음높이를 옮기지 않으므로 cents 가 없다. 대상 파일 이름과 생성되는 맵 항목은 그대로다.
+TAKE_OVERRIDES = {
+    # ("cello", 43) 의 G2 fortissimo 고정(2026-10-02)은 2026-10-03 에 F#2 forte 빌리기로 바꿨다(SAMPLE_OVERRIDES).
+    ("cello", 53): {
+        "file": "cello_F3_15_piano_arco-normal.mp3",
+        "reason": "forte 는 4.7dB 약해지고, fortissimo 는 고르지만 다른 칸보다 8.8dB 커서 악기 평균을 끌어올렸다. "
+                  "piano 는 재생 출렁임 1.5dB·루프 1.24초·크기 +5dB(2026-10-03 실측)",
+    },
+    ("violin", 71): {
+        "file": "violin_B4_15_fortissimo_arco-normal.mp3",
+        "reason": "기존 테이크 루프 0.79초·출렁임 4.9dB. fortissimo 는 루프 1.27초·출렁임 1.8dB·약해짐 0.1dB(2026-10-02 실측)",
+    },
+    ("oboe", 77): {
+        "file": "oboe_F5_15_forte_normal.mp3",
+        "reason": "기존 테이크 루프 0.98초·출렁임 2.0dB. forte 는 루프 1.14초·출렁임 1.1dB. 오보에 미 칸도 이 녹음을 빌린다(2026-10-02 실측)",
+    },
+    ("oboe", 84): {
+        "file": "oboe_C6_15_forte_normal.mp3",
+        "reason": "mezzo-forte 테이크는 고르지만 음별 보정 +3dB 한도에서도 기준보다 2.9dB 작음. forte 는 7.1dB 커서 "
+                  "기준에 맞고 루프 1.09초·출렁임 2.2dB. 오보에 위쪽 시 칸도 이 녹음을 빌린다(2026-10-03 실측)",
+    },
+    # 오보에 아래쪽 솔·시·도: mezzo-forte 테이크가 음별 보정 +3dB 한도에서도 기준보다 2.6~3.7dB 작았다.
+    ("oboe", 67): {
+        "file": "oboe_G4_15_forte_normal.mp3",
+        "reason": "mezzo-forte 는 +3dB 한도에서도 기준보다 3.7dB 작음. forte 는 6.2dB 크고 "
+                  "재생 출렁임 1.5→0.8dB·루프 1.01초(2026-10-03 실측)",
+    },
+    ("oboe", 71): {
+        "file": "oboe_B4_15_forte_normal.mp3",
+        "reason": "mezzo-forte 는 기준보다 2.6dB 작고 재생 출렁임 4.2dB. forte 는 7.3dB 크고 "
+                  "출렁임 1.9dB·루프 1.08초(2026-10-03 실측)",
+    },
+    ("oboe", 73): {
+        "file": "oboe_Cs5_15_forte_normal.mp3",
+        "reason": "오보에 아래쪽 도 칸이 빌린다. C5 forte·fortissimo 는 재생 출렁임 3.8·2.8dB 로 기존(1.6dB)보다 나쁘고, "
+                  "C#5 forte 는 1.1dB·루프 1.08초·기존보다 9.1dB 커서 음별 보정 ±3dB 안에서 기준에 맞음(2026-10-03 실측)",
+    },
+    # 오보에 위쪽 라·레·미·파: 재생 출렁임 3.0~4.3dB 로 고르지 않았다(라·레는 +3dB 한도에서도 기준보다 작음).
+    ("oboe", 81): {
+        "file": "oboe_A5_15_forte_normal.mp3",
+        "reason": "mezzo-forte 는 재생 출렁임 3.0dB·기준보다 1.3dB 작음. forte 는 1.7dB·루프 1.06초(2026-10-03 실측)",
+    },
+    ("oboe", 86): {
+        "file": "oboe_D6_15_fortissimo_normal.mp3",
+        "reason": "mezzo-forte 는 재생 출렁임 4.3dB·기준보다 2.0dB 작음. fortissimo 는 2.4dB·루프 1.04초, "
+                  "forte(2.7dB)보다 고름(2026-10-03 실측)",
+    },
+    ("oboe", 88): {
+        "file": "oboe_E6_15_piano_normal.mp3",
+        "reason": "예전엔 짧은 테이크(루프 0.69초)를 피해 F6 을 빌렸고 그 녹음이 재생 출렁임 4.3dB. "
+                  "같은 음 piano 는 1.5dB·루프 0.93초·크기는 기준과 같음(2026-10-03 실측)",
+    },
+    ("oboe", 89): {
+        "file": "oboe_F6_15_piano_normal.mp3",
+        "reason": "mezzo-forte 는 재생 출렁임 4.1dB. piano 는 1.9dB·크기는 기준과 같음(2026-10-03 실측)",
+    },
+    # 2026-10-03 음량 전수 점검. 악기 크기는 15칸의 에너지 평균이라, 원음이 유난히 큰 칸 하나가
+    # 악기 게인을 끌어내려 나머지 칸을 작게 만든다. 큰 칸은 여린 녹음으로, 작거나 출렁이는 칸은
+    # 크기가 악기 중앙값에 가까운 고른 녹음으로 바꿨다(출렁임 = 앱 재생 4.5초의 50ms 크기 상하위 5% 폭).
+    ("flute", 92): {
+        "file": "flute_Gs6_15_pianissimo_normal.mp3",
+        "reason": "플루트 맨 위 솔 칸이 빌린다. 기존 솔은 원음이 중앙값보다 15.5dB 커서 플루트 전체가 바이올린보다 3dB 작아졌다. "
+                  "솔 pianissimo 는 출렁임 3.9dB, 솔# pianissimo 는 2.3dB(2026-10-03 실측)",
+    },
+    ("flute", 88): {
+        "file": "flute_E6_long_piano_normal.mp3",
+        "reason": "위쪽 미·파 두 칸이 쓴다. 파 mezzo-forte 는 중앙값보다 8.3dB 크고 출렁임 3.6dB. "
+                  "미 long piano 는 크기가 중앙값과 같고 출렁임 0.8~1.0dB·루프 2.29초(2026-10-03 실측)",
+    },
+    ("flute", 85): {
+        "file": "flute_Cs6_15_piano_normal.mp3",
+        "reason": "위쪽 도 칸이 빌린다. 도 테이크는 모두 출렁임 4.3~8.2dB. 도# piano 는 2.7dB·루프 1.08초(2026-10-03 실측)",
+    },
+    ("flute", 72): {
+        "file": "flute_C5_15_forte_normal.mp3",
+        "reason": "mezzo-forte 는 출렁임 3.6dB. forte 는 크기가 같고 1.9dB(2026-10-03 실측)",
+    },
+    ("flute", 71): {
+        "file": "flute_B4_15_mezzo-piano_normal.mp3",
+        "reason": "mezzo-forte 는 출렁임 3.7dB. mezzo-piano 는 크기가 비슷하고 2.1dB·루프 1.08초(2026-10-03 실측)",
+    },
+    ("flute", 67): {
+        "file": "flute_G4_15_mezzo-piano_normal.mp3",
+        "reason": "mezzo-forte 는 출렁임 5.5dB. mezzo-piano 는 1.9dB, 3dB 작지만 음별 보정 안(2026-10-03 실측)",
+    },
+    ("flute", 69): {
+        "file": "flute_A4_15_mezzo-piano_normal.mp3",
+        "reason": "mezzo-forte 는 출렁임 3.3dB. mezzo-piano 는 크기가 같고 1.6dB(2026-10-03 실측)",
+    },
+    ("frenchHorn", 67): {
+        "file": "french-horn_G4_15_piano_normal.mp3",
+        "reason": "mezzo-forte 는 원음이 중앙값보다 9.5dB 커서 호른 게인을 끌어내렸다. piano 는 3.3dB 작고 출렁임 0.5dB(2026-10-03 실측)",
+    },
+    ("frenchHorn", 43): {
+        "file": "french-horn_G2_long_forte_normal.mp3",
+        "reason": "mezzo-forte 는 +3dB 한도에서도 기준보다 4dB 작음. long forte 는 5dB 크고 출렁임 0.3dB·루프 1.96초(2026-10-03 실측)",
+    },
+    ("frenchHorn", 63): {
+        "file": "french-horn_Ds4_15_piano_normal.mp3",
+        "reason": "위쪽 레 칸이 빌린다. 레 mezzo-forte 는 +3dB 한도에서도 기준보다 3.5dB 작고, 레 fortissimo 는 6.7dB 큼. "
+                  "레# piano 는 중앙값 +1.1dB·출렁임 0.3dB·루프 1.34초(2026-10-03 실측)",
+    },
+    ("cello", 66): {
+        "file": "cello_Fs4_15_fortissimo_arco-normal.mp3",
+        "reason": "맨 위 솔 칸이 빌린다. 솔 forte 는 기준보다 4.2dB 작고 출렁임 3.9dB. 파# fortissimo 는 1.0dB·크기 +1dB(2026-10-03 실측)",
+    },
+    ("doubleBass", 52): {
+        "file": "double-bass_E3_15_forte_arco-normal.mp3",
+        "reason": "mezzo-forte 는 다른 칸보다 14dB 작아 ±12dB 보정으로도 모자람. forte 는 5.8dB 크고 출렁임은 같음(2.2dB)(2026-10-03 실측)",
+    },
+    ("doubleBass", 47): {
+        "file": "double-bass_B2_1_mezzo-forte_arco-normal.mp3",
+        "reason": "15 mezzo-forte 는 다른 칸보다 14.8dB 작아 ±12dB 보정으로도 3dB 모자람. 1 mezzo-forte 는 2.9dB 커서 보정 안에 들어오고 "
+                  "출렁임 2.6→3.2dB·루프 0.94초. forte·fortissimo 는 출렁임 5.6~7.0dB(2026-10-03 실측)",
+    },
 }
 
 SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -488,12 +624,23 @@ def main():
         entries = []
         for midi in sorted(best):
             _score, pretty, token_norm, src_path = best[midi][:4]
+            take = TAKE_OVERRIDES.get((inst_id, midi))
+            if take:
+                pinned = os.path.join(raw_dir, take["file"])
+                if not os.path.isfile(pinned):
+                    raise SystemExit(f"{inst_id} midi {midi}: TAKE_OVERRIDES 원본 없음 — {take['file']} ({take['reason']})")
+                src_path = pinned
+                print(f"  · {inst_id} {token_norm}: 테이크 고정 {take['file']} ({take['reason']})")
             override = SAMPLE_OVERRIDES.get((inst_id, midi))
             cents = None
             if override:
                 token_norm = override["srcToken"]
                 cents = override["cents"]
-                if override["srcMidi"] in best:
+                # 빌려 오는 음에 고정한 테이크가 있으면 같은 파일을 써야 두 칸이 서로 덮어쓰지 않는다.
+                pinned_src = TAKE_OVERRIDES.get((inst_id, override["srcMidi"]))
+                if pinned_src:
+                    src_path = os.path.join(raw_dir, pinned_src["file"])
+                elif override["srcMidi"] in best:
                     src_path = best[override["srcMidi"]][3]
             dest_name = f"{inst_id}_{token_norm}.mp3"
             copy_sample(src_path, os.path.join(dest_dir, dest_name), inst_id, midi, token_norm)

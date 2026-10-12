@@ -1,3 +1,4 @@
+const { scriptFiles } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const path = require("node:path")
@@ -52,21 +53,12 @@ function loadEngine() {
     },
   }
   sandbox.self = sandbox
-  const files = [
-    "music-core.js",
-    "manifest.js",
-    "sample-maps.js",
-    "sample-maps-western.js",
-    "audio-plan.js",
-    "audio-node-scope.js",
-    "audio-pad-graph.js",
-    "audio-engine.js",
-  ]
+  const files = scriptFiles({ from: "music-core.js", through: "audio-engine.js" })
   for (const file of files) {
     const code = fs.readFileSync(path.join(projectDir, "js", file), "utf8")
     vm.runInNewContext(code, sandbox, { filename: file })
   }
-  return { AudioEngine: sandbox.AudioEngine, anchor, calls }
+  return { AudioEngine: sandbox.AudioEngine, anchor, calls, sandbox }
 }
 
 test("exportCompressedAudio returns the generated Blob type and cleans up its temporary download", async () => {
@@ -93,4 +85,42 @@ test("exportCompressedAudio returns the generated Blob type and cleans up its te
   assert.deepEqual(calls.revokedUrls, [])
   calls.timers[0].callback()
   assert.deepEqual(calls.revokedUrls, ["blob:test-export"])
+})
+
+
+test("a sample that failed to load is fetched again later instead of staying synthesized forever", async () => {
+  const { AudioEngine, sandbox } = loadEngine()
+  const engine = new AudioEngine()
+  const ctx = { decodeAudioData: async () => ({ duration: 1 }) }
+  let fetches = 0
+  let online = false
+  sandbox.fetch = async () => {
+    fetches += 1
+    if (!online) throw new TypeError("Failed to fetch")
+    return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }
+  }
+
+  assert.equal(await engine.loadBuffer(ctx, "sound/flute/A4.mp3"), null)
+  assert.equal(fetches, 1)
+  assert.equal(await engine.loadBuffer(ctx, "sound/flute/A4.mp3"), null, "바로 다시 부르면 받지 않고 합성음으로 둔다")
+  assert.equal(fetches, 1)
+
+  online = true
+  engine.loadFailedAt.set("sound/flute/A4.mp3", Date.now() - 60000) // 잠시 뒤
+  const buffer = await engine.loadBuffer(ctx, "sound/flute/A4.mp3")
+  assert.equal(fetches, 2, "연결이 돌아오면 다시 받는다")
+  assert.deepEqual(JSON.parse(JSON.stringify(buffer)), { duration: 1 })
+  assert.equal(engine.loadFailedAt.has("sound/flute/A4.mp3"), false)
+})
+
+test("synthesized fallback melody is trimmed to the measured level of the real samples", () => {
+  const engine = fs.readFileSync(path.join(projectDir, "js", "audio-engine.js"), "utf8")
+  const table = engine.match(/const SYNTH_MELODY_TRIM_DB = \{([\s\S]*?)\n  \}/)
+  assert.ok(table, "SYNTH_MELODY_TRIM_DB 표가 있어야 한다")
+  const ids = Array.from(table[1].matchAll(/(\w+):\s*(-?\d+(?:\.\d+)?)/g), (entry) => entry[1])
+  assert.deepEqual(ids.sort(), ["cello", "clarinet", "daegeum", "danso", "doubleBass", "flute", "frenchHorn", "gayageum", "haegeum", "oboe", "sogeum", "viola", "violin"])
+  // 두 합성 선율 경로 모두 보정 노드를 거친다.
+  assert.equal((engine.match(/scheduleSynthMelody\(ctx, synthMelodyOutput\(ctx, melodyGain, inst, start\)/g) || []).length, 2)
+  assert.doesNotMatch(engine, /scheduleSynthMelody\(ctx, melodyGain,/)
+  assert.match(engine, /NOTE_PREVIEW_SYNTH_GAIN \* previewOutputGain\(plan\) \* noteMelodyOutputGain\(plan, note\) \* synthMelodyTrim\(plan\.instrument\)/)
 })

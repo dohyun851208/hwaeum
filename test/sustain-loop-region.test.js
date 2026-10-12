@@ -132,3 +132,65 @@ test("극미세 신호 뒤의 디지털 무음은 안정 루프 구간에 포함
   assert.ok(region, "충분히 긴 극미세 비무음 구간은 계속 검출해야 한다")
   assert.ok(region.end <= 1.2, "정확한 0 RMS 구간을 안정 루프로 선택하면 안 된다: " + region.end)
 })
+
+test("루프 페이드의 앞 재료도 안정 구간 안에 있고 접합 직전은 돌아갈 프레임의 직전이다", () => {
+  for (const sr of [44100, 48000]) {
+    const x = new Float32Array(sr * 2)
+    for (let i = sr * .2; i < x.length; i++) x[i] = .4 * Math.sin(2 * Math.PI * 197.3 * i / sr)
+    const support = { start: .25, end: 1.5 }
+    const f = core.sustainLoopFrames([x], sr, support)
+    assert.ok(f.start - f.fade >= Math.ceil(support.start * sr))
+    assert.ok((f.end - f.start) / sr >= .9)
+    const y = core.crossfadeSustainLoop(x, f)
+    assert.equal(y[f.end - 1], x[f.start - 1])
+    const peak = Math.max(...y.subarray(f.end - f.fade, f.end))
+    assert.ok(peak < .405, "동위상 접합에서 +3dB가 생기면 안 된다")
+  }
+})
+
+test("지속 구간의 느린 감쇠를 완화하되 평균 에너지와 두 채널의 관계는 보존한다", () => {
+  const sr = 10000, a = 1000, b = 19000
+  const x = new Float32Array(20000)
+  for (let i = 0; i < x.length; i++) x[i] = (.7 - .5 * i / x.length) * Math.sin(2 * Math.PI * 200 * i / sr)
+  const out = core.levelSustainSupport([x, Float32Array.from(x, (v) => -v)], sr, { start: a / sr, end: b / sr })
+  let before = 0, after = 0
+  for (let i = a; i < b; i++) { before += x[i] ** 2; after += out[0][i] ** 2; assert.equal(out[0][i], -out[1][i]) }
+  assert.ok(Math.abs(10 * Math.log10(after / before)) < .001)
+  const rms = (v) => Math.sqrt(v.reduce((s, x) => s + x*x, 0) / v.length)
+  assert.ok(Math.abs(20 * Math.log10(rms(out[0].subarray(2000, 4000)) / rms(out[0].subarray(15000, 17000)))) < 1)
+})
+
+test("뜯는음 끝은 자연 감쇠 이후이고 다음 발음 앞이다", () => {
+  const sr = 10000, x = new Float32Array(40000)
+  for (let i = 0; i < x.length; i++) x[i] = i < 25000 ? Math.exp(-i / sr * 4) * Math.sin(2*Math.PI*220*i/sr) : .5
+  const end = core.pluckedSampleEnd(x, sr, 0, .4, 2.45)
+  assert.ok(end > 1.2 && end < 2.45, String(end))
+})
+
+test("느린 감쇠를 고르면서 3~8Hz의 자연 진폭 비브라토는 90% 이상 보존한다", () => {
+  const sr = 8000
+  for (const hz of [3, 4, 5, 6, 7, 8]) {
+    const x = Float32Array.from({ length: sr * 6 }, (_, i) => (1 + .15*Math.sin(2*Math.PI*hz*i/sr))*Math.exp(-.08*i/sr)*Math.sin(2*Math.PI*200*i/sr))
+    const out = core.levelSustainSupport([x], sr, { start: 0, end: 6 })[0]
+    function depth(pcm) {
+      const levels = []
+      for (let i = sr; i < sr * 5; i += 80) {
+        let e = 0
+        for (let j = i; j < i + 80; j++) e += pcm[j] ** 2
+        levels.push(Math.log(Math.max(1e-20, e / 80)))
+      }
+      let a = 0, b = 0
+      // 원래의 느린 기울기를 선형 회귀로 제거하고 변조 주파수만 비교한다.
+      const mean = levels.reduce((s,v)=>s+v,0)/levels.length
+      let xy=0, xx=0
+      for(let i=0;i<levels.length;i++){const t=i-(levels.length-1)/2;xy+=t*(levels[i]-mean);xx+=t*t}
+      for (let i = 0; i < levels.length; i++) {
+        const v = levels[i] - mean - xy/xx*(i-(levels.length-1)/2)
+        a += v*Math.sin(2*Math.PI*hz*i*.01); b += v*Math.cos(2*Math.PI*hz*i*.01)
+      }
+      return Math.hypot(a,b)
+    }
+    const retained = depth(out)/depth(x)
+    assert.ok(retained >= .9 && retained < 1.1, hz + "Hz 비브라토 보존율 " + retained)
+  }
+})

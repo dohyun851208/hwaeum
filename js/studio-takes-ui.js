@@ -18,6 +18,26 @@
   const defaultCoverSrc = deps.defaultCoverSrc || "./assets/default-cover.webp"
   const composerNameMax = Number.isFinite(deps.composerNameMax) ? deps.composerNameMax : 24
   const drawingStep = Number.isFinite(deps.drawingStep) ? deps.drawingStep : 2
+  // 안내 문구는 지금 보이는 단계의 안내 줄로 보낸다(3단계 저장도 3단계에 보이게).
+  const say = typeof deps.say === "function" ? deps.say : (message) => { if (el && el.exportStatus) el.exportStatus.textContent = message }
+  const DISCARD_CONFIRM_MESSAGE = "지금 작업에 저장하지 않은 내용이 있어요.\n다른 작품을 열면 지금 작업은 사라져요. 열까요?"
+  const SAVE_FAILED_MESSAGES = {
+    full: "내 작품은 " + ((takes && takes.maxTakes) || 24) + "개까지 저장할 수 있어요. 필요 없는 작품을 ✕로 지운 뒤 다시 저장해 주세요.",
+    quota: "저장 공간이 가득 차서 저장하지 못했어요. 필요 없는 작품을 ✕로 지운 뒤 다시 저장해 주세요.",
+    storage: "이 브라우저에서는 작품을 저장하지 못했어요. 음악 저장으로 파일을 따로 남겨 주세요.",
+  }
+
+  function confirmWith(message) {
+    return typeof root.confirm !== "function" || root.confirm(message)
+  }
+
+  function hasUnsavedWork() {
+    return typeof deps.hasUnsavedWork === "function" && deps.hasUnsavedWork()
+  }
+
+  function markWorkSaved() {
+    if (typeof deps.markWorkSaved === "function") deps.markWorkSaved()
+  }
 
   function renderTakeName(meta, take, number) {
     const row = doc.createElement("div")
@@ -43,6 +63,20 @@
     return rawTitle && rawTitle !== "무제" ? rawTitle : "제목"
   }
 
+  // 카드에 보일 배경 이름. '내가 찾은 음악' 파일이 이 컴퓨터에 없으면 이름에 다시 올려야 한다고 덧붙인다.
+  function atmosphereForTake(take) {
+    const recipe = (take && take.recipe) || {}
+    const found = D.atmospheres.find(function (item) {
+      return item.id === recipe.atmosphere
+    })
+    if (found && !found.missing) return found
+    const fallback = deps.defaultAtmosphere()
+    const isCustom = typeof recipe.atmosphere === "string" && recipe.atmosphere.indexOf("custom-") === 0
+    if (!isCustom) return found || fallback
+    const label = (found && found.label) || recipe.atmosphereLabel || "내가 찾은 음악"
+    return Object.assign({}, found || fallback, { label: label + " (파일 다시 올리기)" })
+  }
+
   function takePictureSrc(take) {
     const recipe = (take && take.recipe) || {}
     return StudioUtils.normalizePictureData(recipe.picture) || defaultCoverSrc
@@ -65,20 +99,31 @@
     if (!take) return
     state.sharedRecipeLoaded = false
     state.activeTakeId = take.id
-    const title = take.name || (take.recipe && take.recipe.title) || ""
-    if (title) {
-      state.title = title
-      if (el.titleInput) el.titleInput.value = title
-    }
-    deps.loadRecipe(take.recipe)
+    const rawTitle = take.name || (take.recipe && take.recipe.title) || ""
+    const title = rawTitle === "무제" ? "" : rawTitle
+    state.title = title
+    if (el.titleInput) el.titleInput.value = title
+    const loaded = deps.loadRecipe(take.recipe)
+    markWorkSaved()
     renderTakes()
-    el.exportStatus.textContent = "‘" + (title || "작품") + "’ 정보를 불러왔어요."
+    const notice = loaded && loaded.notice ? " " + loaded.notice : ""
+    say("‘" + (title || "작품") + "’ 정보를 불러왔어요." + notice, notice ? { duration: 9000 } : undefined)
+  }
+
+  // 카드의 단추·카드 누르기로 작품을 연다. 이미 열려 있는 작품이면 다시 불러오지 않고 지금 모습 그대로 쓴다
+  // (불러오면 고친 내용과 되돌리기 기록이 사라진다). 다른 작품을 열 때 저장하지 않은 작업이 있으면 먼저 묻는다.
+  function openTake(take) {
+    if (!take) return false
+    if (take.id === state.activeTakeId && !state.sharedRecipeLoaded) return true
+    if (hasUnsavedWork() && !confirmWith(DISCARD_CONFIRM_MESSAGE)) return false
+    selectTake(take)
+    return true
   }
 
   function playTake(take) {
     if (!take) return
+    if (!openTake(take)) return
     if (engine.isPlaying || engine.isPaused || engine.ambience) engine.stop()
-    selectTake(take)
     state.playingTakeId = take.id
     deps.play()
     renderTakes()
@@ -91,28 +136,32 @@
   }
 
   function removeTake(take) {
+    if (!confirmWith("‘" + takeDisplayTitle(take) + "’ 작품을 지울까요?\n지운 작품은 다시 살릴 수 없어요.")) return
     if (state.playingTakeId === take.id) {
       state.playingTakeId = null
       engine.stop()
     }
-    takes.remove(take.id)
+    if (takes.remove(take.id) === false) {
+      say(SAVE_FAILED_MESSAGES[takes.lastError] || SAVE_FAILED_MESSAGES.storage, { error: true })
+      return
+    }
     if (state.activeTakeId === take.id) state.activeTakeId = null
     if (state.playingTakeId === take.id) state.playingTakeId = null
     renderTakes()
   }
 
   function exportTakeAudio(take) {
-    selectTake(take)
+    if (!openTake(take)) return
     deps.exportAudio()
   }
 
   function exportTakeImage(take) {
-    selectTake(take)
+    if (!openTake(take)) return
     deps.exportCover()
   }
 
   function editTake(take) {
-    selectTake(take)
+    if (!openTake(take)) return
     deps.setStep(drawingStep)
     if (el.statusText) el.statusText.textContent = "작품 수정"
   }
@@ -127,20 +176,20 @@
     el.takesCount.textContent = items.length ? items.length + "개" : ""
 
     items.forEach(function (take, index) {
-      const atmosphere = D.atmospheres.find(function (item) {
-        return item.id === take.recipe.atmosphere
-      }) || deps.defaultAtmosphere()
+      const atmosphere = atmosphereForTake(take)
       const wrap = doc.createElement("div")
       wrap.className = "take" + (take.id === state.activeTakeId ? " active" : "")
       wrap.tabIndex = 0
       wrap.title = "이 작품 정보 보기"
       wrap.addEventListener("click", function () {
-        selectTake(take)
+        openTake(take)
       })
       wrap.addEventListener("keydown", function (event) {
+        // 카드 안 단추에서 누른 Enter·스페이스는 그 단추가 처리한다.
+        if (event.target !== wrap) return
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault()
-          selectTake(take)
+          openTake(take)
         }
       })
 
@@ -262,11 +311,20 @@
     const recipe = deps.buildRecipe()
     const name = state.title
     let take = null
+    let updateFailed = false
     if (!forceNew && !state.sharedRecipeLoaded && state.activeTakeId && typeof takes.update === "function") {
       take = takes.update(state.activeTakeId, recipe, name)
+      // 지워진 작품이면(lastError 없음) 새로 더하고, 저장 공간 때문에 실패했으면 더하지 않는다.
+      updateFailed = !take && !!takes.lastError
     }
     const updated = !!take
-    if (!take) take = takes.add(recipe, name)
+    if (!take && !updateFailed) take = takes.add(recipe, name)
+    if (!take) {
+      renderTakes()
+      say(SAVE_FAILED_MESSAGES[takes.lastError] || SAVE_FAILED_MESSAGES.storage, { error: true, duration: 9000 })
+      return null
+    }
+    markWorkSaved()
     state.activeTakeId = take.id
     state.sharedRecipeLoaded = false
     renderTakes()
@@ -278,7 +336,7 @@
     if (state.step === drawingStep && el.statusText) {
       el.statusText.textContent = updated ? "다시 저장했어요" : "저장했어요"
     }
-    el.exportStatus.textContent = message
+    say(message)
     return take
   }
 
@@ -295,5 +353,7 @@
     saveTake,
     saveNewTake,
     selectTake,
+    openTake,
+    removeTake,
   }
 })

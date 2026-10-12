@@ -1,3 +1,4 @@
+const { scriptFiles } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const path = require("node:path")
@@ -11,16 +12,7 @@ function loadSandbox() {
   const sandbox = { console, clearTimeout, setTimeout }
   sandbox.self = sandbox
   vm.createContext(sandbox)
-  for (const file of [
-    "music-core.js",
-    "manifest.js",
-    "sample-maps.js",
-    "sample-maps-western.js",
-    "audio-plan.js",
-    "audio-node-scope.js",
-    "audio-pad-graph.js",
-    "audio-engine.js",
-  ]) {
+  for (const file of scriptFiles({ from: "music-core.js", through: "audio-engine.js" })) {
     vm.runInContext(fs.readFileSync(path.join(projectDir, "js", file), "utf8"), sandbox, { filename: file })
   }
   return sandbox
@@ -135,6 +127,27 @@ test("가장 큰 음별 보정도 잘리지 않는다 — 가장 센 버전에�
       Math.abs(live.noteGain.gain.value - table[loudestRow]) < 0.01,
       instrumentId + " midi " + loudestRow + " 보정 " + table[loudestRow] + " → " + live.noteGain.gain.value,
     )
+  }
+})
+
+// 기준 게인이 천장에 걸리면 그 악기만 펜 소리가 재생보다 작아진다
+// (0.95 천장에서 플루트·비올라·호른·클라리넷이 0.3~1.8 dB 작았다, 2026-10-03 실측).
+// 버전마다 "기준 게인 ÷ 악기 게인"이 모든 서양 악기에서 같아야 한다.
+test("펜 소리 기준 게인은 모든 서양 악기에서 악기 게인에 비례한다 — 모든 버전", () => {
+  const sandbox = loadSandbox()
+  const source = fs.readFileSync(enginePath, "utf8")
+  const block = source.slice(source.indexOf("INSTRUMENT_MELODY_OUTPUT_GAINS = {"))
+  const body = block.slice(0, block.indexOf("\n  }"))
+  const gains = {}
+  body.replace(/(\w+):\s*([\d.]+),/g, (m, id, gain) => {
+    gains[id] = Number(gain)
+  })
+  const western = ["flute", "oboe", "clarinet", "frenchHorn", "violin", "viola", "cello", "doubleBass"]
+  for (const version of sandbox.SDStudioData.versions) {
+    const ratios = western.map((id) => livePreviewFor(sandbox, id, 67, version.id).baseTargetGain / gains[id])
+    const min = Math.min(...ratios)
+    const max = Math.max(...ratios)
+    assert.ok(max - min < 1e-9 * max, version.id + " 버전 기준 게인 ÷ 악기 게인: " + ratios.map((r) => r.toFixed(4)).join(", "))
   }
 })
 

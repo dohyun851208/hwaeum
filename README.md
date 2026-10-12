@@ -20,7 +20,7 @@ python -m http.server 4173      # 이 폴더(sound-drawing-tool)에서 실행
 브라우저에서(데스크탑·마우스 환경 기준):
 
 ```text
-http://localhost:4173/            # 3D 히어로 랜딩 (여기서 "그림으로 음악 만들기" 클릭)
+http://localhost:4173/            # 선율 히어로 랜딩 ("내 그림에 선율 더하기" 클릭)
 http://localhost:4173/studio.html # 앱(위저드) 바로 열기
 ```
 
@@ -47,7 +47,7 @@ http://localhost:4173/studio.html # 앱(위저드) 바로 열기
 ## 파일 구조
 
 ```
-index.html         3D 히어로 랜딩 페이지(자족형 inline CSS+JS) → studio.html로 진입
+index.html         선율 히어로 랜딩 페이지(자족형 inline CSS+JS+Canvas) → studio.html로 진입
 studio.html        5단계 위저드 마크업 (앱 본체)
 channel.html       화음 갤러리 목록·작품 감상 페이지
 styles.css         갤러리·아틀리에 디자인 + 무드 틴팅(CSS 변수)
@@ -55,14 +55,24 @@ js/music-core.js   순수 로직: 음계·피치 보정·시간 재샘플링·�
 js/manifest.js     음원·배경·악기·음계 데이터  ← 음원 추가/교체는 주로 여기만 수정
 js/audio-plan.js   순수 재생 계획: 샘플 선택·악기별 음 변환·획/탐색 구간
 js/audio-node-scope.js transport/preview 오디오 노드 수명 관리
+js/audio-samples.js 지속음 루프·샘플 버퍼 가공과 캐시
 js/audio-pad-graph.js 전체 재생·드로잉 배경이 공유하는 합성 패드 그래프
 js/audio-engine.js Web Audio 합주(라이브+오프라인 렌더)·피치 시프트·시김새·합성 폴백
-js/drawing.js      캔버스 드로잉·가이드/팔레트 렌더·보정 음 오버레이
+js/drawing-renderer.js 피치 축·가이드·선율 렌더
+js/drawing.js      캔버스 입력·좌표·실행 취소·악기 붓 커서
 js/takes.js        시도 저장·비교(localStorage)·썸네일
 js/studio.js       위저드 흐름·업로드·무드 틴팅·테이크·공유 오케스트레이션
+js/studio-recipe.js 순수 레시피 직렬화·저장 작품의 음과 사용 악기 계산
+js/studio-reflection.js 감상 메모 인계·성찰·태그 입력
 js/studio-export.js WebM 음악·커버/드로잉 PNG·드로잉 WebM 내보내기
 js/studio-setup-render.js 배경·악기 선택 화면 렌더
 js/studio-transport.js 재생·플레이헤드·무배경 시계·배경 구간 시간 상태
+js/studio-sound-layers.js 추가 소리 업로드·자르기·배치·미리듣기
+js/studio-takes-ui.js 시도 저장·선택·목록 UI
+js/studio-share.js 공유 모달·갤러리 입장·작품 게시
+js/share-local-store.js 로컬 갤러리 IndexedDB·객체 URL 수명
+js/share-store.js  갤러리 서버 통신·로컬 폴백·표지 생성
+tools/runtime-scripts.cjs HTML의 실제 로드 순서를 읽는 공통 검증 로더
 ```
 
 ## 음원 추가/교체
@@ -71,7 +81,7 @@ js/studio-transport.js 재생·플레이헤드·무배경 시계·배경 구간 
 
 - **배경 음원**: `backgrounds.<id>`에 `label`과 `src`(예: `sound/배경-분위기/고요한(우주).mp3`)를 넣고, `atmospheres`에 같은 `id`로 항목을 추가하면 배경 카드와 1:1로 매칭됩니다. 카드 클릭 시 그 `src`가 미리듣기로 재생됩니다. (선생님이 화면에서 직접 올린 음원은 그 세션에만 유지됩니다.)
 - **선율 악기**: `melodies.<악기>`에 `src`와 기준음 `baseMidi`를 지정합니다(단일음 샘플은 피치 시프트, 긴 구절은 `sampleMode: "phrase"`).
-- **효과음**: `effects`에 추가하고 장면의 `effectIds`에 연결합니다.
+- **효과음**: `effects`에 추가하고 장면의 `effectIds`에 연결합니다. 자연 효과음(바람·비·숲·천둥)은 `tools/build-nature-effects.py`로 다듬어 넣습니다 — 도장 미리듣기가 앞 1.2초만 들려주므로 이름에 맞는 순간을 파일 맨 앞에 둡니다. 넣거나 바꾼 뒤에는 `node tools/measure-effect-loudness.cjs`로 재서 추천 `gain`을 그 도장에 적습니다(앱 속 크기를 새소리에 맞춤).
 
 ## 테스트
 
@@ -82,8 +92,24 @@ npm test          # 순수 로직·모듈 계약·행동 테스트 (node --test)
 통합 스모크(선택, jsdom 필요 — 오디오/캔버스는 스텁):
 
 ```powershell
-npm i jsdom ; node tools/smoke.cjs
+npm install --no-save --package-lock=false jsdom
+npm run test:smoke
 ```
+
+실제 브라우저 검증(선택, Playwright·Chromium 필요):
+
+```powershell
+npm install --no-save --package-lock=false jsdom playwright
+npx playwright install chromium
+# 다른 터미널에서 npm run serve 실행 후
+npm run test:browser
+```
+
+이 검증은 새 브라우저 프로필에서 그림 업로드·그리기·실행 취소·저장·복원·재생, PNG/WebM 내보내기, 실제 IndexedDB 갤러리의 게시·복사·삭제와 늦은 응답 처리를 확인합니다. 공유 API는 로컬 응답으로 대체하므로 배포된 갤러리에 쓰지 않습니다. 스크린샷·다운로드·결과 JSON은 `output/refactor-review/`에 저장됩니다.
+
+이미 설치한 도구는 `$env:PLAYWRIGHT_MODULE`(모듈 경로)과 `$env:CHROME_PATH`(실행 파일 경로)로 지정할 수 있습니다. `$env:STUDIO_URL`은 로컬 서버 주소만 허용합니다. 작업 전 소스 복사본이 있으면 `$env:REFACTOR_BASELINE_DIR`를 지정해 같은 음원으로 13개 악기의 PCM과 도화지 픽셀을 정확히 비교할 수 있습니다. 이 옵션을 생략하면 현재 동작만 검증합니다.
+
+로드 순서의 기준은 `studio.html`·`channel.html`입니다. 스모크·오디오 테스트·측정 도구가 공통 로더로 이 순서를 읽으며, `test/runtime-scripts.test.js`가 파일 존재·중복·의존 순서를 검사합니다.
 
 브라우저 콘솔에서 `window.SoundDrawing` 으로 상태 확인이 가능합니다:
 `getStateSummary()`, `play()`, `pause()`, `resume()`, `stop()`, `exportAudio()`, `exportDrawingImage()`, `exportDrawingVideo()`, `buildRecipe()`, `loadRecipe(recipe)`, `setStep(n)`.
@@ -91,3 +117,5 @@ npm i jsdom ; node tools/smoke.cjs
 ## 설계 문서
 
 `docs/specs/2026-06-15-sound-drawing-atelier-design.md`, `docs/plans/2026-06-15-sound-drawing-atelier.md`
+
+런타임 구조와 검증 근거: [책임 분리 결정](docs/decisions/2026-10-03-runtime-responsibility-refactor.md), [리팩토링 작업·검증 기록](docs/plans/2026-10-03-runtime-refactor.md).

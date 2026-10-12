@@ -21,7 +21,7 @@ function loadManifest() {
   const sandbox = {}
   sandbox.self = sandbox
   vm.createContext(sandbox)
-  for (const file of ["manifest.js", "sample-maps.js", "sample-maps-western.js"]) {
+  for (const file of ["manifest.js", "sample-maps.js", "sample-maps-western.js", "sample-calibration.js"]) {
     const code = fs.readFileSync(path.join(projectDir, "js", file), "utf8")
     vm.runInContext(code, sandbox, { filename: file })
   }
@@ -109,5 +109,22 @@ test("post-processed sample maps remain sorted and usable by the audio planner",
       if (segment.duration != null) assert.ok(Number.isFinite(segment.duration) && segment.duration > 0, id + " segment duration")
       if (segment.cents != null) assert.ok(Number.isFinite(segment.cents), id + " segment cents")
     }
+  }
+})
+
+test("every effect stamp carries a measured loudness gain, with the bird as the reference", () => {
+  const data = loadManifest()
+  // 값은 tools/measure-effect-loudness.cjs 가 새소리 크기에 맞춰 추천한다(2026-10-05).
+  assert.equal(data.effects.animalBird.gain, 1, "새소리가 크기 기준이다")
+  for (const [id, effect] of Object.entries(data.effects)) {
+    assert.ok(Number.isFinite(effect.gain) && effect.gain > 0 && effect.gain <= 16, id + " gain")
+  }
+})
+
+test("every effect stamp knows how long it sounds, for the length band on the canvas", () => {
+  const data = loadManifest()
+  // 값은 tools/measure-effect-loudness.cjs --check 가 실제 파일 길이와 맞는지 본다(2026-10-06).
+  for (const [id, effect] of Object.entries(data.effects)) {
+    assert.ok(Number.isFinite(effect.duration) && effect.duration > 0 && effect.duration <= 30, id + " duration")
   }
 })

@@ -8,7 +8,7 @@ const projectDir = path.resolve(__dirname, "..")
 
 function loadManifest() {
   const sandbox = {}
-  const files = ["manifest.js", "sample-maps.js", "sample-maps-western.js"]
+  const files = ["manifest.js", "sample-maps.js", "sample-maps-western.js", "sample-calibration.js"]
   sandbox.self = sandbox
   for (const file of files) {
     const code = fs.readFileSync(path.join(projectDir, "js", file), "utf8")
@@ -66,15 +66,16 @@ test("instrument example audio entries point to existing project files", () => {
   const westernMissingExamples = Array.from(data.instruments)
     .filter((instrument) => instrument.group === "서양" && !instrument.example)
     .map((instrument) => instrument.id)
+  // 플루트·바이올린·더블베이스는 크기를 맞춘 CC 녹음(tools/build-instrument-examples.py, 출처는 AUDIO_MODE_CREDIT).
   const westernExamples = {
-    flute: "sound/감상-연주곡(서양악기)/플루트.mp3",
+    flute: "sound/감상-연주곡(서양악기)/플루트-슈타미츠.mp3",
     oboe: "sound/감상-연주곡(서양악기)/오보에.mp3",
     clarinet: "sound/감상-연주곡(서양악기)/클라리넷.mp3",
     frenchHorn: "sound/감상-연주곡(서양악기)/호른.mp3",
-    violin: "sound/감상-연주곡(서양악기)/바이올린.mp3",
+    violin: "sound/감상-연주곡(서양악기)/바이올린-보케리니.mp3",
     viola: "sound/감상-연주곡(서양악기)/비올라.mp3",
     cello: "sound/감상-연주곡(서양악기)/첼로.mp3",
-    doubleBass: "sound/감상-연주곡(서양악기)/더블베이스.mp3",
+    doubleBass: "sound/감상-연주곡(서양악기)/더블베이스-보테시니.mp3",
   }
 
   assert.deepEqual(missing, [])
@@ -84,7 +85,9 @@ test("instrument example audio entries point to existing project files", () => {
     assert.equal(data.instruments.find((instrument) => instrument.id === id).example, example)
   }
   assert.equal(data.instruments.find((instrument) => instrument.id === "sogeum").exampleLabel, "수제천025")
-  assert.equal(data.instruments.find((instrument) => instrument.id === "danso").exampleLabel, "문덕곡 도드리(가사)")
+  // 단소 연주곡은 소금·대금과 같은 크기로 다듬은 청성곡(tools/build-instrument-examples.py). 예전 문덕곡은 24 dB 작았다.
+  assert.equal(data.instruments.find((instrument) => instrument.id === "danso").exampleLabel, "청성곡")
+  assert.equal(data.instruments.find((instrument) => instrument.id === "danso").example, "sound/감상-연주곡(국립국악원)/단소-청성곡.mp3")
   assert.equal(data.instruments.find((instrument) => instrument.id === "haegeum").exampleLabel, "해금")
   assert.equal(data.instruments.find((instrument) => instrument.id === "gayageum").exampleLabel, "가야금")
 })
@@ -216,8 +219,9 @@ test("sustained wind sample maps avoid short repeated loop sources", () => {
   const oboeE6 = data.melodies.oboe.sampleMap.find((item) => item.midi === 88)
 
   assert.equal(dansoLow.duration, 2.4)
-  assert.match(oboeE6.src, /oboe_F6\.mp3$/)
-  assert.equal(oboeE6.cents, 100)
+  // 오보에 위쪽 미는 짧은 테이크 대신 같은 음의 긴 piano 테이크를 고정했다(curate-western-samples.py TAKE_OVERRIDES).
+  assert.match(oboeE6.src, /oboe_E6\.mp3$/)
+  assert.equal(oboeE6.cents, undefined)
 })
 
 test("quiet viola F4 row reuses the neighboring sample at the correct pitch", () => {
@@ -237,6 +241,19 @@ test("isolated quiet drawing rows reuse measured neighboring samples", () => {
     ["viola", 71, /viola_As4\.mp3$/, -100],
     ["viola", 74, /viola_C5\.mp3$/, -200],
     ["cello", 57, /cello_Gs3\.mp3$/, -100],
+    ["cello", 50, /cello_Cs3\.mp3$/, -100],
+    ["violin", 57, /violin_As3\.mp3$/, 100],
+    ["violin", 72, /violin_Cs5\.mp3$/, 100],
+    ["oboe", 76, /oboe_F5\.mp3$/, 100],
+    ["oboe", 83, /oboe_C6\.mp3$/, 100],
+    ["oboe", 72, /oboe_Cs5\.mp3$/, 100],
+    ["flute", 91, /flute_Gs6\.mp3$/, 100],
+    ["flute", 89, /flute_E6\.mp3$/, -100],
+    ["flute", 84, /flute_Cs6\.mp3$/, 100],
+    ["frenchHorn", 62, /frenchHorn_Ds4\.mp3$/, 100],
+    ["frenchHorn", 60, /frenchHorn_Cs4\.mp3$/, 100],
+    ["cello", 67, /cello_Fs4\.mp3$/, -100],
+    ["cello", 43, /cello_Fs2\.mp3$/, -100],
     ["sogeum", 81, /sogeum_B5\.mp3$/, 191],
     ["haegeum", 76, /haegeum_F5\.mp3$/, 100],
   ]
@@ -260,12 +277,13 @@ test("violin drawing rows keep distinct source pitches", () => {
   const byMidi = new Map(violin.map((item) => [item.midi, item]))
 
   assert.match(byMidi.get(55).src, /violin_G3\.mp3$/)
-  assert.match(byMidi.get(57).src, /violin_A3\.mp3$/)
+  assert.match(byMidi.get(57).src, /violin_As3\.mp3$/)
+  assert.equal(byMidi.get(57).cents, 100)
   assert.match(byMidi.get(59).src, /violin_B3\.mp3$/)
   assert.match(byMidi.get(62).src, /violin_D4\.mp3$/)
   assert.match(byMidi.get(74).src, /violin_D5\.mp3$/)
   assert.match(byMidi.get(79).src, /violin_G5\.mp3$/)
-  for (const midi of [55, 57, 59, 62, 74, 79]) {
+  for (const midi of [55, 59, 62, 74, 79]) {
     assert.equal(byMidi.get(midi).cents, undefined)
   }
 })
@@ -276,9 +294,10 @@ test("studio loads every audio dependency in browser order", () => {
     "./js/music-core.js",
     "./js/manifest.js",
     "./js/sample-maps.js",
-    "./js/sample-maps-western.js",
+    "./js/sample-maps-western.js", "./js/sample-calibration.js",
     "./js/audio-plan.js",
     "./js/audio-node-scope.js",
+    "./js/audio-samples.js",
     "./js/audio-pad-graph.js",
     "./js/audio-engine.js",
   ]

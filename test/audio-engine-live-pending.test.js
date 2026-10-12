@@ -1,3 +1,4 @@
+const { scriptFiles } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const path = require("node:path")
@@ -18,16 +19,7 @@ function loadEngine() {
   const sandbox = { console, clearTimeout, setTimeout }
   sandbox.self = sandbox
   vm.createContext(sandbox)
-  for (const file of [
-    "music-core.js",
-    "manifest.js",
-    "sample-maps.js",
-    "sample-maps-western.js",
-    "audio-plan.js",
-    "audio-node-scope.js",
-    "audio-pad-graph.js",
-    "audio-engine.js",
-  ]) {
+  for (const file of scriptFiles({ from: "music-core.js", through: "audio-engine.js" })) {
     vm.runInContext(fs.readFileSync(path.join(projectDir, "js", file), "utf8"), sandbox, { filename: file })
   }
   return sandbox.AudioEngine

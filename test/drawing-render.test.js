@@ -1,8 +1,8 @@
+const { loadScripts } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const path = require("node:path")
 const test = require("node:test")
-const vm = require("node:vm")
 
 const projectDir = path.resolve(__dirname, "..")
 
@@ -26,8 +26,7 @@ function loadDrawing(buildScale, coreOverrides) {
     devicePixelRatio: 1,
   }
   sandbox.self = sandbox
-  const code = fs.readFileSync(path.join(projectDir, "js", "drawing.js"), "utf8")
-  vm.runInNewContext(code, sandbox, { filename: "drawing.js" })
+  loadScripts(sandbox, { from: "drawing-renderer.js", through: "drawing.js" })
   return sandbox.DrawingCanvas
 }
 
@@ -73,7 +72,15 @@ function makeContext() {
     fill() {
       this.calls.push(["fill", this.fillStyle, this.globalAlpha])
     },
-    arc() {},
+    arc(x, y, r) {
+      this.calls.push(["arc", x, y, r, this.fillStyle])
+    },
+    ellipse(x, y, rx, ry) {
+      this.calls.push(["ellipse", x, y, rx, ry, this.fillStyle])
+    },
+    quadraticCurveTo(cx, cy, x, y) {
+      this.calls.push(["quadraticCurveTo", cx, cy, x, y])
+    },
     arcTo() {},
     closePath() {},
     setLineDash() {},
@@ -100,7 +107,7 @@ function makeCanvas(ctx) {
   }
 }
 
-test("renderNotes uses instrument colors and keeps the same line treatment for every instrument", () => {
+test("melody rendering keeps the notes for playback without drawing correction bars", () => {
   const DrawingCanvas = loadDrawing()
   const ctx = makeContext()
   const draw = new DrawingCanvas(makeCanvas(ctx), {
@@ -116,16 +123,13 @@ test("renderNotes uses instrument colors and keeps the same line treatment for e
     { time: 3, duration: 2, midi: 64, velocity: 0.7, voice: 1 },
   ]
 
-  draw.renderNotes()
+  draw.render()
 
   const violinStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c85f4d")
   const fluteStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#2f9c95")
-  const violinWidths = violinStrokes.map((call) => call[2])
-  const fluteWidths = fluteStrokes.map((call) => call[2])
-
-  assert.equal(violinStrokes.length, 2, "each violin note should render as a stroked line")
-  assert.equal(fluteStrokes.length, 2, "each flute note should render as a stroked line")
-  assert.deepEqual(fluteWidths, violinWidths, "line widths should not vary by instrument")
+  assert.equal(violinStrokes.length, 0, "quantized violin notes should not cover the drawing")
+  assert.equal(fluteStrokes.length, 0, "quantized flute notes should not cover the drawing")
+  assert.equal(draw.notes.length, 2, "hiding correction bars must preserve computed notes")
   assert.equal(ctx.calls.some((call) => call[1] === "#c96f66" || call[1] === "#b89d45"), false)
 })
 
@@ -142,6 +146,8 @@ test("renderStroke uses instrument colors instead of pitch colors", () => {
   draw.strokes = [
     [
       { x: 0, y: 0.5 },
+      { x: 0.05, y: 0.4 },
+      { x: 0.1, y: 0.3 },
       { x: 0.2, y: 0.5 },
     ],
     [{ x: 0.4, y: 0.36 }],
@@ -152,9 +158,69 @@ test("renderStroke uses instrument colors instead of pitch colors", () => {
 
   const violinStrokes = ctx.calls.filter((call) => call[0] === "stroke" && call[1] === "#c85f4d")
   const fluteDots = ctx.calls.filter((call) => call[0] === "fill" && call[1] === "#2f9c95")
-  assert.equal(violinStrokes.length, 2)
-  assert.equal(fluteDots.length, 1)
+  // 마법의 선율: 한 경로를 빛무리·빛·선 세 겹으로 칠한다. 점 사이마다 끊어 그리지 않아 round cap이 겹치지 않는다.
+  assert.equal(violinStrokes.length, 3, "a many-point stroke is one continuous path painted as aura, glow and core")
+  assert.deepEqual(violinStrokes.map((call) => call[3]), [0.07, 0.16, 0.92])
+  assert.ok(ctx.calls.some((call) => call[0] === "stroke" && call[1] === "#ffffff"), "a thin sheen lights the top of the line")
+  assert.ok(fluteDots.length >= 1, "a one-point tap is one note, shown as a pearl")
   assert.equal(ctx.calls.some((call) => call[1] === "#c96f66" || call[1] === "#b89d45"), false)
+})
+
+test("magic melody keeps the line clean and floats a note above the melody", () => {
+  const DrawingCanvas = loadDrawing()
+  const ctx = makeContext()
+  let mode = "melody"
+  const draw = new DrawingCanvas(makeCanvas(ctx), {
+    activeInstrument: "violin",
+    getState: () => ({ duration: 30, style: {}, mode }),
+    instrumentColor: (id) => ({ violin: "#c85f4d", flute: "#2f9c95" })[id],
+  })
+  draw.strokes = [
+    [
+      { x: 0, y: 0.5 },
+      { x: 0.25, y: 0.375 },
+      { x: 0.5, y: 0.25 },
+    ],
+  ]
+  draw.strokeInstruments = ["violin"]
+  draw.notes = [
+    { time: 0, duration: 7.5, midi: 60, velocity: 0.7, voice: 0 },
+    { time: 7.5, duration: 7.5, midi: 64, velocity: 0.7, voice: 0 },
+  ]
+  const noteHeads = () => ctx.calls.filter((call) => call[0] === "ellipse" && call[5] === "#c85f4d")
+
+  ctx.calls.length = 0
+  draw.renderStroke()
+  // 선 위에 동그란 구슬을 달지 않는다 — 원은 점 하나짜리 획(탭)에만 쓴다.
+  assert.equal(ctx.calls.filter((call) => call[0] === "arc").length, 0)
+  // 점 사이는 곡선으로 이어 흐르게 그린다.
+  assert.ok(ctx.calls.some((call) => call[0] === "quadraticCurveTo"))
+  // 첫 음 위로 음표가 떠오른다: 첫 음(0초) 자리의 선 높이(0.5)보다 16px 위.
+  const heads = noteHeads()
+  assert.ok(heads.length >= 1)
+  assert.equal(heads[0][1], draw._timeToX(0) + 3)
+  assert.ok(Math.abs(heads[0][2] - (0.5 * draw.canvas.height - 16)) < 1e-9)
+
+  // 다시 그려도 반짝임·음표 자리가 같다(무작위 없음).
+  const first = JSON.stringify(ctx.calls)
+  ctx.calls.length = 0
+  draw.renderStroke()
+  assert.equal(JSON.stringify(ctx.calls), first)
+
+  // 지우개로 긋는 중에는 음 목록의 획 번호가 낡았으므로 음표를 잠시 그리지 않는다.
+  draw.isDrawing = true
+  draw.eraseMode = true
+  ctx.calls.length = 0
+  draw.renderStroke()
+  assert.equal(noteHeads().length, 0)
+  draw.isDrawing = false
+  draw.eraseMode = false
+
+  // 리듬형에는 떠오르는 음표가 없다.
+  mode = "rhythm"
+  ctx.calls.length = 0
+  draw.renderStroke()
+  assert.equal(noteHeads().length, 0)
 })
 
 test("pitch rendering places edge pitches at row centers on the G3..G5 axis", () => {

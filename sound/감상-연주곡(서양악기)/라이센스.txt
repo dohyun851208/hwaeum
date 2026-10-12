@@ -1,0 +1,28 @@
+라이센스 — 2단계 악기 감상 연주곡(서양악기)
+
+아래 세 파일은 원본 녹음의 일부를 잘라 음량을 맞춘 것이다(tools/build-instrument-examples.py 의 EXAMPLES 표).
+원본은 배포 트리 밖 `감상-연주곡-원본/`에 보관하고, 없으면 아래 주소에서 다시 받는다.
+CC BY-SA 녹음을 다듬은 파일은 원본과 같은 라이선스(CC BY-SA)로 배포한다.
+앱 화면에서는 2단계 아래 출처 줄(studio.js AUDIO_MODE_CREDIT)에 연주자와 라이선스를 적는다.
+
+플루트-슈타미츠.mp3  ← Anton Stamitz, Capriccio No. 1 "Allegro moderato" (0.75~20.7초)
+                     연주: Kristina Martincová(플루트), Wikipedia 10 기념 음악회, 프라하 2011-01-15
+                     라이선스: CC BY-SA 3.0 Unported (https://creativecommons.org/licenses/by-sa/3.0/)
+                     출처: https://commons.wikimedia.org/wiki/File:Stamitz_-_Capriccio_1_Allegro_moderato.ogg
+
+바이올린-보케리니.mp3 ← Luigi Boccherini, Minuet — 올린 이 설명 "String Quintet in E, Op.13, No.6" (0~15.5초, 왼쪽 채널)
+                     연주: Howard Geisel(바이올린), 녹음·올린 이: FreqMan
+                     라이선스: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+                     출처: https://freesound.org/people/FreqMan/sounds/25481/
+
+더블베이스-보테시니.mp3 ← Giovanni Bottesini, Fantasia "La Sonnambula" (33.3~49.4초)
+                     연주: Răzvan Popescu(더블베이스), Viorica Boerescu(피아노)
+                     루마니아 아테네움 소강당 실황 2011-04-19, Radio România(Societatea Română de Radiodifuziune) 아카이브 DVD-FM-279
+                     라이선스: CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)
+                     출처: https://www.europeana.eu/item/937/Culturalia_03a8a6a1_17d4_4bd5_9f15_9c441758e464
+                           https://culturalia.ro/entities/03a8a6a1-17d4-4bd5-9f15-9c441758e464/view
+
+바꾼 점: 위 구간만 잘라 앞뒤를 페이드하고, 다른 연주곡과 같은 크기(-18 LUFS)로 음량을 맞췄다. 소리를 깎는 리미터는 쓰지 않았다.
+
+같은 폴더의 다른 연주곡(오보에·클라리넷·호른·비올라·첼로)은 출처 기록이 없다.
+예전 플루트·바이올린·더블베이스.mp3(출처 기록 없음)는 위 세 파일로 바꾸면서 2026-10-03에 지웠다.

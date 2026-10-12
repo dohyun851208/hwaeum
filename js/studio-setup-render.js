@@ -37,6 +37,14 @@
       getNextCustomBgId,
       syncReflectionFromNotes,
     } = deps
+    let customBgNoticeSeen = false // 저작권 안내는 처음 한 번 읽으면 된다
+    const MAX_CUSTOM_BG_SECONDS = 10 * 60
+    // 배경을 바꿀 때 길이·구간을 맞추는 길(studio.js → studio-transport.js). 없으면 예전처럼 구간 표시만 맞춘다.
+    const startNewBackground = typeof deps.startNewBackground === "function" ? deps.startNewBackground : syncBgPlayerUI
+    // 구간을 그대로 두고 배경 파일만 다시 불러온다(다시 올린 음악을 이어 붙일 때).
+    const reloadBackground = typeof deps.reloadBackground === "function" ? deps.reloadBackground : syncBgPlayerUI
+    // 안내 문구는 지금 보이는 단계의 안내 줄로 보낸다(studio.js의 say). 없으면 예전처럼 4단계 줄에 쓴다.
+    const say = typeof deps.say === "function" ? deps.say : (message) => { if (el.exportStatus) el.exportStatus.textContent = message }
 
     // 요소 자식 노드를 모두 제거한다. innerHTML="" 대신 XSS-안전한 방법 사용.
     function clearEl(element) {
@@ -129,12 +137,24 @@
         return
       }
       engine.stop() // 전체 재생과 미리듣기가 겹치지 않도록
+      const exampleWasPlaying = !!state.examplePreviewId
       stopExamplePreview() // 악기 감상과 겹치지 않도록
+      if (exampleWasPlaying) renderInstruments() // 멈춘 연주곡 카드의 ■ 표시를 지운다
       try {
         if (bgPreview.src !== src) bgPreview.src = src
         bgPreview.currentTime = 0
         const p = bgPreview.play()
-        if (p && p.catch) p.catch((e) => console.warn("배경 미리듣기 실패", e))
+        if (p && p.catch) {
+          p.catch((e) => {
+            console.warn("배경 미리듣기 실패", e)
+            // 재생하지 못했으면 '재생 중(❚❚)'으로 두지 않는다.
+            if (state.bgPreviewId === atmosphere.id) {
+              state.bgPreviewId = null
+              renderAtmospheres()
+              showBgUploadStatus("‘" + atmosphere.label + "’ 음악을 재생하지 못했어요. 다른 파일을 골라 주세요.", true)
+            }
+          })
+        }
         state.bgPreviewId = atmosphere.id
       } catch (e) {
         console.warn("배경 미리듣기 실패", e)
@@ -155,7 +175,7 @@
         examplePreview.pause()
         examplePreview.currentTime = 0
       } catch (e) {}
-      if (announce && wasPlaying) el.exportStatus.textContent = "악기 소리를 멈췄습니다."
+      if (announce && wasPlaying) say("악기 소리를 멈췄습니다.")
     }
 
     function toggleExamplePreview(instrument) {
@@ -175,7 +195,7 @@
         const p = examplePreview.play()
         if (p && p.catch) p.catch((e) => console.warn("연주곡 감상 실패", e))
         state.examplePreviewId = instrument.id
-        el.exportStatus.textContent = instrument.label + " 소리를 듣는 중입니다. 정지하려면 같은 악기의 ■ 버튼을 누르세요."
+        say(instrument.label + " 소리를 듣는 중입니다. 정지하려면 같은 악기의 ■ 버튼을 누르세요.")
       } catch (e) {
         console.warn("연주곡 감상 실패", e)
         state.examplePreviewId = null
@@ -206,12 +226,21 @@
         b.title = a.label
       }
       b.addEventListener("click", () => {
+        if (a.missing) {
+          // 저장된 작품의 '내가 찾은 음악' — 파일은 저장하지 않으므로 같은 파일을 다시 올려야 들을 수 있다.
+          showBgUploadStatus("‘" + a.label + "’ 파일이 이 컴퓨터에 없어요. 아래 '내 배경 음원 추가'로 같은 파일을 다시 올려 주세요.", true)
+          return
+        }
+        if (state.atmosphere && state.atmosphere.id === a.id) {
+          // 이미 고른 배경은 다시 들어 보기만 한다 — 정해 둔 구간과 그린 선율은 그대로 둔다.
+          toggleBackgroundPreview(a)
+          renderAtmospheres()
+          return
+        }
         state.atmosphere = a
-        state.bgOffset = 0 // 새 배경은 처음(0초)부터
-        state.bgEndOffset = 0
-        state.duration = DEFAULT_DURATION_SECONDS
+        // 새 배경은 처음(0초)부터. 길이는 그린 선율이 같은 초에 남도록 transport가 맞춘다.
+        startNewBackground()
         applyMoodTint()
-        syncBgPlayerUI()
         toggleBackgroundPreview(a)
         renderAtmospheres()
         updateReadouts()
@@ -286,8 +315,40 @@
     }
 
     // 업로드한 "내가 찾은 음악" 삭제 — 목록·배경에서 빼고 Blob URL 도 해제한다.
+    function showBgUploadStatus(message, isError) {
+      if (!el.bgUploadStatus) return
+      el.bgUploadStatus.textContent = message
+      el.bgUploadStatus.classList.toggle("error", !!isError)
+    }
+
+    // 저장된 작품을 불러왔는데 그 작품의 '내가 찾은 음악' 파일이 이 컴퓨터에 없을 때 쓰는 자리표시 카드.
+    // 이름과 구간만 기억해 두고, 같은 이름의 파일을 다시 올리면 이 자리에 이어 붙인다(오디오는 저장하지 않는다).
+    function missingCustomBackground(id, label, savedRange) {
+      const existing = D.atmospheres.find((a) => a.id === id)
+      if (existing) {
+        if (existing.missing && savedRange) existing.savedRange = savedRange
+        return existing
+      }
+      const atmosphere = {
+        id: id,
+        label: label || "내가 찾은 음악",
+        group: STUDENT_MUSIC_GROUP,
+        padType: "ambient",
+        detail: "파일을 다시 올리면 들을 수 있어요",
+        color: "#6b8f9c",
+        backgroundId: id,
+        effectIds: [],
+        custom: true,
+        missing: true,
+        savedRange: savedRange || null,
+      }
+      D.atmospheres.push(atmosphere)
+      return atmosphere
+    }
+
     function removeCustomBackground(a) {
       const bg = D.backgrounds[a.id]
+      if (bg && bg.src && typeof engine.releaseAsset === "function") engine.releaseAsset(bg.src) // 풀어 둔 소리를 메모리에서 비운다
       if (bg && typeof bg.src === "string" && bg.src.indexOf("blob:") === 0) {
         try {
           URL.revokeObjectURL(bg.src)
@@ -380,7 +441,16 @@
       actions.appendChild(uploadButton)
       uploadCard.appendChild(actions)
       uploadButton.addEventListener("click", () => {
-        window.alert(CUSTOM_BG_COPYRIGHT_NOTICE)
+        if (!customBgNoticeSeen) {
+          window.alert(CUSTOM_BG_COPYRIGHT_NOTICE)
+          customBgNoticeSeen = true
+          // 안내창을 오래 읽으면 '누른 순간'이 지나 파일 고르기 창이 열리지 않는다 — 그때는 한 번 더 누르게 알린다.
+          const activation = window.navigator && window.navigator.userActivation
+          if (activation && !activation.isActive) {
+            showBgUploadStatus("저작권 안내를 읽었어요. '내 배경 음원 추가'를 한 번 더 누르면 파일을 고를 수 있어요.", false)
+            return
+          }
+        }
         el.bgUploadInput.click()
       })
       return uploadCard
@@ -399,8 +469,99 @@
         return
       }
       const url = URL.createObjectURL(file)
-      const id = getNextCustomBgId()
+      // 바로 넣어 고르고 들을 수 있게 하고, 길이는 함께 잰다. 깨진 파일이면 '추가했어요'를 거두고, 아주 긴 파일은
+      // 통째로 풀면 메모리를 많이 써(45분 → 약 1 GB) 탭이 멈출 수 있으니 빼낸다. 무거운 미리 풀기는 잰 뒤에만 한다.
+      const added = addCheckedCustomBackground(file, url)
+      return probeAudioDuration(url).then(function (seconds) {
+        if (seconds >= 0 && seconds <= MAX_CUSTOM_BG_SECONDS) {
+          if (state.atmosphere === added.atmosphere && typeof engine.warmAmbience === "function") {
+            engine.warmAmbience(buildRecipe()).catch(function () {})
+          }
+          return
+        }
+        withdrawCustomBackground(added)
+        showBgUploadStatus(
+          seconds < 0 ? "이 파일은 음악으로 읽을 수 없어요. mp3나 wav 파일을 올려 주세요." : "너무 긴 음악이에요. 10분보다 짧은 음악을 올려 주세요.",
+          true,
+        )
+      })
+    }
+
+    // 길이를 재 보니 쓸 수 없는 파일이었다 — 다시 이어 붙인 자리는 '다시 올려 주세요' 카드로 되돌리고, 새 카드는 뺀다.
+    function withdrawCustomBackground(added) {
+      const a = added && added.atmosphere
+      if (!a) return
+      if (!added.reconnected) {
+        removeCustomBackground(a)
+        return
+      }
+      const bg = D.backgrounds[a.id]
+      if (bg && bg.src && typeof engine.releaseAsset === "function") engine.releaseAsset(bg.src)
+      if (bg && typeof bg.src === "string" && bg.src.indexOf("blob:") === 0) {
+        try {
+          URL.revokeObjectURL(bg.src)
+        } catch (e) {}
+      }
+      delete D.backgrounds[a.id]
+      a.missing = true
+      a.detail = "파일을 다시 올리면 들을 수 있어요"
+      if (state.bgPreviewId === a.id) stopBackgroundPreview()
+      if (state.atmosphere && state.atmosphere.id === a.id) reloadBackground()
+      renderAtmospheres()
+      updateReadouts()
+    }
+
+    function probeAudioDuration(url) {
+      return new Promise(function (resolve) {
+        let done = false
+        const finish = function (value) {
+          if (done) return
+          done = true
+          resolve(value)
+        }
+        if (typeof window.Audio !== "function") {
+          finish(0)
+          return
+        }
+        try {
+          const probe = new window.Audio()
+          probe.preload = "metadata"
+          probe.addEventListener("loadedmetadata", function () {
+            finish(Number(probe.duration) || 0)
+          })
+          probe.addEventListener("error", function () {
+            finish(-1)
+          })
+          probe.src = url
+          setTimeout(function () {
+            finish(0) // 길이를 못 재면 막지 않는다
+          }, 4000)
+        } catch (e) {
+          finish(0)
+        }
+      })
+    }
+
+    function addCheckedCustomBackground(file, url) {
       const label = (file.name || "내 배경").replace(/\.[^.]+$/, "") || "내 배경"
+      const missing = D.atmospheres.find((a) => a.custom && a.missing && a.label === label)
+      if (missing) {
+        // 저장된 작품의 음악을 다시 올렸다 — 같은 자리(id)에 이어 붙이고, 그 작품이 쓰던 구간을 되살린다.
+        D.backgrounds[missing.id] = { label: label, src: url, duration: 0, custom: true, file: file }
+        missing.missing = false
+        missing.detail = "내가 올린 배경 음원"
+        if (state.atmosphere && state.atmosphere.id === missing.id) {
+          const range = missing.savedRange || {}
+          state.bgOffset = Math.max(0, Number(range.bgOffset) || 0)
+          state.bgEndOffset = Math.max(0, Number(range.bgEndOffset) || 0)
+          reloadBackground()
+        }
+        renderAtmospheres()
+        updateReadouts()
+        showBgUploadStatus("'" + label + "' 음악을 작품에 다시 이어 붙였어요.", false)
+        return { atmosphere: missing, reconnected: true }
+      }
+      const id = getNextCustomBgId()
       D.backgrounds[id] = { label: label, src: url, duration: 0, custom: true, file: file }
       const atmosphere = {
         id: id,
@@ -415,17 +576,14 @@
       }
       D.atmospheres.push(atmosphere)
       state.atmosphere = atmosphere
-      state.bgOffset = 0
-      state.bgEndOffset = 0
-      state.duration = DEFAULT_DURATION_SECONDS
+      startNewBackground() // 처음(0초)부터, 그린 선율은 같은 초에 남긴다
       applyMoodTint()
-      syncBgPlayerUI()
       startBackgroundPreview(atmosphere)
       renderAtmospheres()
-      engine.warmAmbience(buildRecipe()).catch(function () {}) // 업로드한 배경음 미리 로드
       updateReadouts()
       el.bgUploadStatus.classList.remove("error")
       el.bgUploadStatus.textContent = "'" + label + "' 배경을 추가했어요. 카드를 눌러 들어보세요."
+      return { atmosphere: atmosphere, reconnected: false }
     }
 
     // ── 악기 카드 렌더링 ─────────────────────────────────────────
@@ -537,7 +695,7 @@
       updateReadouts()
       warmSelectedInstrument()
       if (announce) {
-        el.exportStatus.textContent = "이제부터 그리는 줄은 " + instrument.label + "로 연주됩니다. (이미 그린 줄은 그대로)"
+        say("이제부터 그리는 줄은 " + instrument.label + "로 연주됩니다. (이미 그린 줄은 그대로)")
       }
     }
 
@@ -689,6 +847,7 @@
     return {
       bgSrcFor,
       backgroundFor,
+      missingCustomBackground,
       stopBackgroundPreview,
       stopExamplePreview,
       renderAtmospheres,

@@ -314,6 +314,7 @@
     const stepSec = 1 / SAMPLE_RATE
     const samples = sampleDrawnTimeline(path, durationSec, stepSec)
     const raw = []
+    const hiddenRow = [] // 선 위인데 낼 수 없는 칸(국악기의 파·시)이라 비운 자리
     let prev = null
     for (let i = 0; i < samples.length; i++) {
       const sample = samples[i]
@@ -325,6 +326,7 @@
       let midi = quantizePitch(sample.y, style, asset)
       if (midi == null) {
         raw.push(null)
+        hiddenRow[i] = true
         prev = null
         continue
       }
@@ -334,6 +336,11 @@
       }
       prev = midi
       raw.push(midi)
+    }
+    // 선이 숨은 칸을 한 번 스치고 지나가면(라→도, 미→솔) 1/16초 쉼이 생겨 소리가 뚝 끊겼다.
+    // 앞뒤가 모두 음인 한 칸짜리 빈자리는 앞 음을 이어 메운다(숨은 칸에 머문 긴 구간은 그대로 쉼).
+    for (let i = 1; i < raw.length - 1; i++) {
+      if (hiddenRow[i] && raw[i - 1] != null && raw[i + 1] != null) raw[i] = raw[i - 1]
     }
     // 연속 동음 병합 → 길게 그린 음은 한 음으로 지속(레가토). 빈 칸(null)에서만 끊긴다.
     const notes = []
@@ -517,7 +524,129 @@
     const floor = measurement.peak - silenceDb
     const chosen = chooseStableLoopRegion(levels, floor, bands, from, windowSec, minLoopSec, targetLoopSec)
     if (!chosen) return null
-    return alignLoopEndToStart(channelData, sampleRate, chosen)
+    return opts.align === false ? chosen : alignLoopEndToStart(channelData, sampleRate, chosen)
+  }
+
+  // 안정 구간 [start,end) 안에서 페이드 재료까지 확보한다. 반환 위치 R 직전의
+  // 소리를 끝에 섞으므로 마지막 프레임 다음에는 정확히 R의 프레임이 온다.
+  // Web Audio에 의존하지 않아 측정 도구와 실제 재생이 같은 접합을 사용한다.
+  function sustainLoopFrames(channels, sampleRate, region) {
+    if (!channels || !channels.length || !region || !(sampleRate > 0)) return null
+    const length = Math.min.apply(null, channels.map((c) => c.length))
+    const a = Math.max(0, Math.ceil(region.start * sampleRate))
+    const b = Math.min(length, Math.floor(region.end * sampleRate))
+    const fade = Math.floor(Math.min(0.08 * sampleRate, Math.max(0.02 * sampleRate, b - a - 0.94 * sampleRate), (b - a) * 0.15))
+    if (fade < 8 || b - a - fade < 0.12 * sampleRate) return null
+    const start = a + fade
+    const lo = Math.max(start + Math.round(0.12 * sampleRate), b - Math.round(0.04 * sampleRate))
+    function score(end, stride) {
+      let dot = 0, aa = 0, bb = 0
+      for (const channel of channels) {
+        for (let i = 0; i < fade; i += stride) {
+          const x = channel[a + i], y = channel[end - fade + i]
+          dot += x * y; aa += x * x; bb += y * y
+        }
+      }
+      return dot / (Math.sqrt(aa * bb) + 1e-20)
+    }
+    let end = b, correlation = -Infinity
+    // 모든 채널을 같은 프레임만큼 움직여 스테레오 위상 관계를 유지한다.
+    for (let candidate = lo; candidate <= b; candidate += 4) {
+      const value = score(candidate, 4)
+      if (value > correlation) { correlation = value; end = candidate }
+    }
+    const coarse = end
+    correlation = -Infinity
+    for (let candidate = Math.max(lo, coarse - 4); candidate <= Math.min(b, coarse + 4); candidate++) {
+      const value = score(candidate, 1)
+      if (value > correlation) { correlation = value; end = candidate }
+    }
+    return { start, end, fade, correlation, short: (end - start) / sampleRate < 0.9 }
+  }
+
+  // 녹음 몸통의 느린 감쇠가 매 반복마다 다시 커지는 맥동을 줄인다.
+  // 채널 공통의 완만한 진폭 보정만 사용하며, 구간 평균 에너지는 보존한다.
+  // 음별 출력 게인 한도(±3 dB, 베이스만 ±12 dB)와는 별개다.
+  function levelSustainSupport(channels, sampleRate, region) {
+    const a = Math.ceil(region.start * sampleRate), b = Math.floor(region.end * sampleRate)
+    if (b - a < 16) return channels
+    const energy = new Float64Array(b - a + 1)
+    for (let i = a; i < b; i++) {
+      let value = 0
+      for (const channel of channels) value += channel[i] * channel[i]
+      energy[i - a + 1] = energy[i - a] + value / channels.length
+    }
+    const target = energy[b - a] / (b - a)
+    if (!(target > 1e-20)) return channels
+    const hop = Math.max(1, Math.round(0.01 * sampleRate))
+    // 400ms 이동 평균을 두 번 통과시켜 3~8Hz의 자연 진폭 흔들림을 따라잡지 않는다.
+    const radius = Math.round(0.2 * sampleRate)
+    const levels = []
+    for (let t = 0; t <= b - a + hop; t += hop) {
+      const lo = Math.max(0, Math.min(b - a - 1, t - radius))
+      const hi = Math.min(b - a, t + radius)
+      const local = (energy[hi] - energy[lo]) / Math.max(1, hi - lo)
+      levels.push(local)
+    }
+    const smoothRadius = Math.round(radius / hop)
+    const gains = levels.map(function (_, index) {
+      let sum = 0, count = 0
+      for (let j = Math.max(0, index - smoothRadius); j <= Math.min(levels.length - 1, index + smoothRadius); j++) {
+        sum += levels[j]; count++
+      }
+      return Math.max(0.5, Math.min(2, Math.sqrt(target / Math.max(sum / count, 1e-20))))
+    })
+    function gainAt(i) {
+      const pos = Math.max(0, Math.min(gains.length - 1.000001, (i - a) / hop))
+      const j = Math.floor(pos), x = pos - j
+      return gains[j] * (1 - x) + gains[j + 1] * x
+    }
+    let adjusted = 0
+    for (let i = a; i < b; i++) adjusted += (energy[i - a + 1] - energy[i - a]) * Math.pow(gainAt(i), 2)
+    const norm = Math.sqrt(energy[b - a] / Math.max(adjusted, 1e-20))
+    return channels.map(function (channel) {
+      const out = new Float32Array(channel)
+      const lead = Math.round(0.08 * sampleRate)
+      for (let i = Math.max(0, a - lead); i < Math.min(channel.length, b + lead); i++) {
+        const mix = i < a ? (i - a + lead) / lead : i >= b ? (b + lead - i) / lead : 1
+        out[i] *= 1 + (gainAt(i) * norm - 1) * mix
+      }
+      return out
+    })
+  }
+
+  function crossfadeSustainLoop(channel, frames) {
+    const out = new Float32Array(channel)
+    for (let i = 0; i < frames.fade; i++) {
+      const x = (1 - Math.cos(Math.PI * i / (frames.fade - 1))) / 2
+      // 상관 1이면 합이 1, 무상관이면 등전력. 음의 상관은 증폭하지 않는다.
+      const power = Math.max(0.5, (1 - x) * (1 - x) + x * x + 2 * Math.max(0, frames.correlation) * x * (1 - x))
+      out[frames.end - frames.fade + i] = (
+        channel[frames.end - frames.fade + i] * (1 - x) + channel[frames.start - frames.fade + i] * x
+      ) / Math.sqrt(power)
+    }
+    return out
+  }
+
+  function pluckedSampleEnd(channel, sampleRate, offset, minimumDuration, boundary) {
+    const win = Math.max(1, Math.round(sampleRate * 0.025))
+    const start = Math.max(0, Math.round(offset * sampleRate))
+    const end = Math.min(channel.length, Math.floor(boundary * sampleRate))
+    function energy(at) {
+      let sum = 0
+      const n = Math.min(win, end - at)
+      for (let i = 0; i < n; i++) sum += channel[at + i] * channel[at + i]
+      return n > 0 ? sum / n : 0
+    }
+    let peak = 0
+    for (let at = start; at < Math.min(end, start + sampleRate * 0.5); at += win) peak = Math.max(peak, energy(at))
+    if (!(peak > 0)) return Math.min(boundary, offset + minimumDuration)
+    let quiet = 0
+    for (let at = start + Math.ceil(minimumDuration * sampleRate / win) * win; at + win <= end; at += win) {
+      quiet = energy(at) < peak * Math.pow(10, -42 / 10) ? quiet + 1 : 0
+      if (quiet >= 8) return (at + win) / sampleRate
+    }
+    return end / sampleRate
   }
 
   // 루프 끝점(→시작으로 점프하는 지점)을 시작점과 파형이 가장 닮은 위치로 미세 조정한다.
@@ -640,6 +769,10 @@
     autocompleteRhythm,
     sigimsaeFor,
     findStableLoopRegion,
+    sustainLoopFrames,
+    levelSustainSupport,
+    crossfadeSustainLoop,
+    pluckedSampleEnd,
     encodeRecipe,
     decodeRecipe,
     encodeWav,

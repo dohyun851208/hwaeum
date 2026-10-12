@@ -93,6 +93,7 @@ function createHarness(options) {
       calls.remembered.push({ channel, pass })
     },
   }
+  if (options.listChannel) ShareStore.listChannel = options.listChannel
   const root = {
     URL,
     location: { href: "http://localhost/studio.html", hash: "", replace() {} },
@@ -190,14 +191,28 @@ test("shared metadata keeps sanitized reflection and all used instruments", () =
   assert.equal(metadata.coverHasEmbeddedPlay, false)
 })
 
-test("publish modal remembers the valid gallery code before publishing", () => {
-  const { calls, controller, el } = createHarness()
-  el.publishModal.hidden = false
-  el.publishChannelInput.value = "107번"
-  el.publishPassInput.value = "24-68"
+test("publish modal checks the gallery code before the long music compression and does not remember a wrong one", async () => {
+  const wrong = createHarness({ listChannel: async () => ({ locked: true, passError: true, works: [] }) })
+  wrong.el.publishModal.hidden = false
+  wrong.el.publishChannelInput.value = "107번"
+  wrong.el.publishPassInput.value = "9999"
+  await wrong.controller.submitPublishModal({ preventDefault() {} })
+  assert.equal(wrong.el.publishModal.hidden, false, "틀리면 창을 닫지 않는다")
+  assert.match(wrong.el.publishModalError.textContent, /갤러리 코드가 맞지 않아요/)
+  assert.deepEqual(wrong.calls.remembered, [], "틀린 코드는 기억하지 않는다")
 
-  controller.submitPublishModal({ preventDefault() {} })
+  const missing = createHarness({ listChannel: async () => ({ locked: false, meta: null, works: [] }) })
+  missing.el.publishChannelInput.value = "999"
+  missing.el.publishPassInput.value = "2468"
+  missing.el.publishModal.hidden = false
+  await missing.controller.submitPublishModal({ preventDefault() {} })
+  assert.match(missing.el.publishModalError.textContent, /찾지 못했어요/)
 
-  assert.deepEqual(calls.remembered, [{ channel: "107", pass: "2468" }])
-  assert.equal(el.publishModal.hidden, true)
+  const ok = createHarness({ listChannel: async () => ({ locked: false, meta: { channel: "107" }, works: [] }) })
+  ok.el.publishModal.hidden = false
+  ok.el.publishChannelInput.value = "107번"
+  ok.el.publishPassInput.value = "24-68"
+  await ok.controller.submitPublishModal({ preventDefault() {} })
+  assert.equal(ok.el.publishModal.hidden, true)
+  assert.deepEqual(ok.calls.remembered, [], "코드는 공유에 성공한 뒤에만 기억한다")
 })

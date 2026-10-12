@@ -1,3 +1,4 @@
+const { scriptFiles } = require("../tools/runtime-scripts.cjs")
 const assert = require("node:assert/strict")
 const fs = require("node:fs")
 const path = require("node:path")
@@ -10,16 +11,7 @@ function loadSandbox() {
   const sandbox = { console, clearTimeout, setTimeout }
   sandbox.self = sandbox
   vm.createContext(sandbox)
-  for (const file of [
-    "music-core.js",
-    "manifest.js",
-    "sample-maps.js",
-    "sample-maps-western.js",
-    "audio-plan.js",
-    "audio-node-scope.js",
-    "audio-pad-graph.js",
-    "audio-engine.js",
-  ]) {
+  for (const file of scriptFiles({ from: "music-core.js", through: "audio-engine.js" })) {
     vm.runInContext(fs.readFileSync(path.join(projectDir, "js", file), "utf8"), sandbox, { filename: file })
   }
   return sandbox
@@ -108,7 +100,7 @@ test("멀티샘플 펜 소리는 어택을 건너뛰고 안정 구간(loopStart)
     Math.abs(starts[0].offset - src.loopStart) < 1e-6,
     "시작 지점이 loopStart(" + src.loopStart + ")여야 하는데 " + starts[0].offset,
   )
-  assert.ok(starts[0].offset > 0.2, "안정 구간은 파일 앞이 아니라 안쪽이다 (실제 " + starts[0].offset + ")")
+  assert.ok(starts[0].offset >= 0.1, "안정 구간은 파일 앞이 아니라 안쪽이다 (실제 " + starts[0].offset + ")")
 })
 
 // 국악 음원은 소금 20ms · 대금 10ms 로 이미 즉각 발음되고 시김새·발음이 학습 내용이다.

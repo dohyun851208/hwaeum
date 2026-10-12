@@ -158,8 +158,18 @@ test("배경음악 구간 선택은 src가 있는 배경 음원에 열린다", (
   assert.match(source, /function canSelectBgRange\(\)[\s\S]*bg && bg\.src/)
   assert.match(transport, /bgRange\.hidden = !canSelectRange/)
   assert.match(css, /\.bg-range\[hidden\][\s\S]*display:\s*none/)
-  assert.match(source, /bgOffset: recipeBgOffset\(\)/)
-  assert.match(source, /bgEndOffset: recipeBgEndOffset\(\)/)
+  assert.match(source, /bgRangeEnabled: canSelectBgRange\(\)/)
+})
+
+test("배경 구간 길이를 바꾸면 새 캔버스 폭을 기준으로 시간 라벨을 다시 놓는다", () => {
+  const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
+  const start = source.indexOf("function refreshTimeline(resetScroll)")
+  const end = source.indexOf("function updateReadouts()", start)
+  const refreshTimeline = source.slice(start, end)
+
+  assert.ok(start >= 0)
+  assert.ok(end > start)
+  assert.ok(refreshTimeline.indexOf("syncTimelineWidth(resetScroll)") < refreshTimeline.indexOf("renderPaletteLabels()"))
 })
 
 test("드로잉 화면 전체 재생은 상단 재생 버튼만 사용한다", () => {
@@ -282,8 +292,14 @@ test("초기화는 업로드 배경 구간 설정을 지우지 않는다", () =>
   assert.ok(end > start)
   assert.doesNotMatch(resetCompose, /state\.bgOffset\s*=\s*0/)
   assert.doesNotMatch(resetCompose, /state\.bgEndOffset\s*=\s*0/)
-  assert.match(resetCompose, /draw\.clear\(false\)/)
+  assert.match(resetCompose, /draw\.clear\(true\)/)
   assert.match(resetCompose, /setupBgPlayer\(true\)/)
+  // 키보드 4 한 번에 작업이 사라지지 않게: 지울 것이 있으면 묻고, 되돌리기로 다시 살릴 수 있다.
+  assert.match(resetCompose, /window\.confirm\(RESET_CONFIRM_MESSAGE\)/)
+  assert.match(resetCompose, /type: "reset"/)
+  assert.match(resetCompose, /pushAppUndoAction\(resetAction\)/)
+  assert.doesNotMatch(resetCompose, /clearUndoHistory|clearAppUndoHistory/)
+  assert.match(resetCompose, /state\.activeTakeId = null/)
 })
 
 test("레시피 불러오기도 배경 구간 설정과 길이를 유지한다", () => {
@@ -315,7 +331,7 @@ test("레시피 링크 공유는 드로잉 단계에서 시작하고 완성 탭 
   assert.match(buildSharedRecipe, /hashtags: \[\]/)
   assert.match(buildSharedRecipe, /composerName: cleanText\(state\.composerName, COMPOSER_NAME_MAX\)/)
   assert.match(share, /Core\.encodeRecipe\(deps\.buildSharedRecipe\(\)\)/)
-  assert.match(source, /const restoredRecipeLink = restoreFromHash\(\)[\s\S]*setStep\(restoredRecipeLink \? DRAWING_STEP : 0\)/)
+  assert.match(source, /const restoredRecipeMessage = restoreFromHash\(\)[\s\S]*setStep\(restoredRecipeMessage \? DRAWING_STEP : 0\)/)
   assert.match(source, /state\.sharedRecipeLoaded = true/)
   assert.match(takesUi, /const items = state\.sharedRecipeLoaded \? \[\] : takes\.list\(\)/)
 })
@@ -349,12 +365,15 @@ test("step 2 default atmosphere selection is no background music", () => {
   assert.doesNotMatch(stateBlock, /atmosphere: D\.atmospheres\[0\]/)
 })
 
-test("국악 음원 출처 표기는 2단계에서만 보인다", () => {
+test("국악 음원·서양 연주곡 출처 표기는 2단계에서만 보인다", () => {
   const html = fs.readFileSync(path.join(projectDir, "studio.html"), "utf8")
   const source = fs.readFileSync(path.join(projectDir, "js", "studio.js"), "utf8")
-  const expected = "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시)"
+  // 서양 연주곡 3개는 CC BY / CC BY-SA 녹음이라 출처를 지우면 이용 조건을 어긴다(docs/decisions/2026-10-03-instrument-example-pieces.md).
+  const expected =
+    "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시) · 서양 연주곡(발췌·음량 조절): 플루트 Kristina Martincová (CC BY-SA 3.0), 바이올린 Howard Geisel·FreqMan (CC BY 4.0), 더블베이스 Răzvan Popescu·Radio România (CC BY-SA 4.0)"
 
   assert.match(html, new RegExp('<span class="muted" id="audioModeNote" hidden>' + expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "</span>"))
+  assert.ok(source.includes('"' + expected + '"'), "studio.js AUDIO_MODE_CREDIT 가 HTML 출처 줄과 같아야 한다")
   assert.match(source, /const SOUND_STEP = 1/)
   assert.match(source, /function syncAudioModeNote\(\)/)
   assert.match(source, /el\.audioModeNote\.hidden = state\.step !== SOUND_STEP/)

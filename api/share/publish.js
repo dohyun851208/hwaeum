@@ -1,4 +1,4 @@
-const { put, list } = require("@vercel/blob")
+const { put, list, del } = require("@vercel/blob")
 const {
   MAX_TOTAL_BYTES,
   cleanChannel,
@@ -7,6 +7,7 @@ const {
   decodeFile,
   hashOwner,
   hashPass,
+  listAll,
   loadChannelMeta,
   metadataFromInput,
   method,
@@ -16,7 +17,29 @@ const {
   sanitizeMeta,
   send,
   sharedUrl,
+  sendError,
 } = require("./_utils.cjs")
+
+// 같은 학생(같은 브라우저)이 같은 작품을 같은 갤러리에 다시 공유하면 예전 것을 지운다 — 다시 공유할 때마다
+// 새 작품으로 쌓이고 학생은 지울 수 없었다. 소유자가 다르면 아무것도 지우지 않는다(남의 작품 보호).
+async function removeReplacedWork(channel, replaceWorkId, ownerHash, newId) {
+  const workId = String(replaceWorkId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80)
+  if (!workId || workId === newId || !ownerHash) return false
+  try {
+    const prefix = "share/channels/" + channel + "/" + workId + "/"
+    const blobs = await listAll(list, { prefix, limit: 100 })
+    const metaBlob = blobs.find((blob) => /\/meta\.json$/.test(blob.pathname || ""))
+    if (!metaBlob) return false
+    const previous = await readJsonUrl(metaBlob.url)
+    if (!previous || previous.channel !== channel || previous.ownerHash !== ownerHash) return false
+    const targets = blobs.map((blob) => blob.pathname || blob.url).filter(Boolean)
+    if (targets.length) await del(targets)
+    return true
+  } catch (error) {
+    console.warn("could not replace previous share", workId, error && error.message)
+    return false
+  }
+}
 
 module.exports = async function handler(req, res) {
   if (!method(req, res, ["POST"])) return
@@ -87,15 +110,9 @@ module.exports = async function handler(req, res) {
     meta.files.metaUrl = metaBlob.url
     meta.files.metaPathname = metaBlob.pathname
 
-    send(res, 200, { work: sanitizeMeta(meta) })
+    const replaced = await removeReplacedWork(channel, body.replaceWorkId, meta.ownerHash, id)
+    send(res, 200, { work: sanitizeMeta(meta), replaced })
   } catch (error) {
-    console.error(error)
-    const message =
-      String(error && error.message).indexOf("BLOB_READ_WRITE_TOKEN") !== -1
-        ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
-        : error && error.message
-          ? error.message
-          : "공유 업로드에 실패했어요."
-    send(res, 500, { error: message })
+    sendError(res, error, "공유 업로드에 실패했어요.")
   }
 }

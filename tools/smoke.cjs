@@ -7,6 +7,7 @@
  * 실행: jsdom 설치 후  ->  npm i jsdom  ;  node tools/smoke.cjs
  * (오디오/캔버스는 스텁으로 대체하므로 소리는 나지 않는다.)
  */
+const { scriptPaths } = require("./runtime-scripts.cjs")
 const fs = require("fs")
 const path = require("path")
 const { JSDOM } = require("jsdom")
@@ -121,6 +122,30 @@ window.alert = (message) => {
   lastAlert = String(message)
   alertCalls += 1
 }
+// jsdom은 그림 파일을 실제로 읽지 못한다 — 읽은 것처럼 바로 onload를 알려 준다.
+window.Image = class SmokeImage {
+  constructor() {
+    this.onload = null
+    this.onerror = null
+    this.naturalWidth = 640
+    this.naturalHeight = 480
+    this.complete = false
+  }
+  set src(value) {
+    this._src = value
+    this.complete = true
+    if (typeof this.onload === "function") this.onload()
+  }
+  get src() {
+    return this._src
+  }
+}
+// jsdom에는 확인 창이 없다 — 학생이 "예"를 누른 것으로 보고 흐름을 이어 간다(물은 횟수는 센다).
+let confirmCalls = 0
+window.confirm = () => {
+  confirmCalls += 1
+  return true
+}
 const smokeImageData = "data:image/png;base64,c21va2U="
 window.FileReader = function () {
   this.result = smokeImageData
@@ -136,26 +161,7 @@ window.AudioContext = function () {
 }
 window.OfflineAudioContext = window.AudioContext
 
-const files = [
-  "js/music-core.js",
-  "js/manifest.js",
-  "js/sample-maps.js",
-  "js/sample-maps-western.js",
-  "js/audio-plan.js",
-  "js/audio-node-scope.js",
-  "js/audio-pad-graph.js",
-  "js/audio-engine.js",
-  "js/drawing.js",
-  "js/takes.js",
-  "js/share-store.js",
-  "js/studio-utils.js",
-  "js/studio-export.js",
-  "js/studio-setup-render.js",
-  "js/studio-transport.js",
-  "js/studio-takes-ui.js",
-  "js/studio-share.js",
-  "js/studio.js",
-]
+const files = scriptPaths()
 for (const f of files) window.eval(read(f))
 window.document.dispatchEvent(new window.Event("DOMContentLoaded"))
 
@@ -222,12 +228,50 @@ const summaryKeys = [
   "effectIds",
   "effectStamps",
   "effectStampId",
+  "soundLayers",
   "isPlaying",
   "isPaused",
   "lastMode",
 ]
 const missingSummaryKeys = summaryKeys.filter((key) => !(key in s))
 check("상태 요약 계약 유지", missingSummaryKeys.length === 0, missingSummaryKeys.join(","))
+
+// 펜의 시작/이동에는 전체 획을 읽지 않는다. 저장·전체 재생의 레시피는 그대로 유지한다.
+{
+  const full = SD.buildRecipe(), recipes = [], saved = []
+  for (const name of ["getStrokes", "getPath", "getStrokeInstruments"]) {
+    saved.push([SD.draw, name, SD.draw[name]])
+    SD.draw[name] = () => { throw new Error("펜 미리듣기가 전체 획을 읽음: " + name) }
+  }
+  for (const name of ["liveDrawingStart", "liveDrawingMove"]) {
+    saved.push([SD.engine, name, SD.engine[name]])
+    SD.engine[name] = recipe => { recipes.push(recipe); return Promise.resolve() }
+  }
+  try {
+    SD.draw.onPreviewStart({x:0,y:.9})
+    for (let i=0;i<20;i++) SD.draw.onPreview({x:.1,y:i%2?.9:.96})
+    check("펜 시작·이동은 획 전체 조회 없이 설정만 전달", recipes.length === 21)
+    check("펜 설정은 전체 재생의 선택 악기·음계·버전과 일치", recipes.every(r =>
+      ["instrument","style","version","mode","duration","atmosphere"].every(key => r[key] === full[key])))
+    check("펜 계획에는 기존 획 재생이 포함되지 않음", recipes.every(r => SD.engine.resolvePlan(r,[]).strokeSegments.length === 0))
+  } finally {
+    saved.forEach(([object,name,original]) => { object[name] = original })
+    SD.draw.onPreviewEnd()
+  }
+}
+// 악기 붓: 선택 악기의 그림이 커서에 들어가고, 악기를 바꾸면 그림도 바뀐다(레시피에는 영향 없음).
+{
+  const cursor = window.document.querySelector(".instrument-brush-cursor")
+  const before = SD.buildRecipe()
+  const original = SD.draw.activeInstrument
+  SD.draw.setActiveInstrument("gayageum")
+  const gayageumIcon = cursor && cursor.querySelector(".instrument-brush-icon svg")
+  check("붓 커서에 가야금 그림", !!gayageumIcon && !!gayageumIcon.querySelector("#ib-gayageum-wood") && cursor.dataset.instrument === "gayageum")
+  SD.draw.setActiveInstrument("haegeum")
+  check("악기를 바꾸면 붓 그림도 해금으로", !!cursor.querySelector("#ib-haegeum-face") && !cursor.querySelector("#ib-gayageum-wood"))
+  SD.draw.setActiveInstrument(original)
+  check("붓 그림은 레시피를 바꾸지 않음", JSON.stringify(SD.buildRecipe()) === JSON.stringify(before))
+}
 check("도달 불가능한 스튜디오 공유 UI 모듈 제거", typeof window.HwaeumStudioShareUI === "undefined")
 check("기본 길이 30초", s.duration === 30)
 check("기본 배경 없음", s.atmosphere === "none", s.atmosphere)
@@ -284,8 +328,9 @@ check("연주 형태 토글 제거", qc("[data-mode]") === 0, qc("[data-mode]"))
 check("믹스 선택 UI 제거", qc("#versionList") === 0 && !window.document.body.textContent.includes("믹스"), qc("#versionList"))
 check("단계 탭 5개", qc("[data-step-jump]") === 5)
 check(
-  "국악 음원 출처 표기",
-  window.document.getElementById("audioModeNote").textContent.trim() === "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시)",
+  "국악 음원·서양 연주곡 출처 표기",
+  window.document.getElementById("audioModeNote").textContent.trim() ===
+    "국악 음원 출처: 국립국악원 디지털음원 (공공누리 제1유형·출처표시) · 서양 연주곡(발췌·음량 조절): 플루트 Kristina Martincová (CC BY-SA 3.0), 바이올린 Howard Geisel·FreqMan (CC BY 4.0), 더블베이스 Răzvan Popescu·Radio România (CC BY-SA 4.0)",
 )
 check("드로잉 참고 그림 영역 존재", qc("#drawingReferenceImg") === 1, qc("#drawingReferenceImg"))
 
@@ -364,7 +409,8 @@ check(
   qc("#atmosphereGrid .mood-card") === window.SDStudioData.atmospheres.length,
   qc("#atmosphereGrid .mood-card") + "/" + window.SDStudioData.atmospheres.length,
 )
-check("업로드한 배경 선택됨(내음원)", SD.getStateSummary().atmosphere === "custom-1", SD.getStateSummary().atmosphere)
+const uploadedBgId = SD.getStateSummary().atmosphere
+check("업로드한 배경 선택됨(내음원)", /^custom-/.test(uploadedBgId), uploadedBgId)
 
 SD.draw.setPath([
   { x: 0, y: 0.6 },
@@ -431,7 +477,7 @@ check(
     qc("#bgEndInput"),
 )
 check("레시피에 bgOffset 포함(기본 0)", SD.buildRecipe().bgOffset === 0, SD.buildRecipe().bgOffset)
-check("레시피에 bgEndOffset 포함(기본 0)", SD.buildRecipe().bgEndOffset === 0, SD.buildRecipe().bgEndOffset)
+check("레시피에 bgEndOffset 포함(새 배경은 0~30초)", SD.buildRecipe().bgEndOffset === 30, SD.buildRecipe().bgEndOffset)
 check("업로드 배경은 구간 선택 슬라이더 표시", window.document.querySelector(".bg-range").hidden === false)
 check("드로잉 방식 토글 존재", qc("#drawModePictureBtn") === 1 && qc("#drawModeSoundBtn") === 1)
 window.document.getElementById("drawModeSoundBtn").click()
@@ -495,6 +541,8 @@ check("효과음 도장 버튼 존재", qc("#effectList .effect-btn") === effect
 check("효과음 도장 버튼 이미지 표시", qc("#effectList .effect-btn img") === effectCount, qc("#effectList .effect-btn img") + "/" + effectCount)
 check("새 동물 효과음 도장 표시", /귀뚜라미/.test(window.document.getElementById("effectList").textContent), window.document.getElementById("effectList").textContent)
 check("새 효과 도장 표시", /방울pop/.test(window.document.getElementById("effectList").textContent), window.document.getElementById("effectList").textContent)
+check("소리 추가하기 섹션 존재", qc("#soundLayerList") === 1 && qc("#soundLayerAddBtn") === 1 && qc("#soundLayerInput[multiple]") === 1)
+check("추가 소리 최대 개수 표시", window.document.getElementById("soundLayerCount").textContent === "0/3개")
 
 SD.draw.setPath([
   { x: 0, y: 0.6 },
@@ -504,6 +552,7 @@ SD.draw.setPath([
 const recipe = SD.buildRecipe()
 check("레시피 path 보존(<=121)", recipe.path.length > 1 && recipe.path.length <= 121)
 check("레시피에 업로드 그림 저장", recipe.picture === smokeImageData, recipe.picture)
+check("레시피에 추가 소리 배열 포함", Array.isArray(recipe.soundLayers) && recipe.soundLayers.length === 0)
 const back = window.MusicCore.decodeRecipe(window.MusicCore.encodeRecipe(recipe))
 check("레시피 코덱 왕복", JSON.stringify(back) === JSON.stringify(recipe))
 
@@ -585,6 +634,7 @@ canvas.dispatchEvent(makeCanvasPointerEvent(0.25))
 check("캔버스 클릭 시 효과음 도장 추가", SD.buildRecipe().effectStamps.length === 1, SD.buildRecipe().effectStamps.length)
 check("효과음 도장을 찍으면 바로 미리듣기", previewEffectId === "wind1", previewEffectId)
 check("캔버스 효과음 도장 이미지 표시", qc("#effectStampLayer .effect-stamp img") === 1, qc("#effectStampLayer .effect-stamp img"))
+check("효과음 도장의 소리 길이 띠 표시", qc("#effectStampLayer .effect-stamp-span") === 1, qc("#effectStampLayer .effect-stamp-span"))
 check("효과음 도장은 시간 위치를 보존", SD.buildRecipe().effectStamps[0].x === 0.25, SD.buildRecipe().effectStamps[0].x)
 window.document.getElementById("undoBtn").click()
 check("되돌리기로 효과음 도장 추가 취소", SD.buildRecipe().effectStamps.length === 0, SD.buildRecipe().effectStamps.length)
@@ -638,16 +688,16 @@ check("공유 링크 레시피는 시간순 경로를 포함", copiedRecipe.path
 SD.setStep(2)
 window.document.getElementById("clearBtn").click()
 check("지우개 버튼으로 지우개 모드 진입", SD.draw.eraseMode === true, SD.draw.eraseMode)
-check("지우개 버튼 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("exportStatus").textContent)
+check("지우개 버튼 안내 문구 표시", window.document.getElementById("drawingStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("drawingStatus").textContent)
 window.document.getElementById("penBtn").click()
 check("펜 버튼으로 그리기 모드 복귀", SD.draw.eraseMode === false, SD.draw.eraseMode)
-check("펜 버튼 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "펜을 선택했어요.", window.document.getElementById("exportStatus").textContent)
+check("펜 버튼 안내 문구 표시", window.document.getElementById("drawingStatus").textContent === "펜을 선택했어요.", window.document.getElementById("drawingStatus").textContent)
 window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "2", bubbles: true }))
 check("키보드 2로 지우개 모드 진입", SD.draw.eraseMode === true, SD.draw.eraseMode)
-check("키보드 2 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("exportStatus").textContent)
+check("키보드 2 안내 문구 표시", window.document.getElementById("drawingStatus").textContent === "지우개를 선택했어요.", window.document.getElementById("drawingStatus").textContent)
 window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "1", bubbles: true }))
 check("키보드 1로 펜 모드 복귀", SD.draw.eraseMode === false, SD.draw.eraseMode)
-check("키보드 1 안내 문구 표시", window.document.getElementById("exportStatus").textContent === "펜을 선택했어요.", window.document.getElementById("exportStatus").textContent)
+check("키보드 1 안내 문구 표시", window.document.getElementById("drawingStatus").textContent === "펜을 선택했어요.", window.document.getElementById("drawingStatus").textContent)
 const originalPlayForSpace = SD.engine.play
 let spacePlayCalls = 0
 SD.engine.play = () => {
@@ -749,7 +799,7 @@ check("기본 배경은 구간 선택 슬라이더 표시", window.document.quer
 
 SD.loadRecipe({
   duration: 45,
-  atmosphere: "custom-1",
+  atmosphere: uploadedBgId,
   instrument: "daegeum",
   style: "gugak",
   version: "ornament",
