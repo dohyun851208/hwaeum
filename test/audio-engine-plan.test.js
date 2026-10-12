@@ -1306,13 +1306,13 @@ test("schedule plays stamped natural effects only at stamped positions", () => {
 
   assert.equal(ctx.created.buffers.length, 1)
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [17, 0, 4])
-  const level = 0.36 * wind.gain
+  const level = 0.324 * wind.gain
   const events = ctx.created.gains.map((gain) => gain.gain.events).find((list) => list.some((event) => event[2] === 17))
   assert.ok(events, "효과음 도장 gain 노드가 있어야 한다")
   // 찍은 순간부터 끝 0.3초 전까지는 같은 크기, 끝에서만 0으로 줄인다.
   assert.equal(events.length, 3)
   assert.deepEqual(events.map((event) => event[0]), ["set", "set", "linear"])
-  assert.ok(Math.abs(events[0][1] - level) < 1e-9 && events[0][2] === 17, "효과음 도장 gain은 0.36 × manifest gain이어야 한다")
+  assert.ok(Math.abs(events[0][1] - level) < 1e-9 && events[0][2] === 17, "효과음 도장 gain은 0.324 × manifest gain이어야 한다")
   assert.ok(Math.abs(events[1][1] - level) < 1e-9 && Math.abs(events[1][2] - 20.7) < 1e-9, "끝 0.3초 전까지 크기를 유지해야 한다")
   assert.deepEqual([events[2][1], events[2][2]], [0, 21])
 })
@@ -1347,8 +1347,8 @@ test("previewEffect plays the stamped sound immediately", async () => {
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [0.01, 0, 1.2])
   assert.deepEqual(ctx.created.buffers[0].stopCalls[0], [1.25])
   assert.ok(
-    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.192) < 1e-9)),
-    "효과음 도장 미리듣기 gain은 0.192여야 한다",
+    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.1728) < 1e-9)),
+    "효과음 도장 미리듣기 gain은 0.1728여야 한다",
   )
 })
 
@@ -1362,8 +1362,8 @@ test("previewEffect applies the stamp's loudness gain like full playback", async
   await engine.previewEffect({ id: "rain1", src: "sound/effects/rain1.mp3", gain: 3 })
 
   assert.ok(
-    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.576) < 1e-9)),
-    "미리듣기도 0.192 × manifest gain이어야 한다",
+    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.5184) < 1e-9)),
+    "미리듣기도 0.1728 × manifest gain이어야 한다",
   )
 })
 
@@ -1404,7 +1404,7 @@ test("warmEffect starts decoding the selected stamp sound before stamping", asyn
   assert.equal(seenEffect.id, "wind1")
 })
 
-test("every natural effect category plays at 0.36 x its manifest gain", () => {
+test("every natural effect category plays at 0.324 x its manifest gain", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -1447,7 +1447,7 @@ test("every natural effect category plays at 0.36 x its manifest gain", () => {
   assert.equal(startLevels.length, 4)
   plan.effects.forEach((effect, index) => {
     assert.ok(effect.gain > 0, effect.id + " 에 manifest gain 이 있어야 한다")
-    assert.ok(Math.abs(startLevels[index] - 0.36 * effect.gain) < 1e-9, effect.id + " 는 0.36 × gain 으로 시작해야 한다")
+    assert.ok(Math.abs(startLevels[index] - 0.324 * effect.gain) < 1e-9, effect.id + " 는 0.324 × gain 으로 시작해야 한다")
   })
 })
 
@@ -2221,7 +2221,7 @@ test("a stamp still sounding at the seek point continues from where it was", () 
   assert.equal(ctx.created.buffers.length, 1)
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [1, 3, 5])
   const events = ctx.created.gains.map((gain) => gain.gain.events).find((list) => list.length === 4)
-  const level = 0.36 * plan.effects[0].gain
+  const level = 0.324 * plan.effects[0].gain
   // 소리 중간에서 들어가므로 0에서 0.02초 만에 키운다('딱' 소리 방지).
   assert.deepEqual([events[0][0], events[0][1], events[0][2]], ["set", 0, 1])
   assert.ok(events[1][0] === "linear" && Math.abs(events[1][1] - level) < 1e-9 && Math.abs(events[1][2] - 1.02) < 1e-9)
