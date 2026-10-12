@@ -157,6 +157,7 @@
   // 배경 미리듣기 — Web Audio 합주 엔진과 독립된 단순 재생기
   const bgPreview = new Audio()
   bgPreview.preload = "none"
+  bgPreview.volume = 0.9
   let customBgSeq = 0
 
   // 악기 연주곡 감상 — 배경 미리듣기와 동일한 독립 재생기(한 번에 하나만)

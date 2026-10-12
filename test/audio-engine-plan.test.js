@@ -1115,8 +1115,8 @@ test("schedule plays stamped natural effects only at stamped positions", () => {
   assert.equal(ctx.created.buffers.length, 1)
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [17, 0, 4])
   assert.ok(
-    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "set" && event[1] === 0.15 && event[2] === 17)),
-    "효과음 도장 gain은 0.15여야 한다",
+    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "set" && event[1] === 0.12 && event[2] === 17)),
+    "효과음 도장 gain은 0.12여야 한다",
   )
 })
 
@@ -1134,8 +1134,8 @@ test("previewEffect plays the stamped sound immediately", async () => {
   assert.deepEqual(ctx.created.buffers[0].startCalls[0], [0.01, 0, 1.2])
   assert.deepEqual(ctx.created.buffers[0].stopCalls[0], [1.25])
   assert.ok(
-    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && event[1] === 0.24)),
-    "효과음 도장 미리듣기 gain은 0.24여야 한다",
+    ctx.created.gains.some((gain) => gain.gain.events.some((event) => event[0] === "linear" && Math.abs(event[1] - 0.192) < 1e-9)),
+    "효과음 도장 미리듣기 gain은 0.192여야 한다",
   )
 })
 
@@ -1176,7 +1176,7 @@ test("warmEffect starts decoding the selected stamp sound before stamping", asyn
   assert.equal(seenEffect.id, "wind1")
 })
 
-test("all natural effect categories play at gain 0.15", () => {
+test("all natural effect categories play at gain 0.12", () => {
   const sandbox = loadEngine()
   const engine = new sandbox.AudioEngine()
   const ctx = makeAudioContext()
@@ -1213,7 +1213,7 @@ test("all natural effect categories play at gain 0.15", () => {
   )
 
   const effectGainEvents = ctx.created.gains.flatMap((gain) =>
-    gain.gain.events.filter((event) => event[0] === "set" && event[1] === 0.15),
+    gain.gain.events.filter((event) => event[0] === "set" && event[1] === 0.12),
   )
   assert.equal(effectGainEvents.length, 4)
 })
@@ -1236,7 +1236,7 @@ test("full playback background starts with the first beat and is cut at the reci
   assert.equal(padSource.loop, false)
   assert.deepEqual(padSource.startCalls[0], [start, 0])
   assert.equal(padSource.stopCalls[0][0], start + plan.duration + 0.05)
-  assert.equal(padGain.gain.events[1][1], plan.version.padGain * 1.5, "배경음악은 기존 padGain 기준 1.5배로 재생")
+  assert.equal(padGain.gain.events[1][1], plan.version.padGain * 1.35, "배경음악은 기존 padGain 기준 1.35배로 재생")
   assert.ok(padGain.gain.events[0][1] > 0, "배경 gain 이 0에서 시작하면 초반에 선율만 들린다")
   assert.ok(padGain.gain.events[1][2] <= start + 0.5, "배경 fade-in 이 길면 선율 뒤에야 배경이 들린다")
 })

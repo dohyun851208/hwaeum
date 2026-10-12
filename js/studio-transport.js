@@ -49,7 +49,7 @@
 
   const bgPlayer = deps.backgroundAudio || (deps.createAudio ? deps.createAudio() : new root.Audio())
   bgPlayer.preload = "auto"
-  bgPlayer.volume = 0.825
+  bgPlayer.volume = 0.7425
 
   let bgRAF = null
   let bgPausedAt = null

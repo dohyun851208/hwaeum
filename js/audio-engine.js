@@ -30,8 +30,8 @@
   const sampleMapFor = AudioPlan.sampleMapFor
   const sampleSegmentBounds = AudioPlan.sampleSegmentBounds
   const segmentPlaybackRate = AudioPlan.segmentPlaybackRate
-  const EFFECT_GAIN = 0.15
-  const BACKGROUND_OUTPUT_GAIN = 1.5
+  const EFFECT_GAIN = 0.12
+  const BACKGROUND_OUTPUT_GAIN = 1.35
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
   // Instrument gain is calibrated from the stable sustain region of the default
   // drawing pitch rows, with violin as the reference loudness.
