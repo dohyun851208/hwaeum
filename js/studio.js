@@ -14,6 +14,7 @@
   const recipeModel = window.HwaeumStudioRecipe({ core: Core, data: D, audioPlan: window.SDAudioPlan, utils: StudioUtils })
 
   const engine = new window.AudioEngine()
+  const EFFECT_MAX_SECONDS = window.AudioEngine.EFFECT_MAX_SECONDS
   const takes = new window.TakesStore("sda.takes")
   const SEGMENT_SECONDS = 2.5
   const TIMELINE_PIXELS_PER_SECOND = 96
@@ -1069,8 +1070,8 @@
       if (x > 1 + 1e-6) return // 구간 끝 너머에 숨은 도장 — 구간을 다시 늘리면 보인다
       const left = timelineCssX(x)
       const top = Math.max(0.04, Math.min(0.96, stamp.y == null ? 0.5 : stamp.y)) * 100 + "%"
-      // 도장은 찍은 자리부터 소리 파일 길이만큼 난다 → 그 길이를 옅은 띠로 보여 준다(겹치면 진해진다).
-      const seconds = Number(effect.duration) || 0
+      // 도장은 찍은 자리부터 소리 파일 길이만큼(최대 EFFECT_MAX_SECONDS) 난다 → 그 길이를 옅은 띠로 보여 준다(겹치면 진해진다).
+      const seconds = Math.min(Number(effect.duration) || 0, EFFECT_MAX_SECONDS)
       if (seconds > 0) {
         const span = document.createElement("span")
         span.className = "effect-stamp-span"

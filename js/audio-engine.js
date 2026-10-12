@@ -35,20 +35,24 @@
   // 효과음 도장의 전체 재생 게인. 0.15 는 도장을 넣은 2026-06-26 값 그대로였는데, 그 뒤 배경·선율만
   // ×2(06-27)와 ×1.5(BACKGROUND/WESTERN_MELODY_OUTPUT_GAIN)로 커져 효과음이 배경보다 9.5 dB 더 작아졌다.
   // 배경과 같은 ×3 으로 되돌린다(2026-10-05). 2026-10-12 사용자가 들어 보고 미리듣기·대체 합성음과 함께
-  // 20%, 다시 10% 줄였다(0.45 × 0.8 × 0.9). 마스터 0.56 을 지나면 0.181 이라서 미리듣기(0.1728)와 같은 크기로 들린다.
+  // 20%, 10%, 다시 10% 줄였다(0.45 × 0.8 × 0.9 × 0.9). 마스터 0.56 을 지나면 0.163 이라서 미리듣기(0.15552)와 같은 크기로 들린다.
   // 도장끼리의 크기는 manifest 의 effects[].gain 이 새소리에 맞춘다(effectOutputGain).
-  const EFFECT_GAIN = 0.324
+  const EFFECT_GAIN = 0.2916
   // 전체 재생에서 도장 소리를 끝에서만 줄이는 길이. 예전엔 찍은 순간부터 끝까지 직선으로 줄여
   // 바람·비처럼 이어지는 소리가 평균 4.8 dB 작아졌다. 파일에는 이미 페이드아웃이 있다.
   const EFFECT_END_FADE_SECONDS = 0.3
+  // 도장 하나가 나는 최대 길이와, 그보다 긴 소리를 마지막에 서서히 줄이는 길이. 바람·비·천둥 녹음이 7~10초라
+  // 끝 0.3초에서만 줄이자 30초 작품의 3분의 1을 덮어 길게 들렸다(2026-10-12 사용자 청취). 짧은 소리는 그대로다.
+  const EFFECT_MAX_SECONDS = 4
+  const EFFECT_LIMIT_FADE_SECONDS = 1
   // 중간부터 이어 낼 때 키우며 들어가는 길이, 그리고 이만큼도 안 남은 도장은 건너뛴다.
   const EFFECT_RESUME_FADE_SECONDS = 0.02
   const EFFECT_MIN_REMAINING_SECONDS = 0.05
   const EFFECT_MAX_OUTPUT_GAIN = 16
   // 도장을 고를 때·찍을 때 앞 1.2초만 들려주는 미리듣기. 마스터를 거치지 않고 바로 나간다.
-  const EFFECT_PREVIEW_GAIN = 0.1728
+  const EFFECT_PREVIEW_GAIN = 0.15552
   // 음원을 디코드하는 동안 바로 내는 짧은 합성음.
-  const EFFECT_FALLBACK_PREVIEW_GAIN = 0.0972
+  const EFFECT_FALLBACK_PREVIEW_GAIN = 0.08748
   const SOUND_LAYER_OUTPUT_GAIN = 0.8
   // 배경음악 출력 배율. 1.5 에서 2026-10-12 사용자 요청으로 10% 줄였다(배경 구간·미리듣기 플레이어도 같은 비율).
   const BACKGROUND_OUTPUT_GAIN = 1.35
@@ -765,7 +769,11 @@
       const asset = item.asset
       if (!buffer) return
       const stamps = stampsByEffect.get(asset.id) || []
-      const interval = clamp(buffer.duration * 0.85, 3.2, 10)
+      // 긴 소리는 앞 EFFECT_MAX_SECONDS 만 내고 마지막 EFFECT_LIMIT_FADE_SECONDS 동안 줄인다.
+      const limited = buffer.duration > EFFECT_MAX_SECONDS
+      const playable = limited ? EFFECT_MAX_SECONDS : buffer.duration
+      const limitFadeStart = playable - EFFECT_LIMIT_FADE_SECONDS
+      const interval = clamp(playable * 0.85, 3.2, 10)
       const offsets = stamps.length
         ? stamps.map((stamp) => ({ time: stamp.time, sourceOffset: Math.max(0, Number(stamp.sourceOffset) || 0) }))
         : (/^thunder/.test(asset.id || "") || asset.label.indexOf("천둥") >= 0
@@ -776,7 +784,7 @@
         .filter((o) => o.time >= 0 && o.time < dur - (stamps.length ? EFFECT_MIN_REMAINING_SECONDS : 0.2))
         .forEach((o) => {
           // sourceOffset: 탐색 지점 전에 찍혀 아직 울리는 도장은 지나간 만큼 건너뛰고 남은 부분만 낸다.
-          const outDur = Math.min(buffer.duration - o.sourceOffset, dur - o.time)
+          const outDur = Math.min(playable - o.sourceOffset, dur - o.time)
           if (!(outDur > EFFECT_MIN_REMAINING_SECONDS)) return
           const src = ctx.createBufferSource()
           const g = ctx.createGain()
@@ -785,14 +793,20 @@
           const fadeOut = Math.min(EFFECT_END_FADE_SECONDS, outDur * 0.25)
           // 소리 중간에서 시작하면 파형이 0이 아닌 곳이라 '딱' 소리가 나니 아주 짧게 키우며 들어간다.
           const fadeIn = o.sourceOffset > 0 ? Math.min(EFFECT_RESUME_FADE_SECONDS, outDur * 0.25) : 0
+          // 줄어드는 중간에서 이어 내면 그 지점의 크기에서 시작한다.
+          const peak =
+            limited && o.sourceOffset + fadeIn > limitFadeStart
+              ? (level * Math.max(0, playable - o.sourceOffset - fadeIn)) / EFFECT_LIMIT_FADE_SECONDS
+              : level
+          const tailStart = Math.max(fadeIn, Math.min(limited ? limitFadeStart - o.sourceOffset : outDur, outDur - fadeOut))
           src.buffer = buffer
           if (fadeIn > 0) {
             g.gain.setValueAtTime(0, at)
-            g.gain.linearRampToValueAtTime(level, at + fadeIn)
+            g.gain.linearRampToValueAtTime(peak, at + fadeIn)
           } else {
-            g.gain.setValueAtTime(level, at)
+            g.gain.setValueAtTime(peak, at)
           }
-          g.gain.setValueAtTime(level, at + outDur - fadeOut)
+          g.gain.setValueAtTime(peak, at + tailStart)
           g.gain.linearRampToValueAtTime(0, at + outDur)
           src.connect(g)
           g.connect(dest)
@@ -2169,6 +2183,9 @@
     }, 2000)
     return { size: blob.size, mimeType: blob.type }
   }
+
+  // 3단계 도화지의 도장 길이 띠가 실제로 나는 길이와 같도록 공개한다.
+  AudioEngine.EFFECT_MAX_SECONDS = EFFECT_MAX_SECONDS
 
   root.AudioEngine = AudioEngine
 })(typeof self !== "undefined" ? self : this)

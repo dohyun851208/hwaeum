@@ -70,7 +70,7 @@
   // gain: 앱 속 크기를 새소리에 맞추는 배율. 이름이 센 소리는 더 크게, 약한 소리는 조금 작게(measure-effect-loudness.cjs LEVEL_DB).
   // 파일 크기가 −14~−38 LUFS로 제각각이라 같은 게인으로 틀면 빗소리가 묻혔다(2026-10-05).
   // 값은 node tools/measure-effect-loudness.cjs 가 추천한 그대로 쓴다 — 파일을 바꾸면 다시 잰다.
-  // duration: 파일 길이(초). 도장은 찍은 자리부터 이만큼 나고, 3단계 도화지에 그 길이의 띠로 보인다(같은 도구가 확인).
+  // duration: 파일 길이(초). 도장은 찍은 자리부터 이만큼(최대 4초, audio-engine.js EFFECT_MAX_SECONDS) 나고, 3단계 도화지에 그 길이의 띠로 보인다(같은 도구가 확인).
   const effects = {
     // 바람 셋·번개·폭풍우·흑동고래는 노트북 스피커에서 작게 들려 픽사베이 녹음으로 바꿨다(2026-10-05, 그 전엔 유자레코즈 바람1~3·천둥2·3).
     wind1: { label: "산들바람", src: "sound/효과-자연음(픽사베이)/산들바람.mp3", gain: 1.29, duration: 8, image: "./assets/effects/wind-breeze.webp" },
