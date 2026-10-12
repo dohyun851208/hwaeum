@@ -81,7 +81,7 @@
     rain1: { label: "가랑비", src: "sound/효과-자연음(유자레코즈)/비2.mp3", gain: 11.35, duration: 10.7, image: "./assets/effects/rain-drizzle.webp" },
     rain2: { label: "소나기", src: "sound/효과-자연음(유자레코즈)/비1.mp3", gain: 3.55, duration: 3.9, image: "./assets/effects/rain-shower.webp" },
     // 비3 은 고른 빗소리라 굵은 물방울이 따로 들리지 않았다 → 똑똑 떨어지는 픽사베이 녹음으로 바꿨다.
-    rain3: { label: "큰 빗방울", src: "sound/효과-자연음(픽사베이)/큰빗방울.mp3", gain: 4.29, duration: 9.9, image: "./assets/effects/rain-drops.webp" },
+    rain3: { label: "큰 빗방울", src: "sound/효과-자연음(픽사베이)/큰빗방울.mp3", gain: 4.73, duration: 9.9, image: "./assets/effects/rain-drops.webp" },
     // 새소리 숲(forest1)은 뺐다 — 동물 도장의 새·뻐꾸기와 구별되지 않았다.
     // 숲2 는 새 울음 두 번 뒤 11초가 거의 무음(잎 소리 없음), 숲3 은 가까운 새들의 지저귐이라 픽사베이 녹음으로 바꿨다.
     forest2: { label: "흔들리는 잎", src: "sound/효과-자연음(픽사베이)/흔들리는잎.mp3", gain: 3.27, duration: 8, image: "./assets/effects/forest-leaves.webp" },

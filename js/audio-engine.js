@@ -34,9 +34,10 @@
   const segmentPlaybackRate = AudioPlan.segmentPlaybackRate
   // 효과음 도장의 전체 재생 게인. 0.15 는 도장을 넣은 2026-06-26 값 그대로였는데, 그 뒤 배경·선율만
   // ×2(06-27)와 ×1.5(BACKGROUND/WESTERN_MELODY_OUTPUT_GAIN)로 커져 효과음이 배경보다 9.5 dB 더 작아졌다.
-  // 배경과 같은 ×3 으로 되돌린다(2026-10-05). 마스터 0.56 을 지나면 0.252 라서 미리듣기(0.24)와 같은 크기로 들린다.
+  // 배경과 같은 ×3 으로 되돌린다(2026-10-05). 2026-10-12 사용자 요청으로 미리듣기·대체 합성음과 함께 20% 줄였다.
+  // 마스터 0.56 을 지나면 0.2016 이라서 미리듣기(0.192)와 같은 크기로 들린다.
   // 도장끼리의 크기는 manifest 의 effects[].gain 이 새소리에 맞춘다(effectOutputGain).
-  const EFFECT_GAIN = 0.45
+  const EFFECT_GAIN = 0.36
   // 전체 재생에서 도장 소리를 끝에서만 줄이는 길이. 예전엔 찍은 순간부터 끝까지 직선으로 줄여
   // 바람·비처럼 이어지는 소리가 평균 4.8 dB 작아졌다. 파일에는 이미 페이드아웃이 있다.
   const EFFECT_END_FADE_SECONDS = 0.3
@@ -45,11 +46,12 @@
   const EFFECT_MIN_REMAINING_SECONDS = 0.05
   const EFFECT_MAX_OUTPUT_GAIN = 16
   // 도장을 고를 때·찍을 때 앞 1.2초만 들려주는 미리듣기. 마스터를 거치지 않고 바로 나간다.
-  const EFFECT_PREVIEW_GAIN = 0.24
+  const EFFECT_PREVIEW_GAIN = 0.192
   // 음원을 디코드하는 동안 바로 내는 짧은 합성음.
-  const EFFECT_FALLBACK_PREVIEW_GAIN = 0.135
+  const EFFECT_FALLBACK_PREVIEW_GAIN = 0.108
   const SOUND_LAYER_OUTPUT_GAIN = 0.8
-  const BACKGROUND_OUTPUT_GAIN = 1.5
+  // 배경음악 출력 배율. 1.5 에서 2026-10-12 사용자 요청으로 10% 줄였다(배경 구간·미리듣기 플레이어도 같은 비율).
+  const BACKGROUND_OUTPUT_GAIN = 1.35
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
   // Instrument gain is calibrated from the stable sustain region of the default
   // drawing pitch rows, with violin as the reference loudness.
