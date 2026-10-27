@@ -37,6 +37,8 @@ module.exports = async function handler(req, res) {
             const meta = await readJsonUrl(blob.url)
             return meta && meta.channel === channel ? listedMeta(meta) : null
           } catch (error) {
+            // 깨진 JSON 하나만 건너뛴다. 저장소 차단·연결 실패를 빈 작품 목록으로 숨기지 않는다.
+            if (!(error instanceof SyntaxError)) throw error
             console.warn("skip broken shared work", blob.pathname, error && error.message)
             return null
           }

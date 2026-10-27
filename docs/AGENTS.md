@@ -45,6 +45,7 @@
 - `decisions/2026-10-12-effect-stamp-drag-length.md` — "마우스로 줄일 수 있으면": 길이 띠 끝 손잡이(대면 ↔ 커서)를 끌어 도장마다 0.5초~원래 길이(0.1초 단위)로 줄임, 반복·늘리기 없음, 줄인 도장에만 `duration`, 줄인 소리는 끝 4분의 1(최대 1초)에 줄임, 되돌리기 한 번
 - `decisions/2026-10-07-hands-on-audit-fixes.md` — 직접 써 보며 찾은 버그 전수조사 뒤 결정: 초기화·작품 열기·떠나기 보호(지문 비교), 내 작품 그림 한 번만 저장·저장 실패 알림, 길이는 `changeDuration` 한 길로, 오디오 대신 이름·설정을 남겨 다시 잇기, 내보내기 녹음 별도 컨텍스트, 합성음 크기 보정(`SYNTH_MELODY_TRIM_DB`), 로컬 갤러리는 API 없을 때만·목록에서 그림 빼기·다시 공유는 바꾸기, 보안 1번은 개방형이라 그대로
 - `decisions/2026-10-03-instrument-example-pieces.md` — 2단계 악기 감상 연주곡을 같은 무리 카드와 같은 크기(LUFS)의 깨끗한 실제 녹음으로: 단소는 24 dB 작던 문덕곡 대신 국립국악원 청성곡, 먹먹하던 플루트·바이올린·더블베이스는 CC 실연 녹음(출처 줄·`라이센스.txt`)(`build-instrument-examples.py`)
+- `decisions/2026-10-27-gallery-storage-outage.md` — 갤러리 저장소(Vercel Blob)가 한도 초과로 정지되자 빈 갤러리로 보이고 덮어쓰기 위험: 못 읽음은 "없음"이 아니라 503 장애로 알림(깨진 JSON 하나만 건너뜀), 프로젝트를 dohyun Pro 팀으로 옮기고 새 저장소 연결(옛 갤러리 23개·작품 188개 포기), 연결 시 읽기·쓰기 토큰을 켜고 다시 배포
 
 - `decisions/2026-10-03-brush-to-melody-landing.md` — 붓질에서 그림·음표로 이어지는 메인 연출, 즉시 진입과 움직임 제어
 - `specs/2026-10-03-landing-art-prompt.txt` — 메인 배경 생성 프롬프트

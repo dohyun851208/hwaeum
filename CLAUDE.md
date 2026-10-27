@@ -33,7 +33,7 @@ npm run serve     # python -m http.server 4173  → http://localhost:4173/ (랜�
 npm test          # node --test, 순수 로직 단위 테스트 (의존성 없음)
 
 npm i jsdom ; node tools/smoke.cjs   # 통합 스모크 (선택, 오디오/캔버스는 스텁)
-npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (공식 URL)
+npx vercel --prod # Vercel 프로덕션 배포 → https://hwaeum.vercel.app (공식 URL) · 2026-10-27부터 dohyun 계정 CLI 로그인 필요
 ```
 
 브라우저 콘솔에서 `window.SoundDrawing`으로 상태 확인:

@@ -6,6 +6,8 @@ const MAX_TEXT_LENGTH = 220
 const MAX_CHANNEL_LENGTH = 4
 const MAX_FILE_BYTES = 2.5 * 1024 * 1024
 const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024
+const STORAGE_SUSPENDED_MESSAGE = "갤러리 저장소 이용이 일시 중지되어 갤러리를 열거나 저장할 수 없어요. 관리자가 저장소 이용 상태를 확인해야 해요."
+const STORAGE_UNAVAILABLE_MESSAGE = "갤러리 저장소에 연결하지 못했어요. 잠시 뒤 다시 해 주세요."
 
 function send(res, status, data) {
   res.statusCode = status
@@ -52,10 +54,13 @@ function cleanPin(value) {
 
 function sendError(res, error, fallbackMessage) {
   console.error(error)
-  const message = String(error && error.message).includes("BLOB_READ_WRITE_TOKEN")
-    ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
-    : (error && error.message) || fallbackMessage
-  send(res, 500, { error: message })
+  const suspended = error && (error.code === "SHARE_STORAGE_SUSPENDED" || error.name === "BlobStoreSuspendedError" || /store has been suspended/i.test(error.message || ""))
+  const message = suspended
+    ? STORAGE_SUSPENDED_MESSAGE
+    : String(error && error.message).includes("BLOB_READ_WRITE_TOKEN")
+      ? "Vercel Blob 저장소가 아직 연결되지 않았어요. BLOB_READ_WRITE_TOKEN을 설정해 주세요."
+      : (error && error.message) || fallbackMessage
+  send(res, suspended || (error && error.code === "SHARE_STORAGE_UNAVAILABLE") ? 503 : 500, { error: message })
 }
 
 function hashPass(channel, pin) {
@@ -72,11 +77,12 @@ async function loadChannelMeta(list, readJson, channel) {
   const blobs = await listAll(list, { prefix, limit: 10 })
   const hit = (blobs || []).find((blob) => blob.pathname === prefix)
   if (!hit) return null
-  try {
-    return await readJson(hit.url)
-  } catch (e) {
-    return null
+  // 목록에 있는 갤러리를 읽지 못한 것은 '없음'이 아니다. 생성·공유·코드 검사도 여기서 중단한다.
+  const meta = await readJson(hit.url)
+  if (!meta || typeof meta !== "object" || meta.channel !== cleanChannel(channel)) {
+    throw new Error("갤러리 정보를 읽지 못했어요. 잠시 뒤 다시 해 주세요.")
   }
+  return meta
 }
 
 // 클라이언트로 보낼 땐 소유자 해시·코드 해시를 절대 내보내지 않는다.
@@ -177,9 +183,21 @@ async function listAll(list, options) {
 }
 
 async function readJsonUrl(url) {
-  const response = await fetch(url, { cache: "no-store" })
-  if (!response.ok) throw new Error("공유 작품 정보를 읽지 못했어요.")
-  return response.json()
+  try {
+    const response = await fetch(url, { cache: "no-store" })
+    if (!response.ok) {
+      const blocked = response.status === 403 && /your store is blocked/i.test(await response.text())
+      const error = new Error(blocked ? STORAGE_SUSPENDED_MESSAGE : STORAGE_UNAVAILABLE_MESSAGE)
+      error.code = blocked ? "SHARE_STORAGE_SUSPENDED" : "SHARE_STORAGE_UNAVAILABLE"
+      throw error
+    }
+    return await response.json()
+  } catch (error) {
+    if (error instanceof SyntaxError || (error && error.code === "SHARE_STORAGE_SUSPENDED")) throw error
+    const unavailable = new Error(STORAGE_UNAVAILABLE_MESSAGE)
+    unavailable.code = "SHARE_STORAGE_UNAVAILABLE"
+    throw unavailable
+  }
 }
 
 function sharedUrl(req, workId, channel) {

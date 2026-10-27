@@ -81,6 +81,14 @@ test("a static server without the share API still uses this browser's gallery", 
   assert.deepEqual(calls.local, ["list", "claim"])
 })
 
+test("a suspended store stays an error for both listing and creation, without local fallback", async () => {
+  const message = "갤러리 저장소 이용이 일시 중지되어 갤러리를 열거나 저장할 수 없어요."
+  const { store, calls } = loadShareStore(() => textResponse(503, JSON.stringify({ error: message })))
+  await assert.rejects(() => store.listChannel("1004", "1234"), { message })
+  await assert.rejects(() => store.claimChannel({ channel: "1004", pin: "1234", adminPin: "8624" }), { message })
+  assert.deepEqual(calls.local, [])
+})
+
 test("a page opened as a file uses this browser's gallery", async () => {
   const { store, calls } = loadShareStore(() => {
     throw new TypeError("Failed to fetch")
