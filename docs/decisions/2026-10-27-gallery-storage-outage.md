@@ -42,6 +42,12 @@
 - **브라우저**: `js/share-store.js`는 바꾸지 않았다. 이미 JSON 오류가 담긴 503은 그 문구를 보여 주고 로컬 갤러리로 빠지지 않는다(10-07 규칙).
 - **연결 설정**: Vercel의 새 연결 창은 기본으로 `BLOB_STORE_ID`만 만든다. 앱의 `@vercel/blob` 2.6.1은 `BLOB_READ_WRITE_TOKEN`을 읽으므로 **"Add a read-write token env var to this connection"을 켜야 한다**. 토큰은 Sensitive이고 Production·Preview에만 있다. 연결한 뒤에는 **다시 배포해야** 새 토큰이 쓰인다.
 - **배포**: 프로젝트가 dohyun 팀에 있으므로 Vercel CLI를 dohyun 계정으로 로그인해 배포한다. `.vercel/project.json`의 `orgId`는 `team_HEtn9lLEzSXDyOcokt6wD7nX`이다(프로젝트 ID는 그대로).
+- **옛 작품 되살리기**(10-28 추가): Vercel에 정지 해제를 요청했다(지원 요청 `CSE_01smh5t2gIqUHj3y`). 무료 계정의 한도 초과 정지는 30일 뒤 풀린다고 문서에 있으므로, 늦어도 11월 말에는 다시 읽힌다.
+  - 풀리면 `tools/migrate-gallery-store.cjs`로 옮긴다. 먼저 `backup`으로 930개를 `output/`에 받아 두고, 그다음 `upload`로 새 저장소에 올린다. 미리 보기 후 `--write`.
+  - 그 사이 선생님이 같은 번호로 갤러리를 다시 만들었으면 다음 규칙을 따른다(`decideChannelConflict`).
+    - 같은 브라우저(주인 해시)이거나 같은 갤러리 코드면, 새 갤러리 그대로 옛 작품을 합친다.
+    - 둘 다 다르면 남의 반에 작품이 보이지 않게 건너뛰고 알린다.
+  - 그래서 선생님께는 **옛 번호와 옛 코드 그대로** 다시 만들기를 권한다.
 - **확인**: `test/share-storage-outage.test.js`가 다음을 검사한다.
   - 정지 저장소의 목록·생성은 503이고 아무것도 쓰지 않는다.
   - 권한 정보 읽기의 연결 실패·잘못된 정보도 덮어쓰기를 막는다.
