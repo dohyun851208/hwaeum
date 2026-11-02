@@ -55,8 +55,9 @@
   // 음원을 디코드하는 동안 바로 내는 짧은 합성음.
   const EFFECT_FALLBACK_PREVIEW_GAIN = 0.078732
   const SOUND_LAYER_OUTPUT_GAIN = 0.8
-  // 배경음악 출력 배율. 1.5 에서 2026-10-12 사용자 요청으로 10% 줄였다(배경 구간·미리듣기 플레이어도 같은 비율).
-  const BACKGROUND_OUTPUT_GAIN = 1.35
+  // 배경음악 출력 배율. 1.5 에서 2026-10-12 사용자 요청으로 10%, 2026-11-02 다시 30% 줄였다
+  // (1.5 × 0.9 × 0.7, 배경 구간·미리듣기 플레이어도 같은 비율).
+  const BACKGROUND_OUTPUT_GAIN = 0.945
   const WESTERN_MELODY_OUTPUT_GAIN = 1.5
   // Instrument gain is calibrated from the stable sustain region of the default
   // drawing pitch rows, with violin as the reference loudness.

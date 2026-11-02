@@ -1469,7 +1469,7 @@ test("full playback background starts with the first beat and is cut at the reci
   assert.equal(padSource.loop, false)
   assert.deepEqual(padSource.startCalls[0], [start, 0])
   assert.equal(padSource.stopCalls[0][0], start + plan.duration + 0.05)
-  assert.equal(padGain.gain.events[1][1], plan.version.padGain * 1.35, "배경음악은 기존 padGain 기준 1.35배로 재생")
+  assert.equal(padGain.gain.events[1][1], plan.version.padGain * 0.945, "배경음악은 기존 padGain 기준 0.945배로 재생")
   assert.ok(padGain.gain.events[0][1] > 0, "배경 gain 이 0에서 시작하면 초반에 선율만 들린다")
   assert.ok(padGain.gain.events[1][2] <= start + 0.5, "배경 fade-in 이 길면 선율 뒤에야 배경이 들린다")
 })
