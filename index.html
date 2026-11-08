@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#101d20" />
     <meta name="description" content="그림에 선율을 더하다. 내 그림 위에 선을 그어 나만의 30초 음악을 만드는 화음 스튜디오." />
-    <title>화음 — 그림에 선율을 더하다</title>
+    <title data-i18n="화음 — 그림에 선율을 더하다">화음 — 그림에 선율을 더하다</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23101d20'/%3E%3Ctext x='32' y='46' text-anchor='middle' font-size='43' fill='%23e2c58d'%3E畵%3C/text%3E%3C/svg%3E" />
     <link rel="preload" as="font" href="assets/fonts/landing-title.ttf" type="font/ttf" crossorigin />
     <link rel="preload" as="image" href="assets/hero/melody-landscape.webp" />
@@ -114,8 +114,12 @@
         window.location.replace(url.href);
       })();
     </script>
+      <link rel="stylesheet" href="./language.css?v=20261109-i18n-3" />
+    <script src="./js/locale-pt-BR.js?v=20261109-i18n-3" defer></script>
+    <script src="./js/i18n.js?v=20261109-i18n-3" defer></script>
   </head>
   <body>
+    <div class="landing-language"><label class="language-picker"><span aria-hidden="true">◎</span><span class="sr-only">언어 / Idioma</span><select data-language-select aria-label="언어 / Idioma"><option value="ko">한국어</option><option value="pt-BR">Português (Brasil)</option></select></label></div>
     <main class="landing" aria-label="화음 메인">
       <div class="scene" aria-hidden="true">
         <img class="painting painting-ink" src="assets/hero/melody-landscape.webp" alt="" />
@@ -125,7 +129,7 @@
       </div>
       <div class="atmosphere" aria-hidden="true"></div>
       <section class="hero-copy" aria-labelledby="hero-title">
-        <h1 id="hero-title">화음</h1>
+        <h1 id="hero-title" data-i18n="화음">화음</h1>
         <svg class="seal" viewBox="0 0 60 112" aria-hidden="true" focusable="false">
           <defs>
             <filter id="seal-ink" x="-10%" y="-10%" width="120%" height="120%">
@@ -145,20 +149,20 @@
             <rect x="1.5" y="1.5" width="57" height="109" rx="3.5" fill="var(--seal)" mask="url(#seal-cut)" />
           </g>
         </svg>
-        <a class="enter-cta" href="studio.html">내 그림에 선율 더하기
+        <a class="enter-cta" href="studio.html"><span data-i18n="내 그림에 선율 더하기">내 그림에 선율 더하기</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 4 12 H 20 M 14 6 L 20 12 L 14 18" /></svg>
         </a>
       </section>
       <footer class="page-footer">
         <div class="motion-controls" hidden>
-          <button class="motion-button" id="sound-toggle" type="button" aria-pressed="false" title="소리 켜기">
+          <button class="motion-button" id="sound-toggle" type="button" aria-pressed="false" title="소리 켜기" data-i18n-attrs="{&quot;title&quot;: &quot;소리 켜기&quot;}">
             <svg class="sound-off-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 2 6.2 H 4.6 L 8 3.2 V 12.8 L 4.6 9.8 H 2 Z" /><path d="M 10.8 6.3 L 14.2 9.7 M 14.2 6.3 L 10.8 9.7" /></svg>
             <svg class="sound-on-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 2 6.2 H 4.6 L 8 3.2 V 12.8 L 4.6 9.8 H 2 Z" /><path d="M 10.6 5.6 Q 12 8 10.6 10.4 M 12.6 3.8 Q 15.2 8 12.6 12.2" /></svg>
-            <span class="sr-only">소리 켜기</span>
+            <span class="sr-only" data-i18n="소리 켜기">소리 켜기</span>
           </button>
-          <a class="motion-button" id="quick-enter" href="studio.html" title="바로 시작하기">
+          <a class="motion-button" id="quick-enter" href="studio.html" title="바로 시작하기" data-i18n-attrs="{&quot;title&quot;: &quot;바로 시작하기&quot;}">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 3 8 H 13 M 9 4 L 13 8 L 9 12" /></svg>
-            <span class="sr-only">바로 시작하기</span>
+            <span class="sr-only" data-i18n="바로 시작하기">바로 시작하기</span>
           </a>
         </div>
       </footer>

@@ -3,41 +3,44 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>화음 갤러리</title>
+    <title data-i18n="화음 갤러리">화음 갤러리</title>
     <link rel="icon" type="image/webp" href="./assets/default-cover.webp" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="stylesheet" href="./assets/fonts/hwaeum-sans.css" />
     <link rel="stylesheet" href="./styles.css?v=20261007-audit-fixes" />
+      <link rel="stylesheet" href="./language.css?v=20261109-i18n-3" />
+    <script src="./js/locale-pt-BR.js?v=20261109-i18n-3" defer></script>
+    <script src="./js/i18n.js?v=20261109-i18n-3" defer></script>
   </head>
   <body class="channel-body" data-gallery-state="loading">
     <div class="channel-shell">
-      <header class="channel-topbar">
+      <header class="channel-topbar"><label class="language-picker"><span aria-hidden="true">◎</span><span class="sr-only">언어 / Idioma</span><select data-language-select aria-label="언어 / Idioma"><option value="ko">한국어</option><option value="pt-BR">Português (Brasil)</option></select></label>
         <div class="channel-menu-wrap">
-          <button class="channel-menu-button" id="channelMenuBtn" type="button" aria-label="메뉴 열기" aria-expanded="false">☰</button>
+          <button class="channel-menu-button" id="channelMenuBtn" type="button" aria-label="메뉴 열기" aria-expanded="false" data-i18n-attrs="{&quot;aria-label&quot;: &quot;메뉴 열기&quot;}">☰</button>
           <div class="channel-menu-panel" id="channelMenu" hidden>
             <section class="channel-menu-section channel-menu-section--links" aria-label="이동">
-              <button class="channel-menu-item" id="channelBackBtn" type="button">← 이전 화면</button>
-              <button class="channel-menu-item" id="channelShareBtn" type="button" hidden>갤러리 공유</button>
+              <button class="channel-menu-item" id="channelBackBtn" type="button" data-i18n="← 이전 화면">← 이전 화면</button>
+              <button class="channel-menu-item" id="channelShareBtn" type="button" hidden data-i18n="갤러리 공유">갤러리 공유</button>
             </section>
             <section class="channel-menu-section" aria-labelledby="channelManageMenuTitle">
-              <h2 id="channelManageMenuTitle">갤러리 관리</h2>
+              <h2 id="channelManageMenuTitle" data-i18n="갤러리 관리">갤러리 관리</h2>
               <div class="channel-menu-actions">
-                <button class="channel-menu-item" id="channelRenameBtn" type="button">이름 변경</button>
-                <button class="channel-menu-item danger" id="channelDeleteBtn" type="button">화음 갤러리 삭제하기</button>
+                <button class="channel-menu-item" id="channelRenameBtn" type="button" data-i18n="이름 변경">이름 변경</button>
+                <button class="channel-menu-item danger" id="channelDeleteBtn" type="button" data-i18n="화음 갤러리 삭제하기">화음 갤러리 삭제하기</button>
               </div>
             </section>
           </div>
         </div>
 
         <div class="channel-title-block">
-          <h1 id="channelTitle">화음 갤러리<span class="channel-admin-flag" id="channelAdminFlag" hidden>관리자 모드</span></h1>
-          <p id="channelCount">화음 갤러리를 불러옵니다.</p>
+          <h1 id="channelTitle"><span data-i18n="화음 갤러리">화음 갤러리</span><span class="channel-admin-flag" id="channelAdminFlag" hidden data-i18n="관리자 모드">관리자 모드</span></h1>
+          <p id="channelCount" data-i18n="화음 갤러리를 불러옵니다.">화음 갤러리를 불러옵니다.</p>
         </div>
 
         <div class="channel-viewbar" id="channelViewbar" aria-label="갤러리 보기 방식">
           <div class="channel-view-tabs" role="group" aria-label="보기 방식">
-            <button class="channel-view-tab active" id="channelShelfModeBtn" type="button" aria-pressed="true">한눈에 보기</button>
-            <button class="channel-view-tab" id="channelFlowModeBtn" type="button" aria-pressed="false">커버플로우</button>
+            <button class="channel-view-tab active" id="channelShelfModeBtn" type="button" aria-pressed="true" data-i18n="한눈에 보기">한눈에 보기</button>
+            <button class="channel-view-tab" id="channelFlowModeBtn" type="button" aria-pressed="false" data-i18n="커버플로우">커버플로우</button>
           </div>
           <div class="channel-flow-controls" aria-label="커버플로우 이동">
             <button class="channel-flow-nav" id="channelFlowPrevBtn" type="button" aria-label="이전 작품">‹</button>
@@ -48,10 +51,10 @@
         <div class="channel-top-actions">
           <p class="channel-status" id="channelStatus" aria-live="polite"></p>
           <form class="channel-open-form" id="channelOpenForm">
-            <input id="channelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="번호" aria-label="갤러리 번호" />
+            <input id="channelInput" type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="번호" aria-label="갤러리 번호"  data-i18n-attrs="{&quot;placeholder&quot;: &quot;번호&quot;, &quot;aria-label&quot;: &quot;갤러리 번호&quot;}" />
             <span class="channel-code-open">
-              <input id="channelCodeInput" class="channel-code-input" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="코드" aria-label="갤러리 코드" />
-              <button class="channel-open-button" type="submit">열기</button>
+              <input id="channelCodeInput" class="channel-code-input" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="코드" aria-label="갤러리 코드"  data-i18n-attrs="{&quot;placeholder&quot;: &quot;코드&quot;, &quot;aria-label&quot;: &quot;갤러리 코드&quot;}" />
+              <button class="channel-open-button" type="submit" data-i18n="열기">열기</button>
             </span>
           </form>
         </div>
@@ -60,60 +63,60 @@
       <main class="channel-library" id="channelLibrary">
         <div class="channel-shelves" id="channelShelves"></div>
         <div class="channel-empty" id="channelEmpty" hidden>
-          <strong>아직 이 화음 갤러리에 음악이 없습니다.</strong>
-          <span>스튜디오에서 완성한 음악을 화음 갤러리에 공유하면 여기에 모입니다.</span>
+          <strong data-i18n="아직 이 화음 갤러리에 음악이 없습니다.">아직 이 화음 갤러리에 음악이 없습니다.</strong>
+          <span data-i18n="스튜디오에서 완성한 음악을 화음 갤러리에 공유하면 여기에 모입니다.">스튜디오에서 완성한 음악을 화음 갤러리에 공유하면 여기에 모입니다.</span>
         </div>
       </main>
     </div>
 
     <div class="channel-viewer" id="channelViewer" role="dialog" aria-modal="true" aria-labelledby="viewerTitle" hidden>
-      <button class="channel-viewer-close" id="viewerCloseBtn" type="button" aria-label="닫기">×</button>
+      <button class="channel-viewer-close" id="viewerCloseBtn" type="button" aria-label="닫기" data-i18n-attrs="{&quot;aria-label&quot;: &quot;닫기&quot;}">×</button>
       <div class="channel-viewer-panel" id="viewerPanel">
         <figure class="channel-viewer-stage" id="viewerStage">
           <img class="channel-viewer-backdrop" id="viewerBackdrop" alt="" aria-hidden="true" />
           <img class="channel-viewer-cover" id="viewerCover" alt="공유 음악 표지" />
-          <button class="channel-viewer-play" id="viewerPlayBtn" type="button" aria-label="재생">
+          <button class="channel-viewer-play" id="viewerPlayBtn" type="button" aria-label="재생" data-i18n-attrs="{&quot;aria-label&quot;: &quot;재생&quot;}">
             <svg class="channel-play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72c0 .8.87 1.3 1.56.88l10.98-6.86a1.04 1.04 0 0 0 0-1.76L9.56 4.26A1.04 1.04 0 0 0 8 5.14z" /></svg>
             <svg class="channel-pause-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.6" width="4.2" height="14.8" rx="1.2" /><rect x="13.8" y="4.6" width="4.2" height="14.8" rx="1.2" /></svg>
           </button>
         </figure>
         <section class="channel-viewer-info">
-          <h2 id="viewerTitle">무제</h2>
+          <h2 id="viewerTitle" data-i18n="무제">무제</h2>
           <ul class="channel-viewer-meta-list" aria-label="작품 정보">
             <li class="channel-viewer-meta-item" id="viewerComposerRow">
-              <span class="channel-viewer-meta-label">작곡가</span>
-              <span class="channel-viewer-meta-value strong" id="viewerComposer">작곡가 이름 없음</span>
+              <span class="channel-viewer-meta-label" data-i18n="작곡가">작곡가</span>
+              <span class="channel-viewer-meta-value strong" id="viewerComposer" data-i18n="작곡가 이름 없음">작곡가 이름 없음</span>
             </li>
             <li class="channel-viewer-meta-item" id="viewerAtmosphereRow">
-              <span class="channel-viewer-meta-label">배경음악</span>
+              <span class="channel-viewer-meta-label" data-i18n="배경음악">배경음악</span>
               <span class="channel-viewer-meta-value" id="viewerAtmosphere"></span>
             </li>
             <li class="channel-viewer-meta-item" id="viewerInstrumentRow">
-              <span class="channel-viewer-meta-label">악기</span>
+              <span class="channel-viewer-meta-label" data-i18n="악기">악기</span>
               <span class="channel-viewer-meta-value" id="viewerInstrument"></span>
             </li>
           </ul>
           <p class="channel-viewer-count" id="viewerActionCount"></p>
           <audio class="channel-viewer-audio" id="viewerAudio" controls preload="auto"></audio>
           <div class="channel-viewer-note-card" id="viewerBackgroundCard" hidden>
-            <p class="channel-viewer-note-label">배경음악을 고른 이유</p>
+            <p class="channel-viewer-note-label" data-i18n="배경음악을 고른 이유">배경음악을 고른 이유</p>
             <p class="channel-viewer-text" id="viewerBackground"></p>
           </div>
           <div class="channel-viewer-note-card" id="viewerMelodyCard" hidden>
-            <p class="channel-viewer-note-label">선율을 표현한 의도</p>
+            <p class="channel-viewer-note-label" data-i18n="선율을 표현한 의도">선율을 표현한 의도</p>
             <p class="channel-viewer-text" id="viewerMelody"></p>
           </div>
           <div class="channel-viewer-tags" id="viewerTags" hidden></div>
           <div class="channel-viewer-actions">
             <button class="channel-action-button primary" id="viewerDrawingBtn" type="button" aria-label="스튜디오에서 보기">
-              <span>스튜디오에서</span>
-              <span class="channel-action-line">보기</span>
+              <span data-i18n="스튜디오에서">스튜디오에서</span>
+              <span class="channel-action-line" data-i18n="보기">보기</span>
             </button>
             <button class="channel-action-button" id="viewerCopyBtn" type="button" aria-label="다른 갤러리에 복사하기">
-              <span>다른 갤러리에</span>
-              <span class="channel-action-line">복사하기</span>
+              <span data-i18n="다른 갤러리에">다른 갤러리에</span>
+              <span class="channel-action-line" data-i18n="복사하기">복사하기</span>
             </button>
-            <button class="channel-action-button danger" id="viewerDeleteBtn" type="button">작품 삭제</button>
+            <button class="channel-action-button danger" id="viewerDeleteBtn" type="button" data-i18n="작품 삭제">작품 삭제</button>
           </div>
         </section>
       </div>
@@ -122,23 +125,23 @@
     <!-- 이름 변경 모달: 관리자 공통 코드 + 새 이름 동시 입력 -->
     <div class="publish-modal" id="renameModal" hidden>
       <div class="publish-modal-panel" role="dialog" aria-modal="true" aria-labelledby="renameModalTitle">
-        <button class="publish-modal-close" id="renameModalCloseBtn" type="button" aria-label="닫기">×</button>
-        <p class="eyebrow">갤러리 관리</p>
-        <h3 id="renameModalTitle">갤러리 이름 바꾸기</h3>
-        <p class="publish-modal-lead">관리자 공통 코드를 확인하고 새 이름을 정해 주세요.</p>
+        <button class="publish-modal-close" id="renameModalCloseBtn" type="button" aria-label="닫기" data-i18n-attrs="{&quot;aria-label&quot;: &quot;닫기&quot;}">×</button>
+        <p class="eyebrow" data-i18n="갤러리 관리">갤러리 관리</p>
+        <h3 id="renameModalTitle" data-i18n="갤러리 이름 바꾸기">갤러리 이름 바꾸기</h3>
+        <p class="publish-modal-lead" data-i18n="관리자 공통 코드를 확인하고 새 이름을 정해 주세요.">관리자 공통 코드를 확인하고 새 이름을 정해 주세요.</p>
         <form class="publish-modal-form" id="renameModalForm">
           <label class="publish-modal-field" for="renameAdminPinInput">
-            <span>관리자 공통 코드</span>
-            <input id="renameAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 공통 코드 (8624)" aria-label="관리자 공통 코드" />
+            <span data-i18n="관리자 공통 코드">관리자 공통 코드</span>
+            <input id="renameAdminPinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="관리자 공통 코드 (8624)" aria-label="관리자 공통 코드"  data-i18n-attrs="{&quot;aria-label&quot;: &quot;관리자 공통 코드&quot;}" />
           </label>
           <label class="publish-modal-field" for="renameNameInput">
-            <span>새 갤러리 이름</span>
-            <input id="renameNameInput" type="text" autocomplete="off" maxlength="40" placeholder="예: 여름 빛깔을 담은 노래" aria-label="새 갤러리 이름" />
+            <span data-i18n="새 갤러리 이름">새 갤러리 이름</span>
+            <input id="renameNameInput" type="text" autocomplete="off" maxlength="40" placeholder="예: 여름 빛깔을 담은 노래" aria-label="새 갤러리 이름"  data-i18n-attrs="{&quot;aria-label&quot;: &quot;새 갤러리 이름&quot;}" />
           </label>
           <p class="publish-modal-error" id="renameModalError" aria-live="polite" hidden></p>
           <div class="publish-modal-actions">
-            <button class="channel-action-button" type="button" id="renameModalCancelBtn">취소</button>
-            <button class="channel-action-button primary" type="submit" id="renameModalSubmitBtn">이름 바꾸기</button>
+            <button class="channel-action-button" type="button" id="renameModalCancelBtn" data-i18n="취소">취소</button>
+            <button class="channel-action-button primary" type="submit" id="renameModalSubmitBtn" data-i18n="이름 바꾸기">이름 바꾸기</button>
           </div>
         </form>
       </div>
@@ -146,6 +149,6 @@
 
     <script src="./js/share-local-store.js?v=20261007-audit-fixes" defer></script>
     <script src="./js/share-store.js?v=20261007-audit-fixes" defer></script>
-    <script src="./js/channel.js?v=20261007-audit-fixes" defer></script>
+    <script src="./js/channel.js?v=20261109-i18n-3" defer></script>
   </body>
 </html>

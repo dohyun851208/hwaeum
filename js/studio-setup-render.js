@@ -1,5 +1,6 @@
 ;(function (root) {
   "use strict"
+  function translateUI(source) { return typeof window !== "undefined" && window.HwaeumI18n ? window.HwaeumI18n.t(source) : source }
 
   // 분위기·악기 카드 렌더링·선택 팩토리.
   // studio.js에서 createStudioSetupRender(deps)로 호출하여 반환된 함수들을 destructure.
@@ -85,12 +86,12 @@
       const copy = document.createElement("span")
       copy.className = "card-copy"
       const title = document.createElement("strong")
-      title.textContent = item.label
+      title.textContent = translateUI(item.label)
       copy.appendChild(title)
       // 설명이 비어 있으면 칸 자체를 만들지 않는다 — 2단계 악기 카드는 설명을 감상 노트의 예시 답안으로 옮겼다.
       if (sub) {
         const detail = document.createElement("span")
-        detail.textContent = sub
+        detail.textContent = translateUI(sub)
         copy.appendChild(detail)
       }
       b.appendChild(copy)
@@ -113,9 +114,9 @@
       if (!titleEl) return
       titleEl.textContent = ""
       const main = document.createElement("span")
-      main.textContent = match[1]
+      main.textContent = translateUI(match[1])
       const suffix = document.createElement("span")
-      suffix.textContent = match[2]
+      suffix.textContent = translateUI(match[2])
       titleEl.appendChild(main)
       titleEl.appendChild(suffix)
     }
@@ -276,7 +277,7 @@
       const label = document.createElement("label")
       label.className = "atmosphere-note-label"
       label.setAttribute("for", "atmosphereNote-" + a.id)
-      label.textContent = "내 느낌"
+      label.textContent = translateUI("내 느낌")
       note.appendChild(label)
 
       const field = document.createElement("textarea")
@@ -284,7 +285,7 @@
       field.id = "atmosphereNote-" + a.id
       field.rows = 2
       field.maxLength = NOTE_MAX_LENGTH
-      field.placeholder = "어떤 느낌인가요?"
+      field.placeholder = translateUI("어떤 느낌인가요?")
       field.dataset.noteAtmosphere = a.id
       field.value = state.backgroundNotes[a.id] || ""
       field.addEventListener("input", () => {
@@ -392,7 +393,7 @@
         if (visibleGroups.length > 1) {
           const label = document.createElement("p")
           label.className = "atmosphere-group-label"
-          label.textContent = g
+          label.textContent = translateUI(g)
           el.atmosphereGrid.appendChild(label)
         }
         // "학생들이 찾은 음악"은 업로드 카드를 먼저 두고, 올린 음악이 그 오른쪽(뒤)으로 쌓이게 한다.
@@ -412,14 +413,14 @@
       uploadCard.appendChild(plus)
 
       const title = document.createElement("strong")
-      title.textContent = "여기에 음악 올리기"
+      title.textContent = translateUI("여기에 음악 올리기")
       uploadCard.appendChild(title)
 
       const sub = document.createElement("span")
       sub.className = "upload-sub"
       ;["Pixabay에서 음악 찾기", "mp3 · wav 올리기", "50MB 이하"].forEach(function (text) {
         const line = document.createElement("span")
-        line.textContent = text
+        line.textContent = translateUI(text)
         sub.appendChild(line)
       })
       uploadCard.appendChild(sub)
@@ -431,13 +432,13 @@
       searchLink.href = PIXABAY_MUSIC_URL
       searchLink.target = "_blank"
       searchLink.rel = "noopener noreferrer"
-      searchLink.textContent = "여기서 찾아보기"
+      searchLink.textContent = translateUI("여기서 찾아보기")
       actions.appendChild(searchLink)
 
       const uploadButton = document.createElement("button")
       uploadButton.className = "upload-action upload-action-primary"
       uploadButton.type = "button"
-      uploadButton.textContent = "내 배경 음원 추가"
+      uploadButton.textContent = translateUI("내 배경 음원 추가")
       actions.appendChild(uploadButton)
       uploadCard.appendChild(actions)
       uploadButton.addEventListener("click", () => {
@@ -595,7 +596,7 @@
         const b = document.createElement("button")
         b.type = "button"
         b.className = "group-tab" + (g === state.group ? " active" : "")
-        b.textContent = g
+        b.textContent = translateUI(g)
         b.addEventListener("click", () => {
           state.group = g
           renderInstrumentGroups()
@@ -619,7 +620,7 @@
         const head = document.createElement("div")
         head.className = "compose-instrument-group-head"
         const groupTitle = document.createElement("strong")
-        groupTitle.textContent = group
+        groupTitle.textContent = translateUI(group)
         head.appendChild(groupTitle)
         section.appendChild(head)
 
@@ -632,7 +633,7 @@
 
           const familyHead = document.createElement("div")
           familyHead.className = "compose-instrument-family-head"
-          familyHead.textContent = familyGroup.family
+          familyHead.textContent = translateUI(familyGroup.family)
           familySection.appendChild(familyHead)
 
           const familyList = document.createElement("div")
@@ -654,7 +655,7 @@
             const label = document.createElement("span")
             label.className = "compose-instrument-text"
             const name = document.createElement("strong")
-            name.textContent = i.label
+            name.textContent = translateUI(i.label)
             label.appendChild(name)
             b.appendChild(label)
             b.addEventListener("click", () => {
@@ -712,7 +713,7 @@
       const label = document.createElement("label")
       label.className = "instrument-note-label"
       label.setAttribute("for", "instrumentNote-" + instrument.id)
-      label.textContent = "내 느낌"
+      label.textContent = translateUI("내 느낌")
       note.appendChild(label)
 
       const field = document.createElement("textarea")
@@ -720,7 +721,7 @@
       field.id = "instrumentNote-" + instrument.id
       field.rows = 2
       field.maxLength = NOTE_MAX_LENGTH
-      field.placeholder = "어떤 느낌인가요?"
+      field.placeholder = translateUI("어떤 느낌인가요?")
       field.dataset.noteInstrument = instrument.id
       field.value = state.instrumentNotes[instrument.id] || ""
       field.addEventListener("input", () => {
@@ -733,12 +734,12 @@
       const answer = document.createElement("p")
       answer.className = "instrument-answer"
       answer.id = "instrumentAnswer-" + instrument.id
-      answer.textContent = instrument.detail || ""
+      answer.textContent = translateUI(instrument.detail || "")
 
       const reveal = document.createElement("button")
       reveal.type = "button"
       reveal.className = "instrument-answer-btn"
-      reveal.textContent = "예시 답안 보기"
+      reveal.textContent = translateUI("예시 답안 보기")
       reveal.setAttribute("aria-controls", answer.id)
       reveal.setAttribute("aria-label", instrument.label + " 예시 답안 보기")
 
@@ -788,7 +789,7 @@
         const head = document.createElement("div")
         head.className = "instrument-family-head"
         const titleEl = document.createElement("strong")
-        titleEl.textContent = familyGroup.family
+        titleEl.textContent = translateUI(familyGroup.family)
         const count = document.createElement("small")
         count.textContent = familyGroup.items.length + "개"
         head.appendChild(titleEl)

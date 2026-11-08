@@ -17,6 +17,7 @@ for (const page of ["studio.html", "channel.html"]) {
 
 test("runtime modules precede their consumers on both pages", () => {
   const pairs = [
+    ["locale-pt-BR.js", "i18n.js"], ["i18n.js", "studio.js"], ["i18n.js", "channel.js"],
     ["audio-plan.js", "audio-engine.js"], ["audio-samples.js", "audio-engine.js"],
     ["audio-node-scope.js", "audio-engine.js"], ["audio-pad-graph.js", "audio-engine.js"],
     ["drawing-renderer.js", "drawing.js"], ["share-local-store.js", "share-store.js"],

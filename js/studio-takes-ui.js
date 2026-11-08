@@ -5,6 +5,7 @@
   else root.HwaeumStudioTakesUI = factory
 })(typeof globalThis !== "undefined" ? globalThis : this, function createStudioTakesUI(deps) {
   "use strict"
+  function translateUI(source) { return typeof window !== "undefined" && window.HwaeumI18n ? window.HwaeumI18n.t(source) : source }
 
   deps = deps || {}
   const root = deps.root || (typeof globalThis !== "undefined" ? globalThis : this)
@@ -52,7 +53,7 @@
     const rawTitle = take.name || (take.recipe && take.recipe.title) || ""
     const titleText = doc.createElement("span")
     titleText.className = "take-name-text"
-    titleText.textContent = rawTitle && rawTitle !== "무제" ? rawTitle : "제목"
+    titleText.textContent = rawTitle && rawTitle !== "무제" ? rawTitle : translateUI("제목")
     row.appendChild(titleText)
 
     meta.appendChild(row)
@@ -60,7 +61,7 @@
 
   function takeDisplayTitle(take) {
     const rawTitle = (take && (take.name || (take.recipe && take.recipe.title))) || ""
-    return rawTitle && rawTitle !== "무제" ? rawTitle : "제목"
+    return rawTitle && rawTitle !== "무제" ? rawTitle : translateUI("제목")
   }
 
   // 카드에 보일 배경 이름. '내가 찾은 음악' 파일이 이 컴퓨터에 없으면 이름에 다시 올려야 한다고 덧붙인다.
@@ -73,7 +74,7 @@
     const fallback = deps.defaultAtmosphere()
     const isCustom = typeof recipe.atmosphere === "string" && recipe.atmosphere.indexOf("custom-") === 0
     if (!isCustom) return found || fallback
-    const label = (found && found.label) || recipe.atmosphereLabel || "내가 찾은 음악"
+    const label = (found && found.label) || recipe.atmosphereLabel || translateUI("내가 찾은 음악")
     return Object.assign({}, found || fallback, { label: label + " (파일 다시 올리기)" })
   }
 
@@ -172,7 +173,7 @@
     el.takesEmpty.style.display = items.length ? "none" : "block"
     el.takesEmpty.textContent = state.sharedRecipeLoaded
       ? "공유 링크로 불러온 곡입니다. 저장하면 내 작품에 추가됩니다."
-      : "드로잉 후 저장하면 여기에 모입니다. 같은 작품은 저장할 때마다 다시 덮어씁니다."
+      : translateUI("드로잉 후 저장하면 여기에 모입니다. 같은 작품은 저장할 때마다 다시 덮어씁니다.")
     el.takesCount.textContent = items.length ? items.length + "개" : ""
 
     items.forEach(function (take, index) {
@@ -226,7 +227,7 @@
       if (take.recipe && take.recipe.composerName) {
         const composer = doc.createElement("span")
         composer.className = "take-composer"
-        composer.textContent = "작곡가 " + StudioUtils.cleanText(take.recipe.composerName, composerNameMax)
+        composer.textContent = translateUI("작곡가") + " " + StudioUtils.cleanText(take.recipe.composerName, composerNameMax)
         meta.appendChild(composer)
       }
       const tags = StudioUtils.normalizeHashtags(take.recipe && take.recipe.hashtags)
@@ -256,11 +257,11 @@
       pauseButton.type = "button"
       pauseButton.className = "btn tiny take-pause"
       pauseButton.textContent = isPausedTake ? "▶" : "❚❚"
-      pauseButton.title = isPausedTake ? "이어 듣기" : "일시정지"
+      pauseButton.title = isPausedTake ? "이어 듣기" : translateUI("일시정지")
       pauseButton.disabled = !isPlayingTake
       pauseButton.setAttribute(
         "aria-label",
-        (take.name || "작품") + " " + (isPausedTake ? "이어 듣기" : "일시정지"),
+        (take.name || "작품") + " " + (isPausedTake ? "이어 듣기" : translateUI("일시정지")),
       )
       pauseButton.addEventListener("click", function (event) {
         event.stopPropagation()
@@ -334,7 +335,7 @@
         ? "새 작품으로 저장했어요."
         : "내 작품에 저장했어요."
     if (state.step === drawingStep && el.statusText) {
-      el.statusText.textContent = updated ? "다시 저장했어요" : "저장했어요"
+      el.statusText.textContent = updated ? "다시 저장했어요" : translateUI("저장했어요")
     }
     say(message)
     return take

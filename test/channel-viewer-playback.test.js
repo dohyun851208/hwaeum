@@ -83,7 +83,7 @@ test("shared gallery viewers separate composer, description, and attempt count",
   const css = fs.readFileSync(path.join(projectDir, "styles.css"), "utf8")
   const channelHtml = fs.readFileSync(path.join(projectDir, "channel.html"), "utf8")
 
-  assert.match(functionBody(channel, "workViewerMeta"), /composer:\s*workComposer\(work\) \|\| "작곡가 이름 없음"/)
+  assert.match(functionBody(channel, "workViewerMeta"), /composer:\s*workComposer\(work\) \|\| (?:translateUI\()?"작곡가 이름 없음"/)
   assert.match(functionBody(channel, "workViewerMeta"), /atmosphere:\s*cleanText\(meta\.atmosphereLabel,\s*32\)/)
   assert.match(functionBody(channel, "workViewerMeta"), /instrument:\s*cleanText\(meta\.instrumentLabel,\s*72\)/)
   assert.match(functionBody(channel, "workViewerMeta"), /actionCount:\s*actionCountLine\(work\)/)

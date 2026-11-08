@@ -1,5 +1,6 @@
 ;(function (root) {
   "use strict"
+  function translateUI(source) { return typeof window !== "undefined" && window.HwaeumI18n ? window.HwaeumI18n.t(source) : source }
 
   // 음악·커버·드로잉 파일 내보내기와 Canvas 스냅샷 팩토리.
   // studio.js는 레시피 생성·그림 유무 확인 같은 오케스트레이션 콜백만 주입한다.
@@ -221,7 +222,7 @@
     }
 
     function safeName() {
-      const t = (state.title || "무제").replace(/[^\w가-힣 _-]/g, "").trim() || "무제"
+      const t = (state.title || translateUI("무제")).replace(/[^\w가-힣 _-]/g, "").trim() || translateUI("무제")
       return t + "_" + state.atmosphere.label
     }
 
@@ -268,7 +269,7 @@
         ctx.fillRect(0, size - padH, size, padH)
         ctx.fillStyle = "#fbf6ec"
         ctx.font = "700 52px Georgia, serif"
-        ctx.fillText(fitCanvasLine(ctx, state.title || "무제", size - 96), 48, size - padH + 64)
+        ctx.fillText(fitCanvasLine(ctx, state.title || translateUI("무제"), size - 96), 48, size - padH + 64)
         if (tags) {
           ctx.font = "800 30px 'Segoe UI', sans-serif"
           ctx.fillStyle = "rgba(251,246,236,0.92)"

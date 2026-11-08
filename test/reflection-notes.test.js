@@ -14,7 +14,7 @@ test("1단계 그림 감상 칸이 있고 4단계 칸과 같은 생각을 나눠
   assert.match(html, /id="pictureThoughtInput"/)
   assert.match(html, /id="pictureThoughtCompletionInput"/)
   // 두 칸의 라벨은 같은 문구여야 학생이 "같은 칸"으로 읽는다.
-  const labels = html.match(/그림을 보고 떠오르는 생각/g) || []
+  const labels = html.match(/>그림을 보고 떠오르는 생각</g) || []
   assert.equal(labels.length, 2, "1단계와 4단계에 같은 라벨이 하나씩")
 
   const recipe = read("js", "studio-recipe.js")
@@ -55,11 +55,11 @@ test("새 감상 칸은 화음 갤러리 공유 필수 항목이 아니다", () 
   const start = share.indexOf("function publishTake(t)")
   const body = share.slice(start, share.indexOf("if (missing.length > 0)", start))
   // 기존 5개 그대로 — 새 칸을 필수로 만들지 않는다.
-  assert.match(body, /label: "제목"/)
-  assert.match(body, /label: "작곡가"/)
-  assert.match(body, /label: "배경음악을 고른 이유"/)
-  assert.match(body, /label: "선율을 표현한 의도"/)
-  assert.match(body, /label: "작품을 잘 나타내는 단어"/)
+  assert.match(body, /label: (?:translateUI\()?"제목"/)
+  assert.match(body, /label: (?:translateUI\()?"작곡가"/)
+  assert.match(body, /label: (?:translateUI\()?"배경음악을 고른 이유"/)
+  assert.match(body, /label: (?:translateUI\()?"선율을 표현한 의도"/)
+  assert.match(body, /label: (?:translateUI\()?"작품을 잘 나타내는 단어"/)
   assert.doesNotMatch(body, /pictureThought/, "그림 감상은 필수가 아님")
   assert.equal((body.match(/missing\.push/g) || []).length, 5, "필수 항목은 5개 그대로")
 })

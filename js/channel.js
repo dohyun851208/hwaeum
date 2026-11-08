@@ -3,6 +3,7 @@
  */
 ;(function (root) {
   "use strict"
+  function translateUI(source) { return typeof window !== "undefined" && window.HwaeumI18n ? window.HwaeumI18n.t(source) : source }
 
   const ShareStore = root.HwaeumShareStore
   const DEFAULT_COVER_SRC = "./assets/default-cover.webp"
@@ -393,7 +394,7 @@
 
   function workTitle(work) {
     const meta = (work && work.metadata) || {}
-    return cleanText((work && work.title) || meta.title || "무제", 80)
+    return cleanText((work && work.title) || meta.title || translateUI("무제"), 80)
   }
 
   // 갤러리는 여러 사람이 보므로 이름 가운데를 가린다: 김하음→김*음, 남궁민수→남**수, 김철→김*.
@@ -447,7 +448,7 @@
   function workViewerMeta(work) {
     const meta = (work && work.metadata) || {}
     return {
-      composer: workComposer(work) || "작곡가 이름 없음",
+      composer: workComposer(work) || translateUI("작곡가 이름 없음"),
       atmosphere: cleanText(meta.atmosphereLabel, 32),
       instrument: cleanText(meta.instrumentLabel, 72),
       actionCount: actionCountLine(work),
@@ -557,19 +558,19 @@
     const channel = state.channel
     const name = channelDisplayName()
     if (el.title) {
-      el.title.textContent = name || "화음 갤러리"
+      el.title.textContent = name || translateUI("화음 갤러리")
       el.title.title = name || "" // 잘린 긴 이름은 마우스를 올리면 전체가 보인다
       // 제목 텍스트를 새로 쓰면 관리자 배지 span이 지워지므로 다시 붙여 준다.
       if (el.adminFlag) el.title.appendChild(el.adminFlag)
     }
     el.count.textContent = state.loading
-      ? "화음 갤러리를 불러옵니다."
+      ? translateUI("화음 갤러리를 불러옵니다.")
       : channel
         ? ""
-        : "번호를 입력해 주세요."
+        : translateUI("번호를 입력해 주세요.")
     if (el.input && document.activeElement !== el.input) {
       el.input.value = channel || ""
-      el.input.placeholder = channel ? "" : "번호"
+      el.input.placeholder = channel ? "" : translateUI("번호")
     }
     // 기억해 둔 갤러리 코드는 입력칸에 미리 채워 둔다 — 열려 있으면 다시 칠 필요가 없다.
     if (el.codeInput && document.activeElement !== el.codeInput) {
@@ -937,12 +938,12 @@
     if (title) {
       title.textContent = unknown
         ? "#" + state.channel + " 화음 갤러리를 찾지 못했어요."
-        : "아직 이 화음 갤러리에 음악이 없습니다."
+        : translateUI("아직 이 화음 갤러리에 음악이 없습니다.")
     }
     if (detail) {
       detail.textContent = unknown
         ? "번호가 맞는지 선생님께 확인해 주세요."
-        : "스튜디오에서 완성한 음악을 화음 갤러리에 공유하면 여기에 모입니다."
+        : translateUI("스튜디오에서 완성한 음악을 화음 갤러리에 공유하면 여기에 모입니다.")
     }
   }
 
@@ -1203,7 +1204,7 @@
     const hasMusic = !!el.viewerAudio.getAttribute("src")
     el.viewerPlay.hidden = !hasMusic || !shouldShowCoverPlayOverlay(state.activeWork)
     el.viewerPlay.classList.toggle("is-playing", !el.viewerAudio.paused)
-    el.viewerPlay.setAttribute("aria-label", el.viewerAudio.paused ? "재생" : "일시정지")
+    el.viewerPlay.setAttribute("aria-label", el.viewerAudio.paused ? translateUI("재생") : translateUI("일시정지"))
   }
 
   function recipeStrokes(recipe) {
@@ -1553,6 +1554,13 @@
       setStatus("", false)
     }
   }
+
+  root.addEventListener("hwaeum:languagechange", function () {
+    updateHeader()
+    renderShelves()
+    updateViewerPlayState()
+    root.HwaeumI18n.apply()
+  })
 
   init()
 })(window)

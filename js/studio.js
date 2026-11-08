@@ -4,6 +4,7 @@
  */
 ;(function () {
   "use strict"
+  function translateUI(source) { return typeof window !== "undefined" && window.HwaeumI18n ? window.HwaeumI18n.t(source) : source }
 
   // === § 1  모듈 전역 · 상수 ===
 
@@ -398,7 +399,7 @@
     onPreviewEnd: () => {
       engine.liveDrawingEnd()
       if (!engine.isPlaying && !engine.isStarting) {
-        el.statusText.textContent = "전체 듣기"
+        el.statusText.textContent = translateUI("전체 듣기")
         el.statusText.classList.remove("playing")
         el.body.dataset.livePreview = "idle"
       }
@@ -807,8 +808,8 @@
     if (el.drawingWorkspace) el.drawingWorkspace.classList.toggle("reference-collapsed", collapsed)
     if (el.drawingReference) el.drawingReference.setAttribute("aria-hidden", collapsed ? "true" : "false")
     if (!el.drawingReferenceToggle) return
-    const actionText = collapsed ? "펴기" : "접기"
-    const label = "그림 " + actionText
+    const actionText = translateUI(collapsed ? "펴기" : "접기")
+    const label = translateUI(collapsed ? "그림 펴기" : "그림 접기")
     const icon = el.drawingReferenceToggle.querySelector(".drawing-reference-icon")
     const text = el.drawingReferenceToggle.querySelector(".drawing-reference-toggle-text")
     if (icon) icon.classList.toggle("is-expand", collapsed)
@@ -1007,9 +1008,9 @@
     cdot.style.background = colorForInstrument(state.instrument.id)
     current.appendChild(cdot)
     const ctext = document.createElement("span")
-    ctext.appendChild(document.createTextNode("그릴 악기 "))
+    ctext.appendChild(document.createTextNode(translateUI("그릴 악기") + " "))
     const currentName = document.createElement("strong")
-    currentName.textContent = state.instrument.label
+    currentName.textContent = translateUI(state.instrument.label)
     ctext.appendChild(currentName)
     current.appendChild(ctext)
     el.orchestraLegend.appendChild(current)
@@ -1036,7 +1037,7 @@
       }
       const label = document.createElement("span")
       label.className = "effect-btn-label"
-      label.textContent = effect.label
+      label.textContent = translateUI(effect.label)
       b.appendChild(label)
       b.addEventListener("click", () => {
         recordUserAction({ update: false })
@@ -1085,7 +1086,7 @@
         img.alt = ""
         mark.appendChild(img)
       } else {
-        mark.textContent = effect.label
+        mark.textContent = translateUI(effect.label)
       }
       if (seconds > 0) {
         const span = document.createElement("span")
@@ -1239,7 +1240,7 @@
     renderEffectStamps()
     updateReadouts()
     const effect = D.effects[removed.id]
-    say((effect ? effect.label : "효과음") + " 도장을 지웠습니다.")
+    say((effect ? effect.label : translateUI("효과음")) + " 도장을 지웠습니다.")
     return true
   }
 
@@ -1348,7 +1349,7 @@
       if (label.color) d.style.setProperty("--pitch-color", label.color)
       const labelTop = axisY(label.top)
       d.style.top = labelTop != null ? labelTop + "px" : label.top + "%"
-      d.textContent = label.label
+      d.textContent = translateUI(label.label)
       el.pitchLabels.appendChild(d)
     })
   }
@@ -1368,8 +1369,8 @@
   // === § 15  읽기 표시 (updateReadouts) ===
 
   function updateReadouts() {
-    el.scaleReadout.textContent = state.instrument.label
-    el.rhythmReadout.textContent = draw.getStrokes().length ? draw.getStrokes().length + "개 선" : "그린 선"
+    el.scaleReadout.textContent = translateUI(state.instrument.label)
+    el.rhythmReadout.textContent = draw.getStrokes().length ? draw.getStrokes().length + "개 선" : translateUI("그린 선")
     el.durReadout.textContent = secondsLabel(state.duration)
     el.noteReadout.textContent = actionCountLabel(state.actionCount)
     const tags = hashtagText(state.hashtags)
@@ -1866,7 +1867,7 @@
     renderOrchestraLegend()
     setupBgPlayer(true)
     setSelectedPlayhead(0, false, false)
-    el.statusText.textContent = "전체 듣기"
+    el.statusText.textContent = translateUI("전체 듣기")
     say(hadContent ? "드로잉, 효과음, 추가 소리를 지웠어요. 되돌리기(3)로 다시 살릴 수 있어요." : "지울 드로잉이 없어요.")
   }
 
@@ -2295,6 +2296,18 @@
     warmSelectedInstrument() // 기본 악기 미리 준비 + 음원 로드 상태(실제/합성)를 하단에 표시
     engine.warmAmbience(buildRecipe()).catch(function () {}) // 기본 배경음 미리 로드(드로잉 진입 시 즉시)
   }
+
+  window.addEventListener("hwaeum:languagechange", function () {
+    renderTakes()
+    renderAtmospheres()
+    renderInstrumentGroups()
+    renderInstruments()
+    renderComposeInstruments()
+    renderOrchestraLegend()
+    renderEffects()
+    updateReadouts()
+    window.HwaeumI18n.apply()
+  })
 
   // 테스트/QA용 API
   window.SoundDrawing = {

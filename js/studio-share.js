@@ -5,6 +5,7 @@
   else root.HwaeumStudioShare = factory
 })(typeof globalThis !== "undefined" ? globalThis : this, function createStudioShare(deps) {
   "use strict"
+  function translateUI(source) { return typeof window !== "undefined" && window.HwaeumI18n ? window.HwaeumI18n.t(source) : source }
 
   deps = deps || {}
   const root = deps.root || (typeof globalThis !== "undefined" ? globalThis : this)
@@ -48,11 +49,11 @@
 
   function checkShareReady() {
     const missing = []
-    if (!el.titleInput?.value.trim()) missing.push({ field: el.titleInput, label: "제목" })
-    if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: "작곡가" })
-    if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: "배경음악을 고른 이유" })
-    if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: "선율을 표현한 의도" })
-    if (!deps.hashtagList().length) missing.push({ field: el.hashtagsInput, label: "작품을 잘 나타내는 단어" })
+    if (!el.titleInput?.value.trim()) missing.push({ field: el.titleInput, label: translateUI("제목") })
+    if (!el.composerInput?.value.trim()) missing.push({ field: el.composerInput, label: translateUI("작곡가") })
+    if (!el.bgReasonInput?.value.trim()) missing.push({ field: el.bgReasonInput, label: translateUI("배경음악을 고른 이유") })
+    if (!el.melodyIntentInput?.value.trim()) missing.push({ field: el.melodyIntentInput, label: translateUI("선율을 표현한 의도") })
+    if (!deps.hashtagList().length) missing.push({ field: el.hashtagsInput, label: translateUI("작품을 잘 나타내는 단어") })
     if (missing.length > 0) {
       missing.forEach(({ field }) => field.classList.add("field-invalid"))
       shareError("공유 전에 모든 항목을 채워 주세요: " + missing.map((m) => m.label).join(", "))

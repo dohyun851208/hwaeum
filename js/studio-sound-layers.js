@@ -5,6 +5,7 @@
   else root.HwaeumStudioSoundLayers = factory
 })(typeof globalThis !== "undefined" ? globalThis : this, function createStudioSoundLayers(deps) {
   "use strict"
+  function translateUI(source) { return typeof window !== "undefined" && window.HwaeumI18n ? window.HwaeumI18n.t(source) : source }
 
   deps = deps || {}
   const root = deps.root || (typeof globalThis !== "undefined" ? globalThis : this)
@@ -263,8 +264,8 @@
     })
     trimStart.addEventListener("change", function () { notifyEdit("사용할 소리의 시작 부분을 바꿨어요.") })
     trimEnd.addEventListener("change", function () { notifyEdit("사용할 소리의 끝 부분을 바꿨어요.") })
-    trimRanges.appendChild(rangeRow("시작", trimStart))
-    trimRanges.appendChild(rangeRow("끝", trimEnd))
+    trimRanges.appendChild(rangeRow(translateUI("시작"), trimStart))
+    trimRanges.appendChild(rangeRow(translateUI("끝"), trimEnd))
     trim.appendChild(trimRanges)
     controls.appendChild(trim)
 

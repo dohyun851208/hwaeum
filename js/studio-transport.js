@@ -5,6 +5,7 @@
   else root.HwaeumStudioTransport = factory
 })(typeof globalThis !== "undefined" ? globalThis : this, function createStudioTransport(deps) {
   "use strict"
+  function translateUI(source) { return typeof window !== "undefined" && window.HwaeumI18n ? window.HwaeumI18n.t(source) : source }
 
   deps = deps || {}
   const root = deps.root || (typeof globalThis !== "undefined" ? globalThis : this)
@@ -85,7 +86,7 @@
 
   function syncTransportButtons(playing, paused) {
     const activeAudio = !!playing && !paused
-    const playLabel = activeAudio ? "전체 일시정지" : paused ? "전체 이어 듣기" : "전체 듣기"
+    const playLabel = activeAudio ? "전체 일시정지" : paused ? "전체 이어 듣기" : translateUI("전체 듣기")
     el.playBtn.setAttribute("aria-label", playLabel)
     el.playBtn.title = playLabel
     el.playBtn.classList.toggle("active", activeAudio)
@@ -110,13 +111,13 @@
     if (!playing && !paused && !engine.ambience) state.playingTakeId = null
     el.statusText.textContent = paused
       ? playing
-        ? "일시정지"
+        ? translateUI("일시정지")
         : "배경음 일시정지"
       : playing
         ? "재생 중 · " + (engine.lastMode === "synth" ? "합성음" : "실제 음원")
         : engine.ambience
           ? "배경음 재생 중"
-          : "전체 듣기"
+          : translateUI("전체 듣기")
     el.statusText.classList.toggle("playing", (playing || !!engine.ambience) && !paused)
     el.statusText.classList.toggle("paused", paused)
     el.frame.classList.toggle("playing", playing && !paused)
@@ -579,7 +580,7 @@
     if (!durationChanged) deps.updateReadouts()
     setIcon(el.bgPlayBtn, bgPlayer.paused ? "▶" : "❚❚")
     if (el.bgPlayBtn) {
-      const label = bgPlayer.paused ? "배경 구간 선택" : "배경 구간 일시정지"
+      const label = bgPlayer.paused ? translateUI("배경 구간 선택") : "배경 구간 일시정지"
       el.bgPlayBtn.setAttribute("aria-label", label)
       el.bgPlayBtn.setAttribute("title", label)
       el.bgPlayBtn.classList.toggle("active", !bgPlayer.paused)

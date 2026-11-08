@@ -45,11 +45,11 @@ test("studio and gallery user-facing labels avoid leftover English section words
   assert.doesNotMatch(studio, /해시태그/)
   assert.doesNotMatch(studio, new RegExp("갤러리 " + "비밀" + "번호"))
   // 긴 안내문 대신 카드마다 제목 아래 한 줄: 선생님은 만든 뒤 할 일, 학생은 어디서 받은 갤러리인지.
-  assert.match(studio, /class="channel-gate-lead">만든 갤러리의 번호와 코드를 학생들에게 알려 주세요\.</)
-  assert.match(studio, /class="channel-gate-lead">선생님이 알려 준 갤러리로 들어가요\.</)
+  assert.match(studio, /class="channel-gate-lead"[^>]*>만든 갤러리의 번호와 코드를 학생들에게 알려 주세요\.</)
+  assert.match(studio, /class="channel-gate-lead"[^>]*>선생님이 알려 준 갤러리로 들어가요\.</)
   assert.doesNotMatch(studio, /생성이 가능하며/)
   // 그림 올리기 안내는 그림 칸 안에 짧게 둔다.
-  assert.match(studio, /class="dropframe-note">직접 그린 그림이나 허락받은 그림만 올려 주세요\.</)
+  assert.match(studio, /class="dropframe-note"[^>]*>직접 그린 그림이나 허락받은 그림만 올려 주세요\.</)
   assert.doesNotMatch(studio, /표지에는 직접 만든 그림이나/)
   assert.doesNotMatch(studio, /화음 갤러리 삭제/)
   assert.doesNotMatch(studio, new RegExp("화음 갤러리 " + "열기"))
