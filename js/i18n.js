@@ -2,7 +2,7 @@
   "use strict"
   const storageKey = "hwaeum.language"
   const dictionary = root.HwaeumPortuguese || {}
-  const originals = Object.fromEntries(Object.entries(dictionary).map(function (entry) { return [entry[1], entry[0]] }))
+  const originals = Object.fromEntries(Object.entries(dictionary).filter(function (entry) { return entry[0].trim() && entry[1].trim() }).map(function (entry) { return [entry[1], entry[0]] }))
   const textState = new WeakMap()
   const attrState = new WeakMap()
   const protectedContent = 'script,style,textarea,[translate="no"],[data-language-select],.sr-only,.take-name-text,.take-composer,.take-tags,.hashtag-chip,#placardMeta,#channelTitle,#viewerTitle,#viewerComposer,#viewerTags,.channel-album-overlay,.channel-viewer-text'
@@ -35,6 +35,7 @@
   function translateText(node) {
     if (!node.parentElement || node.parentElement.closest(protectedContent)) return
     const current = node.nodeValue
+    if (!current.trim()) return
     const previous = textState.get(node)
     const source = previous && current === previous.output ? previous.source : original(current.trim())
     const output = current.slice(0, current.indexOf(current.trim())) + t(source) + current.slice(current.indexOf(current.trim()) + current.trim().length)

@@ -150,7 +150,6 @@ window.HwaeumPortuguese = {
   "읽고 판단하며 이야기를 완성하다": "Leia, reflita e complete a história",
   "사라진 ": "Em busca do ",
   "결말": "final perdido",
-  "을 찾아서": "",
   "비회원으로 이어하기": "Continuar como visitante",
   "이어하기": "Continuar",
   "이야기 시작하기": "Começar história",

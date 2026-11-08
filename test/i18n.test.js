@@ -26,3 +26,23 @@ test('Korean remains the default when storage is unavailable or invalid', () => 
     assert.equal(i18n.t('산들바람'), '산들바람')
   }
 })
+
+test('switching languages preserves whitespace and all static step labels', async () => {
+  const { JSDOM } = require('jsdom')
+  const dom = new JSDOM('<body>\n  <button><span>1</span> <strong data-i18n="그림 선택하기">그림 선택하기</strong></button>\n  <p translate="no">숲</p>\n</body>', { url: 'https://example.test', runScripts: 'outside-only' })
+  const { window } = dom
+  try {
+    window.localStorage.setItem('hwaeum.language', 'pt-BR')
+    for (const name of ['locale-pt-BR.js', 'i18n.js']) window.eval(fs.readFileSync(path.join(__dirname, '../js', name), 'utf8'))
+    await new Promise(resolve => setImmediate(resolve))
+    const whitespace = window.document.body.firstChild.nodeValue
+    assert.equal(whitespace, '\n  ')
+    assert.equal(window.document.querySelector('strong').textContent, 'Escolher imagem')
+    window.HwaeumI18n.setLanguage('ko')
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(window.document.body.firstChild.nodeValue, whitespace)
+    assert.equal(window.document.querySelector('strong').textContent, '그림 선택하기')
+    assert.equal(window.document.querySelector('p').textContent, '숲')
+    assert.equal(window.document.body.textContent, '\n  1 그림 선택하기\n  숲\n')
+  } finally { window.close() }
+})
